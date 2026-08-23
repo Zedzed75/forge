@@ -57,8 +57,9 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 ## Etat courant / prochaine action
 
 **Etat** : phases 0, 1 et 2 terminees. Le coeur est ecrit, teste et
-domaine-agnostique : **129 tests, 128 verts + 1 ignore** (`forge update`, ignore
-tant que le gabarit n'est pas committe, cf. `MIGRATION.md` §2.10).
+domaine-agnostique : **129 tests verts** sur un depot propre. Le test de
+`forge update` est ignore tant que le gabarit porte des modifications non
+committees (cf. `MIGRATION.md` §2.10) : c'est attendu en cours de developpement.
 
 Ce que la phase 2 a livre :
 - `copier.yml` racine unique, delimiteurs `[[ ]]`, cinq questions declarees.
