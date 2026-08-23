@@ -1,0 +1,28 @@
+{#-
+  Macros de commentaires partagées par tous les templates.
+  file_header : bandeau en tête de fichier.
+  var_doc     : documentation d'une variable (rôle + valeurs admises).
+  section     : sous-titre à l'intérieur d'un fichier.
+-#}
+{% macro file_header(title, lines=None) %}
+{{ rule() }}
+# {{ title }}
+{{ rule() }}
+{% if lines %}
+{% for line in lines %}
+{{ line | comment }}
+{% endfor %}
+#
+{% endif %}
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+{{ rule() }}
+{% endmacro %}
+{% macro var_doc(description, allowed, indent=0) %}
+{{ description | comment(indent) }}
+{{ ("Valeurs admises : " ~ (allowed | lower_first)) | comment(indent) }}
+{%- endmacro %}
+{% macro section(title, indent=0) %}
+{{ " " * indent }}# {{ title }}
+{{ " " * indent }}{{ rule(60) }}
+{%- endmacro %}

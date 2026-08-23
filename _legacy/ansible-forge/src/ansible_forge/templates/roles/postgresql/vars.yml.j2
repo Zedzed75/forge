@@ -1,0 +1,76 @@
+{% from "partials/header.j2" import file_header, var_doc %}
+---
+{{ file_header(
+     "roles/postgresql/vars/main.yml — variables internes du rôle postgresql",
+     [
+       "Emplacements et noms de paquets diffèrent fortement entre Debian et",
+       "RedHat. Les listes dérivées évitent de répéter les mêmes filtres Jinja",
+       "dans plusieurs tâches.",
+     ]) }}
+{{ var_doc(
+     "Paquets à installer selon la famille d'OS.",
+     "Dictionnaire indexé par ansible_facts['os_family'].") }}
+postgresql_packages_map:
+  Debian:
+    - {{ jstr("'postgresql-' ~ postgresql_version") }}
+    - postgresql-client
+    - python3-psycopg2
+  RedHat:
+    - postgresql-server
+    - postgresql
+    - python3-psycopg2
+
+{{ var_doc(
+     "Nom du service selon la famille d'OS.",
+     "Dictionnaire indexé par ansible_facts['os_family'].") }}
+postgresql_service_map:
+  Debian: postgresql
+  RedHat: postgresql
+
+{{ var_doc(
+     "Répertoire contenant postgresql.conf et pg_hba.conf, selon la famille d'OS.",
+     "Dictionnaire indexé par ansible_facts['os_family'].") }}
+postgresql_config_dir_map:
+  Debian: {{ jstr("'/etc/postgresql/' ~ postgresql_version ~ '/main'") }}
+  RedHat: /var/lib/pgsql/data
+
+{{ var_doc(
+     "Compte système propriétaire du cluster, utilisé pour les commandes d'administration.",
+     "Compte POSIX créé par le paquet PostgreSQL.") }}
+postgresql_system_user: postgres
+
+{{ var_doc(
+     "Paquets résolus pour la machine courante.",
+     "Calculée automatiquement à partir des faits ; ne pas surcharger.") }}
+postgresql_packages: {{ jstr("postgresql_packages_map[ansible_facts['os_family']]") }}
+
+{{ var_doc(
+     "Service résolu pour la machine courante.",
+     "Calculée automatiquement à partir des faits ; ne pas surcharger.") }}
+postgresql_service: {{ jstr("postgresql_service_map[ansible_facts['os_family']]") }}
+
+{{ var_doc(
+     "Répertoire de configuration résolu pour la machine courante.",
+     "Calculée automatiquement à partir des faits ; ne pas surcharger.") }}
+postgresql_config_dir: {{ jstr("postgresql_config_dir_map[ansible_facts['os_family']]") }}
+
+{{ var_doc(
+     "Paramètres appliqués au serveur, construits depuis les options du rôle.",
+     "Calculée automatiquement ; ne pas surcharger.") }}
+postgresql_settings:
+  - name: listen_addresses
+    value: {{ jstr('postgresql_listen_addresses') }}
+  - name: port
+    value: {{ jstr('postgresql_port | string') }}
+  - name: max_connections
+    value: {{ jstr('postgresql_max_connections | string') }}
+
+{{ var_doc(
+     "Rôles disposant d'une variable de mot de passe renseignée.",
+     "Calculée automatiquement ; ne pas surcharger.") }}
+postgresql_users_with_password: {{ jstr("postgresql_db_users | selectattr('password_var') | list") }}
+
+{{ var_doc(
+     "Rôles pour lesquels des privilèges explicites sont demandés.",
+     "Calculée automatiquement ; ne pas surcharger.") }}
+postgresql_users_with_privileges: {{ jstr("postgresql_db_users | selectattr('privileges') | list") }}

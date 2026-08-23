@@ -1,0 +1,16 @@
+# Spécification minimale : un environnement, un groupe, le rôle common seul.
+spec_version: 1
+project_name: minimal-infra
+description: Projet minimal à un seul groupe et un seul environnement
+author: Equipe Infra
+groups:
+  - name: webservers
+    description: Serveurs web frontaux
+    roles:
+      - common
+environments:
+  - name: dev
+    hosts:
+      webservers:
+        - name: web-dev-01
+          ansible_host: 192.168.56.11

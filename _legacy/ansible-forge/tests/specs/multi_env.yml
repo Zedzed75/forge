@@ -1,0 +1,70 @@
+# Spécification riche : trois environnements, deux groupes, options surchargées,
+# variables de groupe, d'environnement et de machine.
+spec_version: 1
+project_name: multi-env-infra
+description: Plateforme applicative déployée sur trois environnements
+author: Equipe Infra
+os_family: debian
+remote_user: deploy
+become: true
+ssh_port: 2222
+python_interpreter: /usr/bin/python3
+groups:
+  - name: webservers
+    description: Serveurs web frontaux
+    roles:
+      - common
+    vars:
+      web_worker_count: 4
+  - name: dbservers
+    description: Serveurs de base de données
+    roles:
+      - common
+roles:
+  - name: common
+    options:
+      timezone: UTC
+      packages:
+        - ca-certificates
+        - curl
+        - rsync
+      manage_motd: false
+environments:
+  - name: dev
+    hosts:
+      webservers:
+        - name: web-dev-01
+          ansible_host: 192.168.56.11
+      dbservers:
+        - name: db-dev-01
+          ansible_host: 192.168.56.21
+          ansible_port: 22
+    group_vars:
+      all:
+        ntp_server: 10.0.0.1
+      webservers:
+        web_worker_count: 2
+  - name: staging
+    hosts:
+      webservers:
+        - name: web-stg-01
+          ansible_host: 10.20.0.11
+      dbservers:
+        - name: db-stg-01
+          ansible_host: 10.20.0.21
+  - name: prod
+    hosts:
+      webservers:
+        - name: web-prod-01
+          ansible_host: 10.30.0.11
+        - name: web-prod-02
+          ansible_host: 10.30.0.12
+          ansible_user: root
+      dbservers:
+        - name: db-prod-01
+          ansible_host: 10.30.0.21
+          vars:
+            db_shared_buffers: 4GB
+    group_vars:
+      all:
+        ntp_server: 10.30.0.1

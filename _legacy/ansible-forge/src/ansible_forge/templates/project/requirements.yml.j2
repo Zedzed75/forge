@@ -1,0 +1,20 @@
+{% from "partials/header.j2" import file_header %}
+---
+{{ file_header(
+     "requirements.yml — dépendances Galaxy du projet",
+     [
+       "Installez-les avant la première exécution :",
+       "  ansible-galaxy collection install -r requirements.yml",
+       "Les rôles du projet sont livrés dans roles/ et ne sont donc pas listés ici.",
+     ]) }}
+{% if collections %}
+collections:
+{% for name in collections %}
+  # Requise par le rôle : {{ collection_users[name] | join(', ') }}
+  - name: {{ name }}
+{% endfor %}
+{% else %}
+# Aucun rôle sélectionné ne nécessite de collection externe :
+# tout repose sur les modules ansible.builtin.
+collections: []
+{% endif %}

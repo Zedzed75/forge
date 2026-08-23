@@ -1,0 +1,15 @@
+# Environnements virtuels et artefacts Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Caches d'outillage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Sorties de test temporaires
+.tmp/

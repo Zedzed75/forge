@@ -1,0 +1,42 @@
+{#
+  Configuration globale de nginx.
+  Rendue par Ansible (rôle nginx) et validée par « nginx -t » avant installation.
+#}
+# Fichier géré par Ansible - toute modification manuelle sera écrasée.
+
+user {{ nginx_user }};
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+
+events {
+    # Nombre maximal de connexions simultanées par worker.
+    worker_connections 1024;
+}
+
+http {
+    # Types MIME et type par défaut.
+    include {{ nginx_config_dir }}/mime.types;
+    default_type application/octet-stream;
+
+    # Optimisations d'envoi de fichiers statiques.
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+
+    # Taille maximale acceptée pour le corps d'une requête.
+    client_max_body_size {{ nginx_client_max_body_size }};
+
+    # Masque le numéro de version de nginx dans les réponses.
+    server_tokens off;
+
+    # Journaux.
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Compression des réponses textuelles.
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+
+    # Hôtes virtuels déployés par Ansible.
+    include {{ nginx_config_dir }}/conf.d/*.conf;
+}

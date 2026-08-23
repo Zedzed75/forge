@@ -1,0 +1,37 @@
+---
+# ---------------------------------------------------------------------------
+# roles/docker/vars/main.yml — variables internes du rôle docker
+# ---------------------------------------------------------------------------
+# Correspondance entre architecture Ansible et architecture APT, et liste
+# des paquets à installer selon les options choisies.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Correspondance entre l'architecture rapportée par Ansible et celle attendue par APT.
+# Valeurs admises : dictionnaire indexé par ansible_facts['architecture'].
+docker_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+  armv7l: armhf
+
+# Répertoire de configuration du démon Docker.
+# Valeurs admises : identique sur toutes les distributions supportées.
+docker_config_dir: /etc/docker
+
+# Paquets installés dans tous les cas.
+# Valeurs admises : liste de noms de paquets du dépôt officiel Docker.
+docker_base_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+
+# Architecture APT résolue pour la machine courante.
+# Valeurs admises : calculée automatiquement à partir des faits ; ne pas surcharger.
+docker_apt_arch: "{{ docker_arch_map.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
+
+# Liste finale des paquets, plugin Compose inclus si demandé.
+# Valeurs admises : calculée automatiquement ; ne pas surcharger.
+docker_packages: "{{ docker_base_packages + (['docker-compose-plugin'] if docker_install_compose_plugin else []) }}"

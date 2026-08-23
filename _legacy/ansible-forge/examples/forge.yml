@@ -1,0 +1,175 @@
+# ---------------------------------------------------------------------------
+# forge.yml - Spécification du projet de démonstration
+# ---------------------------------------------------------------------------
+# Ce fichier produit le projet examples/plateforme-web/ :
+#   ansible-forge generate --spec examples/forge.yml --output examples/plateforme-web --force
+# ---------------------------------------------------------------------------
+spec_version: 1
+project_name: plateforme-web
+description: Plateforme web interne - frontaux nginx, workers Docker et base PostgreSQL
+author: Equipe Infrastructure
+os_family: debian
+remote_user: deploy
+become: true
+ssh_port: 22
+python_interpreter: auto_silent
+
+groups:
+  - name: webservers
+    description: Serveurs web frontaux exposés derrière le répartiteur de charge
+    roles:
+      - common
+      - users
+      - ssh_hardening
+      - firewall
+      - nginx
+    vars:
+      web_healthcheck_path: /healthz
+
+  - name: workers
+    description: Exécuteurs de tâches asynchrones, en conteneurs Docker
+    roles:
+      - common
+      - users
+      - ssh_hardening
+      - firewall
+      - docker
+
+  - name: dbservers
+    description: Serveurs de base de données PostgreSQL
+    roles:
+      - common
+      - users
+      - ssh_hardening
+      - firewall
+      - postgresql
+
+roles:
+  - name: common
+    options:
+      timezone: Europe/Paris
+      packages:
+        - ca-certificates
+        - curl
+        - htop
+        - rsync
+        - vim
+
+  - name: users
+    options:
+      accounts:
+        - name: deploy
+          groups:
+            - adm
+          sudo: true
+          shell: /bin/bash
+          ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleDeCleFactice deploy@forge
+          state: present
+        - name: appuser
+          groups: []
+          sudo: false
+          shell: /usr/sbin/nologin
+          ssh_public_key: ''
+          state: present
+
+  - name: ssh_hardening
+    options:
+      permit_root_login: 'no'
+      password_authentication: false
+      max_auth_tries: 3
+      allow_groups:
+        - adm
+
+  - name: firewall
+    options:
+      backend: auto
+      default_incoming_policy: deny
+      allowed_tcp_ports:
+        - 22
+        - 80
+        - 443
+      log_level: low
+
+  - name: nginx
+    options:
+      server_name: app.exemple.test
+      document_root: /var/www/app
+      enable_https: true
+      client_max_body_size: 20m
+
+  - name: docker
+    options:
+      install_compose_plugin: true
+      users_in_docker_group:
+        - deploy
+      log_max_size: 50m
+
+  - name: postgresql
+    options:
+      version: '16'
+      listen_addresses: '*'
+      max_connections: 200
+      databases:
+        - name: application
+          owner: app
+          encoding: UTF8
+      db_users:
+        - name: app
+          password_var: vault_postgresql_app_password
+          privileges: application:ALL
+      hba_entries:
+        - host application app 10.0.0.0/8 scram-sha-256
+
+environments:
+  - name: dev
+    hosts:
+      webservers:
+        - name: web-dev-01
+          ansible_host: 10.10.0.11
+      workers:
+        - name: worker-dev-01
+          ansible_host: 10.10.0.31
+      dbservers:
+        - name: db-dev-01
+          ansible_host: 10.10.0.21
+    group_vars:
+      all:
+        ntp_server: 10.10.0.1
+      webservers:
+        web_healthcheck_path: /debug/healthz
+
+  - name: staging
+    hosts:
+      webservers:
+        - name: web-stg-01
+          ansible_host: 10.20.0.11
+      workers:
+        - name: worker-stg-01
+          ansible_host: 10.20.0.31
+      dbservers:
+        - name: db-stg-01
+          ansible_host: 10.20.0.21
+    group_vars:
+      all:
+        ntp_server: 10.20.0.1
+
+  - name: prod
+    hosts:
+      webservers:
+        - name: web-prod-01
+          ansible_host: 10.30.0.11
+        - name: web-prod-02
+          ansible_host: 10.30.0.12
+      workers:
+        - name: worker-prod-01
+          ansible_host: 10.30.0.31
+        - name: worker-prod-02
+          ansible_host: 10.30.0.32
+      dbservers:
+        - name: db-prod-01
+          ansible_host: 10.30.0.21
+          vars:
+            db_shared_buffers: 8GB
+    group_vars:
+      all:
+        ntp_server: 10.30.0.1

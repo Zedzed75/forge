@@ -1,0 +1,26 @@
+---
+# ---------------------------------------------------------------------------
+# inventories/prod/group_vars/vault.yml.example — modèle de secrets
+# ---------------------------------------------------------------------------
+# MODÈLE EN CLAIR : ne contient que des valeurs factices.
+# Procédure :
+#   1. cp vault.yml.example vault.yml
+#   2. remplacez les valeurs factices par les vraies
+#   3. ansible-vault encrypt vault.yml
+#   4. exécutez vos playbooks avec --ask-vault-pass (ou --vault-password-file)
+# Le fichier vault.yml chiffré peut être versionné ; jamais le mot de passe.
+# Convention : toute variable secrète est préfixée par « vault_ » et référencée
+# depuis une variable non secrète, afin de garder les vaults lisibles.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Secrets de l'environnement « prod »
+# ------------------------------------------------------------
+# Exemple de secret. Remplacez-le par les vôtres, un par ligne, chacun précédé d'un
+# commentaire.
+vault_example_secret: CHANGEZ-MOI
+
+# Ajoutez ici les autres secrets de l'environnement, un par ligne, chacun
+# précédé d'un commentaire indiquant son usage.

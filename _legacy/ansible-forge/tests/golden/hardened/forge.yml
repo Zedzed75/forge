@@ -1,0 +1,89 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Spécification du projet Ansible
+# ---------------------------------------------------------------------------
+# Ce fichier décrit entièrement le projet à générer. Il est rejouable :
+#   ansible-forge generate --spec forge.yml
+# produit exactement la même arborescence, octet pour octet.
+#
+# Éditez-le à la main puis relancez la génération ; ne modifiez pas
+# 'spec_version' manuellement.
+# ---------------------------------------------------------------------------
+spec_version: 1
+project_name: hardened-infra
+description: Socle durci pour serveurs exposés
+author: Equipe Securite
+os_family: redhat
+remote_user: ansible
+become: true
+ssh_port: 2222
+python_interpreter: auto_silent
+environments:
+  - name: prod
+    hosts:
+      bastions:
+        - name: bastion-prod-01
+          ansible_host: 203.0.113.10
+          ansible_port: null
+          ansible_user: null
+          vars: {}
+    group_vars: {}
+groups:
+  - name: bastions
+    description: Machines exposées sur Internet
+    roles:
+      - common
+      - users
+      - ssh_hardening
+      - firewall
+    vars: {}
+roles:
+  - name: common
+    options:
+      timezone: Europe/Paris
+      packages:
+        - ca-certificates
+        - curl
+        - htop
+        - vim
+      manage_timezone: true
+      enable_ntp: true
+      manage_motd: true
+  - name: users
+    options:
+      accounts:
+        - name: ansible
+          groups:
+            - wheel
+          sudo: true
+          shell: /bin/bash
+          ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleDeCleFactice ansible@forge
+          state: present
+      manage_sudoers: true
+      remove_absent_home: false
+  - name: ssh_hardening
+    options:
+      port: 2222
+      permit_root_login: 'no'
+      password_authentication: false
+      pubkey_authentication: true
+      x11_forwarding: false
+      max_auth_tries: 2
+      allow_groups:
+        - wheel
+  - name: firewall
+    options:
+      backend: firewalld
+      default_incoming_policy: deny
+      default_outgoing_policy: allow
+      allowed_tcp_ports:
+        - 2222
+        - 443
+      allowed_udp_ports: []
+      enabled: true
+      log_level: medium
+options:
+  use_vault: true
+  write_lint_config: true
+  embed_spec: true
+  write_ci: false

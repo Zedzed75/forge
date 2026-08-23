@@ -1,0 +1,12 @@
+{% from "partials/header.j2" import file_header %}
+---
+{{ file_header(
+     "roles/ssh_hardening/handlers/main.yml — handlers du rôle ssh_hardening",
+     [
+       "Le redémarrage n'a lieu qu'après validation de la configuration par",
+       "« sshd -t » : les connexions déjà établies ne sont pas interrompues.",
+     ]) }}
+- name: Redémarrer le service SSH
+  ansible.builtin.service:
+    name: {{ jstr('ssh_hardening_service') }}
+    state: restarted

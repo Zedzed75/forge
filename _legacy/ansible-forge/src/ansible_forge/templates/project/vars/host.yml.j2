@@ -1,0 +1,21 @@
+{% from "partials/header.j2" import file_header, section %}
+---
+{{ file_header(
+     "inventories/" ~ env.name ~ "/host_vars/" ~ host.name ~ ".yml — variables de la machine « " ~ host.name ~ " »",
+     [
+       "Couche de précédence la plus élevée : ces valeurs ne concernent que cette",
+       "machine et surchargent toutes les autres.",
+     ]) }}
+{% if variables %}
+{{ section("Variables propres à cette machine") }}
+{% for item in variables %}
+{{ item.description | comment }}
+{{ item.name }}:{{ item.value | yaml_assign(2) }}
+
+{% endfor %}
+{% else %}
+{{ section("Variables propres à cette machine") }}
+# Aucune variable spécifique à cette machine.
+# Ce fichier est conservé pour que chaque machine dispose d'un emplacement
+# évident où ajouter ses propres réglages.
+{% endif %}

@@ -1,0 +1,111 @@
+# Chart `[[ spec.app.name ]]`
+
+[[ spec.app.description ]]
+
+> Chart généré par helm-forge. Pour le régénérer après modification de la
+> spécification : `helm-forge generate --spec forge.yml`.
+
+| | |
+|---|---|
+| Version du chart | `[[ spec.app.chart_version ]]` |
+| Version de l'application | `[[ spec.app.app_version ]]` |
+| Kubernetes supporté | `[[ spec.kubernetes.kube_version_constraint ]]` |
+| Environnements | [% for env in spec.environments %]`[[ env.name ]]`[% if not loop.last %], [% endif %][% endfor %] |
+| Composants | [% for c in spec.components %]`[[ c.name ]]`[% if not loop.last %], [% endif %][% endfor %] |
+
+## Installation
+
+Chaque environnement se déploie en superposant son fichier de values à
+`values.yaml`. L'ordre des `--values` compte : le dernier gagne.
+
+[% for env in spec.environments %]
+### [[ env.name ]]
+
+```bash
+helm upgrade --install [[ spec.app.name ]] ./charts/[[ spec.app.name ]] \
+  --namespace [[ env.namespace ]] --create-namespace \
+  --values ./charts/[[ spec.app.name ]]/values.yaml \
+  --values ./charts/[[ spec.app.name ]]/values-[[ env.name ]].yaml
+```
+
+[% endfor %]
+## Structure du chart
+
+| Fichier | Rôle |
+|---|---|
+| `Chart.yaml` | Métadonnées : nom, versions, compatibilité Kubernetes. |
+| `values.yaml` | Valeurs par défaut, communes à tous les environnements. |
+[% for env in spec.environments %]
+| `values-[[ env.name ]].yaml` | Écarts propres à l'environnement `[[ env.name ]]` (namespace `[[ env.namespace ]]`). |
+[% endfor %]
+| `templates/_helpers.tpl` | Helpers de nommage et d'étiquetage, utilisés partout. |
+| `templates/NOTES.txt` | Message affiché après installation. |
+[% for component in spec.components %]
+[% if component.kind.value == "deployment" %]
+| `templates/[[ resource_filename("deployment", component) ]]` | Deployment du composant `[[ component.name ]]`. |
+[% endif %]
+[% if component.has(AddonKind.SERVICE) %]
+| `templates/[[ resource_filename("service", component) ]]` | Service du composant `[[ component.name ]]`. |
+[% endif %]
+[% endfor %]
+[% if spec.extras.helm_tests %]
+| `templates/tests/test-connection.yaml` | Test exécuté par `helm test`. |
+[% endif %]
+
+## Valeurs
+
+### Globales
+
+| Clé | Défaut | Rôle |
+|---|---|---|
+| `global.imageRegistry` | `[[ spec.image.registry ]]` | Registry commun à tous les composants. |
+| `global.imagePullSecrets` | `[]` | Secrets de tirage pour un registry privé. |
+| `global.environment` | `""` | Nom de l'environnement, posé en label sur les ressources. |
+| `nameOverride` | `""` | Remplace le nom du chart dans les noms composés. |
+| `fullnameOverride` | `""` | Remplace intégralement le nom des ressources. |
+
+[% for component in spec.components %]
+### Composant `[[ component.name ]]`
+
+Type : `[[ component.kind.value ]]`[% if component.command %] — commande : `[[ component.command | join(" ") ]]`[% endif %]
+
+| Clé | Défaut | Rôle |
+|---|---|---|
+| `[[ component.name ]].enabled` | `true` | Active ou désactive entièrement le composant. |
+| `[[ component.name ]].replicaCount` | `[[ component.replicas ]]` | Nombre de répliques, surchargé par environnement. |
+| `[[ component.name ]].image.repository` | `[[ component.image_repository or spec.image.repository ]]` | Dépôt de l'image, sans le registry. |
+| `[[ component.name ]].image.tag` | `[[ spec.image.tag or "\"\"" ]]` | Tag de l'image ; vide, il retombe sur `appVersion`. |
+| `[[ component.name ]].image.pullPolicy` | `[[ spec.image.pull_policy.value ]]` | Politique de tirage de l'image. |
+| `[[ component.name ]].containerPort` | `[[ component.container_port ]]` | Port écouté par le conteneur. |
+| `[[ component.name ]].portName` | `[[ component.port_name ]]` | Nom du port, repris par le Service et les sondes. |
+[% if component.has(AddonKind.SERVICE) %]
+| `[[ component.name ]].service.enabled` | `true` | Crée ou non le Service. |
+| `[[ component.name ]].service.type` | `[[ component.service.type.value ]]` | `ClusterIP`, `NodePort` ou `LoadBalancer`. |
+| `[[ component.name ]].service.port` | `[[ component.service.port ]]` | Port exposé par le Service. |
+[% endif %]
+| `[[ component.name ]].probes.enabled` | `[[ component.probes.enabled | to_yaml ]]` | Active les sondes liveness et readiness. |
+| `[[ component.name ]].probes.liveness.path` | `[[ component.probes.liveness_path ]]` | Chemin HTTP de la sonde liveness. |
+| `[[ component.name ]].probes.readiness.path` | `[[ component.probes.readiness_path ]]` | Chemin HTTP de la sonde readiness. |
+| `[[ component.name ]].probes.startup.enabled` | `[[ component.probes.startup_enabled | to_yaml ]]` | Sonde de démarrage, pour une application lente. |
+| `[[ component.name ]].resources.requests.cpu` | `[[ component.resources.cpu_request ]]` | CPU réservé par l'ordonnanceur. |
+| `[[ component.name ]].resources.requests.memory` | `[[ component.resources.memory_request ]]` | Mémoire réservée par l'ordonnanceur. |
+| `[[ component.name ]].resources.limits.cpu` | `[[ component.resources.cpu_limit ]]` | Plafond CPU, au-delà duquel le conteneur est ralenti. |
+| `[[ component.name ]].resources.limits.memory` | `[[ component.resources.memory_limit ]]` | Plafond mémoire, au-delà duquel le conteneur est tué. |
+| `[[ component.name ]].podSecurityContext` | voir `values.yaml` | Contexte de sécurité du pod. |
+| `[[ component.name ]].securityContext` | voir `values.yaml` | Contexte de sécurité du conteneur. |
+| `[[ component.name ]].nodeSelector` | `{}` | Contrainte de placement sur les nœuds. |
+| `[[ component.name ]].tolerations` | `[]` | Tolérances aux marquages de nœuds. |
+| `[[ component.name ]].affinity` | `{}` | Règles d'affinité et d'anti-affinité. |
+| `[[ component.name ]].extraEnv` | `[]` | Variables d'environnement supplémentaires. |
+
+[% endfor %]
+## Vérification
+
+```bash
+helm lint ./charts/[[ spec.app.name ]]
+[% for env in spec.environments %]
+helm template [[ spec.app.name ]] ./charts/[[ spec.app.name ]] \
+  --values ./charts/[[ spec.app.name ]]/values-[[ env.name ]].yaml | \
+  kubeconform -strict -summary -kubernetes-version [[ spec.kubernetes.full_version ]] -
+[% endfor %]
+```

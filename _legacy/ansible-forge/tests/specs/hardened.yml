@@ -1,0 +1,47 @@
+# Socle durci : comptes, durcissement SSH et pare-feu, sur RedHat.
+spec_version: 1
+project_name: hardened-infra
+description: Socle durci pour serveurs exposés
+author: Equipe Securite
+os_family: redhat
+remote_user: ansible
+ssh_port: 2222
+groups:
+  - name: bastions
+    description: Machines exposées sur Internet
+    roles:
+      - common
+      - users
+      - ssh_hardening
+      - firewall
+roles:
+  - name: users
+    options:
+      accounts:
+        - name: ansible
+          groups:
+            - wheel
+          sudo: true
+          shell: /bin/bash
+          ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleDeCleFactice ansible@forge
+          state: present
+  - name: ssh_hardening
+    options:
+      port: 2222
+      permit_root_login: 'no'
+      max_auth_tries: 2
+      allow_groups:
+        - wheel
+  - name: firewall
+    options:
+      backend: firewalld
+      allowed_tcp_ports:
+        - 2222
+        - 443
+      log_level: medium
+environments:
+  - name: prod
+    hosts:
+      bastions:
+        - name: bastion-prod-01
+          ansible_host: 203.0.113.10

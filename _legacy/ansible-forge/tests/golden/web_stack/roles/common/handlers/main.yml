@@ -1,0 +1,15 @@
+---
+# ---------------------------------------------------------------------------
+# roles/common/handlers/main.yml — handlers du rôle common
+# ---------------------------------------------------------------------------
+# Les handlers ne s'exécutent qu'une fois, en fin de play, et uniquement
+# si une tâche les a notifiés.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Redémarrer le service de synchronisation horaire
+  ansible.builtin.service:
+    name: "{{ common_ntp_service }}"
+    state: restarted

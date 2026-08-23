@@ -1,0 +1,15 @@
+---
+# ---------------------------------------------------------------------------
+# roles/ssh_hardening/handlers/main.yml — handlers du rôle ssh_hardening
+# ---------------------------------------------------------------------------
+# Le redémarrage n'a lieu qu'après validation de la configuration par
+# « sshd -t » : les connexions déjà établies ne sont pas interrompues.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Redémarrer le service SSH
+  ansible.builtin.service:
+    name: "{{ ssh_hardening_service }}"
+    state: restarted

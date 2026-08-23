@@ -1,0 +1,51 @@
+{% from "partials/header.j2" import file_header, section %}
+{{ file_header(
+     "ansible.cfg — configuration Ansible du projet " ~ spec.project_name,
+     [
+       "Ce fichier est lu automatiquement lorsque ansible est lancé depuis la racine du projet.",
+       "L'inventaire par défaut est celui de l'environnement « " ~ default_env ~ " » ; ciblez un autre environnement avec -i inventories/<env>.",
+     ]) }}
+[defaults]
+{{ section("Localisation des ressources du projet") }}
+# Inventaire utilisé lorsque l'option -i n'est pas précisée.
+inventory = inventories/{{ default_env }}
+
+# Répertoire des rôles livrés avec le projet.
+roles_path = ./roles
+
+{{ section("Comportement général") }}
+# Interpréteur Python utilisé sur les machines cibles.
+# « auto_silent » laisse Ansible détecter l'interpréteur sans émettre d'avertissement.
+interpreter_python = {{ spec.python_interpreter }}
+
+# Vérifie l'empreinte SSH des machines cibles (à laisser à True en production).
+host_key_checking = True
+
+# Désactive la création de fichiers .retry à la racine du projet.
+retry_files_enabled = False
+
+# Nombre de machines configurées en parallèle.
+forks = 10
+
+# Délai maximal d'établissement de la connexion, en secondes.
+timeout = 30
+
+# Collecte des faits : « smart » évite de recollecter les faits déjà connus.
+gathering = smart
+
+[privilege_escalation]
+{{ section("Escalade de privilèges") }}
+# Active sudo par défaut sur les tâches ; chaque play peut le redéfinir.
+become = {{ 'True' if spec.become else 'False' }}
+become_method = sudo
+become_user = root
+become_ask_pass = False
+
+[ssh_connection]
+{{ section("Transport SSH") }}
+# Le pipelining réduit fortement le nombre d'opérations SSH par tâche.
+# Il exige que « requiretty » soit désactivé dans /etc/sudoers sur les cibles.
+pipelining = True
+
+# Réutilisation des connexions SSH entre les tâches.
+ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o PreferredAuthentications=publickey

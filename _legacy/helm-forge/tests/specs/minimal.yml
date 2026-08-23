@@ -1,0 +1,15 @@
+# Spécification de référence : le cas le plus simple.
+# Une seule application exposée, deux environnements, tout le reste par défaut.
+app:
+  name: shop
+  description: Boutique en ligne
+environments:
+  - name: dev
+  - name: prod
+image:
+  registry: ghcr.io
+  repository: acme/shop
+components:
+  - name: api
+    addons:
+      - service

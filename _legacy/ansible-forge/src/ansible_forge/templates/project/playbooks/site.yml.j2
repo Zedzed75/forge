@@ -1,0 +1,17 @@
+{% from "partials/header.j2" import file_header %}
+---
+{{ file_header(
+     "playbooks/site.yml — point d'entrée du projet " ~ spec.project_name,
+     [
+       "Applique la configuration de tous les groupes, dans l'ordre ci-dessous.",
+       "Exécution complète sur un environnement :",
+       "  ansible-playbook -i inventories/<env> playbooks/site.yml",
+       "Pour ne traiter qu'un seul groupe, exécutez directement son playbook,",
+       "par exemple playbooks/" ~ groups[0].name ~ ".yml.",
+     ]) }}
+{% for group in groups %}
+# {{ group.description or ("Machines du groupe " ~ group.name) }}
+- name: Configurer le groupe « {{ group.name }} »
+  ansible.builtin.import_playbook: {{ group.name }}.yml
+
+{% endfor %}

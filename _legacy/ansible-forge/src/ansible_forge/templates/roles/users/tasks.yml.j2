@@ -1,0 +1,57 @@
+{% from "partials/header.j2" import file_header %}
+---
+{{ file_header(
+     "roles/users/tasks/main.yml — comptes locaux, sudo et clés SSH",
+     [
+       "Ordre d'exécution : groupes secondaires, comptes, clés autorisées, puis",
+       "règles sudo. Une liste users_accounts vide rend le rôle inopérant :",
+       "toutes les tâches bouclent alors sur zéro élément.",
+     ]) }}
+- name: Créer les groupes secondaires déclarés
+  ansible.builtin.group:
+    name: {{ jstr('item') }}
+    state: present
+  loop: {{ jstr("users_secondary_groups") }}
+
+- name: Gérer les comptes locaux
+  ansible.builtin.user:
+    name: {{ jstr('item.name') }}
+    groups: {{ jstr('item.groups') }}
+    append: true
+    shell: {{ jstr('item.shell') }}
+    state: {{ jstr('item.state') }}
+    create_home: true
+    remove: {{ jstr("users_remove_absent_home if item.state == 'absent' else omit") }}
+  loop: {{ jstr('users_accounts') }}
+  loop_control:
+    label: {{ jstr('item.name') }}
+
+- name: Installer les clés publiques SSH autorisées
+  ansible.posix.authorized_key:
+    user: {{ jstr('item.name') }}
+    key: {{ jstr('item.ssh_public_key') }}
+    state: present
+    exclusive: false
+  loop: {{ jstr('users_key_accounts') }}
+  loop_control:
+    label: {{ jstr('item.name') }}
+
+- name: Déployer les règles sudo des comptes autorisés
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: {{ jstr("'/etc/sudoers.d/' ~ users_sudoers_file") }}
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+  when:
+    - users_manage_sudoers | bool
+    - users_sudo_accounts | length > 0
+
+- name: Retirer le fichier sudoers lorsqu'aucun compte n'en a besoin
+  ansible.builtin.file:
+    path: {{ jstr("'/etc/sudoers.d/' ~ users_sudoers_file") }}
+    state: absent
+  when:
+    - users_manage_sudoers | bool
+    - users_sudo_accounts | length == 0

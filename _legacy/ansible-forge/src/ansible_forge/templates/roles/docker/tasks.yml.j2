@@ -1,0 +1,53 @@
+{% from "partials/header.j2" import file_header %}
+---
+{{ file_header(
+     "roles/docker/tasks/main.yml — moteur Docker CE",
+     [
+       "Le dépôt officiel Docker est déclaré selon la famille de système, puis",
+       "les paquets sont installés, le démon configuré et le service activé.",
+       "Les comptes listés dans docker_users_in_docker_group obtiennent l'accès",
+       "au démon sans sudo : c'est un privilège équivalent à root, à n'accorder",
+       "qu'aux comptes de confiance.",
+     ]) }}
+- name: Déclarer le dépôt Docker (Debian et dérivés)
+  ansible.builtin.include_tasks: repository_debian.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Déclarer le dépôt Docker (RedHat et dérivés)
+  ansible.builtin.include_tasks: repository_redhat.yml
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Installer le moteur Docker
+  ansible.builtin.package:
+    name: {{ jstr('docker_packages') }}
+    state: present
+
+- name: Créer le répertoire de configuration du démon
+  ansible.builtin.file:
+    path: {{ jstr('docker_config_dir') }}
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configurer le démon Docker
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: {{ jstr("docker_config_dir ~ '/daemon.json'") }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer Docker
+
+- name: Activer et démarrer le service Docker
+  ansible.builtin.service:
+    name: docker
+    state: {{ jstr("'started' if docker_service_enabled else 'stopped'") }}
+    enabled: {{ jstr('docker_service_enabled') }}
+
+- name: Autoriser les comptes déclarés à piloter Docker sans sudo
+  ansible.builtin.user:
+    name: {{ jstr('item') }}
+    groups: docker
+    append: true
+  loop: {{ jstr('docker_users_in_docker_group') }}

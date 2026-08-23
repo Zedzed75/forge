@@ -1,0 +1,39 @@
+{% from "partials/header.j2" import file_header, var_doc %}
+---
+{{ file_header(
+     "roles/docker/vars/main.yml — variables internes du rôle docker",
+     [
+       "Correspondance entre architecture Ansible et architecture APT, et liste",
+       "des paquets à installer selon les options choisies.",
+     ]) }}
+{{ var_doc(
+     "Correspondance entre l'architecture rapportée par Ansible et celle attendue par APT.",
+     "Dictionnaire indexé par ansible_facts['architecture'].") }}
+docker_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+  armv7l: armhf
+
+{{ var_doc(
+     "Répertoire de configuration du démon Docker.",
+     "Identique sur toutes les distributions supportées.") }}
+docker_config_dir: /etc/docker
+
+{{ var_doc(
+     "Paquets installés dans tous les cas.",
+     "Liste de noms de paquets du dépôt officiel Docker.") }}
+docker_base_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+
+{{ var_doc(
+     "Architecture APT résolue pour la machine courante.",
+     "Calculée automatiquement à partir des faits ; ne pas surcharger.") }}
+docker_apt_arch: {{ jstr("docker_arch_map.get(ansible_facts['architecture'], ansible_facts['architecture'])") }}
+
+{{ var_doc(
+     "Liste finale des paquets, plugin Compose inclus si demandé.",
+     "Calculée automatiquement ; ne pas surcharger.") }}
+docker_packages: {{ jstr("docker_base_packages + (['docker-compose-plugin'] if docker_install_compose_plugin else [])") }}

@@ -1,0 +1,40 @@
+---
+# ---------------------------------------------------------------------------
+# roles/docker/defaults/main.yml — valeurs par défaut du rôle
+# ---------------------------------------------------------------------------
+# Moteur Docker CE : dépôt officiel, service, plugin Compose et options du démon.
+# Ces valeurs ont la précédence la plus faible : n'importe quel fichier
+# group_vars ou host_vars les surcharge. Modifiez-les de préférence là-bas
+# plutôt qu'ici, afin de garder le rôle réutilisable tel quel.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Canal du dépôt officiel Docker utilisé pour l'installation.
+# Valeurs admises : stable ou test.
+docker_channel: stable
+
+# Installe le paquet docker-compose-plugin.
+# Valeurs admises : true ou false.
+docker_install_compose_plugin: true
+
+# Comptes locaux autorisés à piloter Docker sans sudo.
+# Valeurs admises : liste de noms de comptes existants sur la machine.
+docker_users_in_docker_group: []
+
+# Valeur de log-driver dans /etc/docker/daemon.json.
+# Valeurs admises : json-file, local, journald ou syslog.
+docker_log_driver: json-file
+
+# Valeur de log-opts.max-size dans /etc/docker/daemon.json.
+# Valeurs admises : taille Docker, par exemple '10m' ou '100m'.
+docker_log_max_size: 10m
+
+# Valeur de log-opts.max-file dans /etc/docker/daemon.json.
+# Valeurs admises : entier positif.
+docker_log_max_file: 3
+
+# Active et démarre le service docker.
+# Valeurs admises : true ou false.
+docker_service_enabled: true

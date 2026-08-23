@@ -1,0 +1,27 @@
+---
+# ---------------------------------------------------------------------------
+# group_vars/dbservers.yml — variables du groupe « dbservers »
+# ---------------------------------------------------------------------------
+# Serveurs de base de données PostgreSQL
+# Ces valeurs surchargent group_vars/all.yml pour ce groupe uniquement,
+# dans tous les environnements.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Rôles appliqués à ce groupe
+# ------------------------------------------------------------
+# - common : Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière MOTD.
+# - users : Comptes locaux : création, groupes secondaires, sudo et clés SSH autorisées.
+# - ssh_hardening : Durcissement OpenSSH : connexion root, authentification par mot de passe, limites.
+# - firewall : Pare-feu local : ufw (Debian) ou firewalld (RedHat), politique par défaut et ports ouverts.
+# - postgresql : Serveur PostgreSQL : installation, écoute réseau, bases, rôles et règles pg_hba.
+#
+# Pour surcharger une variable de l'un de ces rôles, copiez-la depuis
+# roles/<rôle>/defaults/main.yml en conservant son commentaire, puis modifiez
+# sa valeur ci-dessous.
+
+# Variables propres au groupe
+# ------------------------------------------------------------
+# Aucune variable spécifique à ce groupe n'est définie pour l'instant.

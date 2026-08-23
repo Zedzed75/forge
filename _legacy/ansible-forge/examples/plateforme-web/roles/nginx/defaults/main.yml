@@ -1,0 +1,48 @@
+---
+# ---------------------------------------------------------------------------
+# roles/nginx/defaults/main.yml — valeurs par défaut du rôle
+# ---------------------------------------------------------------------------
+# Serveur web nginx : installation, réglages globaux et hôte virtuel principal.
+# Ces valeurs ont la précédence la plus faible : n'importe quel fichier
+# group_vars ou host_vars les surcharge. Modifiez-les de préférence là-bas
+# plutôt qu'ici, afin de garder le rôle réutilisable tel quel.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Nom de domaine de l'hôte virtuel principal.
+# Valeurs admises : nom de domaine valide, par exemple 'www.example.com'.
+nginx_server_name: example.local
+
+# Répertoire servi par l'hôte virtuel principal.
+# Valeurs admises : chemin absolu, créé par le rôle s'il n'existe pas.
+nginx_document_root: /var/www/html
+
+# Port TCP en clair de l'hôte virtuel.
+# Valeurs admises : entier de 1 à 65535.
+nginx_listen_port: 80
+
+# Ajoute un bloc server TLS et la redirection HTTP vers HTTPS.
+# Valeurs admises : true ou false.
+nginx_enable_https: false
+
+# Certificat utilisé lorsque enable_https vaut true.
+# Valeurs admises : chemin absolu vers un certificat PEM déjà présent sur la cible.
+nginx_ssl_certificate: /etc/ssl/certs/ssl-cert-snakeoil.pem
+
+# Clé privée utilisée lorsque enable_https vaut true.
+# Valeurs admises : chemin absolu vers une clé PEM déjà présente sur la cible.
+nginx_ssl_certificate_key: /etc/ssl/private/ssl-cert-snakeoil.key
+
+# Désactive le vhost 'default' livré par le paquet nginx.
+# Valeurs admises : true ou false.
+nginx_remove_default_site: true
+
+# Valeur de la directive worker_processes.
+# Valeurs admises : 'auto' ou un entier positif.
+nginx_worker_processes: auto
+
+# Valeur de la directive client_max_body_size.
+# Valeurs admises : taille nginx, par exemple '1m', '20m' ou '1g'.
+nginx_client_max_body_size: 1m

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Sorties de generation utilisees pendant le developpement
+/tmp-output/
+/scratch/
+
+# Artefacts Helm
+*.tgz

@@ -1,0 +1,55 @@
+---
+# ---------------------------------------------------------------------------
+# playbooks/workers.yml — configuration du groupe « workers »
+# ---------------------------------------------------------------------------
+# Exécuteurs de tâches asynchrones, en conteneurs Docker
+# Exécution ciblée :
+#   ansible-playbook -i inventories/<env> playbooks/workers.yml
+# Exécution partielle par étiquette :
+#   ansible-playbook -i inventories/<env> playbooks/workers.yml --tags common
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Appliquer la configuration du groupe « workers »
+  hosts: workers
+  # Escalade de privilèges : la plupart des tâches système l'exigent.
+  become: true
+  # La collecte des faits est nécessaire aux rôles qui adaptent leur
+  # comportement à la distribution détectée.
+  gather_facts: true
+
+  roles:
+    # Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière
+    # MOTD.
+    - role: common
+      tags:
+        - common
+        - base
+
+    # Comptes locaux : création, groupes secondaires, sudo et clés SSH autorisées.
+    - role: users
+      tags:
+        - users
+        - security
+
+    # Durcissement OpenSSH : connexion root, authentification par mot de passe, limites.
+    - role: ssh_hardening
+      tags:
+        - ssh
+        - security
+        - hardening
+
+    # Pare-feu local : ufw (Debian) ou firewalld (RedHat), politique par défaut et ports
+    # ouverts.
+    - role: firewall
+      tags:
+        - firewall
+        - security
+
+    # Moteur Docker CE : dépôt officiel, service, plugin Compose et options du démon.
+    - role: docker
+      tags:
+        - docker
+        - container

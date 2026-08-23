@@ -1,0 +1,51 @@
+# Pile web : socle système, comptes locaux et serveur nginx en HTTPS.
+spec_version: 1
+project_name: web-stack
+description: Frontaux web avec comptes de déploiement et nginx en HTTPS
+author: Equipe Infrastructure
+os_family: debian
+remote_user: deploy
+groups:
+  - name: webservers
+    description: Serveurs web frontaux
+    roles:
+      - common
+      - users
+      - nginx
+roles:
+  - name: users
+    options:
+      accounts:
+        - name: deploy
+          groups:
+            - adm
+          sudo: true
+          shell: /bin/bash
+          ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleDeCleFactice deploy@forge
+          state: present
+        - name: appuser
+          groups: []
+          sudo: false
+          shell: /usr/sbin/nologin
+          ssh_public_key: ''
+          state: present
+        - name: ancien
+          groups: []
+          sudo: false
+          shell: /bin/bash
+          ssh_public_key: ''
+          state: absent
+  - name: nginx
+    options:
+      server_name: www.exemple.test
+      document_root: /var/www/exemple
+      enable_https: true
+      client_max_body_size: 20m
+environments:
+  - name: prod
+    hosts:
+      webservers:
+        - name: web-prod-01
+          ansible_host: 10.30.0.11
+        - name: web-prod-02
+          ansible_host: 10.30.0.12

@@ -1,0 +1,44 @@
+---
+# ---------------------------------------------------------------------------
+# CI d'ansible-forge
+# ---------------------------------------------------------------------------
+# Porte de validation finale : ansible-core ne supportant pas Windows comme
+# nœud de contrôle, c'est ici que les tests ansible-lint et --syntax-check font
+# autorité. En local, la même suite s'exécute via WSL (voir tests/ansible_tools.py).
+# ---------------------------------------------------------------------------
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Installer ansible-forge et ses dépendances de développement
+        run: python -m pip install --upgrade pip . ".[dev]"
+
+      - name: Installer ansible-core et ansible-lint
+        run: python -m pip install ansible-core ansible-lint
+
+      - name: Installer les collections utilisées par les rôles générés
+        run: >-
+          ansible-galaxy collection install
+          community.general ansible.posix community.postgresql
+
+      - name: Lancer la suite de tests
+        run: python -m pytest -q

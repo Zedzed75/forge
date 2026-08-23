@@ -1,0 +1,123 @@
+{{/*
+===============================================================================
+_helpers.tpl — fonctions de nommage et d'étiquetage du chart « [[ spec.app.name ]] »
+===============================================================================
+Fichier généré par helm-forge.
+
+Aucun nom de ressource ni aucun label n'est écrit en dur dans les gabarits :
+tout passe par les helpers définis ici. Une seule modification suffit donc pour
+renommer ou réétiqueter l'ensemble du chart.
+
+Convention de nommage des helpers :
+  [[ spec.app.name ]].<nom>              helper global au chart
+  [[ spec.app.name ]].<composant>.<nom>  helper propre à un composant
+===============================================================================
+*/}}
+
+{{/*
+Nom du chart, éventuellement remplacé par nameOverride.
+Tronqué à 63 caractères : c'est la limite d'un label DNS-1123, et un nom plus
+long serait refusé par l'API Kubernetes.
+*/}}
+{{- define "[[ spec.app.name ]].name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Nom complet des ressources : <release>-<chart>.
+Lorsque le nom de la release contient déjà le nom du chart, il est utilisé seul
+afin d'éviter les doublons du type « shop-shop ».
+*/}}
+{{- define "[[ spec.app.name ]].fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Identifiant du chart, au format <nom>-<version>, posé dans le label
+helm.sh/chart. Le « + » d'un éventuel build SemVer est remplacé : il n'est pas
+autorisé dans une valeur de label.
+*/}}
+{{- define "[[ spec.app.name ]].chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Labels de sélection : sous-ensemble stable et immuable des labels.
+Ils servent de selector aux Deployments et aux Services ; ne jamais y ajouter
+une valeur changeante comme la version, sous peine de rendre le Deployment non
+modifiable (le champ selector est immuable après création).
+*/}}
+{{- define "[[ spec.app.name ]].selectorLabels" -}}
+app.kubernetes.io/name: {{ include "[[ spec.app.name ]].name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Labels standards recommandés par Kubernetes, posés sur toutes les ressources.
+*/}}
+{{- define "[[ spec.app.name ]].labels" -}}
+helm.sh/chart: {{ include "[[ spec.app.name ]].chart" . }}
+{{ include "[[ spec.app.name ]].selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Values.global.environment }}
+environment: {{ .Values.global.environment | quote }}
+{{- end }}
+{{- end }}
+
+[% for component in spec.components %]
+{{/*
+-------------------------------------------------------------------------------
+Composant « [[ component.name ]] »
+-------------------------------------------------------------------------------
+*/}}
+
+{{/*
+Nom complet des ressources du composant : <release>-<chart>-[[ component.name ]].
+*/}}
+{{- define "[[ spec.app.name ]].[[ component.name ]].fullname" -}}
+{{- printf "%s-%s" (include "[[ spec.app.name ]].fullname" .) "[[ component.name ]]" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Labels de sélection du composant : ceux du chart, plus le label de composant.
+*/}}
+{{- define "[[ spec.app.name ]].[[ component.name ]].selectorLabels" -}}
+{{ include "[[ spec.app.name ]].selectorLabels" . }}
+app.kubernetes.io/component: [[ component.name ]]
+{{- end }}
+
+{{/*
+Labels complets du composant.
+*/}}
+{{- define "[[ spec.app.name ]].[[ component.name ]].labels" -}}
+{{ include "[[ spec.app.name ]].labels" . }}
+app.kubernetes.io/component: [[ component.name ]]
+{{- end }}
+
+{{/*
+Référence complète de l'image : <registry>/<dépôt>:<tag>.
+Le tag laissé vide dans les values retombe sur appVersion du Chart.yaml, ce qui
+évite d'avoir à le renseigner à deux endroits à chaque livraison.
+*/}}
+{{- define "[[ spec.app.name ]].[[ component.name ]].image" -}}
+{{- $values := [[ values_ref(component.name) ]] -}}
+{{- $tag := $values.image.tag | default .Chart.AppVersion -}}
+{{- if .Values.global.imageRegistry -}}
+{{- printf "%s/%s:%s" .Values.global.imageRegistry $values.image.repository $tag -}}
+{{- else -}}
+{{- printf "%s:%s" $values.image.repository $tag -}}
+{{- end -}}
+{{- end }}
+[% endfor %]

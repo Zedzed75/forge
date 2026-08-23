@@ -1,0 +1,56 @@
+# Spécification de référence : projet à plusieurs composants.
+# Exerce délibérément les cas particuliers : namespace unique pour tous les
+# environnements, tag d'image par environnement, secret de tirage, Service de
+# type LoadBalancer avec annotations, sonde de démarrage, worker sans Service
+# ni sondes et au durcissement assoupli.
+app:
+  name: platform
+  description: Plateforme interne de traitement
+  chart_version: 1.4.2
+  app_version: "2026.08.1"
+  maintainer_name: Equipe plateforme
+  maintainer_email: platform@example.com
+kubernetes:
+  version: "1.34"
+layout: single
+namespace_strategy: single
+create_namespace: false
+environments:
+  - name: dev
+  - name: staging
+  - name: prod
+image:
+  registry: registry.gitlab.com
+  repository: acme/platform
+  strategy: per_env
+  pull_policy: Always
+  pull_secret_name: gitlab-registry
+components:
+  - name: api
+    addons:
+      - service
+    container_port: 3000
+    service:
+      type: LoadBalancer
+      port: 8080
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    resources:
+      profile: medium
+    probes:
+      startup_enabled: true
+  - name: worker
+    addons: []
+    replicas: 2
+    command:
+      - /app/bin/worker
+    args:
+      - --queue
+      - default
+    probes:
+      enabled: false
+    security:
+      strict: false
+extras:
+  makefile: true
+  helm_tests: true

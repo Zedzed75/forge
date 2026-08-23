@@ -1,0 +1,13 @@
+{% from "partials/header.j2" import file_header %}
+{{ file_header(".gitignore — fichiers à ne jamais versionner") }}
+# Mot de passe du vault : ne doit jamais entrer dans l'historique Git.
+.vault_pass
+*.vault_pass
+
+# Fichiers de reprise générés par ansible en cas d'échec.
+*.retry
+
+# Artefacts locaux.
+.venv/
+__pycache__/
+*.log

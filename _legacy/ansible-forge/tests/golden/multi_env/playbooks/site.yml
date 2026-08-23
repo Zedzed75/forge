@@ -1,0 +1,21 @@
+---
+# ---------------------------------------------------------------------------
+# playbooks/site.yml — point d'entrée du projet multi-env-infra
+# ---------------------------------------------------------------------------
+# Applique la configuration de tous les groupes, dans l'ordre ci-dessous.
+# Exécution complète sur un environnement :
+#   ansible-playbook -i inventories/<env> playbooks/site.yml
+# Pour ne traiter qu'un seul groupe, exécutez directement son playbook,
+# par exemple playbooks/webservers.yml.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Serveurs web frontaux
+- name: Configurer le groupe « webservers »
+  ansible.builtin.import_playbook: webservers.yml
+
+# Serveurs de base de données
+- name: Configurer le groupe « dbservers »
+  ansible.builtin.import_playbook: dbservers.yml

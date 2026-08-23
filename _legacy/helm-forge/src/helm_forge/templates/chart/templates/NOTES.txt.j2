@@ -1,0 +1,57 @@
+{{/*
+===============================================================================
+NOTES.txt — message affiché après une installation ou une mise à jour
+===============================================================================
+Fichier généré par helm-forge. Rendu par Helm à la fin de « helm install » et
+de « helm upgrade », il rappelle ce qui vient d'être déployé et les commandes
+de vérification immédiates.
+===============================================================================
+*/}}
+Chart « {{ .Chart.Name }} » version {{ .Chart.Version }} (application {{ .Chart.AppVersion }})
+Release « {{ .Release.Name }} » déployée dans le namespace « {{ .Release.Namespace }} ».
+{{- if .Values.global.environment }}
+Environnement : {{ .Values.global.environment }}
+{{- end }}
+
+Composants déployés :
+[% for component in spec.components %]
+{{- if [[ values_ref(component.name) ]].enabled }}
+  - [[ component.name ]] ([[ component.kind.value ]]) : {{ include "[[ spec.app.name ]].[[ component.name ]].fullname" . }}
+{{- if [[ values_ref(component.name) ]].replicaCount }} — {{ [[ values_ref(component.name) ]].replicaCount }} réplique(s)
+{{- end }}
+{{- end }}
+[% endfor %]
+
+Vérifier l'état du déploiement :
+
+  kubectl --namespace {{ .Release.Namespace }} get pods \
+    --selector app.kubernetes.io/instance={{ .Release.Name }}
+
+Suivre les journaux :
+[% for component in spec.components %]
+{{- if [[ values_ref(component.name) ]].enabled }}
+
+  kubectl --namespace {{ .Release.Namespace }} logs \
+    --selector app.kubernetes.io/component=[[ component.name ]] --follow --tail=100
+{{- end }}
+[% endfor %]
+[% for component in spec.components %]
+[% if component.has(AddonKind.SERVICE) and not component.service.headless %]
+{{- if and [[ values_ref(component.name) ]].enabled [[ values_ref(component.name) ]].service.enabled }}
+
+Joindre le composant « [[ component.name ]] » depuis le poste local :
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward \
+    svc/{{ include "[[ spec.app.name ]].[[ component.name ]].fullname" . }} \
+    8080:{{ [[ values_ref(component.name) ]].service.port }}
+
+  puis ouvrir http://127.0.0.1:8080
+{{- end }}
+[% endif %]
+[% endfor %]
+[% if spec.extras.helm_tests %]
+
+Exécuter les tests embarqués dans le chart :
+
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+[% endif %]

@@ -1,0 +1,23 @@
+---
+# ---------------------------------------------------------------------------
+# group_vars/dbservers.yml — variables du groupe « dbservers »
+# ---------------------------------------------------------------------------
+# Serveurs de base de données
+# Ces valeurs surchargent group_vars/all.yml pour ce groupe uniquement,
+# dans tous les environnements.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Rôles appliqués à ce groupe
+# ------------------------------------------------------------
+# - common : Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière MOTD.
+#
+# Pour surcharger une variable de l'un de ces rôles, copiez-la depuis
+# roles/<rôle>/defaults/main.yml en conservant son commentaire, puis modifiez
+# sa valeur ci-dessous.
+
+# Variables propres au groupe
+# ------------------------------------------------------------
+# Aucune variable spécifique à ce groupe n'est définie pour l'instant.

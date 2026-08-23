@@ -1,0 +1,31 @@
+---
+# ---------------------------------------------------------------------------
+# roles/postgresql/meta/main.yml — métadonnées du rôle
+# ---------------------------------------------------------------------------
+# Décrit le rôle pour Ansible Galaxy et déclare ses dépendances.
+# Une liste dependencies vide signifie que le rôle est autonome :
+# c'est le playbook qui décide de l'ordre d'application des rôles.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+galaxy_info:
+  role_name: postgresql
+  author: Equipe Infrastructure
+  description: 'Serveur PostgreSQL : installation, écoute réseau, bases, rôles et règles pg_hba.'
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - postgresql
+    - database
+
+# Aucune dépendance : l'ordre d'application est défini dans les playbooks.
+dependencies: []

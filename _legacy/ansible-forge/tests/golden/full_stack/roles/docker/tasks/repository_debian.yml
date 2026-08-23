@@ -1,0 +1,46 @@
+---
+# ---------------------------------------------------------------------------
+# roles/docker/tasks/repository_debian.yml — dépôt Docker sur Debian et Ubuntu
+# ---------------------------------------------------------------------------
+# La clé de signature est déposée dans /etc/apt/keyrings puis référencée
+# par l'option signed-by du dépôt : la clé n'est donc valable que pour ce
+# dépôt, et non pour l'ensemble des sources APT.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Installer les prérequis du dépôt Docker
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Créer le répertoire des clés de dépôt
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Télécharger la clé de signature du dépôt Docker
+  ansible.builtin.get_url:
+    url: "{{ 'https://download.docker.com/linux/' ~ ansible_facts['distribution'] | lower ~ '/gpg' }}"
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Déclarer le dépôt Docker
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}
+      {{ ansible_facts['distribution_release'] }} {{ docker_channel }}
+    filename: docker
+    state: present
+    update_cache: true

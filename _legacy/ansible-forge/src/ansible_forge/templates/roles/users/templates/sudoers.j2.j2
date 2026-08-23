@@ -1,0 +1,10 @@
+{% raw %}
+{#
+  Règles sudo des comptes déclarés dans users_accounts avec sudo: true.
+  Rendu par Ansible (rôle users) et validé par visudo avant installation.
+#}
+# Fichier géré par Ansible - toute modification manuelle sera écrasée.
+{% for name in users_sudo_accounts %}
+{{ name }} ALL=(ALL) NOPASSWD:ALL
+{% endfor %}
+{% endraw %}

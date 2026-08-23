@@ -1,0 +1,16 @@
+---
+# ---------------------------------------------------------------------------
+# inventories/prod/host_vars/worker-prod-01.yml — variables de la machine « worker-prod-01 »
+# ---------------------------------------------------------------------------
+# Couche de précédence la plus élevée : ces valeurs ne concernent que cette
+# machine et surchargent toutes les autres.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Variables propres à cette machine
+# ------------------------------------------------------------
+# Aucune variable spécifique à cette machine.
+# Ce fichier est conservé pour que chaque machine dispose d'un emplacement
+# évident où ajouter ses propres réglages.

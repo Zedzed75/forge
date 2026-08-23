@@ -1,0 +1,29 @@
+---
+# ---------------------------------------------------------------------------
+# playbooks/webservers.yml — configuration du groupe « webservers »
+# ---------------------------------------------------------------------------
+# Serveurs web frontaux
+# Exécution ciblée :
+#   ansible-playbook -i inventories/<env> playbooks/webservers.yml
+# Exécution partielle par étiquette :
+#   ansible-playbook -i inventories/<env> playbooks/webservers.yml --tags common
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Appliquer la configuration du groupe « webservers »
+  hosts: webservers
+  # Escalade de privilèges : la plupart des tâches système l'exigent.
+  become: true
+  # La collecte des faits est nécessaire aux rôles qui adaptent leur
+  # comportement à la distribution détectée.
+  gather_facts: true
+
+  roles:
+    # Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière
+    # MOTD.
+    - role: common
+      tags:
+        - common
+        - base

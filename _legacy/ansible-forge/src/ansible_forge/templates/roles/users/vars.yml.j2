@@ -1,0 +1,27 @@
+{% from "partials/header.j2" import file_header, var_doc %}
+---
+{{ file_header(
+     "roles/users/vars/main.yml — variables internes du rôle users",
+     [
+       "Listes dérivées de users_accounts. Elles évitent de répéter les mêmes",
+       "filtres Jinja dans plusieurs tâches et dans le template sudoers.",
+     ]) }}
+{{ var_doc(
+     "Nom du fichier déposé dans /etc/sudoers.d.",
+     "Nom de fichier sans point ni tilde, contrainte de sudo.") }}
+users_sudoers_file: 90-ansible-forge
+
+{{ var_doc(
+     "Groupes secondaires à créer avant les comptes.",
+     "Calculée à partir de users_accounts ; ne pas surcharger.") }}
+users_secondary_groups: {{ jstr("users_accounts | selectattr('state', 'eq', 'present') | map(attribute='groups') | flatten | unique | sort | list") }}
+
+{{ var_doc(
+     "Comptes présents disposant d'une clé publique à installer.",
+     "Calculée à partir de users_accounts ; ne pas surcharger.") }}
+users_key_accounts: {{ jstr("users_accounts | selectattr('state', 'eq', 'present') | selectattr('ssh_public_key') | list") }}
+
+{{ var_doc(
+     "Noms des comptes présents disposant d'un accès sudo.",
+     "Calculée à partir de users_accounts ; ne pas surcharger.") }}
+users_sudo_accounts: {{ jstr("users_accounts | selectattr('state', 'eq', 'present') | selectattr('sudo') | map(attribute='name') | list") }}

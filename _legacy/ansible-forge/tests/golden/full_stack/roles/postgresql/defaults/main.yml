@@ -1,0 +1,41 @@
+---
+# ---------------------------------------------------------------------------
+# roles/postgresql/defaults/main.yml — valeurs par défaut du rôle
+# ---------------------------------------------------------------------------
+# Serveur PostgreSQL : installation, écoute réseau, bases, rôles et règles pg_hba.
+# Ces valeurs ont la précédence la plus faible : n'importe quel fichier
+# group_vars ou host_vars les surcharge. Modifiez-les de préférence là-bas
+# plutôt qu'ici, afin de garder le rôle réutilisable tel quel.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Version majeure installée depuis les dépôts de la distribution.
+# Valeurs admises : numéro de version majeure, par exemple '15' ou '16'.
+postgresql_version: '16'
+
+# Valeur de listen_addresses dans postgresql.conf.
+# Valeurs admises : 'localhost', '*' ou une liste d'adresses séparées par des virgules.
+postgresql_listen_addresses: localhost
+
+# Port TCP du serveur PostgreSQL.
+# Valeurs admises : entier de 1 à 65535.
+postgresql_port: 5432
+
+# Bases créées et maintenues par le rôle.
+# Valeurs admises : liste de dictionnaires (name, owner, encoding).
+postgresql_databases: []
+
+# Rôles de connexion créés et maintenus par le rôle.
+# Valeurs admises : liste de dictionnaires (name, password_var, privileges).
+postgresql_db_users: []
+
+# Lignes ajoutées à pg_hba.conf en plus des règles locales par défaut.
+# Valeurs admises : liste de chaînes à cinq champs « type base utilisateur adresse
+# méthode », par exemple 'host all all 10.0.0.0/8 scram-sha-256'.
+postgresql_hba_entries: []
+
+# Valeur de max_connections dans postgresql.conf.
+# Valeurs admises : entier positif.
+postgresql_max_connections: 100

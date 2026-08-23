@@ -1,0 +1,29 @@
+{% from "partials/header.j2" import file_header %}
+---
+{{ file_header(
+     "playbooks/" ~ group.name ~ ".yml — configuration du groupe « " ~ group.name ~ " »",
+     [
+       group.description or ("Applique les rôles du projet aux machines du groupe " ~ group.name ~ "."),
+       "Exécution ciblée :",
+       "  ansible-playbook -i inventories/<env> playbooks/" ~ group.name ~ ".yml",
+       "Exécution partielle par étiquette :",
+       "  ansible-playbook -i inventories/<env> playbooks/" ~ group.name ~ ".yml --tags " ~ roles[0].tags[0],
+     ]) }}
+- name: Appliquer la configuration du groupe « {{ group.name }} »
+  hosts: {{ group.name }}
+  # Escalade de privilèges : la plupart des tâches système l'exigent.
+  become: {{ 'true' if spec.become else 'false' }}
+  # La collecte des faits est nécessaire aux rôles qui adaptent leur
+  # comportement à la distribution détectée.
+  gather_facts: true
+
+  roles:
+{% for role in roles %}
+{{ role.summary | comment(4) }}
+    - role: {{ role.name }}
+      tags:
+{% for tag in role.tags %}
+        - {{ tag }}
+{% endfor %}
+
+{% endfor %}
