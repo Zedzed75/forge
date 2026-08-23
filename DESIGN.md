@@ -1,0 +1,573 @@
+# DESIGN.md — architecture de forge
+
+Livrable de la phase 1. Toutes les affirmations sur le comportement de copier
+ont été **vérifiées expérimentalement** (copier 9.17.2) ; les constats bruts
+sont consignés dans `MIGRATION.md` §2.
+
+---
+
+## 1. Vue d'ensemble
+
+```
+forge.yml  ──►  cœur : chargement + validation (pydantic assemblé depuis les plugins)
+                  │
+                  ├─ pour chaque domaine retenu ──► hook forge_answers ──► copier.run_copy
+                  │        (src = racine du dépôt forge, _subdirectory = gabarit du plugin)
+                  │                                          │
+                  │                                          ▼
+                  │                                  <cible>/<domaine>/…
+                  │                                  + .copier-answers.yml
+                  │
+                  ├─ forge validate ──► hook forge_validators ──► runner du cœur (subprocess/WSL)
+                  ├─ forge validate ──► hook forge_projection  ──► contrôles inter-domaines (cœur)
+                  └─ forge update   ──► copier.run_update par domaine
+```
+
+Le cœur ne connaît que : des specs, un répertoire de gabarit, un dict de données,
+des commandes externes et des projections. Il n'a aucune notion de SSH, de rôle,
+de namespace ou de chart.
+
+---
+
+## 2. Contrat de plugin (pluggy)
+
+### 2.1 Types échangés
+
+```python
+# forge/plugins_api/types.py
+
+@dataclass(frozen=True)
+class DomainInfo:
+    """Identité d'un domaine généré."""
+    name: str          # "ansible" — clé de section dans forge.yml et nom de plugin
+    title: str         # "Ansible" — affichage
+    summary: str       # une ligne, pour `forge plugins`
+    outdir: str        # sous-répertoire de sortie, par défaut == name
+
+@dataclass(frozen=True)
+class Command:
+    """Une commande de validation externe déclarée par un plugin."""
+    label: str                       # "helm lint (prod)" — repris tel quel dans le rapport
+    tool: str                        # binaire à localiser ("helm", "ansible-lint")
+    argv: list[str]                  # arguments, sans le binaire
+    cwd: Path | None = None          # défaut : répertoire du domaine
+    stdin_from: str | None = None    # label d'une commande dont stdout alimente ce stdin
+    timeout: int = 300
+    install_hint: str = ""           # message affiché si le binaire est absent
+    requires_linux: bool = False     # autorise le repli WSL sous Windows
+
+@dataclass(frozen=True)
+class Issue:
+    """Un constat de validation inter-domaines."""
+    level: Literal["error", "warning"]
+    message: str                     # phrase actionnable
+    hint: str = ""                   # correction suggérée
+    domains: tuple[str, ...] = ()    # domaines concernés
+
+@dataclass(frozen=True)
+class Projection:
+    """Ce qu'un domaine affirme avoir produit, exprimé sans vocabulaire de domaine.
+
+    Le cœur compare les projections entre elles : deux domaines qui déclarent la
+    même facette doivent déclarer la même valeur. C'est ce mécanisme — et non des
+    règles « si ansible alors… » — qui implémente les contrôles inter-domaines.
+    """
+    service_name: str
+    environments: tuple[str, ...]
+    labels: dict[str, str] = field(default_factory=dict)
+    facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # ex. ansible → {"hosts": (...), "groups": (...)}
+    #     helm    → {"namespaces": (...), "hosts": (...)}
+    # Une facette n'est comparée que si au moins deux domaines la déclarent.
+```
+
+### 2.2 Hookspecs
+
+```python
+# forge/plugins_api/hookspecs.py
+hookspec = pluggy.HookspecMarker("forge")
+
+@hookspec
+def forge_domain() -> DomainInfo:
+    """Identité du domaine. Seul hook obligatoire pour être découvert."""
+
+@hookspec
+def forge_spec_model() -> type[BaseModel]:
+    """Sous-modèle pydantic validant la section <domaine> de forge.yml.
+
+    Le cœur assemble le modèle racine à partir des sous-modèles enregistrés :
+    chaque section est optionnelle, l'absence de section signifie « domaine non
+    généré ». Aucune connaissance du contenu côté cœur.
+    """
+
+@hookspec
+def forge_interview(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
+    """Conduit l'entretien du domaine et retourne sa section de forge.yml.
+
+    Le plugin pilote son propre questionnaire à travers le protocole `Prompter`
+    fourni par le cœur (text/confirm/select/checkbox/note), jamais questionary
+    directement : c'est ce qui rend l'entretien rejouable en test.
+    Retourne None si l'utilisateur décline le domaine.
+    """
+
+@hookspec
+def forge_template_subdir() -> str:
+    """Chemin du gabarit copier, relatif à la racine du dépôt forge.
+
+    Exemple : "src/forge/plugins/ansible/template".
+    Passé à copier via `_subdirectory` (cf. §5).
+    """
+
+@hookspec
+def forge_answers(spec: ForgeSpec) -> dict[str, Any]:
+    """Projette la spec unifiée vers le dict `domain` passé à copier.
+
+    Sortie JSON-sérialisable et **déterministe** (ordre des clés figé) : elle est
+    écrite telle quelle dans `.copier-answers.yml` et rejouée par `copier update`.
+    """
+
+@hookspec
+def forge_validators(spec: ForgeSpec, outdir: Path) -> list[Command]:
+    """Commandes externes validant le domaine généré, dans l'ordre d'exécution."""
+
+@hookspec
+def forge_projection(spec: ForgeSpec) -> Projection:
+    """Ce que le domaine affirme produire, pour les contrôles inter-domaines."""
+
+@hookspec
+def forge_consistency(spec: ForgeSpec, outdirs: dict[str, Path]) -> list[Issue]:
+    """Contrôles supplémentaires propres au plugin (échappatoire).
+
+    Seul hook appelé sur **tous** les plugins à la fois ; les résultats sont
+    concaténés. À n'utiliser que pour ce que `forge_projection` ne peut pas dire.
+    """
+
+@hookspec
+def forge_catalog() -> list[CatalogEntry] | None:
+    """Catalogue consultable via `forge catalog <domaine>` (facultatif)."""
+```
+
+### 2.3 Appel des hooks — point d'attention pluggy
+
+`pm.hook.forge_answers(...)` appelle **tous** les plugins et retourne une liste.
+Or forge a besoin d'adresser **un** domaine à la fois. Le cœur encapsule donc
+`pm.subset_hook_caller()` dans une façade :
+
+```python
+manager.domains()            # -> list[DomainInfo], trié par nom (déterminisme)
+manager.domain("ansible")    # -> DomainHooks : .spec_model() .answers(spec) .validators(...) …
+```
+
+Aucun `firstresult=True` sur les hooks propres à un domaine : ils seraient
+silencieusement captés par le premier plugin enregistré. Seul `forge_consistency`
+est consommé en mode « tous les plugins ».
+
+### 2.4 Enregistrement
+
+Phase 2 : les plugins internes (`demo`, puis `ansible`, `helm`) sont enregistrés
+en dur dans `forge/plugins_api/manager.py`. La découverte par entry-points
+(`pm.load_setuptools_entrypoints("forge")`) est ajoutée plus tard sans changer le
+contrat. **Ajouter un domaine ne doit toucher aucun fichier du cœur** hormis cette
+liste d'enregistrement.
+
+---
+
+## 3. Format de `forge.yml`
+
+Une section partagée `service:`, une section optionnelle par plugin. Un domaine
+absent n'est pas généré.
+
+```yaml
+---
+forge_version: 1
+
+# ---------------------------------------------------------------------------
+# Bloc partagé : ce que tous les domaines doivent voir de la même façon.
+# ---------------------------------------------------------------------------
+service:
+  name: shop                      # DNS label : sert de nom de projet, de chart et de préfixe
+  description: "Boutique en ligne"
+  owner: "Equipe Plateforme"
+  owner_email: "plateforme@example.com"
+  labels:                         # labels métier, repris par tous les domaines
+    app.kubernetes.io/part-of: commerce
+    tier: frontend
+  environments:                   # ordre significatif : dev -> staging -> prod
+    - name: dev
+      domain: dev.example.net     # domaine DNS de l'environnement (facultatif)
+    - name: staging
+      domain: staging.example.net
+    - name: prod
+      domain: example.net
+      production: true            # active les profils durcis des plugins
+
+# ---------------------------------------------------------------------------
+# Domaine Ansible
+# ---------------------------------------------------------------------------
+ansible:
+  os_family: debian               # debian | redhat
+  remote_user: ansible
+  become: true
+  ssh_port: 22
+  python_interpreter: auto_silent
+  options:
+    use_vault: true
+    write_lint_config: true
+    write_ci: false
+  groups:
+    - name: webservers
+      description: "Serveurs web frontaux"
+      roles: [common, users, ssh_hardening, firewall, nginx]
+    - name: dbservers
+      description: "Serveurs de base de données"
+      roles: [common, users, ssh_hardening, firewall, postgresql]
+  hosts:                          # par environnement, puis par groupe
+    dev:
+      webservers:
+        - {name: web-dev-01, ansible_host: 192.168.56.11}
+      dbservers:
+        - {name: db-dev-01, ansible_host: 192.168.56.21}
+    prod:
+      webservers:
+        - {name: web-prod-01, ansible_host: 10.0.1.11}
+        - {name: web-prod-02, ansible_host: 10.0.1.12}
+      dbservers:
+        - {name: db-prod-01, ansible_host: 10.0.2.11}
+  roles:                          # options des rôles ; complété par les défauts du catalogue
+    - name: nginx
+      options:
+        nginx_server_name: shop.example.net
+        nginx_document_root: /var/www/shop
+
+# ---------------------------------------------------------------------------
+# Domaine Helm
+# ---------------------------------------------------------------------------
+helm:
+  kubernetes:
+    version: "1.31"
+  layout: single                  # single | umbrella
+  namespace_strategy: per_env     # single | per_env | custom
+  create_namespace: false
+  image:
+    registry: docker.io
+    repository: acme/shop
+    strategy: appVersion          # appVersion | per_env | fixed
+    pull_policy: IfNotPresent
+  components:
+    - name: api
+      kind: deployment
+      addons: [service, ingress, configmap, hpa, pdb, serviceaccount]
+      port: 8080
+    - name: worker
+      kind: deployment
+      addons: [configmap]
+  secrets:
+    strategy: placeholder         # jamais de valeur réelle générée
+  extras:
+    makefile: true
+    helm_tests: true
+```
+
+### 3.1 Correspondance avec les specs legacy
+
+| Champ legacy | Origine | Cible dans `forge.yml` |
+|---|---|---|
+| `project_name` | ansible | `service.name` |
+| `description`, `author` | ansible | `service.description`, `service.owner` |
+| `environments[].name` | ansible | `service.environments[].name` |
+| `environments[].hosts` | ansible | `ansible.hosts.<env>` |
+| `environments[].group_vars` | ansible | `ansible.group_vars.<env>` |
+| `groups`, `roles`, `options`, `os_family`, `remote_user`, `become`, `ssh_port`, `python_interpreter` | ansible | section `ansible:` à l'identique |
+| `spec_version` | ansible | `forge_version` (unifié) |
+| `app.name` | helm | `service.name` |
+| `app.description`, `app.maintainer_*` | helm | `service.description`, `service.owner`, `service.owner_email` |
+| `app.chart_version`, `app.app_version` | helm | `helm.chart_version`, `helm.app_version` |
+| `environments[].name` | helm | `service.environments[].name` |
+| `environments[].namespace`, `.log_level`, `.components`, `.extra_values` | helm | `helm.environments.<env>` (surcharges) |
+| `kubernetes`, `layout`, `namespace_strategy`, `create_namespace`, `image`, `components`, `secrets`, `extras` | helm | section `helm:` à l'identique |
+| `schema_version` | helm | `forge_version` (unifié) |
+
+Convertisseur : **non nécessaire en production** (aucun `forge.yml` legacy n'existe
+hors des dépôts d'origine), mais un helper **de test** `tests/legacy_spec.py`
+convertira les 5 specs ansible et les 2 specs helm pour alimenter les
+instantanés de parité des phases 3 et 4.
+
+---
+
+## 4. Arborescence générée (monorepo deux domaines)
+
+```
+<cible>/
+├── forge.yml                    # copie de la spec (rejouabilité) — écrite par le cœur
+├── README.md                    # index des domaines — écrit par le cœur (cf. §8 Q6)
+├── .gitattributes               # eol=lf, indispensable aux comparaisons golden
+├── ansible/
+│   ├── .copier-answers.yml      # _commit, _src_path, plugin, service, domain
+│   ├── ansible.cfg
+│   ├── requirements.yml
+│   ├── inventories/<env>/hosts.yml
+│   ├── inventories/<env>/group_vars/{all,<groupe>}.yml
+│   ├── inventories/<env>/host_vars/<hôte>.yml
+│   ├── group_vars/<groupe>.yml
+│   ├── playbooks/{site,ping,<groupe>}.yml
+│   └── roles/<rôle>/{tasks,handlers,defaults,vars,meta,templates,README.md}
+└── helm/
+    ├── .copier-answers.yml
+    ├── Makefile
+    └── charts/<service>/
+        ├── Chart.yaml, values.yaml, values-<env>.yaml, README.md, .helmignore
+        └── templates/{_helpers.tpl, NOTES.txt, <composant>-<ressource>.yaml, tests/}
+```
+
+Chaque domaine est autonome : son `.copier-answers.yml` permet de le mettre à jour
+seul (`forge update --only helm`).
+
+---
+
+## 5. Invocation de copier
+
+### 5.1 `copier.yml` racine (unique, à la racine du dépôt forge)
+
+```yaml
+_subdirectory: "[[ template_subdir ]]"     # fourni par le hook forge_template_subdir
+_answers_file: .copier-answers.yml
+_templates_suffix: .jinja
+_jinja_extensions:
+  - forge.jinja_ext.ForgeExtension
+_envops:
+  block_start_string: "[%"
+  block_end_string: "%]"
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  comment_start_string: "[#"
+  comment_end_string: "#]"
+  trim_blocks: true
+  lstrip_blocks: true
+  keep_trailing_newline: true
+
+# Questions déclarées : SEULES les questions déclarées sont enregistrées dans le
+# fichier de réponses, donc seules elles survivent à `copier update`.
+plugin:          {type: str}
+template_subdir: {type: str}
+forge_version:   {type: int, default: 1}
+service:         {type: json}
+domain:          {type: json}
+```
+
+Un seul `copier.yml`, donc des délimiteurs `[[ ]]` **pour tous les plugins** — y
+compris Ansible (cf. §8 Q1). Les gabarits accèdent à `[[ service.name ]]`,
+`[[ domain.groups ]]`, etc.
+
+Chaque gabarit de plugin contient obligatoirement
+`[[ _copier_conf.answers_file ]].jinja` (sinon aucun fichier de réponses n'est
+écrit et l'update est impossible).
+
+### 5.2 Génération
+
+```python
+run_copy(
+    src_path=str(template_root),               # racine du dépôt forge (dépôt git)
+    dst_path=str(target / domain.outdir),      # <cible>/ansible
+    data={
+        "plugin": domain.name,
+        "template_subdir": hooks.template_subdir(),
+        "forge_version": spec.forge_version,
+        "service": spec.service.model_dump(mode="json"),
+        "domain": hooks.answers(spec),
+    },
+    defaults=True,      # obligatoire : sinon prompt interactif -> plantage sous Git Bash
+    unsafe=True,        # requis dès qu'on déclare _jinja_extensions
+    quiet=True,
+    overwrite=force,
+    vcs_ref=ref,        # "HEAD" par défaut : inclut les gabarits non committés
+)
+```
+
+`template_root` est résolu dans cet ordre : `$FORGE_TEMPLATE_SRC`, puis la racine
+git contenant `forge/__init__.py`, puis l'URL de publication (usage installé).
+
+Sous Windows, le cœur enveloppe tout appel copier avec
+`GIT_CONFIG_COUNT=1 / GIT_CONFIG_KEY_0=core.longpaths / GIT_CONFIG_VALUE_0=true` :
+les noms de chemin porteurs de `yield` dépassent sinon la limite dans le clone
+temporaire de copier.
+
+### 5.3 Multiplicité des fichiers — la balise `yield`
+
+Le `planner.py` legacy disparaît au profit de chemins de gabarit :
+
+```
+inventories/[% yield e from domain.envs %][[ e.name ]][% endyield %]/hosts.yml.jinja
+inventories/[% yield e from domain.envs %][[ e.name ]][% endyield %]/host_vars/[% yield h from e.hosts %][[ h.name ]][% endyield %].yml.jinja
+roles/[% yield r from domain.roles %][[ r.name ]][% endyield %]/tasks/main.yml.jinja
+charts/[[ service.name ]]/values-[% yield e from domain.envs %][[ e.name ]][% endyield %].yaml.jinja
+```
+
+Règles (vérifiées) : une seule balise `yield` par **segment** de chemin ;
+imbrication possible entre segments, la variable du segment parent restant
+disponible ; interdite dans le contenu d'un fichier ; un segment rendu vide
+supprime le fichier (`[% if %]` = filtre de fichier).
+
+Conséquence pour les rôles Ansible : les gabarits communs à tous les rôles
+(`meta`, `README`) s'écrivent une fois sous un `yield` de rôle ; les fichiers
+spécifiques à un rôle (ex. `firewall/tasks/ufw.yml`) sont filtrés par
+`[% if r.name == 'firewall' %]`, ou rangés dans un sous-arbre conditionnel.
+**Arbitrage à faire en phase 3 sur un rôle réel avant de convertir les 7.**
+
+### 5.4 `forge update`
+
+```python
+# 1. réécrire _src_path (absolu, donc lié au poste d'origine) vers template_root
+# 2. puis :
+run_update(dst_path=str(target / domain.outdir),
+           defaults=True, overwrite=True, unsafe=True,
+           conflict="inline", vcs_ref=ref)
+```
+
+Vérifié : une évolution de gabarit est fusionnée à trois branches dans un fichier
+édité à la main, les deux modifications étant conservées. `_commit` passe d'un tag
+à l'autre. `--only` restreint aux domaines demandés.
+
+Prérequis : le répertoire cible est un dépôt git (copier l'exige pour la fusion),
+et le gabarit doit être **committé** si `--ref` désigne un tag.
+
+### 5.5 `forge diff`
+
+Rendu dans un répertoire temporaire (`run_copy` vers un tmpdir, jamais `pretend`,
+qui n'écrit rien), puis comparaison structurelle avec la cible :
+fichiers ajoutés / supprimés / modifiés, et nombre de lignes changées. Résumé
+seulement — aucun diff intégral affiché (règle d'économie de contexte).
+
+---
+
+## 6. Validation
+
+1. **Validateurs de domaine** : `forge_validators(spec, outdir) -> list[Command]`,
+   exécutés par le runner du cœur (subprocess, timeout, capture, chaînage stdin
+   via `stdin_from`, rapport `Report`/`Check` repris de helm-forge).
+2. **Outil absent** : message d'installation (`install_hint`), pas de trace Python.
+   Sortie en échec explicite, ou `SKIP` signalé si `--skip-missing`.
+3. **Repli WSL** : sous Windows, une commande `requires_linux=True` est relancée
+   via `wsl.exe -d <distro>`, le projet étant recopié hors du montage Windows
+   (Ansible refuse un `ansible.cfg` world-writable). Portage direct de
+   `tests/ansible_tools.py`.
+4. **Contrôles inter-domaines** (cœur, domaine-agnostiques) : comparaison des
+   `Projection` — `service_name` identique partout, `environments` identiques,
+   `labels` non contradictoires, puis toute `facet` déclarée par au moins deux
+   domaines (ex. `hosts` déclaré par ansible et par helm via les hôtes d'Ingress).
+5. **Échappatoire** : `forge_consistency` pour ce que les projections ne
+   capturent pas.
+
+---
+
+## 7. Surface CLI
+
+| Commande | Rôle |
+|---|---|
+| `forge new [-o DIR] [--spec-out forge.yml] [--only a,b] [--force] [--dry-run]` | entretien (bloc `service:` par le cœur, puis `forge_interview` par domaine), écriture de `forge.yml`, génération |
+| `forge generate [-s forge.yml] [-o DIR] [--only …] [--ref REF] [--force] [--dry-run]` | régénère depuis une spec existante |
+| `forge validate [-s forge.yml] [-o DIR] [--only …] [--skip-missing]` | validateurs par domaine + contrôles inter-domaines |
+| `forge update [-o DIR] [--only …] [--ref REF] [--conflict inline\|rej]` | `copier update` par domaine |
+| `forge diff [-s forge.yml] [-o DIR] [--only …]` | écart entre la cible et un rendu neuf (résumé) |
+| `forge plugins` | domaines enregistrés, sections reconnues, état des outils externes |
+| `forge catalog <domaine> [élément]` | catalogue fourni par le plugin (rôles, composants) |
+| `forge --version` | version |
+
+Conventions communes : `--only` accepte une liste de domaines (erreur explicite
+sur un domaine inconnu), `--dry-run` n'écrit rien, sortie non colorée si
+`NO_COLOR` est défini.
+
+---
+
+## 8. Questions ouvertes — recommandations
+
+**Q1. Délimiteurs des gabarits Ansible.** Le legacy utilise `{{ }}` plus des
+helpers `j()`/`jstr()` et 6 blocs `{% raw %}` pour émettre du Jinja destiné à
+Ansible. Un `copier.yml` unique impose un seul jeu de délimiteurs.
+→ **Recommandation : `[[ ]]` pour tous les plugins.** Les gabarits Ansible
+écrivent alors `{{ ma_variable }}` littéralement, `j()`/`jstr()` et les `{% raw %}`
+disparaissent. Simplification nette, au prix d'une conversion mécanique des
+51 gabarits en phase 3. *(Alternative : un dépôt de gabarit par plugin, donc
+plusieurs `copier.yml` — mais alors plus de `_subdirectory` unique et une
+mécanique d'update par plugin plus lourde.)*
+
+**Q2. Emplacement du gabarit et `copier update`.** Vérifié : un `src_path`
+pointant un sous-répertoire d'un dépôt git n'est pas reconnu comme gabarit
+versionné → update impossible.
+→ **Recommandation : `copier.yml` unique à la racine du dépôt forge, avec
+`_subdirectory` fourni en donnée.** Validé de bout en bout (copy + update +
+fusion d'une édition manuelle).
+
+**Q3. Forme des données passées à copier.** Trois questions déclarées
+(`plugin`, `service`, `domain`, plus `template_subdir` et `forge_version`) plutôt
+qu'une question par champ métier.
+→ **Recommandation : la forme à cinq clés.** Seules les questions déclarées
+survivent à l'update ; un dict `domain` unique évite de dupliquer le schéma
+pydantic dans `copier.yml`, au prix d'un `.copier-answers.yml` plus verbeux
+(lisible, versionné, et c'est précisément ce qu'on veut relire).
+
+**Q4. Contrôles inter-domaines.** Deux options : des règles écrites dans le cœur
+(qui deviendrait alors domaine-dépendant), ou des projections déclarées par les
+plugins et comparées par le cœur.
+→ **Recommandation : `forge_projection` + comparaison générique**, avec
+`forge_consistency` comme échappatoire. Le cœur reste agnostique, et un troisième
+plugin (Terraform…) hérite des contrôles sans toucher au cœur.
+
+**Q5. Convertisseur de specs legacy.** Aucun `forge.yml` legacy n'existe hors des
+dépôts d'origine (5 specs ansible + 2 specs helm, toutes dans `tests/`).
+→ **Recommandation : pas de commande `forge import` livrée** ; un helper de test
+(`tests/legacy_spec.py`) convertit ces 7 specs pour alimenter les instantanés de
+parité. À revoir si des specs legacy existent ailleurs — **à confirmer.**
+
+**Q6. Fichiers de niveau dépôt** (`README.md`, `Makefile`, `.gitignore`,
+`.gitattributes` à la racine de la cible). Le legacy helm les génère depuis son
+gabarit `project/` ; en monorepo ils n'appartiennent à aucun domaine.
+→ **Recommandation : le cœur écrit un minimum non-domaine** (`forge.yml`,
+`README.md` listant les domaines, `.gitattributes`) ; le `Makefile` helm et le
+`.gitignore` Ansible restent **dans leur sous-répertoire de domaine**
+(`helm/Makefile`), ce qui garde chaque domaine autonome et supprimable.
+
+**Q7. Validation sous Windows.** Constat : ni ansible-core, ni ansible-lint, ni
+helm, ni kubeconform ne sont installés côté Windows ; helm 4.2.4 et kubeconform
+0.8.0 sont présents dans WSL Debian ; ansible-lint n'est installé nulle part.
+→ **Recommandation : runner du cœur avec repli WSL** (portage de
+`tests/ansible_tools.py`) + `pipx install ansible-core ansible-lint` dans WSL
+Debian avant la phase 3 ; la CI GitHub (Linux) reste l'autorité. **Faut-il que
+j'installe ansible-lint dans WSL, ou préférez-vous vous en charger ?**
+
+**Q8. Gestion du dépôt et des versions de gabarit.** `copier update` compare des
+références git : par défaut le **dernier tag**. En développement, `--ref HEAD`
+inclut les gabarits non committés (vérifié).
+→ **Recommandation : `--ref HEAD` par défaut** (le rendu suit l'arbre de travail,
+les tests golden aussi), tags `vX.Y.Z` posés à chaque phase pour offrir des points
+d'update stables aux projets générés.
+
+---
+
+## 9. Arborescence prévue du dépôt forge
+
+```
+forge/
+├── CLAUDE.md  PLAN.md  MIGRATION.md  DESIGN.md  README.md
+├── copier.yml                     # gabarit racine unique (§5.1)
+├── pyproject.toml                 # uv, python >=3.11
+├── .gitattributes                 # * text=auto eol=lf
+├── src/forge/
+│   ├── cli.py  errors.py  jinja_ext.py
+│   ├── spec/         io.py  service.py  assembly.py  names.py  types.py
+│   ├── plugins_api/  hookspecs.py  manager.py  types.py
+│   ├── interview/    prompter.py
+│   ├── render/       copier_runner.py
+│   ├── validate/     runner.py  tools.py  wsl.py  consistency.py
+│   └── plugins/
+│       ├── demo/     plugin.py  template/          # tests du cœur uniquement
+│       ├── ansible/  plugin.py  spec.py  catalog/  interview.py  validators.py  template/
+│       └── helm/     plugin.py  spec.py  catalog/  interview.py  validators.py  template/
+└── tests/
+    ├── specs/  golden/  parity/
+    ├── conftest.py  scripted_prompter.py
+    └── test_*.py
+```
+
+Limite de 600 lignes par fichier (CLAUDE.md global) : `models/spec.py` (380 l.),
+`component.py` (395 l.) et `planner.py` (382 l.) passent ; leur découpage par
+responsabilité est de toute façon imposé par le portage.

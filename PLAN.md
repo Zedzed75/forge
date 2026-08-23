@@ -7,12 +7,12 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 - [x] **Phase 0 — Amorçage** : depot git, `_legacy/ansible-forge/`, `_legacy/helm-forge/`,
       `CLAUDE.md`, `PLAN.md`.
-- [x] **Phase 1 — Audit et conception** (aucun code de production)
+- [ ] **Phase 1 — Audit et conception** (aucun code de production)
   - [x] Audit selectif de `_legacy/` -> `MIGRATION.md` (keep / adapt / discard par artefact,
         maturite de chaque outil, delimiteurs Jinja2, conflits avec copier).
   - [x] Conception -> `DESIGN.md` : hookspec pluggy, schema `forge.yml`, arborescence generee,
         invocation copier par plugin, surface CLI, questions ouvertes.
-  - [x] **Validation humaine obtenue** (2026-08-23) — Q1 A, Q2 B, Q3 A, Q4 A, Q5 B, Q6 A, Q7 A.
+  - [ ] **Validation humaine des questions ouvertes** (bloquant pour la phase 2).
 - [ ] **Phase 2 — Coeur**
   - [ ] Scaffolding uv : `pyproject.toml`, `src/forge/`, `src/forge/plugins/`, `tests/`.
   - [ ] Chargement/validation du spec assemble a partir des sous-modeles de plugins.
@@ -50,15 +50,18 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 et 1 terminees et **validees par l'humain** (2026-08-23).
-Decisions arretees : voir `DESIGN.md` § « Questions ouvertes » (reponses inscrites).
+**Etat** : phase 0 terminee. Phase 1 : audit et conception **rediges**
+(`MIGRATION.md`, `DESIGN.md`), en attente de la validation humaine des questions
+ouvertes (`DESIGN.md` §8, Q1 a Q8). Aucun code de production ecrit.
 
-**Prochaine action** : demarrer la **phase 2 — Coeur**.
-Point d'entree : `DESIGN.md` (hookspec, schema `forge.yml`, invocation copier, CLI)
-et `MIGRATION.md` (ce qui sera porte en phases 3-4).
+Verifie experimentalement pendant la phase 1 (spike copier 9.17.2, cf.
+`MIGRATION.md` §2) : balise `yield` imbriquee, extensions Jinja personnalisees,
+`copier update` sur gabarit interne au depot, delimiteurs `[[ ]]`, contournement
+des chemins longs sous Windows.
+
+**Prochaine action** : obtenir les reponses aux questions Q1-Q8, les inscrire
+dans `DESIGN.md`, puis demarrer la **phase 2 — Coeur**.
 
 ## Journal des sessions
 
-- Session 1 (2026-08-23) : phase 0 (amorçage) + phase 1 (audit + conception).
-  Livrables : `CLAUDE.md`, `PLAN.md`, `MIGRATION.md`, `DESIGN.md`. Puis validation
-  humaine des 7 questions ouvertes -> decisions inscrites dans `DESIGN.md`.
+- Session 1 (2026-08-23) : phase 0 (amorçage) puis phase 1 (audit + conception).
