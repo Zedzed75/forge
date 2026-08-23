@@ -15,7 +15,9 @@ legacy standalone tools in _legacy/ (read-only reference; never import from it).
 - FQCN only for Ansible modules; Helm best practices (helpers, app.kubernetes.io labels,
   no hardcoded values). Never invent a module or resource kind.
 - Comments/docs in French; identifiers, keys and file names in English.
-- Helm plugin templates use copier custom delimiters [[ ]] so Helm's {{ }} passes through.
+- ALL plugin templates use copier custom delimiters [[ ]] / [% %] / [# #] (decision Q1,
+  DESIGN.md §8): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
+  copier.yml, so one set of delimiters. Never write {{ }} meaning "generator variable".
 - MIGRATION.md is the single source of truth about legacy code: consult it instead of
   re-reading _legacy/. _legacy/ is deleted in the final phase.
 
