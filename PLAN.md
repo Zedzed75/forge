@@ -90,8 +90,8 @@ une session neuve. Points d'entree : `MIGRATION.md` §3 (classement par artefact
 Rappels pour la phase 3 :
 - `pipx install ansible-core ansible-lint` dans WSL Debian est le tout premier
   point (decision Q7) ; sans cela, seule la CI valide.
-- Poser un tag `v0.2.0` sur la phase 2 avant de generer un projet destine a etre
-  mis a jour : `copier update` exige un gabarit committe.
+- Le tag `v0.1.0` marque la fin de la phase 2 (decision Q8 : un tag par phase,
+  pour offrir des points d'update stables). Poser `v0.2.0` a la fin de la phase 3.
 - Les gabarits Ansible s'ecrivent en `[[ ]]` ; `{{ }}` y designe **toujours** du
   Jinja destine a Ansible, ecrit litteralement (plus de `j()`/`jstr()`, plus de
   `{% raw %}`).
