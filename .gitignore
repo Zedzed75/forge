@@ -1,0 +1,11 @@
+# Environnement de developpement
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Sorties de test hors tests/golden (qui, lui, est versionne)
+/tmp/

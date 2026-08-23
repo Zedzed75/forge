@@ -1,0 +1,33 @@
+---
+[[ rule() ]]
+# [[ w.name ]] ([[ w.kind ]] [[ w.kind | widget_symbol ]]) — environnement [[ e.name ]]
+[[ rule() ]]
+[[ (domain.greeting ~ ", ce fichier decrit un widget dans un environnement donne.
+Il est genere par le domaine demo, dont la seule raison d'etre est d'exercer les
+balises yield imbriquees : un yield sur le repertoire d'environnement, un autre
+sur le nom de fichier du widget.") | comment ]]
+#
+# Genere par forge — ne pas editer a la main : editez forge.yml puis relancez
+# `forge generate`.
+[[ rule() ]]
+
+# Nom du service, repris tel quel dans tous les domaines.
+service: [[ service.name | yaml_scalar ]]
+
+# Environnement cible. Valeurs possibles : celles de service.environments.
+environment: [[ e.name | yaml_scalar ]]
+
+# Vrai uniquement pour l'environnement marque production: true dans forge.yml.
+production: [[ e.production | yaml_scalar ]]
+
+# Identite du widget, telle que declaree dans la section demo: de forge.yml.
+widget:
+  # Nom du widget ; sert aussi de nom de ce fichier.
+  name: [[ w.name ]]
+  # Type de widget. Valeurs possibles : gauge, counter, log.
+  kind: [[ w.kind ]]
+  # Un widget detaille produit en plus un fichier sous widgets/<nom>/.
+  detailed: [[ w.detailed | yaml_scalar ]]
+
+# Labels metier partages, recopies depuis service.labels.
+labels:[[ service.labels | yaml_value(2) ]]

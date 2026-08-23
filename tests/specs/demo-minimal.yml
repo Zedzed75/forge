@@ -1,0 +1,18 @@
+---
+# Specification minimale : un seul environnement, un seul widget, aucun label,
+# aucun responsable joignable. Elle verifie que tous les champs facultatifs le
+# sont reellement, et que la sortie reste complete et commentee.
+forge_version: 1
+
+service:
+  name: api
+  description: "Service minimal"
+  owner: "Equipe Plateforme"
+  environments:
+    - name: prod
+      production: true
+
+demo:
+  widgets:
+    - name: sante
+      kind: log

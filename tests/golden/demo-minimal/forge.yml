@@ -1,0 +1,26 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Specification du service
+# ---------------------------------------------------------------------------
+# Ce fichier decrit entierement ce qui doit etre genere. Il est rejouable :
+#   forge generate --spec forge.yml
+# produit exactement la meme arborescence, octet pour octet.
+#
+# Editez-le a la main puis relancez la generation ; ne modifiez pas
+# 'forge_version' manuellement.
+#
+# Domaines generes par cette specification :
+#   - demo
+# ---------------------------------------------------------------------------
+forge_version: 1
+service:
+  name: api
+  description: Service minimal
+  owner: Equipe Plateforme
+  environments:
+    - name: prod
+      production: true
+demo:
+  widgets:
+    - name: sante
+      kind: log

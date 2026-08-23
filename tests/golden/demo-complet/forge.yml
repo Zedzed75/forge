@@ -1,0 +1,37 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Specification du service
+# ---------------------------------------------------------------------------
+# Ce fichier decrit entierement ce qui doit etre genere. Il est rejouable :
+#   forge generate --spec forge.yml
+# produit exactement la meme arborescence, octet pour octet.
+#
+# Editez-le a la main puis relancez la generation ; ne modifiez pas
+# 'forge_version' manuellement.
+#
+# Domaines generes par cette specification :
+#   - demo
+# ---------------------------------------------------------------------------
+forge_version: 1
+service:
+  name: boutique
+  description: Boutique en ligne de demonstration
+  owner: Equipe Plateforme
+  owner_email: plateforme@example.net
+  labels:
+    app.kubernetes.io/part-of: commerce
+    tier: frontend
+  environments:
+    - name: dev
+      domain: dev.example.net
+    - name: prod
+      domain: example.net
+      production: true
+demo:
+  greeting: bonjour
+  widgets:
+    - name: cpu
+      kind: gauge
+      detailed: true
+    - name: requetes
+      kind: counter

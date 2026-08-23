@@ -1,0 +1,25 @@
+---
+# ---------------------------------------------------------------------------
+# Detail du widget cpu
+# ---------------------------------------------------------------------------
+# Ce fichier n'existe que pour les widgets marques detailed: true. Le segment
+# de chemin porteur du yield se rend alors vide, et copier n'ecrit rien : c'est
+# ainsi qu'un [% if %] sert de filtre de fichier (MIGRATION.md §2.1).
+# ---------------------------------------------------------------------------
+
+# Nom du widget detaille.
+name: cpu
+
+# Type de widget. Valeurs possibles : gauge, counter, log.
+kind: gauge
+
+# Environnements dans lesquels ce widget est materialise.
+environments:
+  - dev
+  - prod
+
+# Representation brute du widget, telle que passee a copier.
+raw:
+  name: cpu
+  kind: gauge
+  detailed: true

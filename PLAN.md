@@ -17,15 +17,16 @@ mettre a jour la section « Etat courant », committer, s'arreter.
         domaine, Q7 installation d'ansible-core/ansible-lint dans WSL a ma charge.
         Q2, Q3, Q4, Q8 retenues comme recommandees, sans objection.
         Releve complet : `DESIGN.md` §8.
-- [ ] **Phase 2 — Coeur**
-  - [ ] Scaffolding uv : `pyproject.toml`, `src/forge/`, `src/forge/plugins/`, `tests/`.
-  - [ ] Chargement/validation du spec assemble a partir des sous-modeles de plugins.
-  - [ ] Gestionnaire pluggy + hookspec validee.
-  - [ ] Wrapper copier (run_copy / run_update).
-  - [ ] Runner de validateurs (subprocess, erreurs claires, outil absent gere proprement).
-  - [ ] Verbes CLI cables de bout en bout avec un plugin `demo` interne (tests seulement).
-  - [ ] Harnais de tests golden (`tests/specs/` -> `tests/golden/`, commande de re-benediction).
-  - [ ] Tests unitaires : assemblage du spec, enregistrement des plugins.
+- [x] **Phase 2 — Coeur** (2026-08-23)
+  - [x] Scaffolding uv : `pyproject.toml`, `src/forge/`, `src/forge/plugins/`, `tests/`.
+  - [x] Chargement/validation du spec assemble a partir des sous-modeles de plugins.
+  - [x] Gestionnaire pluggy + hookspec validee.
+  - [x] Wrapper copier (run_copy / run_update) + `copier.yml` racine unique.
+  - [x] Runner de validateurs (subprocess, erreurs claires, outil absent gere proprement).
+  - [x] Verbes CLI cables de bout en bout avec un plugin `demo` interne (tests seulement).
+  - [x] Harnais de tests golden (`tests/specs/` -> `tests/golden/`, `pytest --regen-golden`).
+  - [x] Tests unitaires : assemblage du spec, enregistrement des plugins.
+  - [x] Bonus : controles inter-domaines, `forge diff`, pont WSL, CI GitHub du coeur.
 - [ ] **Phase 3 — Portage du plugin Ansible**
   - [ ] `pipx install ansible-core ansible-lint` dans WSL Debian (decision Q7).
   - [ ] Instantane de parite : generation legacy -> `tests/parity/ansible/`.
@@ -55,27 +56,51 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 et 1 terminees et **validees** (2026-08-23). Aucun code de
-production ecrit, conformement a la consigne de la phase 1. Les huit questions
-ouvertes sont tranchees : voir le releve de decisions dans `DESIGN.md` §8.
+**Etat** : phases 0, 1 et 2 terminees. Le coeur est ecrit, teste et
+domaine-agnostique : **129 tests, 128 verts + 1 ignore** (`forge update`, ignore
+tant que le gabarit n'est pas committe, cf. `MIGRATION.md` §2.10).
 
-Verifie experimentalement pendant la phase 1 (spike copier 9.17.2, cf.
-`MIGRATION.md` §2) : balise `yield` imbriquee, extensions Jinja personnalisees,
-`copier update` sur gabarit interne au depot, delimiteurs `[[ ]]`, contournement
-des chemins longs sous Windows.
+Ce que la phase 2 a livre :
+- `copier.yml` racine unique, delimiteurs `[[ ]]`, cinq questions declarees.
+- `src/forge/` : `spec/` (io, service, types, names, assembly), `plugins_api/`
+  (hookspecs, manager, types), `render/` (copier_runner, scaffold, diff),
+  `validate/` (tools, wsl, runner, consistency), `interview/`, `jinja_ext.py`,
+  `pipeline.py`, `cli.py`.
+- Plugin `demo` (`src/forge/plugins/demo/`), **jamais enregistre en production** :
+  il est charge par `FORGE_PLUGINS=forge.plugins.demo.plugin` et exerce les
+  yields imbriques, le filtrage de fichier par `[% if %]`, les filtres de plugin.
+- Verbes CLI : `new`, `generate`, `validate`, `update`, `diff`, `plugins`,
+  `catalog`, `--version`.
+- `tests/` : specs de reference, golden benis, harnais `--regen-golden`.
+- CI GitHub (matrice 3.11/3.12/3.13) ; les outils de domaine s'y ajoutent en
+  phases 3 et 4.
 
-**Prochaine action** : demarrer la **phase 2 — Coeur** dans une session neuve.
-Points d'entree : `DESIGN.md` §2 (hookspec), §5 (invocation copier), §7 (CLI) et
-§9 (arborescence du depot) ; `MIGRATION.md` §2 (contraintes copier verifiees) et
-§5 (doublons a fusionner dans le coeur).
+Ecarts assumes par rapport a `DESIGN.md` §9 (arborescence prevue) :
+- ajout de `pipeline.py` (enchainement des operations) pour que `cli.py` ne
+  porte aucune logique ; ajout de `interview/service_flow.py`,
+  `render/scaffold.py` et `render/diff.py` (SRP, limite de 600 lignes).
+- `BUILTIN_PLUGINS` est vide : l'enregistrement en dur des plugins reels se fait
+  en phases 3 et 4, une ligne par domaine, sans autre modification du coeur.
 
-Rappels pour la phase 2 :
-- `uv` n'est installe ni sous Windows ni dans WSL : l'installer avant le scaffolding.
-- Le depot forge est configure avec `core.longpaths=true` et `.gitattributes`
-  (`eol=lf`) ; ne pas les retirer, les tests golden en dependent.
-- Le plugin `demo` de la phase 2 doit exercer la balise `yield` imbriquee et une
-  extension Jinja, sinon la phase 3 decouvrira les problemes trop tard.
+**Prochaine action** : demarrer la **phase 3 — portage du plugin Ansible** dans
+une session neuve. Points d'entree : `MIGRATION.md` §3 (classement par artefact),
+§2 (contraintes copier) et §5 (fusions deja faites, a ne pas refaire) ;
+`DESIGN.md` §5.3 (arbitrage `yield` vs `[% if %]` sur les roles).
+
+Rappels pour la phase 3 :
+- `pipx install ansible-core ansible-lint` dans WSL Debian est le tout premier
+  point (decision Q7) ; sans cela, seule la CI valide.
+- Poser un tag `v0.2.0` sur la phase 2 avant de generer un projet destine a etre
+  mis a jour : `copier update` exige un gabarit committe.
+- Les gabarits Ansible s'ecrivent en `[[ ]]` ; `{{ }}` y designe **toujours** du
+  Jinja destine a Ansible, ecrit litteralement (plus de `j()`/`jstr()`, plus de
+  `{% raw %}`).
+- Le filtre `comment` a change de signature (cf. `MIGRATION.md` §5) : passer la
+  largeur en argument nomme.
+- Environnement : `.venv` du depot, `uv pip install --python .venv/... -e ".[dev]"`.
+  `uv` est installe via `python -m pip install uv` (pas de binaire `uv` sur le PATH).
 
 ## Journal des sessions
 
 - Session 1 (2026-08-23) : phase 0 (amorçage) puis phase 1 (audit + conception).
+- Session 2 (2026-08-23) : phase 2 (coeur complet, plugin `demo`, tests golden, CI).

@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Reponses copier du domaine « demo ».
+# ---------------------------------------------------------------------------
+# Genere par forge. Ce fichier permet de rejouer la generation et d'appliquer
+# les evolutions de gabarit avec :
+#   forge update --only demo
+# Ne le modifiez pas a la main : editez forge.yml a la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    environments:
+    -   name: dev
+        production: false
+    -   name: prod
+        production: true
+    greeting: bonjour
+    widgets:
+    -   detailed: true
+        kind: gauge
+        name: cpu
+    -   detailed: false
+        kind: counter
+        name: requetes
+forge_version: 1
+plugin: demo
+service:
+    description: Boutique en ligne de demonstration
+    environments:
+    -   domain: dev.example.net
+        name: dev
+        production: false
+    -   domain: example.net
+        name: prod
+        production: true
+    labels:
+        app.kubernetes.io/part-of: commerce
+        tier: frontend
+    name: boutique
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/demo/template
+

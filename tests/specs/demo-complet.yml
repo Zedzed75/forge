@@ -1,0 +1,29 @@
+---
+# Specification de reference du domaine de demonstration.
+# Elle sert de source aux tests golden du coeur : deux environnements, deux
+# widgets, dont un seul « detailed » pour exercer le filtrage de fichier.
+forge_version: 1
+
+service:
+  name: boutique
+  description: "Boutique en ligne de demonstration"
+  owner: "Equipe Plateforme"
+  owner_email: plateforme@example.net
+  labels:
+    app.kubernetes.io/part-of: commerce
+    tier: frontend
+  environments:
+    - name: dev
+      domain: dev.example.net
+    - name: prod
+      domain: example.net
+      production: true
+
+demo:
+  greeting: bonjour
+  widgets:
+    - name: cpu
+      kind: gauge
+      detailed: true
+    - name: requetes
+      kind: counter

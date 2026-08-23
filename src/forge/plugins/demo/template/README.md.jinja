@@ -1,0 +1,34 @@
+# Domaine demo — [[ service.name ]]
+
+[[ demo_banner(service.name) ]]
+
+[[ service.description ]]
+
+Ce repertoire est genere par **forge**, domaine `demo`. Il n'a aucune valeur
+operationnelle : il existe pour que la suite de tests du coeur exerce, sur un
+domaine reel mais trivial, les mecanismes que les domaines Ansible et Helm
+utiliseront (balises `yield` imbriquees, filtres de plugin, filtrage de
+fichier, fichier de reponses copier).
+
+- **Service** : `[[ service.name ]]` (`[[ service.name | shout ]]`)
+- **Responsable** : [[ service.owner ]]
+- **Salutation** : [[ domain.greeting ]]
+
+## Environnements
+
+| Environnement | Production |
+| --- | --- |
+[% for e in domain.environments %]
+| `[[ e.name ]]` | [[ "oui" if e.production else "non" ]] |
+[% endfor %]
+
+## Widgets
+
+| Widget | Type | Detail |
+| --- | --- | --- |
+[% for w in domain.widgets %]
+| `[[ w.name ]]` | [[ w.kind ]] [[ w.kind | widget_symbol ]] | [[ "oui" if w.detailed else "non" ]] |
+[% endfor %]
+
+Un fichier est genere par couple (environnement, widget) dans `environments/`,
+et un fichier de detail par widget marque `detailed: true` dans `widgets/`.

@@ -74,6 +74,18 @@ portage des gabarits.
    de gabarit courante avant tout `update`.
 9. **Pas de prompt interactif** : `defaults=True` est obligatoire, sinon copier
    ouvre un prompt et casse sous Git Bash (`NoConsoleScreenBufferError`).
+10. **Un rendu fait depuis un arbre de travail sale n'est pas « updatable »**
+    (constaté en phase 2). Avec `vcs_ref="HEAD"` et des modifications non
+    committées, copier crée un *commit temporaire* dans son clone jetable et
+    l'inscrit dans `_commit`. Ce commit n'existe nulle part ensuite :
+    `copier update` échoue sur `git checkout <sha>` → « pathspec did not match ».
+    Conséquence pratique : `forge generate` marche toujours en développement,
+    mais `forge update` exige un gabarit **committé** (d'où les tags `vX.Y.Z`
+    de la décision Q8). Le cœur transforme l'échec brut de copier en message
+    explicite, et le test d'update est ignoré tant que le dépôt est sale.
+11. **`_src_path` ne doit être réécrit que s'il pointe ailleurs** : réécrire une
+    valeur équivalente (séparateurs différents) salit le dépôt cible, et copier
+    refuse de mettre à jour un dépôt sale.
 
 ---
 
@@ -177,14 +189,24 @@ Cible par défaut : `src/forge/plugins/helm/`.
 ## 5. Doublons à fusionner (dette évitée)
 
 Les deux outils ont réimplémenté la même chose ; une seule version doit survivre,
-dans le cœur :
+dans le cœur. **Fusion réalisée en phase 2** — la colonne « où » indique le
+fichier qui fait désormais foi.
 
-1. `ForgeModel` (`extra="forbid"`) — deux implémentations identiques.
-2. `spec_io` (chargement / écriture YAML déterministe) — deux implémentations.
-3. Détection d'outil externe et message d'installation — `verify.require_tools` vs `validation.tools.require`.
-4. Exécution de sous-processus et rapport (`CheckResult` vs `Check` + `Report`) — deux modèles quasi identiques ; garder `Report` (helm), plus complet.
-5. Filtres `comment`, `yaml_scalar`, `to_yaml` / `yaml_assign` — **implémentations divergentes**, arbitrage explicite requis.
-6. Normalisation de sortie (`_normalise` helm vs `render` ansible) — helm gère CRLF et lignes vides multiples, ansible gère le rstrip par ligne : **prendre l'union**.
+| # | Doublon | Arbitrage | Où |
+|---|---|---|---|
+| 1 | `ForgeModel` (`extra="forbid"`) | implémentations identiques, une seule conservée | `forge/spec/types.py` |
+| 2 | `spec_io` (YAML déterministe) | version ansible-forge (plus complète), rendue domaine-agnostique ; l'en-tête liste maintenant les domaines présents | `forge/spec/io.py` |
+| 3 | Détection d'outil et message d'installation | fusion `verify.require_tools` + `validation.tools.require`, plus repli WSL | `forge/validate/tools.py` |
+| 4 | Rapport d'exécution | `Report`/`Check` (helm) conservé, enrichi des états `missing`, `skipped`, `timeout` et du chaînage `stdin_from` | `forge/validate/runner.py` |
+| 5 | Filtres `comment`, `yaml_scalar` | **arbitré** : `yaml_scalar` = version ansible-forge (accepte tout scalaire, rendu identique sur les chaînes) ; `comment` = version ansible-forge (préserve l'indentation source, rend les lignes vides en `#`) + paramètre `prefix` de helm-forge. Signature `comment(text, indent=0, width=88, prefix="# ")` : **les gabarits helm qui passaient la largeur en 2ᵉ position doivent la nommer** (`\| comment(width=76)`) — à appliquer en phase 4. | `forge/jinja_ext.py` |
+| 6 | Normalisation de sortie | **union** appliquée : CRLF → LF, rstrip par ligne, runs de lignes vides ramenés à une seule, exactement un saut final ; `.copier-answers.yml` épargné (écriture interne de copier) | `forge/render/copier_runner.normalise_text` |
+
+Filtres également réunis dans `forge/jinja_ext.py` sans divergence :
+`yaml_assign`, `lower_first`, `rule` (ansible-forge) et `to_yaml`, `yaml_value`,
+`indent_block` (helm-forge). `camel` reste au plugin Helm ; `j()`/`jstr()` sont
+supprimés (décision Q1). Un plugin ajoute ses propres filtres via un module
+`<paquet-du-plugin>.jinja_ext` exposant `FILTERS`/`GLOBALS`, chargé par
+`ForgeExtension` : **le copier.yml racine n'est jamais édité pour un domaine**.
 
 ---
 

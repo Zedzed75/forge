@@ -1,0 +1,72 @@
+# ---------------------------------------------------------------------------
+# copier.yml - gabarit racine unique de forge
+# ---------------------------------------------------------------------------
+# Un seul gabarit copier pour tous les plugins (decision DESIGN.md §8 Q2) :
+# `src_path` designe la racine de ce depot, et `_subdirectory` — fourni en
+# donnee — selectionne le gabarit du domaine rendu. C'est la seule forme dans
+# laquelle copier reconnait un gabarit versionne, donc la seule qui rende
+# `copier update` possible (MIGRATION.md §2.3).
+#
+# Ce fichier n'est jamais edite pour ajouter un domaine : un plugin apporte son
+# propre sous-repertoire de gabarit et le declare via `forge_template_subdir()`.
+# ---------------------------------------------------------------------------
+
+# Gabarit effectivement rendu, choisi par le plugin appele.
+_subdirectory: "[[ template_subdir ]]"
+
+# Chaque domaine genere garde son fichier de reponses : il le rend
+# mettable a jour independamment (`forge update --only <domaine>`).
+_answers_file: .copier-answers.yml
+
+# Seuls les fichiers en .jinja sont rendus ; les autres sont copies tels quels.
+_templates_suffix: .jinja
+
+# copier n'accepte pas de filtres passes en Python : ils arrivent par extension.
+# Les filtres propres a un plugin sont charges par ForgeExtension elle-meme,
+# via la variable d'environnement FORGE_PLUGIN_JINJA (cf. forge/jinja_ext.py).
+_jinja_extensions:
+  - forge.jinja_ext.ForgeExtension
+
+# ---------------------------------------------------------------------------
+# Delimiteurs : [[ ]] / [% %] / [# #] pour TOUS les plugins (decision Q1).
+# Consequence : Helm et Ansible ecrivent {{ ... }} litteralement dans leurs
+# gabarits, sans bloc raw ni helper d'echappement.
+# ---------------------------------------------------------------------------
+_envops:
+  block_start_string: "[%"
+  block_end_string: "%]"
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  comment_start_string: "[#"
+  comment_end_string: "#]"
+  trim_blocks: true
+  lstrip_blocks: true
+  keep_trailing_newline: true
+
+# ---------------------------------------------------------------------------
+# Questions declarees. IMPORTANT : seules les questions declarees ici sont
+# enregistrees dans .copier-answers.yml, donc seules elles survivent a un
+# `copier update` (MIGRATION.md §2.5). D'ou cette forme a cinq cles plutot
+# qu'une question par champ metier (decision Q3).
+# ---------------------------------------------------------------------------
+
+# Nom du plugin de domaine rendu (ex. ansible, helm). Sert de tracabilite.
+plugin:
+  type: str
+
+# Sous-repertoire du gabarit, relatif a la racine du depot forge.
+template_subdir:
+  type: str
+
+# Version du format de specification, recopiee depuis forge.yml.
+forge_version:
+  type: int
+  default: 1
+
+# Bloc partage de la specification : identite du service et environnements.
+service:
+  type: json
+
+# Section propre au domaine, telle que produite par son hook forge_answers().
+domain:
+  type: json

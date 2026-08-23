@@ -1,0 +1,24 @@
+---
+[[ rule() ]]
+# Detail du widget [[ w.name ]]
+[[ rule() ]]
+[[ "Ce fichier n'existe que pour les widgets marques detailed: true. Le segment
+de chemin porteur du yield se rend alors vide, et copier n'ecrit rien : c'est
+ainsi qu'un [% if %] sert de filtre de fichier (MIGRATION.md §2.1)." | comment ]]
+[[ rule() ]]
+
+# Nom du widget detaille.
+name: [[ w.name ]]
+
+# Type de widget. Valeurs possibles : gauge, counter, log.
+kind: [[ w.kind ]]
+
+# Environnements dans lesquels ce widget est materialise.
+environments:
+[% for e in domain.environments %]
+  - [[ e.name ]]
+[% endfor %]
+
+# Representation brute du widget, telle que passee a copier.
+raw:
+[[ w | to_yaml(2) ]]
