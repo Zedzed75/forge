@@ -7,12 +7,16 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 - [x] **Phase 0 — Amorçage** : depot git, `_legacy/ansible-forge/`, `_legacy/helm-forge/`,
       `CLAUDE.md`, `PLAN.md`.
-- [ ] **Phase 1 — Audit et conception** (aucun code de production)
+- [x] **Phase 1 — Audit et conception** (aucun code de production)
   - [x] Audit selectif de `_legacy/` -> `MIGRATION.md` (keep / adapt / discard par artefact,
         maturite de chaque outil, delimiteurs Jinja2, conflits avec copier).
   - [x] Conception -> `DESIGN.md` : hookspec pluggy, schema `forge.yml`, arborescence generee,
         invocation copier par plugin, surface CLI, questions ouvertes.
-  - [ ] **Validation humaine des questions ouvertes** (bloquant pour la phase 2).
+  - [x] **Validation humaine obtenue (2026-08-23)** : Q1 `[[ ]]` partout, Q5 aucun
+        spec legacy externe (helper de test seulement), Q6 coeur minimal + reste par
+        domaine, Q7 installation d'ansible-core/ansible-lint dans WSL a ma charge.
+        Q2, Q3, Q4, Q8 retenues comme recommandees, sans objection.
+        Releve complet : `DESIGN.md` §8.
 - [ ] **Phase 2 — Coeur**
   - [ ] Scaffolding uv : `pyproject.toml`, `src/forge/`, `src/forge/plugins/`, `tests/`.
   - [ ] Chargement/validation du spec assemble a partir des sous-modeles de plugins.
@@ -23,6 +27,7 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [ ] Harnais de tests golden (`tests/specs/` -> `tests/golden/`, commande de re-benediction).
   - [ ] Tests unitaires : assemblage du spec, enregistrement des plugins.
 - [ ] **Phase 3 — Portage du plugin Ansible**
+  - [ ] `pipx install ansible-core ansible-lint` dans WSL Debian (decision Q7).
   - [ ] Instantane de parite : generation legacy -> `tests/parity/ansible/`.
   - [ ] Portage gabarits / sous-modele de spec / validateurs / tests selon MIGRATION.md.
   - [ ] Catalogue de roles complet : common, users, ssh_hardening, firewall, nginx, docker,
@@ -50,17 +55,26 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phase 0 terminee. Phase 1 : audit et conception **rediges**
-(`MIGRATION.md`, `DESIGN.md`), en attente de la validation humaine des questions
-ouvertes (`DESIGN.md` §8, Q1 a Q8). Aucun code de production ecrit.
+**Etat** : phases 0 et 1 terminees et **validees** (2026-08-23). Aucun code de
+production ecrit, conformement a la consigne de la phase 1. Les huit questions
+ouvertes sont tranchees : voir le releve de decisions dans `DESIGN.md` §8.
 
 Verifie experimentalement pendant la phase 1 (spike copier 9.17.2, cf.
 `MIGRATION.md` §2) : balise `yield` imbriquee, extensions Jinja personnalisees,
 `copier update` sur gabarit interne au depot, delimiteurs `[[ ]]`, contournement
 des chemins longs sous Windows.
 
-**Prochaine action** : obtenir les reponses aux questions Q1-Q8, les inscrire
-dans `DESIGN.md`, puis demarrer la **phase 2 — Coeur**.
+**Prochaine action** : demarrer la **phase 2 — Coeur** dans une session neuve.
+Points d'entree : `DESIGN.md` §2 (hookspec), §5 (invocation copier), §7 (CLI) et
+§9 (arborescence du depot) ; `MIGRATION.md` §2 (contraintes copier verifiees) et
+§5 (doublons a fusionner dans le coeur).
+
+Rappels pour la phase 2 :
+- `uv` n'est installe ni sous Windows ni dans WSL : l'installer avant le scaffolding.
+- Le depot forge est configure avec `core.longpaths=true` et `.gitattributes`
+  (`eol=lf`) ; ne pas les retirer, les tests golden en dependent.
+- Le plugin `demo` de la phase 2 doit exercer la balise `yield` imbriquee et une
+  extension Jinja, sinon la phase 3 decouvrira les problemes trop tard.
 
 ## Journal des sessions
 

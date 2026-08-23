@@ -478,12 +478,17 @@ sur un domaine inconnu), `--dry-run` n'écrit rien, sortie non colorée si
 
 ---
 
-## 8. Questions ouvertes — recommandations
+## 8. Questions ouvertes — **arbitrees le 2026-08-23**
+
+> Les huit questions ont ete tranchees. Q1, Q5, Q6 et Q7 par reponse explicite ;
+> Q2, Q3, Q4 et Q8 retenues telles que recommandees, sans objection. Cette
+> section est desormais un releve de decisions : ne pas la rouvrir sans raison
+> nouvelle.
 
 **Q1. Délimiteurs des gabarits Ansible.** Le legacy utilise `{{ }}` plus des
 helpers `j()`/`jstr()` et 6 blocs `{% raw %}` pour émettre du Jinja destiné à
 Ansible. Un `copier.yml` unique impose un seul jeu de délimiteurs.
-→ **Recommandation : `[[ ]]` pour tous les plugins.** Les gabarits Ansible
+→ **DECISION : `[[ ]]` pour tous les plugins.** Les gabarits Ansible
 écrivent alors `{{ ma_variable }}` littéralement, `j()`/`jstr()` et les `{% raw %}`
 disparaissent. Simplification nette, au prix d'une conversion mécanique des
 51 gabarits en phase 3. *(Alternative : un dépôt de gabarit par plugin, donc
@@ -493,14 +498,14 @@ mécanique d'update par plugin plus lourde.)*
 **Q2. Emplacement du gabarit et `copier update`.** Vérifié : un `src_path`
 pointant un sous-répertoire d'un dépôt git n'est pas reconnu comme gabarit
 versionné → update impossible.
-→ **Recommandation : `copier.yml` unique à la racine du dépôt forge, avec
+→ **DECISION : `copier.yml` unique à la racine du dépôt forge, avec
 `_subdirectory` fourni en donnée.** Validé de bout en bout (copy + update +
 fusion d'une édition manuelle).
 
 **Q3. Forme des données passées à copier.** Trois questions déclarées
 (`plugin`, `service`, `domain`, plus `template_subdir` et `forge_version`) plutôt
 qu'une question par champ métier.
-→ **Recommandation : la forme à cinq clés.** Seules les questions déclarées
+→ **DECISION : la forme à cinq clés.** Seules les questions déclarées
 survivent à l'update ; un dict `domain` unique évite de dupliquer le schéma
 pydantic dans `copier.yml`, au prix d'un `.copier-answers.yml` plus verbeux
 (lisible, versionné, et c'est précisément ce qu'on veut relire).
@@ -508,20 +513,21 @@ pydantic dans `copier.yml`, au prix d'un `.copier-answers.yml` plus verbeux
 **Q4. Contrôles inter-domaines.** Deux options : des règles écrites dans le cœur
 (qui deviendrait alors domaine-dépendant), ou des projections déclarées par les
 plugins et comparées par le cœur.
-→ **Recommandation : `forge_projection` + comparaison générique**, avec
+→ **DECISION : `forge_projection` + comparaison générique**, avec
 `forge_consistency` comme échappatoire. Le cœur reste agnostique, et un troisième
 plugin (Terraform…) hérite des contrôles sans toucher au cœur.
 
 **Q5. Convertisseur de specs legacy.** Aucun `forge.yml` legacy n'existe hors des
 dépôts d'origine (5 specs ansible + 2 specs helm, toutes dans `tests/`).
-→ **Recommandation : pas de commande `forge import` livrée** ; un helper de test
-(`tests/legacy_spec.py`) convertit ces 7 specs pour alimenter les instantanés de
-parité. À revoir si des specs legacy existent ailleurs — **à confirmer.**
+→ **DECISION : pas de commande `forge import` livrée.** Confirme : aucun
+`forge.yml` legacy n'existe hors des depots d'origine. Un helper de test
+(`tests/legacy_spec.py`) convertit les 7 specs pour alimenter les instantanes de
+parite des phases 3 et 4.
 
 **Q6. Fichiers de niveau dépôt** (`README.md`, `Makefile`, `.gitignore`,
 `.gitattributes` à la racine de la cible). Le legacy helm les génère depuis son
 gabarit `project/` ; en monorepo ils n'appartiennent à aucun domaine.
-→ **Recommandation : le cœur écrit un minimum non-domaine** (`forge.yml`,
+→ **DECISION : le cœur écrit un minimum non-domaine** (`forge.yml`,
 `README.md` listant les domaines, `.gitattributes`) ; le `Makefile` helm et le
 `.gitignore` Ansible restent **dans leur sous-répertoire de domaine**
 (`helm/Makefile`), ce qui garde chaque domaine autonome et supprimable.
@@ -529,15 +535,15 @@ gabarit `project/` ; en monorepo ils n'appartiennent à aucun domaine.
 **Q7. Validation sous Windows.** Constat : ni ansible-core, ni ansible-lint, ni
 helm, ni kubeconform ne sont installés côté Windows ; helm 4.2.4 et kubeconform
 0.8.0 sont présents dans WSL Debian ; ansible-lint n'est installé nulle part.
-→ **Recommandation : runner du cœur avec repli WSL** (portage de
-`tests/ansible_tools.py`) + `pipx install ansible-core ansible-lint` dans WSL
-Debian avant la phase 3 ; la CI GitHub (Linux) reste l'autorité. **Faut-il que
-j'installe ansible-lint dans WSL, ou préférez-vous vous en charger ?**
+→ **DECISION : runner du cœur avec repli WSL** (portage de
+`tests/ansible_tools.py`). **`pipx install ansible-core ansible-lint` dans WSL
+Debian est a ma charge, au debut de la phase 3** (tache inscrite dans PLAN.md) ;
+la CI GitHub (Linux) reste l'autorite.
 
 **Q8. Gestion du dépôt et des versions de gabarit.** `copier update` compare des
 références git : par défaut le **dernier tag**. En développement, `--ref HEAD`
 inclut les gabarits non committés (vérifié).
-→ **Recommandation : `--ref HEAD` par défaut** (le rendu suit l'arbre de travail,
+→ **DECISION : `--ref HEAD` par défaut** (le rendu suit l'arbre de travail,
 les tests golden aussi), tags `vX.Y.Z` posés à chaque phase pour offrir des points
 d'update stables aux projets générés.
 
