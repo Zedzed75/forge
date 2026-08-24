@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from forge import pipeline
-from forge.plugins_api.manager import ForgeManager
+from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager
 from tests.conftest import (
     DEMO_PLUGIN,
     GOLDEN_DIR,
@@ -35,13 +35,19 @@ from tests.conftest import (
 #: Cas de test : un par specification de reference.
 CASES = spec_files()
 
+#: Cas de reference du domaine de demonstration, vise par les tests cibles.
+CAS_DEMO = next(path for path in CASES if path.stem == "demo-complet")
+
 #: Fichier du gabarit demo volontairement stocke en CRLF (cf. .gitattributes).
 TEMOIN_CRLF = "fins-de-ligne.txt"
 
 
 def _render(spec_path: Path, target: Path) -> Path:
     manager = ForgeManager()
-    manager.register_module(DEMO_PLUGIN)
+    # Le plugin de demonstration ET les domaines livres : une specification qui
+    # ne declare pas une section ne genere simplement pas ce domaine.
+    for module in (DEMO_PLUGIN, *BUILTIN_PLUGINS):
+        manager.register_module(module)
     data, model = load_case(spec_path, manager)
     pipeline.generate(data, model, manager, target)
     return target
@@ -90,14 +96,14 @@ def test_deux_rendus_successifs_sont_identiques(spec_path, tmp_path):
 
 def test_le_filtrage_de_fichier_par_if_supprime_bien_le_fichier(tmp_path):
     """Un segment de chemin rendu vide fait disparaitre le fichier (MIGRATION §2.1)."""
-    rendu = _render(next(path for path in CASES if path.stem == "demo-complet"), tmp_path)
+    rendu = _render(CAS_DEMO, tmp_path)
     assert (rendu / "demo" / "widgets" / "cpu" / "detail.yml").is_file()
     assert not (rendu / "demo" / "widgets" / "requetes").exists()
 
 
 def test_les_yields_imbriques_produisent_le_produit_cartesien(tmp_path):
     """Un yield par segment : environnements x widgets, la variable parente restant lue."""
-    rendu = _render(next(path for path in CASES if path.stem == "demo-complet"), tmp_path)
+    rendu = _render(CAS_DEMO, tmp_path)
     fichiers = tree_files(rendu / "demo" / "environments")
     assert fichiers == [
         "dev/cpu.yml",
@@ -122,7 +128,7 @@ def test_la_normalisation_s_applique_a_un_rendu_copier_reel(tmp_path):
             "le test ne prouve plus rien."
         )
 
-    rendu = _render(next(path for path in CASES if path.stem == "demo-complet"), tmp_path)
+    rendu = _render(CAS_DEMO, tmp_path)
     livre = rendu / "demo" / TEMOIN_CRLF
     assert livre.is_file()
     assert b"\r" not in livre.read_bytes()
@@ -130,7 +136,7 @@ def test_la_normalisation_s_applique_a_un_rendu_copier_reel(tmp_path):
 
 def test_un_filtre_de_plugin_est_bien_applique(tmp_path):
     """Preuve que `FORGE_PLUGIN_JINJA` charge bien les filtres du domaine."""
-    rendu = _render(next(path for path in CASES if path.stem == "demo-complet"), tmp_path)
+    rendu = _render(CAS_DEMO, tmp_path)
     readme = (rendu / "demo" / "README.md").read_text(encoding="utf-8")
     assert "BOUTIQUE" in readme          # filtre shout
     assert "== boutique ==" in readme    # global demo_banner

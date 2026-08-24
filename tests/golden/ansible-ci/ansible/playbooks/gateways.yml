@@ -1,0 +1,36 @@
+---
+# ---------------------------------------------------------------------------
+# playbooks/gateways.yml — configuration du groupe « gateways »
+# ---------------------------------------------------------------------------
+# Passerelles exposées
+# Exécution ciblée :
+#   ansible-playbook -i inventories/<env> playbooks/gateways.yml
+# Exécution partielle par étiquette :
+#   ansible-playbook -i inventories/<env> playbooks/gateways.yml --tags common
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Appliquer la configuration du groupe « gateways »
+  hosts: gateways
+  # Escalade de privilèges : la plupart des tâches système l'exigent.
+  become: true
+  # La collecte des faits est nécessaire aux rôles qui adaptent leur
+  # comportement à la distribution détectée.
+  gather_facts: true
+
+  roles:
+    # Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière
+    # MOTD.
+    - role: common
+      tags:
+        - common
+        - base
+
+    # Durcissement OpenSSH : connexion root, authentification par mot de passe, limites.
+    - role: ssh_hardening
+      tags:
+        - ssh
+        - security
+        - hardening

@@ -44,7 +44,22 @@ RETRAITS_ATTENDUS = frozenset({"forge.yml"})
 #: substitution est appliquee au contenu ATTENDU avant comparaison : sans cela,
 #: cet unique changement de mot ferait echouer la quasi-totalite des fichiers et
 #: noierait les vraies regressions.
-SUBSTITUTIONS = (("par ansible-forge à partir de", "par forge à partir de"),)
+#: Ecart de parite 11 : `.copier-answers.yml` est exclu du linter. Ce fichier
+#: n'existait pas dans le legacy ; sa mise en forme est celle de copier, et il
+#: faisait echouer `ansible-lint` sur 255 violations de style YAML alors que le
+#: projet Ansible lui-meme est propre.
+_EXCLUDE_LEGACY = "exclude_paths:\n  - .venv/\n  - .github/\n"
+_EXCLUDE_FORGE = (
+    "exclude_paths:\n  - .venv/\n  - .github/\n"
+    "  # Fichier de réponses de copier : c'est la plomberie de la génération, pas du\n"
+    "  # code Ansible. Sa mise en forme est celle de copier, pas celle du projet.\n"
+    "  - .copier-answers.yml\n"
+)
+
+SUBSTITUTIONS = (
+    ("par ansible-forge à partir de", "par forge à partir de"),
+    (_EXCLUDE_LEGACY, _EXCLUDE_FORGE),
+)
 
 
 def reference(chemin: Path) -> bytes:

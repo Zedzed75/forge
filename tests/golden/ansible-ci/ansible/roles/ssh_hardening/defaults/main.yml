@@ -1,0 +1,40 @@
+---
+# ---------------------------------------------------------------------------
+# roles/ssh_hardening/defaults/main.yml — valeurs par défaut du rôle
+# ---------------------------------------------------------------------------
+# Durcissement OpenSSH : connexion root, authentification par mot de passe, limites.
+# Ces valeurs ont la précédence la plus faible : n'importe quel fichier
+# group_vars ou host_vars les surcharge. Modifiez-les de préférence là-bas
+# plutôt qu'ici, afin de garder le rôle réutilisable tel quel.
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Port TCP sur lequel sshd écoute.
+# Valeurs admises : entier de 1 à 65535.
+ssh_hardening_port: 22
+
+# Valeur de la directive PermitRootLogin.
+# Valeurs admises : yes, no, prohibit-password ou forced-commands-only.
+ssh_hardening_permit_root_login: prohibit-password
+
+# Valeur de la directive PasswordAuthentication.
+# Valeurs admises : true ou false.
+ssh_hardening_password_authentication: false
+
+# Valeur de la directive PubkeyAuthentication.
+# Valeurs admises : true ou false.
+ssh_hardening_pubkey_authentication: true
+
+# Valeur de la directive X11Forwarding.
+# Valeurs admises : true ou false.
+ssh_hardening_x11_forwarding: false
+
+# Valeur de la directive MaxAuthTries.
+# Valeurs admises : entier de 1 à 10.
+ssh_hardening_max_auth_tries: 3
+
+# Valeur de la directive AllowGroups ; vide désactive la directive.
+# Valeurs admises : liste de noms de groupes système.
+ssh_hardening_allow_groups: []

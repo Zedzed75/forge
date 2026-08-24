@@ -54,6 +54,12 @@ class Command:
     #: Delai maximal d'execution, en secondes.
     timeout: int = 300
 
+    #: Variables d'environnement ajoutees a celles du processus, triees a
+    #: l'execution pour rester deterministes. Certains outils ne se configurent
+    #: que par ce canal — `ANSIBLE_COLLECTIONS_PATH`, `HELM_CACHE_HOME`… — et le
+    #: plugin est le seul a savoir lesquelles lui sont necessaires.
+    env: tuple[tuple[str, str], ...] = ()
+
     #: Message affiche si le binaire est absent du PATH.
     install_hint: str = ""
 

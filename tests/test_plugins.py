@@ -165,11 +165,12 @@ def test_forge_consistency_est_le_seul_hook_appele_sur_tous():
 
 def test_default_manager_lit_la_variable_d_environnement(monkeypatch):
     monkeypatch.setenv("FORGE_PLUGINS", "forge.plugins.demo.plugin")
-    assert default_manager().domain_names() == ("demo",)
+    assert default_manager().domain_names() == ("ansible", "demo")
 
 
-def test_default_manager_est_vide_sans_plugin_declare():
-    assert default_manager().domain_names() == ()
+def test_default_manager_enregistre_les_plugins_livres():
+    """Les domaines livres sont disponibles sans rien declarer."""
+    assert default_manager().domain_names() == ("ansible",)
 
 
 def test_le_plugin_demo_declare_ses_hooks(manager, spec):

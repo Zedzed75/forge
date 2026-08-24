@@ -1,0 +1,32 @@
+---
+# ---------------------------------------------------------------------------
+# .yamllint — règles de style YAML du projet
+# ---------------------------------------------------------------------------
+# Règles alignées sur celles qu'applique ansible-lint, afin que les deux outils
+# ne se contredisent jamais. Vérification : yamllint .
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+extends: default
+
+rules:
+  # Les fichiers générés restent lisibles bien au-delà de 80 colonnes.
+  line-length:
+    max: 160
+    level: warning
+  # Ansible n'accepte que true/false comme booléens canoniques.
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
+  # Un seul espace suffit entre le contenu et un commentaire de fin de ligne.
+  comments:
+    min-spaces-from-content: 1
+  # Les modes de fichiers doivent être écrits en chaîne ('0644'), jamais en octal.
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+ignore: |
+  .venv/

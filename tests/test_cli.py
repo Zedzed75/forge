@@ -60,10 +60,19 @@ def test_plugins_liste_les_domaines_enregistres(monkeypatch):
     assert "demo" in result.stdout
 
 
-def test_plugins_sans_plugin_le_dit_clairement():
+def test_plugins_sans_plugin_le_dit_clairement(monkeypatch):
+    """Branche atteignable seulement si aucun domaine n'est livre ni declare."""
+    monkeypatch.setattr("forge.plugins_api.manager.BUILTIN_PLUGINS", ())
     result = runner.invoke(app, ["plugins"])
     assert result.exit_code == 0
     assert "aucun domaine" in result.stdout
+
+
+def test_plugins_liste_les_domaines_livres():
+    """Le domaine Ansible est disponible sans rien declarer."""
+    result = runner.invoke(app, ["plugins"])
+    assert result.exit_code == 0
+    assert "ansible" in result.stdout
 
 
 def test_catalog_liste_les_elements(monkeypatch):

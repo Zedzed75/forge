@@ -10,6 +10,7 @@ Un outil absent produit un message d'installation, jamais une trace Python.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -151,6 +152,7 @@ def run_command(
         )
 
     started = time.monotonic()
+    supplement = dict(command.env)
     try:
         if status.location == tools.WSL:
             completed = wsl.run_in_wsl(
@@ -158,6 +160,7 @@ def run_command(
                 command.argv,
                 cwd,
                 timeout=command.timeout,
+                env=supplement,
                 stdin=stdin,
             )
         else:
@@ -167,6 +170,7 @@ def run_command(
                 capture_output=True,
                 text=True,
                 timeout=command.timeout,
+                env={**os.environ, **supplement} if supplement else None,
                 input=stdin,
                 errors="replace",
             )

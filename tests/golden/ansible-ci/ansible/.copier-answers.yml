@@ -1,0 +1,332 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « ansible ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only ansible
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    author: Equipe Plateforme
+    become: true
+    collection_users:
+        community.general:
+        - common
+    collections:
+    - community.general
+    default_env: prod
+    env_names:
+    - prod
+    environments:
+    -   domain: ''
+        group_vars:
+            gateways: []
+        groups:
+        -   description: Passerelles exposées
+            hosts:
+            -   ansible_host: 10.30.0.11
+                ansible_port: null
+                ansible_user: null
+                name: gw-prod-01
+                variables: []
+                vars: {}
+            name: gateways
+            role_names:
+            - common
+            - ssh_hardening
+            roles:
+            - &id001
+                author: Equipe Plateforme
+                collections:
+                - community.general
+                example_group: gateways
+                handlers:
+                - Redémarrer le service de synchronisation horaire
+                internal_vars:
+                -   description: paquet de synchronisation horaire résolu selon la
+                        famille d'OS
+                    name: common_ntp_package
+                -   description: service de synchronisation horaire résolu selon la
+                        famille d'OS
+                    name: common_ntp_service
+                name: common
+                options:
+                -   allowed: Identifiant de la base tz, par exemple 'Europe/Paris'
+                        ou 'UTC'.
+                    default: Europe/Paris
+                    description: Fuseau horaire appliqué à toutes les machines du
+                        groupe.
+                    name: timezone
+                    var_name: common_timezone
+                -   allowed: Liste de noms de paquets valides pour la famille d'OS
+                        ciblée.
+                    default:
+                    - ca-certificates
+                    - curl
+                    - htop
+                    - vim
+                    description: Paquets installés sur toutes les machines du groupe.
+                    name: packages
+                    var_name: common_packages
+                -   allowed: true ou false.
+                    default: true
+                    description: Active la configuration du fuseau horaire par le
+                        rôle.
+                    name: manage_timezone
+                    var_name: common_manage_timezone
+                -   allowed: true ou false.
+                    default: true
+                    description: Installe et active la synchronisation horaire (systemd-timesyncd).
+                    name: enable_ntp
+                    var_name: common_enable_ntp
+                -   allowed: true ou false.
+                    default: true
+                    description: Déploie un fichier /etc/motd décrivant le rôle de
+                        la machine.
+                    name: manage_motd
+                    var_name: common_manage_motd
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Socle système : paquets de base, fuseau horaire, synchronisation
+                    NTP, bannière MOTD.'
+                tags:
+                - common
+                - base
+            - &id002
+                author: Equipe Plateforme
+                collections: []
+                example_group: gateways
+                handlers:
+                - Redémarrer le service SSH
+                internal_vars:
+                -   description: répertoire des fichiers de configuration additionnels
+                        de sshd
+                    name: ssh_hardening_dropin_dir
+                -   description: nom du service SSH, résolu selon la famille d'OS
+                    name: ssh_hardening_service
+                name: ssh_hardening
+                options:
+                -   allowed: Entier de 1 à 65535.
+                    default: 22
+                    description: Port TCP sur lequel sshd écoute.
+                    name: port
+                    var_name: ssh_hardening_port
+                -   allowed: yes, no, prohibit-password ou forced-commands-only.
+                    default: prohibit-password
+                    description: Valeur de la directive PermitRootLogin.
+                    name: permit_root_login
+                    var_name: ssh_hardening_permit_root_login
+                -   allowed: true ou false.
+                    default: false
+                    description: Valeur de la directive PasswordAuthentication.
+                    name: password_authentication
+                    var_name: ssh_hardening_password_authentication
+                -   allowed: true ou false.
+                    default: true
+                    description: Valeur de la directive PubkeyAuthentication.
+                    name: pubkey_authentication
+                    var_name: ssh_hardening_pubkey_authentication
+                -   allowed: true ou false.
+                    default: false
+                    description: Valeur de la directive X11Forwarding.
+                    name: x11_forwarding
+                    var_name: ssh_hardening_x11_forwarding
+                -   allowed: Entier de 1 à 10.
+                    default: 3
+                    description: Valeur de la directive MaxAuthTries.
+                    name: max_auth_tries
+                    var_name: ssh_hardening_max_auth_tries
+                -   allowed: Liste de noms de groupes système.
+                    default: []
+                    description: Valeur de la directive AllowGroups ; vide désactive
+                        la directive.
+                    name: allow_groups
+                    var_name: ssh_hardening_allow_groups
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Durcissement OpenSSH : connexion root, authentification
+                    par mot de passe, limites.'
+                tags:
+                - ssh
+                - security
+                - hardening
+            variables: []
+        host_count: 1
+        hosts:
+        -   ansible_host: 10.30.0.11
+            ansible_port: null
+            ansible_user: null
+            name: gw-prod-01
+            variables: []
+            vars: {}
+        name: prod
+        production: true
+        vars_all: []
+        vault_secrets:
+        -   description: Exemple de secret. Remplacez-le par les vôtres, un par ligne,
+                chacun précédé d'un commentaire.
+            name: vault_example_secret
+            placeholder: CHANGEZ-MOI
+    groups:
+    -   description: Passerelles exposées
+        name: gateways
+        role_names:
+        - common
+        - ssh_hardening
+        roles:
+        - *id001
+        - *id002
+        variables: []
+    options:
+        use_vault: false
+        write_ci: true
+        write_lint_config: true
+    os_family: debian
+    python_interpreter: auto_silent
+    remote_user: deploy
+    role_overrides: []
+    role_slots:
+        common:
+        - *id001
+        docker: []
+        firewall: []
+        nginx: []
+        postgresql: []
+        ssh_hardening:
+        - *id002
+        users: []
+    roles:
+    - *id001
+    - *id002
+    ssh_port: 22
+    tree: 'passerelle/
+
+        ├── .github/
+
+        │   └── workflows/
+
+        │       └── ansible-lint.yml
+
+        ├── group_vars/
+
+        │   ├── all.yml
+
+        │   └── gateways.yml
+
+        ├── inventories/
+
+        │   └── prod/
+
+        │       ├── group_vars/
+
+        │       │   ├── all/
+
+        │       │   │   └── main.yml
+
+        │       │   └── gateways.yml
+
+        │       ├── host_vars/
+
+        │       │   └── gw-prod-01.yml
+
+        │       └── hosts.yml
+
+        ├── playbooks/
+
+        │   ├── gateways.yml
+
+        │   ├── ping.yml
+
+        │   └── site.yml
+
+        ├── roles/
+
+        │   ├── common/
+
+        │   │   ├── defaults/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── handlers/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── meta/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── tasks/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── templates/
+
+        │   │   │   └── motd.j2
+
+        │   │   ├── vars/
+
+        │   │   │   └── main.yml
+
+        │   │   └── README.md
+
+        │   └── ssh_hardening/
+
+        │       ├── defaults/
+
+        │       │   └── main.yml
+
+        │       ├── handlers/
+
+        │       │   └── main.yml
+
+        │       ├── meta/
+
+        │       │   └── main.yml
+
+        │       ├── tasks/
+
+        │       │   └── main.yml
+
+        │       ├── templates/
+
+        │       │   └── hardening.conf.j2
+
+        │       ├── vars/
+
+        │       │   └── main.yml
+
+        │       └── README.md
+
+        ├── .ansible-lint
+
+        ├── .gitignore
+
+        ├── .yamllint
+
+        ├── README.md
+
+        ├── ansible.cfg
+
+        ├── forge.yml
+
+        └── requirements.yml'
+forge_version: 1
+plugin: ansible
+service:
+    description: Passerelle applicative
+    environments:
+    -   domain: null
+        name: prod
+        production: true
+    labels: {}
+    name: passerelle
+    owner: Equipe Plateforme
+    owner_email: null
+template_subdir: src/forge/plugins/ansible/template
+

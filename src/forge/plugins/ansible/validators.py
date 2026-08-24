@@ -13,6 +13,7 @@ supporte pas Windows comme noeud de controle).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,28 @@ from forge.plugins_api.types import Command
 
 #: Delai maximal accorde a une commande, en secondes.
 TIMEOUT = 600
+
+#: Variable d'environnement designant les collections Galaxy installees.
+#: Sans elles, `--syntax-check` echoue sur les modules cites par les roles
+#: (`community.general.timezone`…) : ce n'est pas un defaut du projet genere,
+#: c'est un prerequis d'execution, que `requirements.yml` documente.
+COLLECTIONS_ENV_VAR = "FORGE_ANSIBLE_COLLECTIONS"
+
+#: Emplacement par defaut, repris de la convention du harnais legacy.
+COLLECTIONS_DEFAUT = "/opt/forge-collections"
+
+
+def environnement() -> tuple[tuple[str, str], ...]:
+    """Variables d'environnement passees aux deux outils.
+
+    La couleur est desactivee pour que le rapport reste lisible et comparable ;
+    le chemin des collections est transmis s'il est configure.
+    """
+    variables = {"ANSIBLE_FORCE_COLOR": "0"}
+    collections = os.environ.get(COLLECTIONS_ENV_VAR, COLLECTIONS_DEFAUT)
+    if collections:
+        variables["ANSIBLE_COLLECTIONS_PATH"] = collections
+    return tuple(sorted(variables.items()))
 
 #: Message d'installation commun aux deux outils.
 INSTALL_HINT = (
@@ -51,6 +74,7 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                 ),
                 cwd=outdir,
                 timeout=TIMEOUT,
+                env=environnement(),
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
@@ -62,6 +86,7 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
             argv=("--offline", "--nocolor"),
             cwd=outdir,
             timeout=TIMEOUT,
+            env=environnement(),
             install_hint=INSTALL_HINT,
             requires_linux=True,
         )

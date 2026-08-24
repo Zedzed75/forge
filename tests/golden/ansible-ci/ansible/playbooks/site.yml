@@ -1,0 +1,17 @@
+---
+# ---------------------------------------------------------------------------
+# playbooks/site.yml — point d'entrée du projet passerelle
+# ---------------------------------------------------------------------------
+# Applique la configuration de tous les groupes, dans l'ordre ci-dessous.
+# Exécution complète sur un environnement :
+#   ansible-playbook -i inventories/<env> playbooks/site.yml
+# Pour ne traiter qu'un seul groupe, exécutez directement son playbook,
+# par exemple playbooks/gateways.yml.
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Passerelles exposées
+- name: Configurer le groupe « gateways »
+  ansible.builtin.import_playbook: gateways.yml

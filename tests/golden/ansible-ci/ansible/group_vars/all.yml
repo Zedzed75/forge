@@ -1,0 +1,41 @@
+---
+# ---------------------------------------------------------------------------
+# group_vars/all.yml — variables communes à tout le projet
+# ---------------------------------------------------------------------------
+# Ces valeurs s'appliquent à toutes les machines de tous les environnements.
+# Elles constituent la couche de plus basse précédence après les valeurs par
+# défaut des rôles ; un fichier inventories/<env>/group_vars/ les surcharge.
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Connexion aux machines
+# ------------------------------------------------------------
+# Compte utilisé par Ansible pour se connecter en SSH.
+# Valeurs admises : un nom de compte POSIX existant sur les machines cibles.
+ansible_user: deploy
+
+# Port SSH des machines cibles.
+# Valeurs admises : entier de 1 à 65535.
+ansible_port: 22
+
+# Interpréteur Python utilisé sur les machines cibles.
+# Valeurs admises : « auto_silent », « auto » ou un chemin absolu.
+ansible_python_interpreter: auto_silent
+
+# Identité du projet
+# ------------------------------------------------------------
+# Nom du projet, repris dans la bannière MOTD et les fichiers de configuration.
+# Valeurs admises : chaîne libre.
+project_name: passerelle
+
+# Description du projet, reprise dans la bannière MOTD.
+# Valeurs admises : chaîne libre, éventuellement vide.
+project_description: Passerelle applicative
+
+# Réglages de rôles propres à ce projet
+# ------------------------------------------------------------
+# Aucune valeur par défaut de rôle n'est surchargée au niveau du projet.
+# Pour en surcharger une, copiez-la depuis roles/<rôle>/defaults/main.yml
+# en conservant son commentaire.

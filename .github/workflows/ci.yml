@@ -48,6 +48,17 @@ jobs:
           uv venv
           uv pip install -e ".[dev]"
 
+      # La CI fait autorite pour la validation Ansible : ansible-core ne
+      # supporte pas Windows comme noeud de controle, le poste de
+      # developpement passe donc par WSL (decision DESIGN.md §8 Q7).
+      - name: Installer les outils du domaine Ansible
+        run: |
+          uv pip install ansible-core ansible-lint
+          uv run ansible-galaxy collection install \
+            community.general ansible.posix community.postgresql \
+            -p "$HOME/.ansible/collections"
+          echo "FORGE_ANSIBLE_COLLECTIONS=$HOME/.ansible/collections" >> "$GITHUB_ENV"
+
       # `uv run` garantit que le pytest execute est celui de l'environnement
       # qu'on vient de creer, et non un pytest quelconque du PATH.
       - name: Verifier l'interpreteur

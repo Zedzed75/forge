@@ -1,0 +1,35 @@
+---
+# Ce cas couvre ce que l'instantané de parité ne peut pas couvrir : les six
+# spécifications legacy ont toutes `write_ci: false`, si bien que le workflow
+# d'intégration continue généré n'apparaît dans aucune d'elles. Il est ici le
+# seul artefact que ce cas ajoute par rapport aux autres, et c'est voulu :
+# volontairement petit, pour que la référence golden reste lisible.
+forge_version: 1
+
+service:
+  name: passerelle
+  description: "Passerelle applicative"
+  owner: "Equipe Plateforme"
+  environments:
+    - name: prod
+      production: true
+
+ansible:
+  os_family: debian
+  remote_user: deploy
+  ssh_port: 22
+  options:
+    use_vault: false
+    write_lint_config: true
+    write_ci: true
+  groups:
+    - name: gateways
+      description: "Passerelles exposées"
+      roles:
+        - common
+        - ssh_hardening
+  hosts:
+    prod:
+      gateways:
+        - name: gw-prod-01
+          ansible_host: 10.30.0.11

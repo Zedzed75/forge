@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import Any
 
 from forge.plugins.ansible import derive, tree
+from forge.plugins.ansible.names import ENV_NAME_RE
 from forge.plugins_api.types import Issue
 
 
@@ -119,4 +120,38 @@ def cross_check(spec: Any) -> list[Issue]:
                 domains=("ansible",),
             )
         )
+    issues.extend(_check_env_names(spec))
     return issues
+
+
+def _check_env_names(spec: Any) -> list[Issue]:
+    """Refuse les noms d'environnement qu'Ansible ne sait pas porter.
+
+    `service.environments[].name` est un **label DNS** : le coeur y accepte le
+    tiret, parce que Kubernetes en a besoin. Ansible, lui, emploie ce nom comme
+    nom de groupe d'inventaire, et ses noms de groupe interdisent le tiret. Un
+    environnement `pre-prod` passerait donc la validation du coeur et produirait
+    un projet Ansible invalide.
+
+    Le controle appartient au plugin, pas au coeur : c'est une regle d'Ansible,
+    et le coeur n'a pas a la connaitre.
+    """
+    fautifs = [
+        env.name
+        for env in spec.service.environments
+        if not ENV_NAME_RE.match(env.name)
+    ]
+    if not fautifs:
+        return []
+    return [
+        Issue(
+            level="error",
+            message=(
+                f"nom(s) d'environnement incompatible(s) avec Ansible : "
+                f"{', '.join(fautifs)}. Le nom sert de nom de groupe "
+                "d'inventaire, et Ansible y interdit le tiret."
+            ),
+            hint="Employez des soulignes : 'pre_prod' plutot que 'pre-prod'.",
+            domains=("ansible",),
+        )
+    ]

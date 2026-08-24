@@ -27,14 +27,14 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] Harnais de tests golden (`tests/specs/` -> `tests/golden/`, `pytest --regen-golden`).
   - [x] Tests unitaires : assemblage du spec, enregistrement des plugins.
   - [x] Bonus : controles inter-domaines, `forge diff`, pont WSL, CI GitHub du coeur.
-- [ ] **Phase 3 — Portage du plugin Ansible**
-  - [ ] `pipx install ansible-core ansible-lint` dans WSL Debian (decision Q7).
-  - [ ] Instantane de parite : generation legacy -> `tests/parity/ansible/`.
-  - [ ] Portage gabarits / sous-modele de spec / validateurs / tests selon MIGRATION.md.
-  - [ ] Catalogue de roles complet : common, users, ssh_hardening, firewall, nginx, docker,
-        postgresql (portage d'abord, puis roles manquants un par un).
-  - [ ] Spec golden + benediction des references une fois la parite atteinte.
-  - [ ] MIGRATION.md et PLAN.md mis a jour, commit.
+- [x] **Phase 3 — Portage du plugin Ansible** (2026-08-25)
+  - [x] ansible-core 2.21.3 + ansible-lint 26.8.0 dans WSL Debian (decision Q7),
+        sous `/opt/forge-venv`, avec les collections Galaxy sous `/opt/forge-collections`.
+  - [x] Instantane de parite : 319 fichiers, 6 cas -> `tests/parity/ansible/`.
+  - [x] Portage gabarits / sous-modele de spec / validateurs / tests selon MIGRATION.md.
+  - [x] Catalogue de roles complet : les 7 roles portes, donnees identiques au legacy.
+  - [x] Spec golden (`ansible-ci.yml`) couvrant `write_ci`, que la parite ne couvrait pas.
+  - [x] MIGRATION.md et PLAN.md mis a jour, commit.
 - [ ] **Phase 4 — Portage du plugin Helm**
   - [ ] Instantane de parite si l'outil legacy sait generer.
   - [ ] Portage gabarits (delimiteurs -> `[[ ]]`), sous-modele, validateurs, tests.
@@ -56,13 +56,20 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0, 1 et 2 terminees, **puis auditees et corrigees**. Le coeur
-est ecrit, teste et domaine-agnostique : **179 tests verts** sur un depot propre.
-Un seul test est ignore tant que le gabarit porte des modifications non
-committees (cf. `MIGRATION.md` §2.10) ; les autres tests de mise a jour
-fabriquent leur propre depot de gabarit temporaire et tournent toujours.
+**Etat** : phases 0 a 3 terminees. **213 tests verts** sur un depot propre.
 
-Ce que la phase 2 a livre :
+Le domaine Ansible est livre et enregistre (`BUILTIN_PLUGINS`) :
+`forge new`, `forge generate`, `forge validate` et `forge catalog ansible`
+fonctionnent de bout en bout sur un vrai projet Ansible.
+
+**Parite avec le generateur d'origine : 313 fichiers identiques octet pour
+octet** sur les 6 cas de l'instantane, aux 12 ecarts documentes pres
+(`MIGRATION.md` §7). Et au-dela de la parite : le projet genere passe
+`ansible-playbook --syntax-check` sur chaque environnement **et** `ansible-lint`
+en profil `production` — ce que la suite legacy n'avait jamais verifie, son
+unique test ignore portant precisement la-dessus.
+
+Ce que la phase 2 avait livre :
 - `copier.yml` racine unique, delimiteurs `[[ ]]`, cinq questions declarees.
 - `src/forge/` : `spec/` (io, service, types, names, assembly), `plugins_api/`
   (hookspecs, manager, types), `render/` (copier_runner, scaffold, diff),
@@ -101,24 +108,38 @@ Ecarts assumes par rapport a `DESIGN.md` §9 (arborescence prevue) :
 - ajout de `pipeline.py` (enchainement des operations) pour que `cli.py` ne
   porte aucune logique ; ajout de `interview/service_flow.py`,
   `render/scaffold.py` et `render/diff.py` (SRP, limite de 600 lignes).
-- `BUILTIN_PLUGINS` est vide : l'enregistrement en dur des plugins reels se fait
-  en phases 3 et 4, une ligne par domaine, sans autre modification du coeur.
+- `BUILTIN_PLUGINS` contient `forge.plugins.ansible.plugin` depuis la phase 3.
+  Ajouter Helm en phase 4 = une ligne de plus, aucune autre modification du coeur :
+  c'est la promesse de DESIGN.md §2.4, tenue.
 
-**Prochaine action** : demarrer la **phase 3 — portage du plugin Ansible** dans
-une session neuve. Points d'entree : `MIGRATION.md` §3 (classement par artefact),
-§2 (contraintes copier) et §5 (fusions deja faites, a ne pas refaire) ;
-`DESIGN.md` §5.3 (arbitrage `yield` vs `[% if %]` sur les roles).
+**Prochaine action** : demarrer la **phase 4 — portage du plugin Helm** dans une
+session neuve. Points d'entree : `MIGRATION.md` §4 (classement par artefact) et
+§7 (etat du portage Ansible, dont les ecarts a ne pas reproduire) ; `DESIGN.md`
+§3 (section `helm:`) et §8 Q6.
 
-Rappels pour la phase 3 :
-- `pipx install ansible-core ansible-lint` dans WSL Debian est le tout premier
-  point (decision Q7) ; sans cela, seule la CI valide.
-- Le tag `v0.1.0` marque la fin de la phase 2 (decision Q8 : un tag par phase,
-  pour offrir des points d'update stables). Poser `v0.2.0` a la fin de la phase 3.
-- Les gabarits Ansible s'ecrivent en `[[ ]]` ; `{{ }}` y designe **toujours** du
-  Jinja destine a Ansible, ecrit litteralement (plus de `j()`/`jstr()`, plus de
-  `{% raw %}`).
-- Le filtre `comment` a change de signature (cf. `MIGRATION.md` §5) : passer la
-  largeur en argument nomme.
+Ce que la phase 3 a etabli et qui sert directement a la phase 4 :
+- **Le patron de portage d'un gabarit** : conversion mecanique des delimiteurs,
+  puis renommage des variables de contexte fichier par fichier, puis boucle sur
+  l'instantane de parite jusqu'a zero ecart. Les gabarits Helm sont **deja** en
+  `[[ ]]` : la premiere etape est sans objet, ce sera plus court.
+- **`partials/header.jinja` a la racine du depot** : macro d'en-tete partagee,
+  importable par tout plugin, jamais emise dans la sortie.
+- **`domain.role_slots`-like** : un dict `{cle: [item] ou []}` permet a un
+  gabarit propre a un composant d'exister sans `[% if %]` dans le chemin.
+- **`Command.env`** : les outils Helm auront besoin de `HELM_*` de la meme facon
+  qu'Ansible a besoin de `ANSIBLE_COLLECTIONS_PATH`.
+
+Rappels pour la phase 4 :
+- Poser le tag `v0.3.0` a la fin de la phase 4 (`v0.2.0` marque la phase 3).
+- helm 4.2.4 et kubeconform 0.8.0 sont dans WSL **sous le compte `zedzed`**
+  (`/home/zedzed/.local/bin`), pas sous `root` : le pont WSL emploie `root` par
+  defaut, il faudra soit `FORGE_WSL_USER=zedzed`, soit `FORGE_WSL_PATH` etendu,
+  soit reinstaller ces outils dans `/opt`.
+- La **revue d'interface du contrat de plugin** est prevue en fin de phase 4,
+  avec validation humaine. Trois points sont deja au dossier : `Command.env`
+  (ajoute en phase 3), l'absence de controle croise spec-niveau dans le hookspec
+  (le plugin Ansible passe par `forge_consistency`, appele seulement a la
+  validation), et la duplication de l'arborescence attendue (`tree.py`).
 - Environnement : `.venv` du depot, `uv pip install --python .venv/... -e ".[dev]"`.
   `uv` est installe via `python -m pip install uv` (pas de binaire `uv` sur le PATH).
 - Les domaines factices de `tests/domaines_factices/` permettent d'eprouver tout
@@ -135,3 +156,5 @@ Rappels pour la phase 3 :
 - Session 2 (2026-08-23) : phase 2 (coeur complet, plugin `demo`, tests golden, CI),
   puis revue adversariale du coeur : 25 defauts confirmes et corriges, suite de
   tests portee de 129 a 179 cas.
+- Session 3 (2026-08-25) : phase 3 (plugin Ansible porte a parite integrale,
+  50 gabarits convertis, 7 roles, validateurs reels qui passent). 213 tests.

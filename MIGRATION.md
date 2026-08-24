@@ -264,6 +264,31 @@ supprimés (décision Q1). Un plugin ajoute ses propres filtres via un module
 | 8 | `project_name` legacy acceptait le souligné (`^[a-z][a-z0-9_-]{1,62}$`) ; `service.name` est un **label DNS** (pas de souligné) | ansible | le nom du service est partagé par tous les domaines, et Kubernetes impose le label DNS. Aucune des 6 spécifications de l'instantané n'est concernée. |
 | 9 | L'option `embed_spec` disparaît : le domaine ne génère plus `forge.yml` | ansible | la spécification unifiée est écrite par le cœur à la racine de la cible (écart 3). |
 | 10 | Le cœur ne « nettoie » plus la sortie : plus de `rstrip` par ligne ni de suppression des lignes vides de tête | les deux | ces transformations ne sont pas neutres (§5, encadré). **Conséquence directe pour le portage** : un gabarit qui laissait des blancs comptait sur le nettoyage du moteur legacy ; il doit désormais produire une sortie propre par lui-même, sinon la parité échoue sur ce fichier. |
+| 11 | `.copier-answers.yml` est ajouté à `exclude_paths` du `.ansible-lint` généré | ansible | ce fichier n'existait pas dans le legacy ; sa mise en forme est celle de copier et il faisait échouer `ansible-lint` sur **255 violations** de style YAML, alors que le projet Ansible lui-même est propre. Sans cette exclusion, la règle dure « le projet généré passe ses validateurs » était intenable. |
+| 12 | Le `README.md` généré annonce toujours `ansible/forge.yml`, qui n'est plus produit (écart 9) | ansible | l'arborescence ASCII du README est figée sur celle du legacy pour rester identique octet pour octet. Le README porte encore d'autres mentions legacy (`ansible-forge generate`) : **à corriger d'un bloc**, en même temps, plutôt qu'au coup par coup. |
+
+### État du portage Ansible (phase 3, 2026-08-25)
+
+**Parité atteinte : 313 fichiers identiques octet pour octet** sur les six cas de
+`tests/parity/ansible/`, aux douze écarts ci-dessus près. Le portage est donc
+fidèle, et `_legacy/ansible-forge` n'a plus à être relu.
+
+Ce que la parité ne couvrait pas, et qui est couvert autrement :
+
+- **`write_ci: true`** n'apparaît dans aucune spécification legacy : le workflow
+  d'intégration continue généré n'existait dans aucun instantané. Il est
+  désormais couvert par la spécification golden `tests/specs/ansible-ci.yml`.
+- **Les validateurs n'avaient jamais tourné** : la suite legacy annonçait
+  « 288 tests verts (1 skip : ansible-lint absent) » — le skip portait
+  précisément sur la règle dure de CLAUDE.md. Le projet généré passe maintenant
+  `ansible-playbook --syntax-check` sur chaque environnement **et** `ansible-lint`
+  en profil `production`, vérifié par un test d'intégration.
+
+Extension du contrat de plugin découverte à l'usage : `Command` porte désormais
+un champ `env`. `ANSIBLE_COLLECTIONS_PATH` ne se transmet que par
+l'environnement, et sans lui `--syntax-check` échoue sur des modules que
+`requirements.yml` déclare pourtant. À reprendre à la revue d'interface de la
+phase 4 : `DESIGN.md` §2.1 décrivait `Command` sans ce champ.
 
 *(À compléter au fil des phases 3 et 4 : toute différence volontaire avec
 l'instantané de parité s'inscrit dans ce tableau.)*

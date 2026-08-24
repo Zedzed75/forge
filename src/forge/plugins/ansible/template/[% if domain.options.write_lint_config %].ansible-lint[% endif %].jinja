@@ -13,6 +13,9 @@ profile: production
 exclude_paths:
   - .venv/
   - .github/
+  # Fichier de réponses de copier : c'est la plomberie de la génération, pas du
+  # code Ansible. Sa mise en forme est celle de copier, pas celle du projet.
+  - .copier-answers.yml
 
 # Les règles par défaut suffisent : aucune n'est désactivée dans ce projet.
 skip_list: []
