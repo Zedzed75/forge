@@ -1,0 +1,95 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Spécification du projet Ansible
+# ---------------------------------------------------------------------------
+# Ce fichier décrit entièrement le projet à générer. Il est rejouable :
+#   ansible-forge generate --spec forge.yml
+# produit exactement la même arborescence, octet pour octet.
+#
+# Éditez-le à la main puis relancez la génération ; ne modifiez pas
+# 'spec_version' manuellement.
+# ---------------------------------------------------------------------------
+spec_version: 1
+project_name: web-stack
+description: Frontaux web avec comptes de déploiement et nginx en HTTPS
+author: Equipe Infrastructure
+os_family: debian
+remote_user: deploy
+become: true
+ssh_port: 22
+python_interpreter: auto_silent
+environments:
+  - name: prod
+    hosts:
+      webservers:
+        - name: web-prod-01
+          ansible_host: 10.30.0.11
+          ansible_port: null
+          ansible_user: null
+          vars: {}
+        - name: web-prod-02
+          ansible_host: 10.30.0.12
+          ansible_port: null
+          ansible_user: null
+          vars: {}
+    group_vars: {}
+groups:
+  - name: webservers
+    description: Serveurs web frontaux
+    roles:
+      - common
+      - users
+      - nginx
+    vars: {}
+roles:
+  - name: common
+    options:
+      timezone: Europe/Paris
+      packages:
+        - ca-certificates
+        - curl
+        - htop
+        - vim
+      manage_timezone: true
+      enable_ntp: true
+      manage_motd: true
+  - name: users
+    options:
+      accounts:
+        - name: deploy
+          groups:
+            - adm
+          sudo: true
+          shell: /bin/bash
+          ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExempleDeCleFactice deploy@forge
+          state: present
+        - name: appuser
+          groups: []
+          sudo: false
+          shell: /usr/sbin/nologin
+          ssh_public_key: ''
+          state: present
+        - name: ancien
+          groups: []
+          sudo: false
+          shell: /bin/bash
+          ssh_public_key: ''
+          state: absent
+      manage_sudoers: true
+      remove_absent_home: false
+  - name: nginx
+    options:
+      server_name: www.exemple.test
+      document_root: /var/www/exemple
+      listen_port: 80
+      enable_https: true
+      ssl_certificate: /etc/ssl/certs/ssl-cert-snakeoil.pem
+      ssl_certificate_key: /etc/ssl/private/ssl-cert-snakeoil.key
+      remove_default_site: true
+      worker_processes: auto
+      client_max_body_size: 20m
+options:
+  use_vault: true
+  write_lint_config: true
+  embed_spec: true
+  write_ci: false

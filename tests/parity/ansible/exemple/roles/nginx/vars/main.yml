@@ -1,0 +1,34 @@
+---
+# ---------------------------------------------------------------------------
+# roles/nginx/vars/main.yml — variables internes du rôle nginx
+# ---------------------------------------------------------------------------
+# Différences entre familles de systèmes : compte de service et
+# emplacement du site par défaut de la distribution.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Compte système sous lequel tournent les workers nginx, selon la famille d'OS.
+# Valeurs admises : dictionnaire indexé par ansible_facts['os_family'].
+nginx_user_map:
+  Debian: www-data
+  RedHat: nginx
+
+# Chemin du site par défaut livré par la distribution ; vide si absent.
+# Valeurs admises : dictionnaire indexé par ansible_facts['os_family'].
+nginx_default_site_map:
+  Debian: /etc/nginx/sites-enabled/default
+  RedHat: ''
+
+# Répertoire de configuration de nginx.
+# Valeurs admises : identique sur toutes les distributions supportées.
+nginx_config_dir: /etc/nginx
+
+# Compte de service résolu pour la machine courante.
+# Valeurs admises : calculée automatiquement à partir des faits ; ne pas surcharger.
+nginx_user: "{{ nginx_user_map[ansible_facts['os_family']] }}"
+
+# Chemin du site par défaut résolu pour la machine courante.
+# Valeurs admises : calculée automatiquement à partir des faits ; ne pas surcharger.
+nginx_default_site_path: "{{ nginx_default_site_map[ansible_facts['os_family']] }}"

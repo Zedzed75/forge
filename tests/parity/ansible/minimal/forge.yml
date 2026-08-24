@@ -1,0 +1,53 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Spécification du projet Ansible
+# ---------------------------------------------------------------------------
+# Ce fichier décrit entièrement le projet à générer. Il est rejouable :
+#   ansible-forge generate --spec forge.yml
+# produit exactement la même arborescence, octet pour octet.
+#
+# Éditez-le à la main puis relancez la génération ; ne modifiez pas
+# 'spec_version' manuellement.
+# ---------------------------------------------------------------------------
+spec_version: 1
+project_name: minimal-infra
+description: Projet minimal à un seul groupe et un seul environnement
+author: Equipe Infra
+os_family: debian
+remote_user: ansible
+become: true
+ssh_port: 22
+python_interpreter: auto_silent
+environments:
+  - name: dev
+    hosts:
+      webservers:
+        - name: web-dev-01
+          ansible_host: 192.168.56.11
+          ansible_port: null
+          ansible_user: null
+          vars: {}
+    group_vars: {}
+groups:
+  - name: webservers
+    description: Serveurs web frontaux
+    roles:
+      - common
+    vars: {}
+roles:
+  - name: common
+    options:
+      timezone: Europe/Paris
+      packages:
+        - ca-certificates
+        - curl
+        - htop
+        - vim
+      manage_timezone: true
+      enable_ntp: true
+      manage_motd: true
+options:
+  use_vault: true
+  write_lint_config: true
+  embed_spec: true
+  write_ci: false

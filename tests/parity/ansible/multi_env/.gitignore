@@ -1,0 +1,18 @@
+# ---------------------------------------------------------------------------
+# .gitignore — fichiers à ne jamais versionner
+# ---------------------------------------------------------------------------
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Mot de passe du vault : ne doit jamais entrer dans l'historique Git.
+.vault_pass
+*.vault_pass
+
+# Fichiers de reprise générés par ansible en cas d'échec.
+*.retry
+
+# Artefacts locaux.
+.venv/
+__pycache__/
+*.log

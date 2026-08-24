@@ -1,0 +1,16 @@
+---
+# ---------------------------------------------------------------------------
+# roles/firewall/handlers/main.yml — handlers du rôle firewall
+# ---------------------------------------------------------------------------
+# Un seul handler couvre les deux implémentations : ufw comme firewalld
+# exposent une action « reload » via leur unité systemd.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Recharger le pare-feu
+  ansible.builtin.service:
+    name: "{{ firewall_effective_backend }}"
+    state: reloaded
+  when: firewall_enabled | bool

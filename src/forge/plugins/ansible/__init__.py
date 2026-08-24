@@ -1,0 +1,1 @@
+"""Plugin de domaine Ansible."""

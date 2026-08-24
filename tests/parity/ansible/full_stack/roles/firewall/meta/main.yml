@@ -1,0 +1,31 @@
+---
+# ---------------------------------------------------------------------------
+# roles/firewall/meta/main.yml — métadonnées du rôle
+# ---------------------------------------------------------------------------
+# Décrit le rôle pour Ansible Galaxy et déclare ses dépendances.
+# Une liste dependencies vide signifie que le rôle est autonome :
+# c'est le playbook qui décide de l'ordre d'application des rôles.
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+galaxy_info:
+  role_name: firewall
+  author: Equipe Plateforme
+  description: 'Pare-feu local : ufw (Debian) ou firewalld (RedHat), politique par défaut et ports ouverts.'
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - firewall
+    - security
+
+# Aucune dépendance : l'ordre d'application est défini dans les playbooks.
+dependencies: []

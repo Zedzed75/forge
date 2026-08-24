@@ -1,0 +1,17 @@
+---
+# ---------------------------------------------------------------------------
+# inventories/staging/group_vars/webservers.yml — variables du groupe « webservers » en « staging »
+# ---------------------------------------------------------------------------
+# Couche de précédence la plus élevée avant les variables de machine :
+# elle ne concerne que le groupe « webservers » dans l'environnement « staging ».
+#
+# Fichier généré par ansible-forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Surcharges du groupe pour cet environnement
+# ------------------------------------------------------------
+# Aucune surcharge définie pour ce groupe dans cet environnement.
+# Les valeurs effectives viennent, par précédence croissante, de
+# roles/<rôle>/defaults/main.yml, group_vars/all.yml, group_vars/webservers.yml
+# puis inventories/staging/group_vars/all.yml.
