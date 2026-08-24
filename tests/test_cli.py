@@ -38,8 +38,8 @@ ENTRETIEN = [
 ]
 
 
-def _invoke(args: list[str], monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("FORGE_PLUGINS", DEMO_PLUGIN)
+def _invoke(args: list[str], monkeypatch: pytest.MonkeyPatch, plugins: str = DEMO_PLUGIN):
+    monkeypatch.setenv("FORGE_PLUGINS", plugins)
     return runner.invoke(app, args)
 
 

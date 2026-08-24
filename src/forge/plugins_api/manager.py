@@ -8,7 +8,9 @@ forge a besoin d'adresser *un* domaine a la fois. Cette facade encapsule donc
 from __future__ import annotations
 
 import importlib
+import keyword
 import os
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -31,6 +33,43 @@ BUILTIN_PLUGINS: tuple[str, ...] = ()
 #: Variable d'environnement listant des modules de plugin supplementaires,
 #: separes par des virgules. Sert aux tests (plugin `demo`) et aux essais locaux.
 PLUGINS_ENV_VAR = "FORGE_PLUGINS"
+
+#: Un nom de domaine devient a la fois une cle de section dans forge.yml et un
+#: **champ du modele pydantic assemble**. Il doit donc etre un identifiant Python
+#: minuscule ne commencant pas par un souligne : pydantic transformerait sinon la
+#: section en attribut prive, et elle disparaitrait du modele sans erreur.
+DOMAIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def reserved_domain_names() -> frozenset[str]:
+    """Noms qu'un domaine ne peut pas porter sans ecraser une partie du coeur.
+
+    Calcule a l'execution a partir de `ForgeSpecBase` : la liste ne peut pas se
+    desynchroniser quand un champ ou une methode y est ajoute. Sans ce garde-fou,
+    un plugin nomme `service` remplacerait purement et simplement le bloc partage
+    dans le modele assemble, et l'erreur ne se verrait que bien plus loin.
+    """
+    from forge.spec.assembly import ForgeSpecBase
+
+    return frozenset(
+        set(ForgeSpecBase.model_fields)
+        | {name for name in dir(ForgeSpecBase) if not name.startswith("__")}
+    )
+
+
+def check_domain_name(name: str) -> None:
+    """Valide un nom de domaine, ou leve `PluginError` avec la raison exacte."""
+    if not DOMAIN_NAME_RE.match(name) or keyword.iskeyword(name):
+        raise PluginError(
+            f"nom de domaine invalide : '{name}' — attendu un identifiant Python en "
+            "minuscules commencant par une lettre (a-z, 0-9, _), qui ne soit pas un "
+            "mot-cle du langage"
+        )
+    if name in reserved_domain_names():
+        raise PluginError(
+            f"nom de domaine reserve : '{name}' entre en conflit avec un champ ou une "
+            "methode du modele racine ; choisissez un autre nom de domaine"
+        )
 
 
 class DomainHooks:
@@ -103,7 +142,14 @@ class ForgeManager:
 
     def register(self, plugin: object, name: str | None = None) -> DomainInfo:
         """Enregistre un plugin et retourne l'identite du domaine qu'il declare."""
-        self._pm.register(plugin, name=name)
+        try:
+            self._pm.register(plugin, name=name)
+        except ValueError as exc:
+            # pluggy refuse un plugin deja enregistre, sous le meme nom ou sous un
+            # autre : les deux cas arrivent avec un module liste deux fois.
+            raise PluginError(
+                f"plugin deja enregistre : {name or plugin!r} ({exc})"
+            ) from exc
         caller = self.hook_caller("forge_domain", plugin)
         results = [r for r in caller() if r is not None]
         if not results:
@@ -118,14 +164,11 @@ class ForgeManager:
             raise PluginError(
                 f"forge_domain() doit retourner un DomainInfo, pas {type(info).__name__}"
             )
-        if not info.name.isidentifier() or info.name != info.name.lower():
-            # Le nom devient un champ du modele pydantic assemble : il doit etre
-            # un identifiant Python minuscule (pas de tiret, pas d'espace).
+        try:
+            check_domain_name(info.name)
+        except PluginError:
             self._pm.unregister(plugin)
-            raise PluginError(
-                f"nom de domaine invalide : '{info.name}' — attendu un identifiant "
-                "Python en minuscules (a-z, 0-9, _)"
-            )
+            raise
         if info.name in self._domains:
             self._pm.unregister(plugin)
             raise PluginError(f"deux plugins declarent le domaine '{info.name}'")
@@ -136,8 +179,13 @@ class ForgeManager:
         """Importe `dotted_path` et enregistre le module comme plugin."""
         try:
             module = importlib.import_module(dotted_path)
-        except ImportError as exc:  # pragma: no cover - depend de l'environnement
-            raise PluginError(f"plugin introuvable : {dotted_path} ({exc})") from exc
+        except Exception as exc:
+            # Import impossible, mais aussi SyntaxError ou erreur levee au chargement
+            # du module : le type d'origine est conserve, il porte le diagnostic.
+            raise PluginError(
+                f"plugin inutilisable : {dotted_path} "
+                f"({type(exc).__name__} : {exc})"
+            ) from exc
         return self.register(module, name=dotted_path)
 
     # -- consultation ------------------------------------------------------

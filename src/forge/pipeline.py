@@ -13,11 +13,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from forge.errors import SpecFileError
+from forge.errors import SpecFileError, SpecValidationError
 from forge.plugins_api.manager import DomainHooks, ForgeManager
 from forge.plugins_api.types import DomainInfo, Issue, Projection
 from forge.render import copier_runner, scaffold
-from forge.render.diff import DomainDiff, diff_trees
+from forge.render.diff import DomainDiff, count_changed_lines, diff_trees
 from forge.spec.assembly import ForgeSpecBase, resolve_domains, validate_spec
 from forge.spec.io import SPEC_FILENAME, load_spec_data
 from forge.validate.consistency import compare_projections
@@ -107,6 +107,16 @@ def domain_data(spec: ForgeSpecBase, hooks: DomainHooks) -> dict[str, Any]:
     )
 
 
+def indexed_domains(spec: ForgeSpecBase, manager: ForgeManager) -> list[DomainInfo]:
+    """Domaines que la specification demande, quel que soit le filtre `--only`.
+
+    C'est cette liste — et non celle des domaines effectivement rendus — qui
+    alimente l'index de niveau depot : un `--only ansible` ne doit pas faire
+    disparaitre `helm/` du README d'un projet ou la section `helm:` existe.
+    """
+    return [manager.domain(name).info for name in spec.domain_names()]
+
+
 def generate(
     spec_data: dict[str, Any],
     spec: ForgeSpecBase,
@@ -117,16 +127,16 @@ def generate(
     ref: str = copier_runner.DEFAULT_REF,
     force: bool = False,
     dry_run: bool = False,
+    spec_path: Path | None = None,
 ) -> GenerationResult:
     """Rend tous les domaines demandes sous `target/<outdir>`."""
     target = Path(target)
     names = resolve_domains(spec, manager, only)
-    infos: list[DomainInfo] = [manager.domain(name).info for name in names]
     result = GenerationResult(target=target, domains=names, dry_run=dry_run)
     if dry_run:
         return result
 
-    result.repo_files = scaffold.write_repo_files(target, spec_data, infos)
+    copier_runner.ensure_directory(target, "repertoire cible")
     src = copier_runner.template_root()
     for name in names:
         hooks = manager.domain(name)
@@ -138,6 +148,15 @@ def generate(
             force=force,
             plugin_jinja=plugin_jinja_module(hooks),
         )
+    # Les fichiers de niveau depot sont ecrits en dernier : un echec de rendu ne
+    # doit pas laisser derriere lui l'index d'un projet qui n'existe pas.
+    result.repo_files = scaffold.write_repo_files(
+        target,
+        spec_data,
+        indexed_domains(spec, manager),
+        force=force,
+        spec_path=spec_path,
+    )
     return result
 
 
@@ -149,15 +168,33 @@ def update(
     ref: str = copier_runner.DEFAULT_REF,
     conflict: str = "inline",
 ) -> list[str]:
-    """Rejoue `copier update` sur chaque domaine deja genere sous `target`."""
+    """Rejoue `copier update` sur chaque domaine deja genere sous `target`.
+
+    `update` ne lit pas de `forge.yml` : le filtre `--only` est donc valide
+    contre les domaines **enregistres**, pas contre une specification. Un nom
+    inconnu doit echouer ici, sinon une faute de frappe dans un script de CI
+    produirait « aucun domaine mis a jour » et un code de retour 0.
+    """
     target = Path(target)
     updated: list[str] = []
+    if only is not None:
+        unknown = [name for name in only if name not in manager.domain_names()]
+        if unknown:
+            known = ", ".join(manager.domain_names()) or "aucun"
+            raise SpecValidationError(
+                f"domaine(s) inconnu(s) : {', '.join(unknown)} (enregistres : {known})"
+            )
     src = copier_runner.template_root()
     for info in manager.domains():
         if only is not None and info.name not in only:
             continue
         outdir = target / info.outdir
         if not (outdir / copier_runner.ANSWERS_FILENAME).is_file():
+            if only is not None:
+                # Domaine nomme explicitement mais jamais genere : le silence
+                # ferait passer une CI au vert sans rien mettre a jour. Le
+                # message est celui, deja formule, de `run_update`.
+                copier_runner.run_update(dst=outdir, src=src, ref=ref, conflict=conflict)
             continue
         copier_runner.run_update(
             dst=outdir,
@@ -170,19 +207,71 @@ def update(
     return updated
 
 
+#: Nom donne, dans un rapport de comparaison, aux fichiers de niveau depot.
+ROOT_LABEL = "(racine)"
+
+
+def diff_repo_files(
+    spec_data: dict[str, Any],
+    spec: ForgeSpecBase,
+    manager: ForgeManager,
+    target: Path,
+    *,
+    spec_path: Path | None = None,
+) -> DomainDiff:
+    """Compare les fichiers de niveau depot a ce que forge produirait.
+
+    Ils ne passent pas par copier (cf. `render/scaffold`) : sans cette
+    comparaison, `forge diff` annoncerait « a jour » sur des fichiers qu'il
+    n'aurait jamais regardes.
+    """
+    wanted = scaffold.repo_files_content(spec_data, indexed_domains(spec, manager))
+    if spec_path is not None:
+        try:
+            if Path(spec_path).resolve() == (target / SPEC_FILENAME).resolve():
+                # Source de verite editee a la main : sa mise en forme n'a pas a
+                # correspondre a une reserialisation.
+                wanted.pop(SPEC_FILENAME, None)
+        except OSError:  # pragma: no cover - chemin invalide sur ce poste
+            pass
+
+    result = DomainDiff(domain=ROOT_LABEL)
+    for name in sorted(wanted):
+        path = target / name
+        if not path.is_file():
+            result.added.append(name)
+            continue
+        try:
+            current = path.read_bytes().decode("utf-8")
+        except (UnicodeDecodeError, OSError):
+            result.modified.append((name, -1))
+            continue
+        if current != wanted[name]:
+            result.modified.append(
+                (name, count_changed_lines(current, wanted[name]))
+            )
+    return result
+
+
 def diff(
+    spec_data: dict[str, Any],
     spec: ForgeSpecBase,
     manager: ForgeManager,
     target: Path,
     *,
     only: list[str] | None = None,
     ref: str = copier_runner.DEFAULT_REF,
+    spec_path: Path | None = None,
 ) -> list[DomainDiff]:
     """Compare la cible a un rendu neuf, domaine par domaine (resume seul)."""
     target = Path(target)
     names = resolve_domains(spec, manager, only)
     src = copier_runner.template_root()
     diffs: list[DomainDiff] = []
+    if only is None:
+        diffs.append(
+            diff_repo_files(spec_data, spec, manager, target, spec_path=spec_path)
+        )
     for name in names:
         hooks = manager.domain(name)
         with tempfile.TemporaryDirectory(prefix="forge-diff-") as tmp:

@@ -7,7 +7,6 @@ mecanismes reels (yield imbriques, filtres de plugin, filtrage de fichier).
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 from pathlib import Path
@@ -115,8 +114,13 @@ def load_case(path: Path, manager: ForgeManager) -> tuple[dict[str, Any], Any]:
 
 
 def stable_text(path: Path) -> str:
-    """Contenu d'un fichier genere, debarrasse de ce qui varie par machine."""
-    text = path.read_text(encoding="utf-8")
+    """Contenu d'un fichier genere, debarrasse de ce qui varie par machine.
+
+    Lecture en **octets** : `read_text` traduit les CRLF en LF a la lecture, ce
+    qui rendrait la comparaison golden aveugle a une regression de fins de ligne
+    — precisement ce que la normalisation est censee garantir.
+    """
+    text = path.read_bytes().decode("utf-8")
     if path.name == ".copier-answers.yml":
         for pattern, replacement in _VOLATILE_ANSWERS:
             text = pattern.sub(replacement, text)
@@ -189,4 +193,6 @@ def _clean_forge_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Isole chaque test des variables d'environnement de la session."""
     for name in ("FORGE_PLUGINS", "FORGE_TEMPLATE_SRC", "FORGE_PLUGIN_JINJA"):
         monkeypatch.delenv(name, raising=False)
-    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    # `monkeypatch` restaure la valeur d'origine en fin de test : aucune fuite
+    # d'etat d'un test vers le suivant, contrairement a un os.environ direct.
+    monkeypatch.setenv("PYTHONIOENCODING", "utf-8")

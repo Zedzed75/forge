@@ -16,11 +16,11 @@ from typing import Optional
 import typer
 
 from forge import __version__
-from forge.errors import ForgeError
+from forge.errors import ForgeError, SpecValidationError
 from forge.interview.prompter import Prompter, QuestionaryPrompter
 from forge.interview.service_flow import ask_domains, ask_service
 from forge.plugins_api.manager import ForgeManager, default_manager
-from forge.render.copier_runner import DEFAULT_REF
+from forge.render.copier_runner import DEFAULT_REF, ensure_directory
 from forge.spec.assembly import FORGE_VERSION, validate_spec
 from forge.spec.io import SPEC_FILENAME, save_spec
 from forge.validate.consistency import format_issues
@@ -76,6 +76,17 @@ def run_new(
     dry_run: bool = False,
 ) -> pipeline.GenerationResult:
     """Conduit l'entretien complet puis genere ; testable sans terminal."""
+    if only is not None:
+        unknown = [name for name in only if name not in manager.domain_names()]
+        if unknown:
+            known = ", ".join(manager.domain_names()) or "aucun"
+            raise SpecValidationError(
+                f"domaine(s) inconnu(s) : {', '.join(unknown)} (enregistres : {known})"
+            )
+    # La cible est verifiee avant l'entretien : apprendre qu'elle est invalide
+    # apres avoir repondu a une dizaine de questions serait inacceptable.
+    ensure_directory(Path(target), "repertoire cible")
+
     service = ask_service(prompter)
     available = [
         (info.name, f"{info.title} — {info.summary}")
@@ -95,7 +106,13 @@ def run_new(
     if spec_out is not None:
         save_spec(data, Path(spec_out), sections=list(spec.domain_names()))
     return pipeline.generate(
-        data, spec, manager, target, force=force, dry_run=dry_run
+        data,
+        spec,
+        manager,
+        target,
+        force=force,
+        dry_run=dry_run,
+        spec_path=Path(spec_out) if spec_out is not None else None,
     )
 
 
@@ -159,6 +176,7 @@ def cmd_generate(
             ref=ref,
             force=force,
             dry_run=dry_run,
+            spec_path=spec_path,
         )
     except ForgeError as exc:
         _fail(str(exc))
@@ -197,7 +215,15 @@ def cmd_validate(
         for check in report.checks:
             typer.echo(f"  {check.line()}")
             if check.detail:
-                typer.echo(f"    {check.detail.splitlines()[0]}")
+                # `detail` est deja borne par OUTPUT_LINES : le retronquer ici
+                # effacerait justement la ligne qui explique l'echec.
+                for line in check.detail.splitlines():
+                    typer.echo(f"    {line}")
+        if report.all_skipped:
+            typer.echo(
+                f"  ATTENTION : aucune verification n'a tourne pour {report.domain} ; "
+                "ce domaine n'est pas valide, il n'a pas ete verifie."
+            )
     typer.echo(format_issues(result.issues))
     if not result.ok:
         raise typer.Exit(code=1)
@@ -240,8 +266,10 @@ def cmd_diff(
     manager = default_manager()
     try:
         spec_path = pipeline.find_spec_file(spec, out)
-        _, model = pipeline.load_spec(spec_path, manager)
-        diffs = pipeline.diff(model, manager, out, only=_split(only), ref=ref)
+        data, model = pipeline.load_spec(spec_path, manager)
+        diffs = pipeline.diff(
+            data, model, manager, out, only=_split(only), ref=ref, spec_path=spec_path
+        )
     except ForgeError as exc:
         _fail(str(exc))
         return
@@ -261,24 +289,42 @@ def cmd_diff(
 
 
 @app.command("plugins")
-def cmd_plugins() -> None:
+def cmd_plugins(
+    spec: Optional[Path] = typer.Option(
+        None, "--spec", "-s", help="Specification servant a interroger les validateurs."
+    ),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire du projet."),
+) -> None:
     """Liste les domaines enregistres et l'etat de leurs outils externes."""
     manager = default_manager()
     domains = manager.domains()
     if not domains:
         typer.echo("aucun domaine enregistre")
         return
+
+    # Un plugin construit ses commandes a partir de la specification (une par
+    # environnement, par exemple). Sans elle, l'etat des outils est indisponible :
+    # forge le dit, au lieu d'avaler l'erreur et de laisser croire que le plugin
+    # ne declare aucun validateur.
+    model = None
+    try:
+        model = pipeline.load_spec(pipeline.find_spec_file(spec, out), manager)[1]
+    except ForgeError:
+        model = None
+
     for info in domains:
         typer.echo(f"{info.name} — {info.title} : {info.summary}")
         typer.echo(f"  section forge.yml : {info.name}:    sortie : {info.outdir}/")
         hooks = manager.domain(info.name)
-        seen: set[str] = set()
         try:
-            # Sans specification, un plugin peut refuser de lister ses commandes :
-            # l'etat des outils est alors simplement omis.
-            commands = hooks.validators(None, Path(info.outdir))
-        except Exception:  # noqa: BLE001 - diagnostic facultatif, jamais bloquant
+            commands = hooks.validators(model, out / info.outdir)
+        except (AttributeError, TypeError):
+            typer.echo(
+                "  etat des outils indisponible sans specification "
+                "(lancez la commande dans un projet genere, ou passez --spec)"
+            )
             continue
+        seen: set[str] = set()
         for command in commands:
             if command.tool in seen:
                 continue

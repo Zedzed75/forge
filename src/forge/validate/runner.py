@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from forge.errors import PluginError
 from forge.plugins_api.types import Command
 from forge.validate import tools, wsl
 
@@ -87,6 +88,21 @@ class Report:
         """Verifications en echec, dans l'ordre d'execution."""
         return [check for check in self.checks if not check.ok]
 
+    def skipped(self) -> list[Check]:
+        """Verifications sautees : elles n'ont rien prouve."""
+        return [check for check in self.checks if check.status == "skipped"]
+
+    @property
+    def all_skipped(self) -> bool:
+        """Vrai si le domaine declarait des verifications et qu'aucune n'a tourne.
+
+        Un rapport « vert » ou rien ne s'est execute est un piege : la CI doit le
+        voir, sinon `--skip-missing` transforme une absence d'outil en succes.
+        """
+        return bool(self.checks) and all(
+            check.status == "skipped" for check in self.checks
+        )
+
     def summary(self) -> str:
         """Resume compact : un compte par etat."""
         counts: dict[str, int] = {}
@@ -96,15 +112,26 @@ class Report:
         return f"{self.domain} : {detail or 'aucune verification'}"
 
 
-def _tail(text: str, lines: int = OUTPUT_LINES) -> str:
-    """Conserve les dernieres lignes utiles d'une sortie d'outil."""
+def _excerpt(text: str, lines: int = OUTPUT_LINES) -> str:
+    """Extrait lisible d'une sortie d'outil : debut ET fin, jamais la fin seule.
+
+    Les outils d'infrastructure annoncent la cause en **tete** de sortie
+    (`Error: values.yaml:3 unknown key`) puis deroulent du contexte. Ne garder
+    que la queue, comme le faisait la premiere version, revenait a effacer
+    l'information utile et a n'afficher qu'un marqueur de troncature.
+    """
     stripped = text.strip()
     if not stripped:
         return ""
     parts = stripped.splitlines()
     if len(parts) <= lines:
         return "\n".join(parts)
-    return "\n".join(["  [...]", *parts[-lines:]])
+    head = max(lines // 2, 1)
+    tail = max(lines - head, 1)
+    omitted = len(parts) - head - tail
+    return "\n".join(
+        [*parts[:head], f"  [... {omitted} ligne(s) omise(s) ...]", *parts[-tail:]]
+    )
 
 
 def run_command(
@@ -168,8 +195,8 @@ def run_command(
         returncode=completed.returncode,
         duration=duration,
         stdout=completed.stdout or "",
-        stderr=_tail(completed.stderr or ""),
-        detail="" if completed.returncode == 0 else _tail(
+        stderr=_excerpt(completed.stderr or ""),
+        detail="" if completed.returncode == 0 else _excerpt(
             completed.stderr or completed.stdout or ""
         ),
     )
@@ -189,9 +216,20 @@ def run_commands(
     """
     report = Report(domain=domain)
     outputs: dict[str, str] = {}
+    declared = {command.label for command in commands}
     for command in commands:
         stdin = None
         if command.stdin_from is not None:
+            if command.stdin_from not in declared:
+                # Libelle source inexistant : c'est une faute dans le plugin, pas
+                # un alea d'execution. La signaler comme un simple saut ferait
+                # passer `forge validate` au vert sans avoir lance la commande.
+                connus = ", ".join(sorted(declared)) or "aucun"
+                raise PluginError(
+                    f"le domaine '{domain}' chaine la commande « {command.label} » sur "
+                    f"« {command.stdin_from} », qui n'est declaree nulle part "
+                    f"(libelles connus : {connus})"
+                )
             if command.stdin_from not in outputs:
                 report.checks.append(
                     Check(

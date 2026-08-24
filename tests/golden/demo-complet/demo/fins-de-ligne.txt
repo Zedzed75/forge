@@ -1,0 +1,7 @@
+Fichier temoin des fins de ligne.
+
+Il est volontairement stocke en CRLF dans le depot de gabarit (voir
+l'exception dans .gitattributes) et n'est pas rendu par Jinja : il est
+copie tel quel. La suite de tests verifie qu'il ressort en LF, ce qui
+prouve que la normalisation de sortie s'applique bien a un rendu copier
+reel, et pas seulement en test unitaire.

@@ -21,6 +21,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+from forge.errors import ForgeError
+
 #: Distribution WSL interrogee.
 WSL_DISTRO = os.environ.get("FORGE_WSL_DISTRO", "Debian")
 
@@ -37,11 +39,24 @@ def quote(value: str) -> str:
 
 
 def to_wsl_path(path: Path) -> str:
-    """Traduit un chemin Windows (`Z:\\a\\b`) en chemin WSL (`/mnt/z/a/b`)."""
+    """Traduit un chemin Windows (`Z:\\a\\b`) en chemin WSL (`/mnt/z/a/b`).
+
+    Un chemin UNC (`\\\\serveur\\partage\\...`) n'a pas d'equivalent sous `/mnt`
+    tant que le partage n'est pas monte a la main dans la distribution : fabriquer
+    un chemin plausible mais faux ferait echouer la copie plus loin, sur un
+    `cp: cannot stat` incomprehensible. Mieux vaut le dire tout de suite.
+    """
     resolved = Path(path).resolve()
-    drive = resolved.drive.rstrip(":").lower()
-    rest = resolved.as_posix()[len(resolved.drive) :].lstrip("/")
-    return f"/mnt/{drive}/{rest}" if drive else resolved.as_posix()
+    drive = resolved.drive
+    if drive.startswith("\\\\") or drive.startswith("//"):
+        raise ForgeError(
+            f"chemin UNC non supporte par le pont WSL : {resolved}\n"
+            "  generez le projet sur un lecteur local, ou montez le partage dans "
+            f"la distribution « {WSL_DISTRO} »."
+        )
+    letter = drive.rstrip(":").lower()
+    rest = resolved.as_posix()[len(drive) :].lstrip("/")
+    return f"/mnt/{letter}/{rest}" if letter else resolved.as_posix()
 
 
 def is_windows() -> bool:
@@ -56,7 +71,7 @@ def wsl_available() -> bool:
         return False
     try:
         result = subprocess.run(
-            ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--", "true"],
+            ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--exec", "true"],
             capture_output=True,
             timeout=60,
         )
@@ -73,7 +88,7 @@ def wsl_has_tool(tool: str) -> bool:
     command = f"PATH={quote(WSL_PATH)}:$PATH command -v {quote(tool)} >/dev/null"
     try:
         result = subprocess.run(
-            ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--", "bash", "-lc", command],
+            ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--exec", "bash", "-lc", command],
             capture_output=True,
             timeout=60,
         )
@@ -85,17 +100,22 @@ def wsl_has_tool(tool: str) -> bool:
 def build_command(
     tool: str, argv: tuple[str, ...] | list[str], cwd: Path, env: dict[str, str] | None
 ) -> str:
-    """Construit la ligne bash exécutée dans WSL, copie du projet comprise."""
+    """Construit la ligne bash executee dans WSL, copie du projet comprise.
+
+    Le nettoyage passe par un `trap` et non par un `rm` final : sans lui, un
+    depassement de delai tue le processus avant la suppression et laisse une
+    copie complete du projet dans le `/tmp` de la distribution, a chaque essai.
+    """
     arguments = " ".join(quote(arg) for arg in argv)
     assignments = " ".join(
         f"{key}={quote(value)}" for key, value in sorted((env or {}).items())
     )
     return (
-        'work="$(mktemp -d /tmp/forge-XXXXXXXX)" && '
+        'work="$(mktemp -d /tmp/forge-XXXXXXXX)" || exit 1; '
+        "trap 'rm -rf \"$work\"' EXIT HUP INT TERM; "
         f"cp -a {quote(to_wsl_path(cwd))}/. \"$work\"/ && "
         'chmod -R go-w "$work" && cd "$work" && '
-        f"PATH={quote(WSL_PATH)}:$PATH {assignments} {quote(tool)} {arguments}; "
-        'status=$?; rm -rf "$work"; exit $status'
+        f"PATH={quote(WSL_PATH)}:$PATH {assignments} {quote(tool)} {arguments}"
     )
 
 
@@ -111,7 +131,7 @@ def run_in_wsl(
     """Lance `tool` dans WSL sur une copie native de `cwd`."""
     command = build_command(tool, argv, cwd, env)
     return subprocess.run(
-        ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--", "bash", "-lc", command],
+        ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--exec", "bash", "-lc", command],
         capture_output=True,
         text=True,
         timeout=timeout,

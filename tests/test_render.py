@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from forge.errors import RenderError
 from forge.plugins_api.types import DomainInfo
@@ -27,23 +28,59 @@ from forge.render.diff import diff_trees
     [
         ("a\r\nb\r\n", "a\nb\n"),
         ("a\rb", "a\nb\n"),
-        ("a   \nb\t\n", "a\nb\n"),
-        ("a\n\n\n\nb\n", "a\n\nb\n"),
         ("a", "a\n"),
         ("a\n\n\n", "a\n"),
         ("", ""),
     ],
 )
-def test_normalise_text_prend_l_union_des_deux_normalisations_legacy(brut, attendu):
+def test_normalise_text_convertit_les_fins_de_ligne_et_termine_par_un_saut(brut, attendu):
     assert normalise_text(brut) == attendu
 
 
+@pytest.mark.parametrize(
+    "contenu",
+    [
+        "conf: |\n  trailing = ok   \n  autre\n",   # espaces de fin significatifs
+        "desc: 'para1\n\n\n  para2'\n",             # ligne vide = saut litteral
+        "bloc: |\n  a\n\n\n  b\n",                  # lignes vides dans un bloc
+    ],
+)
+def test_normalise_text_ne_touche_pas_au_contenu(contenu):
+    """La normalisation ne doit rien changer d'autre que les fins de ligne.
+
+    Le rstrip par ligne et l'ecrasement des lignes vides, herites du legacy,
+    modifiaient la VALEUR des scalaires YAML : dans un scalaire quote une ligne
+    vide encode un saut de ligne, et dans un bloc `|` les espaces de fin font
+    partie de la donnee.
+    """
+    assert normalise_text(contenu) == contenu
+
+
+def test_normalise_text_preserve_la_valeur_yaml_relue():
+    """Verification de bout en bout : ce que YAML relit ne doit pas changer."""
+    contenu = "note: 'para1\n\n\n  para2'\n"
+    assert yaml.safe_load(normalise_text(contenu)) == yaml.safe_load(contenu)
+
+
 def test_normalise_tree_epargne_le_fichier_de_reponses(tmp_path):
-    (tmp_path / ".copier-answers.yml").write_text("a   \n\n\n\nb\n", encoding="utf-8")
-    (tmp_path / "fichier.yml").write_text("a   \n\n\n\nb\n", encoding="utf-8")
+    (tmp_path / ".copier-answers.yml").write_bytes(b"a\r\nb\r\n")
+    (tmp_path / "fichier.yml").write_bytes(b"a\r\nb\r\n")
     assert normalise_tree(tmp_path) == 1
-    assert (tmp_path / ".copier-answers.yml").read_text(encoding="utf-8") == "a   \n\n\n\nb\n"
-    assert (tmp_path / "fichier.yml").read_text(encoding="utf-8") == "a\n\nb\n"
+    assert (tmp_path / ".copier-answers.yml").read_bytes() == b"a\r\nb\r\n"
+    assert (tmp_path / "fichier.yml").read_bytes() == b"a\nb\n"
+
+
+def test_normalise_tree_convertit_reellement_les_crlf(tmp_path):
+    """Piege evite : `read_text` traduit deja les CRLF, la lecture doit etre binaire."""
+    cible = tmp_path / "fichier.txt"
+    cible.write_bytes(b"ligne 1\r\nligne 2\r\n")
+    assert normalise_tree(tmp_path) == 1
+    assert b"\r" not in cible.read_bytes()
+
+
+def test_normalise_tree_laisse_intact_un_fichier_deja_propre(tmp_path):
+    (tmp_path / "fichier.yml").write_bytes(b"cle: valeur   \n\n\nautre: 1\n")
+    assert normalise_tree(tmp_path) == 0
 
 
 def test_normalise_tree_ignore_un_binaire(tmp_path):
@@ -102,6 +139,41 @@ def test_le_coeur_ecrit_le_minimum_non_domaine(tmp_path, spec_data):
     noms = {path.name for path in written}
     assert noms == {"forge.yml", "README.md", ".gitattributes"}
     assert "eol=lf" in (tmp_path / ".gitattributes").read_text(encoding="utf-8")
+
+
+def test_le_coeur_refuse_d_ecraser_un_fichier_de_depot_modifie(tmp_path, spec_data):
+    """Meme regle que copier applique aux fichiers de domaine : pas d'ecrasement muet."""
+    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+    scaffold.write_repo_files(tmp_path, spec_data, infos)
+    (tmp_path / "README.md").write_text("redige a la main\n", encoding="utf-8")
+
+    with pytest.raises(RenderError, match="README.md"):
+        scaffold.write_repo_files(tmp_path, spec_data, infos)
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "redige a la main\n"
+
+    scaffold.write_repo_files(tmp_path, spec_data, infos, force=True)
+    assert "Domaines generes" in (tmp_path / "README.md").read_text(encoding="utf-8")
+
+
+def test_le_forge_yml_source_de_la_cible_n_est_pas_reecrit(tmp_path, spec_data):
+    """Reserialiser la spec detruirait les commentaires que l'equipe y a mis."""
+    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+    spec_path = tmp_path / "forge.yml"
+    original = "# NOTE MAISON : ne pas toucher\nforge_version: 1\n"
+    spec_path.write_text(original, encoding="utf-8")
+
+    written = scaffold.write_repo_files(
+        tmp_path, spec_data, infos, spec_path=spec_path
+    )
+    assert spec_path not in written
+    assert spec_path.read_text(encoding="utf-8") == original
+
+
+def test_une_cible_qui_est_un_fichier_donne_une_erreur_lisible(tmp_path, spec_data):
+    fichier = tmp_path / "rapport.txt"
+    fichier.write_text("x", encoding="utf-8")
+    with pytest.raises(RenderError, match="n'est pas un repertoire"):
+        scaffold.write_repo_files(fichier, spec_data, [])
 
 
 def test_le_readme_indexe_les_domaines(tmp_path, spec_data):

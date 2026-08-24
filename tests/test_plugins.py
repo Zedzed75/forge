@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from forge.errors import PluginError
+from forge.errors import PluginError, SpecValidationError
 from forge.plugins_api.hookspecs import hookimpl
 from forge.plugins_api.manager import ForgeManager, default_manager
 from forge.plugins_api.types import Command, DomainInfo, Issue, Projection
+from forge.spec.assembly import build_spec_model
 from forge.spec.types import ForgeModel
 
 
@@ -62,6 +63,50 @@ def test_deux_plugins_du_meme_domaine_sont_refuses():
 def test_un_nom_de_domaine_non_identifiant_est_refuse():
     with pytest.raises(PluginError, match="nom de domaine invalide"):
         ForgeManager().register(_module_factice("mon-domaine"))
+
+
+@pytest.mark.parametrize("nom", ["service", "forge_version", "domain_names", "section"])
+def test_un_nom_de_domaine_reserve_est_refuse(nom):
+    """Sans ce garde-fou, `create_model` ecrase le champ du coeur en silence."""
+    with pytest.raises(PluginError, match="reserve"):
+        ForgeManager().register(_module_factice(nom))
+
+
+def test_un_nom_de_domaine_prefixe_par_souligne_est_refuse():
+    """pydantic en ferait un attribut prive : la section disparaitrait du modele."""
+    with pytest.raises(PluginError, match="nom de domaine invalide"):
+        ForgeManager().register(_module_factice("_interne"))
+
+
+def test_un_nom_de_domaine_mot_cle_est_refuse():
+    with pytest.raises(PluginError, match="nom de domaine invalide"):
+        ForgeManager().register(_module_factice("class"))
+
+
+def test_le_modele_assemble_ne_peut_pas_masquer_le_bloc_service(manager):
+    """Defense en profondeur : meme en forcant l'enregistrement, l'assemblage refuse."""
+    plugin = _module_factice("service")
+    manager._pm.register(plugin, name="pirate")
+    manager._domains["service"] = (
+        DomainInfo(name="service", title="S", summary="s"),
+        plugin,
+    )
+    with pytest.raises(SpecValidationError, match="masquerait le coeur"):
+        build_spec_model(manager)
+
+
+def test_un_module_enregistre_deux_fois_donne_une_erreur_lisible(monkeypatch):
+    monkeypatch.setenv(
+        "FORGE_PLUGINS", "forge.plugins.demo.plugin,forge.plugins.demo.plugin"
+    )
+    with pytest.raises(PluginError, match="deja enregistre"):
+        default_manager()
+
+
+def test_un_module_de_plugin_introuvable_donne_une_erreur_lisible(monkeypatch):
+    monkeypatch.setenv("FORGE_PLUGINS", "forge.plugins.nexiste.pas")
+    with pytest.raises(PluginError, match="inutilisable"):
+        default_manager()
 
 
 def test_les_domaines_sont_tries_par_nom():

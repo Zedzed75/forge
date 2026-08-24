@@ -36,12 +36,22 @@ jobs:
           git config --global user.email "ci@example.invalid"
           git config --global init.defaultBranch main
 
+      # `python-version` est passe a uv : sans lui, la matrice ne serait qu'un
+      # decor et les trois jobs tourneraient sur le meme interpreteur.
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          python-version: ${{ matrix.python-version }}
 
       - name: Installer forge
-        run: uv pip install --system -e ".[dev]"
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      # `uv run` garantit que le pytest execute est celui de l'environnement
+      # qu'on vient de creer, et non un pytest quelconque du PATH.
+      - name: Verifier l'interpreteur
+        run: uv run python -c "import sys; print(sys.version)"
 
       - name: Lancer la suite de tests
-        run: pytest -q
+        run: uv run pytest -q

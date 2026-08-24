@@ -5,8 +5,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
+from forge.errors import ForgeError, PluginError
 from forge.plugins_api.types import Command, Projection
-from forge.validate import tools
+from forge.validate import tools, wsl
 from forge.validate.consistency import compare_projections, format_issues, has_errors
 from forge.validate.runner import run_command, run_commands
 
@@ -84,11 +87,54 @@ def test_le_stdin_est_chaine_depuis_la_commande_source(tmp_path):
     assert [check.status for check in report.checks] == ["ok", "ok"]
 
 
-def test_un_chainage_sans_source_est_saute_proprement(tmp_path):
-    commands = [_python("consomme", "pass", stdin_from="jamais lancee")]
+def test_un_chainage_vers_un_libelle_inexistant_est_une_erreur_de_plugin(tmp_path):
+    """Rupture de contrat cote plugin : la signaler comme un saut ferait passer
+    `forge validate` au vert sans avoir lance la commande."""
+    commands = [_python("consomme", "pass", stdin_from="jamais declaree")]
+    with pytest.raises(PluginError, match="jamais declaree"):
+        run_commands("demo", commands, tmp_path)
+
+
+def test_un_chainage_dont_la_source_a_echoue_est_saute_proprement(tmp_path):
+    commands = [
+        _python("produit", "import sys; sys.exit(1)"),
+        _python("consomme", "pass", stdin_from="produit"),
+    ]
     report = run_commands("demo", commands, tmp_path)
-    assert report.checks[0].status == "skipped"
-    assert "jamais lancee" in report.checks[0].detail
+    assert [check.status for check in report.checks] == ["failed", "skipped"]
+    assert "produit" in report.checks[1].detail
+
+
+def test_l_extrait_de_sortie_conserve_la_tete_ou_l_erreur_est_annoncee(tmp_path):
+    """Les outils d'infra annoncent la cause en premiere ligne, pas en derniere."""
+    code = (
+        "import sys\n"
+        "sys.stderr.write('Error: values.yaml:3 unknown key\\n')\n"
+        "sys.stderr.write(''.join(f'contexte {i}\\n' for i in range(200)))\n"
+        "sys.exit(1)\n"
+    )
+    check = run_command(_python("verbeux", code), tmp_path)
+    assert check.status == "failed"
+    assert "Error: values.yaml:3 unknown key" in check.detail
+    assert "ligne(s) omise(s)" in check.detail
+    assert not check.detail.splitlines()[0].startswith("  [...")
+
+
+def test_un_rapport_entierement_saute_est_signale(tmp_path):
+    """Un rapport vert ou rien n'a tourne est un piege : il doit se voir."""
+    commands = [Command(label="absent", tool="outil-qui-n-existe-pas")]
+    report = run_commands("demo", commands, tmp_path, skip_missing=True)
+    assert report.all_skipped
+    assert [check.label for check in report.skipped()] == ["absent"]
+
+
+def test_un_rapport_partiellement_execute_n_est_pas_signale(tmp_path):
+    commands = [
+        _python("ok", "pass"),
+        Command(label="absent", tool="outil-qui-n-existe-pas"),
+    ]
+    report = run_commands("demo", commands, tmp_path, skip_missing=True)
+    assert not report.all_skipped
 
 
 def test_le_rapport_resume_les_etats(tmp_path):
@@ -214,3 +260,46 @@ def test_le_format_des_constats_place_les_erreurs_avant_les_avertissements():
 
 def test_aucune_projection_ne_produit_aucun_constat():
     assert compare_projections({}) == []
+
+
+# ---------------------------------------------------------------------------
+# Pont WSL — fonctions pures, verifiables sans distribution installee
+# ---------------------------------------------------------------------------
+
+
+def test_quote_protege_une_apostrophe():
+    #  il l'a dit  ->  'il l'\''a dit'  (fermeture, apostrophe echappee, reouverture)
+    attendu = "'il l'" + chr(92) + "''a dit'"
+    assert wsl.quote("il l'a dit") == attendu
+
+
+def test_to_wsl_path_traduit_une_lettre_de_lecteur():
+    assert wsl.to_wsl_path(Path("C:/projets/demo")) == "/mnt/c/projets/demo"
+
+
+def test_to_wsl_path_refuse_un_chemin_unc():
+    """Fabriquer un chemin plausible mais faux ferait echouer la copie plus loin."""
+    with pytest.raises(ForgeError, match="UNC"):
+        wsl.to_wsl_path(Path("//nas/share/projet"))
+
+
+def test_build_command_nettoie_le_repertoire_temporaire_par_un_trap():
+    """Sans trap, un depassement de delai laisse une copie du projet dans /tmp."""
+    command = wsl.build_command("helm", ("lint",), Path("C:/projets/demo"), None)
+    assert "trap 'rm -rf \"$work\"' EXIT HUP INT TERM" in command
+    assert command.count("mktemp") == 1
+
+
+def test_build_command_protege_les_arguments():
+    command = wsl.build_command("helm", ("template", "a b"), Path("C:/p"), None)
+    assert "'a b'" in command
+
+
+def test_build_command_transmet_les_variables_d_environnement():
+    command = wsl.build_command("ansible-lint", (), Path("C:/p"), {"ANSIBLE_FORCE_COLOR": "0"})
+    assert "ANSIBLE_FORCE_COLOR='0'" in command
+
+
+def test_install_hint_mentionne_la_distribution_sous_windows(monkeypatch):
+    monkeypatch.setattr(wsl, "is_windows", lambda: True)
+    assert wsl.WSL_DISTRO in wsl.install_hint("helm")

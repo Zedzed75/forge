@@ -532,6 +532,22 @@ gabarit `project/` ; en monorepo ils n'appartiennent à aucun domaine.
 `.gitignore` Ansible restent **dans leur sous-répertoire de domaine**
 (`helm/Makefile`), ce qui garde chaque domaine autonome et supprimable.
 
+> **Conséquences constatées en phase 2** — ces trois fichiers sont les seuls que
+> forge écrit sans passer par copier, ce qui est une exception assumée à la règle
+> « le rendu passe toujours par copier » :
+> - ils ne sont pas suivis par `copier update`, donc `forge update` ne les
+>   rafraîchit pas ; c'est `forge generate` qui les remet à jour ;
+> - `forge diff` les compare donc **explicitement** (rubrique `(racine)`), pour
+>   ne jamais annoncer « à jour » sur ce qu'il n'aurait pas regardé ;
+> - `forge.yml` de la cible est la **source de vérité éditée à la main** : quand
+>   la spécification lue *est* celle de la cible, elle n'est pas réécrite, sans
+>   quoi la resérialisation détruirait les commentaires de l'équipe ;
+> - `README.md` et `.gitattributes` obéissent à la même règle que les fichiers de
+>   domaine : pas d'écrasement d'un fichier modifié sans `--force` ;
+> - l'index liste les domaines **de la spécification**, jamais ceux du dernier
+>   `--only` : un `forge generate --only ansible` ne doit pas faire disparaître
+>   `helm/` du README d'un projet où la section `helm:` existe toujours.
+
 **Q7. Validation sous Windows.** Constat : ni ansible-core, ni ansible-lint, ni
 helm, ni kubeconform ne sont installés côté Windows ; helm 4.2.4 et kubeconform
 0.8.0 sont présents dans WSL Debian ; ansible-lint n'est installé nulle part.

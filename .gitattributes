@@ -1,3 +1,7 @@
 # Les references golden sont comparees octet pour octet : jamais de conversion
 # de fins de ligne, quel que soit le systeme.
 * text=auto eol=lf
+
+# Fichier temoin de la normalisation des fins de ligne : il DOIT rester en
+# CRLF dans le depot, sinon le test de normalisation ne prouve plus rien.
+src/forge/plugins/demo/template/fins-de-ligne.txt -text

@@ -27,8 +27,12 @@ specification `forge.yml`.
 
 ```bash
 uv venv
-uv pip install -e ".[dev]"
+uv pip install --python .venv/Scripts/python.exe -e ".[dev]"
 ```
+
+Sous Linux et macOS, remplacez `.venv/Scripts/python.exe` par
+`.venv/bin/python`. Si `uv` n'est pas sur le PATH, il s'installe avec
+`python -m pip install uv` puis s'invoque par `python -m uv`.
 
 ## Commandes
 
@@ -45,8 +49,15 @@ uv pip install -e ".[dev]"
 ## Tests
 
 ```bash
-uv run pytest
+.venv/Scripts/python.exe -m pytest
 ```
 
-Les references golden se regenerent avec `uv run pytest --regen-golden`, a ne
-faire qu'apres avoir constate que l'ecart est voulu.
+Les references golden se regenerent avec `-m pytest --regen-golden`, a ne faire
+qu'apres avoir constate que l'ecart est voulu : la commande **enterine** la
+sortie courante, elle ne la verifie pas.
+
+Un test est ignore tant que le depot porte des modifications non committees :
+`copier update` compare deux references git, et un rendu fait depuis un arbre de
+travail sale reference un commit temporaire introuvable ensuite. Les autres
+tests de mise a jour, eux, tournent toujours : ils fabriquent leur propre depot
+de gabarit temporaire.

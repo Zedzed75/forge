@@ -54,19 +54,27 @@ def _relative_files(root: Path) -> dict[str, Path]:
     return files
 
 
-def _changed_lines(left: Path, right: Path) -> int:
-    """Nombre de lignes differentes entre deux fichiers ; -1 si binaire."""
-    try:
-        a = left.read_text(encoding="utf-8").splitlines()
-        b = right.read_text(encoding="utf-8").splitlines()
-    except (UnicodeDecodeError, OSError):
-        return -1
-    matcher = difflib.SequenceMatcher(None, a, b, autojunk=False)
+def count_changed_lines(left: str, right: str) -> int:
+    """Nombre de lignes differentes entre deux textes deja charges."""
+    matcher = difflib.SequenceMatcher(
+        None, left.splitlines(), right.splitlines(), autojunk=False
+    )
     changed = 0
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag != "equal":
             changed += max(i2 - i1, j2 - j1)
     return changed
+
+
+def _changed_lines(left: Path, right: Path) -> int:
+    """Nombre de lignes differentes entre deux fichiers ; -1 si binaire."""
+    try:
+        # Lecture en octets : `read_text` masquerait une divergence de fins de ligne.
+        a = left.read_bytes().decode("utf-8")
+        b = right.read_bytes().decode("utf-8")
+    except (UnicodeDecodeError, OSError):
+        return -1
+    return count_changed_lines(a, b)
 
 
 def diff_trees(domain: str, current: Path, fresh: Path) -> DomainDiff:

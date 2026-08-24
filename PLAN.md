@@ -56,10 +56,11 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0, 1 et 2 terminees. Le coeur est ecrit, teste et
-domaine-agnostique : **129 tests verts** sur un depot propre. Le test de
-`forge update` est ignore tant que le gabarit porte des modifications non
-committees (cf. `MIGRATION.md` §2.10) : c'est attendu en cours de developpement.
+**Etat** : phases 0, 1 et 2 terminees, **puis auditees et corrigees**. Le coeur
+est ecrit, teste et domaine-agnostique : **179 tests verts** sur un depot propre.
+Un seul test est ignore tant que le gabarit porte des modifications non
+committees (cf. `MIGRATION.md` §2.10) ; les autres tests de mise a jour
+fabriquent leur propre depot de gabarit temporaire et tournent toujours.
 
 Ce que la phase 2 a livre :
 - `copier.yml` racine unique, delimiteurs `[[ ]]`, cinq questions declarees.
@@ -75,6 +76,26 @@ Ce que la phase 2 a livre :
 - `tests/` : specs de reference, golden benis, harnais `--regen-golden`.
 - CI GitHub (matrice 3.11/3.12/3.13) ; les outils de domaine s'y ajoutent en
   phases 3 et 4.
+
+Revue adversariale du coeur (2026-08-23) : 25 defauts reels confirmes, tous
+corriges dans la foulee. Les cinq qui comptent pour la suite :
+1. **Normalisation de sortie** — le `rstrip` par ligne et l'ecrasement des
+   lignes vides herites du legacy **corrompaient** les scalaires YAML generes.
+   Le coeur se limite desormais a `CRLF -> LF` + un saut final
+   (`MIGRATION.md` §5, encadre). En phases 3 et 4, un gabarit qui laisse des
+   blancs se corrige **dans le gabarit**, jamais dans le coeur.
+2. **Noms de domaine** — un plugin nomme `service` ecrasait silencieusement le
+   bloc partage du modele assemble. `register()` valide maintenant le nom
+   (identifiant minuscule, ni mot-cle, ni nom reserve du modele racine).
+3. **`_src_path`** — la reecriture salissait la cible et rendait `forge update`
+   impossible ; forge corrige la ligne puis **s'arrete** en demandant le commit.
+4. **Chainage `stdin_from`** — un libelle source inexistant produisait un
+   « saute » vert ; c'est desormais une `PluginError`. Important pour Helm :
+   `kubeconform` lit le rendu de `helm template` par stdin.
+5. **Fichiers de niveau depot** — ecrits apres le rendu, jamais ecrases sans
+   `--force`, `forge.yml` de la cible preserve avec ses commentaires, index
+   calcule sur la specification et non sur `--only`, et compares par
+   `forge diff` sous la rubrique `(racine)`.
 
 Ecarts assumes par rapport a `DESIGN.md` §9 (arborescence prevue) :
 - ajout de `pipeline.py` (enchainement des operations) pour que `cli.py` ne
@@ -100,8 +121,17 @@ Rappels pour la phase 3 :
   largeur en argument nomme.
 - Environnement : `.venv` du depot, `uv pip install --python .venv/... -e ".[dev]"`.
   `uv` est installe via `python -m pip install uv` (pas de binaire `uv` sur le PATH).
+- Les domaines factices de `tests/domaines_factices/` permettent d'eprouver tout
+  ce qui demande **deux** domaines (filtrage `--only`, controles inter-domaines
+  en echec, outil de validation absent) sans attendre le plugin Ansible.
+- Ecrire les tests d'un gabarit avec l'astuce de
+  `tests/test_cli_couverture.py::_depot_de_gabarit` : un depot de gabarit
+  temporaire, copie du gabarit courant, qui rend les tests de `forge update`
+  independants de l'etat git du depot forge.
 
 ## Journal des sessions
 
 - Session 1 (2026-08-23) : phase 0 (amorçage) puis phase 1 (audit + conception).
-- Session 2 (2026-08-23) : phase 2 (coeur complet, plugin `demo`, tests golden, CI).
+- Session 2 (2026-08-23) : phase 2 (coeur complet, plugin `demo`, tests golden, CI),
+  puis revue adversariale du coeur : 25 defauts confirmes et corriges, suite de
+  tests portee de 129 a 179 cas.

@@ -78,9 +78,38 @@ def save_spec(
 ) -> Path:
     """Ecrit la spec dans `path` (UTF-8, fins de ligne LF) et retourne le chemin."""
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dump_spec(data, sections=sections), encoding="utf-8", newline="\n")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            dump_spec(data, sections=sections), encoding="utf-8", newline="\n"
+        )
+    except OSError as exc:
+        raise SpecFileError(f"ecriture impossible de {path} : {exc}") from exc
     return path
+
+
+def _check_string_keys(node: Any, source: str, path: str = "") -> None:
+    """Refuse toute cle de mapping qui n'est pas une chaine.
+
+    YAML 1.1 interprete `on:`, `yes:`, `no:` et `1.2:` comme un booleen ou un
+    nombre. La cle n'est alors plus une chaine, et tout le reste du coeur
+    (comparaison aux sections connues, mise en forme des messages) casserait sur
+    une trace Python. Mieux vaut le dire ici, avec la ligne fautive.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if not isinstance(key, str):
+                where = f" sous {path}" if path else " a la racine"
+                raise SpecFileError(
+                    f"cle YAML non textuelle{where} dans {source} : {key!r} "
+                    f"({type(key).__name__}).\n"
+                    "  YAML 1.1 convertit on/off/yes/no/true/false en booleens et "
+                    "1.2 en nombre : entourez la cle de guillemets."
+                )
+            _check_string_keys(value, source, f"{path}.{key}" if path else key)
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            _check_string_keys(item, source, f"{path}[{index}]")
 
 
 def parse_spec(text: str, *, source: str = "<chaine>") -> dict[str, Any]:
@@ -96,6 +125,7 @@ def parse_spec(text: str, *, source: str = "<chaine>") -> dict[str, Any]:
             f"La specification {source} doit etre un dictionnaire YAML, "
             f"trouve : {type(data).__name__}."
         )
+    _check_string_keys(data, source)
     return data
 
 

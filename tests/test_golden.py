@@ -24,6 +24,7 @@ from forge.plugins_api.manager import ForgeManager
 from tests.conftest import (
     DEMO_PLUGIN,
     GOLDEN_DIR,
+    REPO_ROOT,
     bless,
     load_case,
     spec_files,
@@ -33,6 +34,9 @@ from tests.conftest import (
 
 #: Cas de test : un par specification de reference.
 CASES = spec_files()
+
+#: Fichier du gabarit demo volontairement stocke en CRLF (cf. .gitattributes).
+TEMOIN_CRLF = "fins-de-ligne.txt"
 
 
 def _render(spec_path: Path, target: Path) -> Path:
@@ -64,10 +68,12 @@ def test_la_sortie_correspond_a_la_reference(spec_path, tmp_path, regen_golden):
         f"manquants {sorted(set(attendus) - set(obtenus))}"
     )
 
+    # Comparaison sur les octets : `read_text` traduirait les CRLF a la lecture
+    # et rendrait le harnais aveugle a une regression de fins de ligne.
     differents = [
         nom
         for nom in attendus
-        if stable_text(rendu / nom) != (reference / nom).read_text(encoding="utf-8")
+        if stable_text(rendu / nom).encode("utf-8") != (reference / nom).read_bytes()
     ]
     assert not differents, f"contenu different : {', '.join(differents)}"
 
@@ -99,6 +105,27 @@ def test_les_yields_imbriques_produisent_le_produit_cartesien(tmp_path):
         "prod/cpu.yml",
         "prod/requetes.yml",
     ]
+
+
+def test_la_normalisation_s_applique_a_un_rendu_copier_reel(tmp_path):
+    """Preuve de bout en bout : un gabarit en CRLF ressort en LF.
+
+    Le fichier temoin porte une exception dans le `.gitattributes` du depot ;
+    sans elle, git le normaliserait au checkout et le test s'auto-annulerait en
+    silence. On verifie donc d'abord qu'il a bien conserve ses CRLF.
+    """
+    source = REPO_ROOT / "src" / "forge" / "plugins" / "demo" / "template" / TEMOIN_CRLF
+    assert source.is_file(), f"fichier temoin absent : {source}"
+    if b"\r\n" not in source.read_bytes():
+        pytest.fail(
+            f"{source} a perdu ses CRLF : l'exception du .gitattributes a saute, "
+            "le test ne prouve plus rien."
+        )
+
+    rendu = _render(next(path for path in CASES if path.stem == "demo-complet"), tmp_path)
+    livre = rendu / "demo" / TEMOIN_CRLF
+    assert livre.is_file()
+    assert b"\r" not in livre.read_bytes()
 
 
 def test_un_filtre_de_plugin_est_bien_applique(tmp_path):

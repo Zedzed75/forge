@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -36,13 +37,9 @@ TEMPLATE_SRC_ENV_VAR = "FORGE_TEMPLATE_SRC"
 #: Fichier de reponses ecrit par copier dans chaque repertoire de domaine.
 ANSWERS_FILENAME = ".copier-answers.yml"
 
-#: Variables d'environnement neutralisant la limite de chemin de Windows dans le
-#: clone temporaire de copier (MIGRATION.md §2.7).
-_LONGPATHS_ENV = {
-    "GIT_CONFIG_COUNT": "1",
-    "GIT_CONFIG_KEY_0": "core.longpaths",
-    "GIT_CONFIG_VALUE_0": "true",
-}
+#: Reglage git force autour des appels copier : il neutralise la limite de
+#: longueur de chemin de Windows dans le clone temporaire (MIGRATION.md §2.7).
+LONGPATHS_SETTING = ("core.longpaths", "true")
 
 
 def template_root() -> Path:
@@ -64,12 +61,33 @@ def template_root() -> Path:
     )
 
 
+def _git_config_overrides() -> dict[str, str]:
+    """Ajoute `core.longpaths` **sans effacer** la configuration git de l'appelant.
+
+    `GIT_CONFIG_COUNT` est un canal partage : ecrire aveuglement `COUNT=1` et
+    `KEY_0` ferait disparaitre les reglages que l'utilisateur ou la CI y ont
+    places (safe.directory, proxy...). Le reglage de forge est donc ajoute a
+    l'index libre suivant.
+    """
+    try:
+        base = int(os.environ.get("GIT_CONFIG_COUNT", "0") or 0)
+    except ValueError:
+        base = 0
+    base = max(base, 0)
+    key, value = LONGPATHS_SETTING
+    return {
+        "GIT_CONFIG_COUNT": str(base + 1),
+        f"GIT_CONFIG_KEY_{base}": key,
+        f"GIT_CONFIG_VALUE_{base}": value,
+    }
+
+
 @contextmanager
 def _copier_env(plugin_jinja: str = "") -> Iterator[None]:
     """Installe les variables d'environnement attendues par les appels copier."""
     from forge.jinja_ext import PLUGIN_JINJA_ENV_VAR
 
-    overrides = dict(_LONGPATHS_ENV)
+    overrides = _git_config_overrides()
     overrides[PLUGIN_JINJA_ENV_VAR] = plugin_jinja
     previous = {key: os.environ.get(key) for key in overrides}
     os.environ.update(overrides)
@@ -101,22 +119,34 @@ def build_data(
     }
 
 
-def run_copy(
+def ensure_directory(path: Path, what: str) -> None:
+    """Cree `path` si besoin, en traduisant toute erreur systeme en `RenderError`."""
+    if path.exists() and not path.is_dir():
+        raise RenderError(f"{what} invalide : {path} n'est pas un repertoire")
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise RenderError(f"creation impossible de {what} {path} : {exc}") from exc
+
+
+def _has_content(path: Path) -> bool:
+    """Vrai si `path` contient au moins un fichier."""
+    return path.is_dir() and any(entry.is_file() for entry in path.rglob("*"))
+
+
+def _copier_copy(
     *,
+    src: Path,
     dst: Path,
     data: dict[str, Any],
-    src: Path | None = None,
-    ref: str = DEFAULT_REF,
-    force: bool = False,
-    pretend: bool = False,
-    plugin_jinja: str = "",
-) -> Path:
-    """Genere `dst` a partir du gabarit designe par `data['template_subdir']`."""
+    ref: str,
+    force: bool,
+    pretend: bool,
+    plugin_jinja: str,
+) -> None:
+    """Appel copier nu, sans pre-controle ni normalisation."""
     from copier import run_copy as copier_run_copy
 
-    src = src or template_root()
-    dst = Path(dst)
-    dst.mkdir(parents=True, exist_ok=True)
     with _copier_env(plugin_jinja):
         try:
             copier_run_copy(
@@ -132,12 +162,81 @@ def run_copy(
             )
         except Exception as exc:  # copier leve des types varies selon la cause
             raise RenderError(f"echec du rendu copier vers {dst} : {exc}") from exc
+
+
+def _refuse_conflicts(
+    *,
+    src: Path,
+    dst: Path,
+    data: dict[str, Any],
+    ref: str,
+    plugin_jinja: str,
+) -> None:
+    """Refuse d'ecraser des fichiers modifies, avec la liste et la marche a suivre.
+
+    Sans ce controle, copier ouvre un prompt de confirmation ; sous Git Bash il
+    n'a pas de console et l'utilisateur recoit un message de terminal
+    incomprehensible au lieu d'apprendre qu'il lui manque `--force`.
+    """
+    from forge.render.diff import diff_trees
+
+    with tempfile.TemporaryDirectory(prefix="forge-conflits-") as tmp:
+        fresh = Path(tmp) / dst.name
+        ensure_directory(fresh, "repertoire temporaire")
+        _copier_copy(
+            src=src,
+            dst=fresh,
+            data=data,
+            ref=ref,
+            force=True,
+            pretend=False,
+            plugin_jinja=plugin_jinja,
+        )
+        normalise_tree(fresh)
+        ecart = diff_trees(dst.name, dst, fresh)
+
+    if not ecart.modified:
+        return
+    listing = "\n".join(f"    {name}" for name, _ in ecart.modified)
+    raise RenderError(
+        f"{len(ecart.modified)} fichier(s) de {dst} different(s) du rendu attendu :\n"
+        f"{listing}\n"
+        "  relancez avec --force pour les ecraser, ou mettez vos modifications de "
+        "cote (`forge diff` resume l'ecart)."
+    )
+
+
+def run_copy(
+    *,
+    dst: Path,
+    data: dict[str, Any],
+    src: Path | None = None,
+    ref: str = DEFAULT_REF,
+    force: bool = False,
+    pretend: bool = False,
+    plugin_jinja: str = "",
+) -> Path:
+    """Genere `dst` a partir du gabarit designe par `data['template_subdir']`."""
+    src = src or template_root()
+    dst = Path(dst)
+    if not force and not pretend and _has_content(dst):
+        _refuse_conflicts(src=src, dst=dst, data=data, ref=ref, plugin_jinja=plugin_jinja)
+    ensure_directory(dst, "repertoire cible")
+    _copier_copy(
+        src=src,
+        dst=dst,
+        data=data,
+        ref=ref,
+        force=force,
+        pretend=pretend,
+        plugin_jinja=plugin_jinja,
+    )
     if not pretend:
         normalise_tree(dst)
     return dst
 
 
-def rewrite_src_path(answers_file: Path, src: Path) -> None:
+def rewrite_src_path(answers_file: Path, src: Path) -> bool:
     """Reecrit `_src_path` du fichier de reponses vers la racine de gabarit locale.
 
     copier enregistre un chemin absolu : sans cette reecriture, un projet genere
@@ -146,24 +245,33 @@ def rewrite_src_path(answers_file: Path, src: Path) -> None:
     La reecriture n'a lieu que si le chemin enregistre designe **un autre**
     repertoire : recrire une valeur equivalente salirait le depot cible, et
     copier refuse de mettre a jour un depot sale.
+
+    Retourne True si le fichier a effectivement ete modifie. L'appelant doit
+    alors s'arreter et demander un commit : forge ne committe jamais dans le
+    depot de l'utilisateur, et copier ne peut pas mettre a jour un depot sale.
     """
     if not answers_file.is_file():
-        return
+        return False
     text = answers_file.read_text(encoding="utf-8")
     current = re.search(r"^_src_path:[ \t]*(.*)$", text, flags=re.MULTILINE)
     if current is not None:
         recorded = current.group(1).strip().strip("\"'")
         try:
             if recorded and Path(recorded).resolve() == Path(src).resolve():
-                return
+                return False
         except OSError:  # pragma: no cover - chemin invalide sur ce poste
             pass
     wanted = src.as_posix()
     new_text = re.sub(
         r"^_src_path:.*$", f"_src_path: {wanted}", text, count=1, flags=re.MULTILINE
     )
-    if new_text != text:
+    if new_text == text:
+        return False
+    try:
         answers_file.write_text(new_text, encoding="utf-8", newline="\n")
+    except OSError as exc:
+        raise RenderError(f"ecriture impossible de {answers_file} : {exc}") from exc
+    return True
 
 
 def run_update(
@@ -185,7 +293,17 @@ def run_update(
             f"{dst} n'a pas de {ANSWERS_FILENAME} : ce repertoire n'a pas ete genere "
             "par forge, la mise a jour est impossible."
         )
-    rewrite_src_path(answers, src)
+    if rewrite_src_path(answers, src):
+        # Le projet vient d'un autre poste : copier re-rend le gabarit ANCIEN a
+        # partir du chemin enregistre, la correction doit donc etre reelle et
+        # committee. forge l'ecrit, puis s'arrete : committer a la place de
+        # l'utilisateur dans son depot n'est pas son role.
+        raise RenderError(
+            f"le chemin de gabarit enregistre dans {answers} pointait ailleurs ; "
+            f"il a ete corrige vers {src}.\n"
+            "  committez cette modification (copier refuse un depot cible sale), "
+            "puis relancez `forge update`."
+        )
     with _copier_env(plugin_jinja):
         try:
             copier_run_update(
@@ -216,18 +334,24 @@ def run_update(
 #: Fichiers laisses intacts : ecriture interne de copier.
 _SKIP_NAMES = frozenset({ANSWERS_FILENAME})
 
-_BLANK_RUN_RE = re.compile(r"\n{3,}")
-
 
 def normalise_text(text: str) -> str:
-    """Normalise un fichier rendu : LF, pas d'espace en fin de ligne, un saut final.
+    """Normalise un fichier rendu : fins de ligne LF et un unique saut final.
 
-    Union des deux normalisations legacy (MIGRATION.md §5.6) : helm gerait les
-    CRLF et les lignes vides multiples, ansible le rstrip par ligne.
+    **Volontairement minimal.** Les deux normalisations legacy allaient plus
+    loin — rstrip par ligne (ansible-forge) et ecrasement des lignes vides
+    consecutives (helm-forge) — mais ces deux transformations ne sont pas
+    neutres : dans un scalaire YAML quote sur plusieurs lignes, une ligne vide
+    encode un saut de ligne litteral, et dans un bloc `|` les espaces de fin
+    font partie de la valeur. Appliquees a l'aveugle apres le rendu, elles
+    modifiaient donc le CONTENU livre sans le dire, et les references golden,
+    benies apres normalisation, enterinaient la corruption.
+
+    Le nettoyage des blancs laisses par les blocs `[% if %]` releve du gabarit
+    (`trim_blocks` / `lstrip_blocks`, actifs dans le copier.yml racine), pas du
+    coeur : lui ne peut pas savoir ce qui, dans un fichier, porte du sens.
     """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = "\n".join(line.rstrip() for line in text.split("\n"))
-    text = _BLANK_RUN_RE.sub("\n\n", text)
     text = text.rstrip("\n")
     return text + "\n" if text else ""
 
@@ -241,11 +365,16 @@ def normalise_tree(root: Path) -> int:
         if ".git" in path.parts:
             continue
         try:
-            original = path.read_text(encoding="utf-8")
+            # Lecture en octets : `read_text` traduit deja les CRLF en LF, ce qui
+            # rendrait la normalisation aveugle a ce qu'elle est censee corriger.
+            original = path.read_bytes().decode("utf-8")
         except (UnicodeDecodeError, OSError):
             continue  # binaire ou illisible : laisse tel quel
         normalised = normalise_text(original)
         if normalised != original:
-            path.write_text(normalised, encoding="utf-8", newline="\n")
+            try:
+                path.write_text(normalised, encoding="utf-8", newline="\n")
+            except OSError as exc:
+                raise RenderError(f"ecriture impossible de {path} : {exc}") from exc
             changed += 1
     return changed

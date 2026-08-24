@@ -65,6 +65,13 @@ def build_spec_model(manager: ForgeManager) -> type[ForgeSpecBase]:
                 f"forge_spec_model() du domaine '{info.name}' doit retourner un "
                 "modele pydantic"
             )
+        if info.name in ForgeSpecBase.model_fields:
+            # Defense en profondeur : `ForgeManager.register` refuse deja ces noms.
+            # create_model ecraserait silencieusement le champ herite.
+            raise SpecValidationError(
+                f"le domaine '{info.name}' porte le nom d'un champ du modele racine ; "
+                "il masquerait le coeur de la specification"
+            )
         fields[info.name] = (model | None, None)
     return create_model("ForgeSpec", __base__=ForgeSpecBase, **fields)
 

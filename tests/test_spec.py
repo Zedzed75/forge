@@ -160,3 +160,25 @@ def test_un_yaml_vide_est_refuse(tmp_path):
     path.write_text("", encoding="utf-8")
     with pytest.raises(SpecFileError, match="vide"):
         io.load_spec_data(path)
+
+
+def test_une_cle_yaml_non_textuelle_donne_une_erreur_lisible(tmp_path):
+    """YAML 1.1 relit `on:` comme un booleen : sans garde-fou, trace Python nue."""
+    path = tmp_path / "forge.yml"
+    path.write_text("forge_version: 1\non: true\n", encoding="utf-8")
+    with pytest.raises(SpecFileError, match="cle YAML non textuelle"):
+        io.load_spec_data(path)
+
+
+def test_une_cle_non_textuelle_imbriquee_est_aussi_signalee(tmp_path):
+    path = tmp_path / "forge.yml"
+    path.write_text("service:\n  labels:\n    yes: x\n", encoding="utf-8")
+    with pytest.raises(SpecFileError, match="service.labels"):
+        io.load_spec_data(path)
+
+
+def test_une_ecriture_impossible_donne_une_erreur_lisible(tmp_path):
+    fichier = tmp_path / "occupe"
+    fichier.write_text("x", encoding="utf-8")
+    with pytest.raises(SpecFileError, match="ecriture impossible"):
+        io.save_spec({"forge_version": 1}, fichier / "forge.yml")

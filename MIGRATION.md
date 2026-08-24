@@ -199,7 +199,25 @@ fichier qui fait désormais foi.
 | 3 | Détection d'outil et message d'installation | fusion `verify.require_tools` + `validation.tools.require`, plus repli WSL | `forge/validate/tools.py` |
 | 4 | Rapport d'exécution | `Report`/`Check` (helm) conservé, enrichi des états `missing`, `skipped`, `timeout` et du chaînage `stdin_from` | `forge/validate/runner.py` |
 | 5 | Filtres `comment`, `yaml_scalar` | **arbitré** : `yaml_scalar` = version ansible-forge (accepte tout scalaire, rendu identique sur les chaînes) ; `comment` = version ansible-forge (préserve l'indentation source, rend les lignes vides en `#`) + paramètre `prefix` de helm-forge. Signature `comment(text, indent=0, width=88, prefix="# ")` : **les gabarits helm qui passaient la largeur en 2ᵉ position doivent la nommer** (`\| comment(width=76)`) — à appliquer en phase 4. | `forge/jinja_ext.py` |
-| 6 | Normalisation de sortie | **union** appliquée : CRLF → LF, rstrip par ligne, runs de lignes vides ramenés à une seule, exactement un saut final ; `.copier-answers.yml` épargné (écriture interne de copier) | `forge/render/copier_runner.normalise_text` |
+| 6 | Normalisation de sortie | **union rejetée après vérification** : le cœur se limite à CRLF → LF et à un unique saut final ; `.copier-answers.yml` est épargné (écriture interne de copier). Voir l'encadré ci-dessous. | `forge/render/copier_runner.normalise_text` |
+
+> **Pourquoi l'« union » des deux normalisations legacy a été abandonnée.**
+> Le plan de migration prévoyait de cumuler le `rstrip` par ligne d'ansible-forge
+> et l'écrasement des lignes vides multiples de helm-forge. Mesuré en phase 2 :
+> ces deux transformations **ne sont pas neutres**. Dans un scalaire YAML quoté
+> sur plusieurs lignes, une ligne vide encode un saut de ligne littéral — les
+> écraser change la valeur relue (`'para1\n\npara2'` devient `'para1\npara2'`).
+> Dans un bloc `|`, les espaces de fin de ligne font partie de la donnée.
+> Appliquées à l'aveugle après le rendu, elles modifiaient donc le contenu livré
+> sans le dire, et les références golden — bénies *après* normalisation —
+> entérinaient la corruption au lieu de la détecter.
+> Le nettoyage des blancs laissés par les blocs `[% if %]` relève du gabarit
+> (`trim_blocks` / `lstrip_blocks`, actifs dans le `copier.yml` racine) : vérifié,
+> la sortie du plugin `demo` ne contient ni espace de fin ni ligne vide en trop
+> sans aucun post-traitement. Le cœur, lui, ne peut pas savoir ce qui porte du
+> sens dans un fichier — c'est exactement le genre de connaissance qu'il n'a pas
+> le droit d'avoir. **Conséquence pour les phases 3 et 4 :** si un gabarit porté
+> laisse des blancs, la correction est dans le gabarit, jamais dans le cœur.
 
 Filtres également réunis dans `forge/jinja_ext.py` sans divergence :
 `yaml_assign`, `lower_first`, `rule` (ansible-forge) et `to_yaml`, `yaml_value`,
