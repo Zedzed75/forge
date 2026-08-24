@@ -1,0 +1,15 @@
+[% from "partials/header.jinja" import file_header, var_doc %]
+---
+[[ file_header(
+     "roles/" ~ role.name ~ "/defaults/main.yml — valeurs par défaut du rôle",
+     [
+       role.summary,
+       "Ces valeurs ont la précédence la plus faible : n'importe quel fichier",
+       "group_vars ou host_vars les surcharge. Modifiez-les de préférence là-bas",
+       "plutôt qu'ici, afin de garder le rôle réutilisable tel quel.",
+     ]) ]]
+[% for option in role.options %]
+[[ var_doc(option.description, option.allowed) ]]
+[[ option.var_name ]]:[[ option.default | yaml_assign(2) ]]
+
+[% endfor %]

@@ -1,0 +1,36 @@
+[% from "partials/header.jinja" import file_header, var_doc %]
+---
+[[ file_header(
+     "roles/nginx/vars/main.yml — variables internes du rôle nginx",
+     [
+       "Différences entre familles de systèmes : compte de service et",
+       "emplacement du site par défaut de la distribution.",
+     ]) ]]
+[[ var_doc(
+     "Compte système sous lequel tournent les workers nginx, selon la famille d'OS.",
+     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+nginx_user_map:
+  Debian: www-data
+  RedHat: nginx
+
+[[ var_doc(
+     "Chemin du site par défaut livré par la distribution ; vide si absent.",
+     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+nginx_default_site_map:
+  Debian: /etc/nginx/sites-enabled/default
+  RedHat: ''
+
+[[ var_doc(
+     "Répertoire de configuration de nginx.",
+     "Identique sur toutes les distributions supportées.") ]]
+nginx_config_dir: /etc/nginx
+
+[[ var_doc(
+     "Compte de service résolu pour la machine courante.",
+     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+nginx_user: "{{ nginx_user_map[ansible_facts['os_family']] }}"
+
+[[ var_doc(
+     "Chemin du site par défaut résolu pour la machine courante.",
+     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+nginx_default_site_path: "{{ nginx_default_site_map[ansible_facts['os_family']] }}"

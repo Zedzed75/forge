@@ -1,0 +1,27 @@
+[% from "partials/header.jinja" import file_header, section %]
+---
+[[ file_header(
+     "inventories/" ~ env.name ~ "/group_vars/all.yml — variables de l'environnement « " ~ env.name ~ " »",
+     [
+       "Ces valeurs s'appliquent à toutes les machines de l'environnement « " ~ env.name ~ " »",
+       "et surchargent group_vars/all.yml et group_vars/<groupe>.yml.",
+     ]) ]]
+[[ section("Identité de l'environnement") ]]
+# Nom de l'environnement courant, utilisable dans les templates et les conditions.
+# Valeurs admises : [[ domain.env_names | join(', ') ]].
+env_name: [[ env.name | yaml_scalar ]]
+
+[% if env.vars_all %]
+[[ section("Surcharges propres à cet environnement") ]]
+[% for item in env.vars_all %]
+[[ item.description | comment ]]
+[[ item.name ]]:[[ item.value | yaml_assign(2) ]]
+
+[% endfor %]
+[% else %]
+[[ section("Surcharges propres à cet environnement") ]]
+# Aucune surcharge définie pour cet environnement.
+# Exemple : pour ouvrir un port supplémentaire uniquement en « [[ env.name ]] »,
+# ajoutez ici la variable du rôle concerné, commentée comme dans
+# roles/<rôle>/defaults/main.yml.
+[% endif %]

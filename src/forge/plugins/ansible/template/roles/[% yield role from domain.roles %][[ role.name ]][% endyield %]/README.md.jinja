@@ -1,0 +1,56 @@
+# Rôle `[[ role.name ]]`
+
+[[ role.summary ]]
+
+## Variables
+
+Toutes les variables sont définies dans `defaults/main.yml` et peuvent être
+surchargées depuis `group_vars/` ou `host_vars/`.
+
+| Variable | Rôle | Valeurs admises | Défaut |
+|---|---|---|---|
+[% for option in role.options %]
+| `[[ option.var_name ]]` | [[ option.description ]] | [[ option.allowed ]] | `[[ option.default | yaml_scalar ]]` |
+[% endfor %]
+
+[% if role.internal_vars %]
+## Variables internes
+
+Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargées.
+
+[% for item in role.internal_vars %]
+- `[[ item.name ]]` : [[ item.description ]]
+[% endfor %]
+
+[% endif %]
+[% if role.handlers %]
+## Handlers
+
+[% for handler in role.handlers %]
+- `[[ handler ]]`
+[% endfor %]
+
+[% endif %]
+[% if role.collections %]
+## Collections requises
+
+[% for collection in role.collections %]
+- `[[ collection ]]`
+[% endfor %]
+
+[% endif %]
+## Exemple d'utilisation
+
+```yaml
+- name: Appliquer le rôle [[ role.name ]]
+  hosts: [[ role.example_group ]]
+  become: true
+  roles:
+    - role: [[ role.name ]]
+```
+
+## Systèmes supportés
+
+[% for platform in role.platforms %]
+- [[ platform ]]
+[% endfor %]

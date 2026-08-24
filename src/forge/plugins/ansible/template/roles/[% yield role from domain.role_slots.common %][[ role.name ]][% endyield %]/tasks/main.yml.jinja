@@ -1,0 +1,41 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "roles/common/tasks/main.yml — socle système appliqué à toutes les machines",
+     [
+       "Ordre d'exécution : paquets de base, fuseau horaire, synchronisation",
+       "horaire, puis bannière MOTD. Chaque bloc est conditionné par une",
+       "variable afin de pouvoir être désactivé sans modifier le rôle.",
+     ]) ]]
+- name: Installer les paquets de base
+  ansible.builtin.package:
+    name: "{{ common_packages }}"
+    state: present
+  when: common_packages | length > 0
+
+- name: Configurer le fuseau horaire de la machine
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+  when: common_manage_timezone | bool
+
+- name: Installer le paquet de synchronisation horaire
+  ansible.builtin.package:
+    name: "{{ common_ntp_package }}"
+    state: present
+  when: common_enable_ntp | bool
+
+- name: Activer et démarrer le service de synchronisation horaire
+  ansible.builtin.service:
+    name: "{{ common_ntp_service }}"
+    state: started
+    enabled: true
+  when: common_enable_ntp | bool
+
+- name: Déployer la bannière MOTD du projet
+  ansible.builtin.template:
+    src: motd.j2
+    dest: /etc/motd
+    owner: root
+    group: root
+    mode: "0644"
+  when: common_manage_motd | bool

@@ -1,0 +1,39 @@
+[#-
+  Macros de commentaires partagées par les gabarits de tous les plugins.
+
+  Ce répertoire vit à la RACINE du dépôt de gabarit, hors de tout
+  `_subdirectory` : le chargeur Jinja de copier est enraciné sur la racine du
+  dépôt, ces macros sont donc importables par n'importe quel plugin
+  (`[% import "partials/header.jinja" as entete %]`) sans jamais être écrites
+  dans le projet généré. Vérifié expérimentalement.
+
+  Elles portent une règle transverse de CLAUDE.md : tout fichier généré
+  s'explique lui-même — bandeau d'en-tête, et commentaire sur chaque variable
+  exposée à l'utilisateur.
+
+  file_header : bandeau en tête de fichier.
+  var_doc     : documentation d'une variable (rôle + valeurs admises).
+  section     : sous-titre à l'intérieur d'un fichier.
+-#]
+[% macro file_header(title, lines=None) %]
+[[ rule() ]]
+# [[ title ]]
+[[ rule() ]]
+[% if lines %]
+[% for line in lines %]
+[[ line | comment ]]
+[% endfor %]
+#
+[% endif %]
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+[[ rule() ]]
+[% endmacro %]
+[% macro var_doc(description, allowed, indent=0) %]
+[[ description | comment(indent) ]]
+[[ ("Valeurs admises : " ~ (allowed | lower_first)) | comment(indent) ]]
+[%- endmacro %]
+[% macro section(title, indent=0) %]
+[[ " " * indent ]]# [[ title ]]
+[[ " " * indent ]][[ rule(60) ]]
+[%- endmacro %]

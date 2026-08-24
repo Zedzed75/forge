@@ -1,0 +1,48 @@
+[% from "partials/header.jinja" import file_header, section, var_doc %]
+---
+[[ file_header(
+     "group_vars/all.yml — variables communes à tout le projet",
+     [
+       "Ces valeurs s'appliquent à toutes les machines de tous les environnements.",
+       "Elles constituent la couche de plus basse précédence après les valeurs par",
+       "défaut des rôles ; un fichier inventories/<env>/group_vars/ les surcharge.",
+     ]) ]]
+[[ section("Connexion aux machines") ]]
+# Compte utilisé par Ansible pour se connecter en SSH.
+# Valeurs admises : un nom de compte POSIX existant sur les machines cibles.
+ansible_user: [[ domain.remote_user | yaml_scalar ]]
+
+# Port SSH des machines cibles.
+# Valeurs admises : entier de 1 à 65535.
+ansible_port: [[ domain.ssh_port ]]
+
+# Interpréteur Python utilisé sur les machines cibles.
+# Valeurs admises : « auto_silent », « auto » ou un chemin absolu.
+ansible_python_interpreter: [[ domain.python_interpreter | yaml_scalar ]]
+
+[[ section("Identité du projet") ]]
+# Nom du projet, repris dans la bannière MOTD et les fichiers de configuration.
+# Valeurs admises : chaîne libre.
+project_name: [[ service.name | yaml_scalar ]]
+
+# Description du projet, reprise dans la bannière MOTD.
+# Valeurs admises : chaîne libre, éventuellement vide.
+project_description: [[ service.description | yaml_scalar ]]
+
+[% if domain.role_overrides %]
+[[ section("Réglages de rôles propres à ce projet") ]]
+# Ces variables surchargent la valeur par défaut du rôle correspondant.
+# Les variables non listées ici gardent la valeur documentée dans
+# roles/<rôle>/defaults/main.yml.
+
+[% for item in domain.role_overrides %]
+[[ var_doc(item.description, item.allowed) ]]
+[[ item.name ]]:[[ item.value | yaml_assign(2) ]]
+
+[% endfor %]
+[% else %]
+[[ section("Réglages de rôles propres à ce projet") ]]
+# Aucune valeur par défaut de rôle n'est surchargée au niveau du projet.
+# Pour en surcharger une, copiez-la depuis roles/<rôle>/defaults/main.yml
+# en conservant son commentaire.
+[% endif %]

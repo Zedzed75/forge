@@ -1,0 +1,18 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "roles/docker/tasks/repository_redhat.yml — dépôt Docker sur RHEL et dérivés",
+     [
+       "Le dépôt CentOS de Docker convient à toute la famille RHEL : les",
+       "variables $releasever et $basearch sont résolues par le gestionnaire de",
+       "paquets lui-même.",
+     ]) ]]
+- name: Déclarer le dépôt Docker
+  ansible.builtin.yum_repository:
+    name: "{{ 'docker-ce-' ~ docker_channel }}"
+    description: "{{ 'Docker CE ' ~ docker_channel }}"
+    baseurl: "{{ 'https://download.docker.com/linux/centos/$releasever/$basearch/' ~ docker_channel }}"
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    gpgcheck: true
+    enabled: true
+    state: present

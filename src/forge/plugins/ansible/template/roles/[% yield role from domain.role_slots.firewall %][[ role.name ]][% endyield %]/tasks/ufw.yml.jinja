@@ -1,0 +1,49 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "roles/firewall/tasks/ufw.yml — pare-feu ufw (Debian et dérivés)",
+     [
+       "Les politiques par défaut sont posées avant l'ouverture des ports, et",
+       "le pare-feu n'est activé qu'en dernier : la règle autorisant SSH est",
+       "donc toujours en place avant que le filtrage ne démarre.",
+     ]) ]]
+- name: Installer ufw
+  ansible.builtin.package:
+    name: ufw
+    state: present
+
+- name: Définir la politique par défaut du trafic entrant
+  community.general.ufw:
+    direction: incoming
+    policy: "{{ firewall_default_incoming_policy }}"
+  notify: Recharger le pare-feu
+
+- name: Définir la politique par défaut du trafic sortant
+  community.general.ufw:
+    direction: outgoing
+    policy: "{{ firewall_default_outgoing_policy }}"
+  notify: Recharger le pare-feu
+
+- name: Ouvrir les ports TCP autorisés
+  community.general.ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_tcp_ports }}"
+  notify: Recharger le pare-feu
+
+- name: Ouvrir les ports UDP autorisés
+  community.general.ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: udp
+  loop: "{{ firewall_allowed_udp_ports }}"
+  notify: Recharger le pare-feu
+
+- name: Régler le niveau de journalisation
+  community.general.ufw:
+    logging: "{{ firewall_log_level }}"
+
+- name: Activer ou désactiver le pare-feu
+  community.general.ufw:
+    state: "{{ 'enabled' if firewall_enabled else 'disabled' }}"

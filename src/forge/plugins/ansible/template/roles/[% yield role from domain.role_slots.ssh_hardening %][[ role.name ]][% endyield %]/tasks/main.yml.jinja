@@ -1,0 +1,51 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "roles/ssh_hardening/tasks/main.yml — durcissement du serveur OpenSSH",
+     [
+       "Les directives sont déposées dans un fichier séparé de",
+       "/etc/ssh/sshd_config.d/ : la configuration livrée par la distribution",
+       "reste intacte et le durcissement se retire en supprimant un seul",
+       "fichier. Chaque écriture est validée par « sshd -t » : une erreur de",
+       "syntaxe ne peut pas couper l'accès SSH à la machine.",
+     ]) ]]
+- name: Installer le serveur OpenSSH
+  ansible.builtin.package:
+    name: "{{ ssh_hardening_package }}"
+    state: present
+
+- name: Créer le répertoire des fichiers de configuration additionnels
+  ansible.builtin.file:
+    path: "{{ ssh_hardening_dropin_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: S'assurer que sshd lit les fichiers de configuration additionnels
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_hardening_config_file }}"
+    line: "{{ 'Include ' ~ ssh_hardening_dropin_dir ~ '/*.conf' }}"
+    insertbefore: BOF
+    state: present
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Redémarrer le service SSH
+
+- name: Déployer les directives de durcissement
+  ansible.builtin.template:
+    src: hardening.conf.j2
+    dest: "{{ ssh_hardening_dropin_dir ~ '/' ~ ssh_hardening_dropin_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Redémarrer le service SSH
+
+- name: Activer et démarrer le service SSH
+  ansible.builtin.service:
+    name: "{{ ssh_hardening_service }}"
+    state: started
+    enabled: true

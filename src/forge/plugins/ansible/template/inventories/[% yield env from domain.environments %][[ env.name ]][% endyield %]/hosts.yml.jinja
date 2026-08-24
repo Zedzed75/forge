@@ -1,0 +1,37 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "Inventaire de l'environnement « " ~ env.name ~ " » — projet " ~ service.name,
+     [
+       "Liste les machines de cet environnement et leur rattachement aux groupes.",
+       "Les variables de connexion communes sont dans group_vars/all.yml ;",
+       "les variables propres à une machine sont dans host_vars/<machine>.yml.",
+       "Vérification : ansible-inventory -i inventories/" ~ env.name ~ " --graph",
+     ]) ]]
+all:
+  children:
+[% for group in env.groups %]
+[[ (group.description or ("Groupe " ~ group.name)) | comment(4) ]]
+    # Rôles appliqués : [[ group.role_names | join(', ') ]]
+    [[ group.name ]]:
+[% if group.hosts %]
+      hosts:
+[% for host in group.hosts %]
+        [[ host.name ]]:
+          # Adresse de connexion SSH utilisée par Ansible.
+          ansible_host: [[ host.ansible_host | yaml_scalar ]]
+[% if host.ansible_port is not none %]
+          # Port SSH spécifique à cette machine.
+          ansible_port: [[ host.ansible_port ]]
+[% endif %]
+[% if host.ansible_user is not none %]
+          # Compte SSH spécifique à cette machine.
+          ansible_user: [[ host.ansible_user | yaml_scalar ]]
+[% endif %]
+[% endfor %]
+[% else %]
+      # Aucune machine déclarée dans cet environnement pour ce groupe.
+      hosts: {}
+[% endif %]
+
+[% endfor %]

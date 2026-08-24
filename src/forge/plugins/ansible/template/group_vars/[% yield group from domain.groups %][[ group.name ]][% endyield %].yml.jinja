@@ -1,0 +1,29 @@
+[% from "partials/header.jinja" import file_header, section %]
+---
+[[ file_header(
+     "group_vars/" ~ group.name ~ ".yml — variables du groupe « " ~ group.name ~ " »",
+     [
+       group.description or ("Variables communes aux machines du groupe " ~ group.name ~ "."),
+       "Ces valeurs surchargent group_vars/all.yml pour ce groupe uniquement,",
+       "dans tous les environnements.",
+     ]) ]]
+[[ section("Rôles appliqués à ce groupe") ]]
+[% for role in group.roles %]
+# - [[ role.name ]] : [[ role.summary ]]
+[% endfor %]
+#
+# Pour surcharger une variable de l'un de ces rôles, copiez-la depuis
+# roles/<rôle>/defaults/main.yml en conservant son commentaire, puis modifiez
+# sa valeur ci-dessous.
+
+[% if group.variables %]
+[[ section("Variables propres au groupe") ]]
+[% for item in group.variables %]
+[[ item.description | comment ]]
+[[ item.name ]]:[[ item.value | yaml_assign(2) ]]
+
+[% endfor %]
+[% else %]
+[[ section("Variables propres au groupe") ]]
+# Aucune variable spécifique à ce groupe n'est définie pour l'instant.
+[% endif %]

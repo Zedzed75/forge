@@ -1,0 +1,24 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "roles/firewall/tasks/main.yml — aiguillage vers l'implémentation de pare-feu",
+     [
+       "Le backend effectif est résolu dans vars/main.yml : « auto » choisit ufw",
+       "sur Debian et firewalld sur RedHat. Les tâches propres à chaque",
+       "implémentation sont dans ufw.yml et firewalld.yml.",
+     ]) ]]
+- name: Vérifier que le backend de pare-feu est supporté par la machine
+  ansible.builtin.assert:
+    that:
+      - firewall_effective_backend in ['ufw', 'firewalld']
+    fail_msg: >-
+      Backend de pare-feu inconnu : {{ firewall_effective_backend }}.
+      Valeurs supportées : ufw, firewalld.
+
+- name: Appliquer les règles ufw
+  ansible.builtin.include_tasks: ufw.yml
+  when: firewall_effective_backend == 'ufw'
+
+- name: Appliquer les règles firewalld
+  ansible.builtin.include_tasks: firewalld.yml
+  when: firewall_effective_backend == 'firewalld'

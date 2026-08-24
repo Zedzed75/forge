@@ -1,0 +1,13 @@
+[% from "partials/header.jinja" import file_header %]
+---
+[[ file_header(
+     "roles/docker/handlers/main.yml — handlers du rôle docker",
+     [
+       "Redémarrer le démon interrompt brièvement les conteneurs qui ne sont",
+       "pas en politique de redémarrage automatique.",
+     ]) ]]
+- name: Redémarrer Docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when: docker_service_enabled | bool

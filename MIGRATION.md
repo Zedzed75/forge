@@ -260,6 +260,10 @@ supprimés (décision Q1). Un plugin ajoute ses propres filtres via un module
 | 4 | Disparition des artefacts produits par `j()` / `jstr()` **si** le rendu diffère d'un caractère | ansible | à vérifier gabarit par gabarit ; l'objectif est zéro différence. |
 | 5 | Fichiers de niveau dépôt (`Makefile`, `README.md`, `.gitignore`) déplacés ou fusionnés | les deux | cf. `DESIGN.md` §8 Q6. |
 | 6 | Filtres fusionnés (`comment`, `yaml_scalar`) pouvant changer la mise en forme | les deux | arbitrage §5.5 ; toute différence doit être inscrite ici. |
+| 7 | Bandeau d'en-tête : « généré par ansible-forge à partir de forge.yml » devient « généré par forge… » | ansible | l'outil a changé de nom ; laisser l'ancien serait faux. La substitution est appliquée au contenu **attendu** par `tests/test_parite_ansible.py`, sinon ce seul mot ferait échouer 20 fichiers sur 24 et noierait les vraies régressions. |
+| 8 | `project_name` legacy acceptait le souligné (`^[a-z][a-z0-9_-]{1,62}$`) ; `service.name` est un **label DNS** (pas de souligné) | ansible | le nom du service est partagé par tous les domaines, et Kubernetes impose le label DNS. Aucune des 6 spécifications de l'instantané n'est concernée. |
+| 9 | L'option `embed_spec` disparaît : le domaine ne génère plus `forge.yml` | ansible | la spécification unifiée est écrite par le cœur à la racine de la cible (écart 3). |
+| 10 | Le cœur ne « nettoie » plus la sortie : plus de `rstrip` par ligne ni de suppression des lignes vides de tête | les deux | ces transformations ne sont pas neutres (§5, encadré). **Conséquence directe pour le portage** : un gabarit qui laissait des blancs comptait sur le nettoyage du moteur legacy ; il doit désormais produire une sortie propre par lui-même, sinon la parité échoue sur ce fichier. |
 
 *(À compléter au fil des phases 3 et 4 : toute différence volontaire avec
 l'instantané de parité s'inscrit dans ce tableau.)*
