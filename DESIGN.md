@@ -51,6 +51,7 @@ class Command:
     tool: str                        # binaire à localiser ("helm", "ansible-lint")
     argv: list[str]                  # arguments, sans le binaire
     cwd: Path | None = None          # défaut : répertoire du domaine
+    env: tuple[tuple[str, str], ...] = ()  # variables d'environnement (phase 3, R1)
     stdin_from: str | None = None    # label d'une commande dont stdout alimente ce stdin
     timeout: int = 300
     install_hint: str = ""           # message affiché si le binaire est absent
@@ -133,6 +134,21 @@ def forge_validators(spec: ForgeSpec, outdir: Path) -> list[Command]:
 @hookspec
 def forge_projection(spec: ForgeSpec) -> Projection:
     """Ce que le domaine affirme produire, pour les contrôles inter-domaines."""
+
+@hookspec
+def forge_check_spec(spec: ForgeSpec) -> list[Issue]:
+    """Contrôles croisés sur la **spécification**, avant tout rendu.
+
+    Un sous-modèle de plugin ne voit que sa section : il ne peut pas vérifier
+    seul ce qui touche au bloc partagé `service:`. Le cœur appelle ce hook juste
+    après l'assemblage du modèle ; un `Issue` de niveau `error` arrête la
+    génération, un `warning` est affiché et laisse passer.
+
+    Ajouté à la revue d'interface de la phase 4 (arbitrage R2) : sans lui, une
+    spécification incohérente était générée sans broncher et l'erreur ne
+    sortait qu'au `forge validate` suivant.
+    """
+
 
 @hookspec
 def forge_consistency(spec: ForgeSpec, outdirs: dict[str, Path]) -> list[Issue]:

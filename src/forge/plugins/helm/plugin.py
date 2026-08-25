@@ -52,7 +52,7 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 
 @hookimpl
-def forge_consistency(spec: Any, outdirs: dict[str, Any]) -> list[Issue]:
+def forge_check_spec(spec: Any) -> list[Issue]:
     """Controles que le sous-modele ne peut pas faire : il ne voit pas `service:`."""
     if getattr(spec, "helm", None) is None:
         return []

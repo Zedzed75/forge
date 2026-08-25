@@ -41,9 +41,10 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] Catalogue de composants **complet** : les 13 familles, dont les 9 creees
         (ingress, configmap, statefulset, cronjob, secret, hpa, pdb,
         serviceaccount+RBAC, networkpolicy).
-  - [ ] **Revue d'interface : en attente de validation humaine.** Le releve est
-        pret (voir « Revue d'interface » ci-dessous) ; rien ne doit etre refactore
-        avant l'arbitrage, et aucun 3e plugin ne doit demarrer avant.
+  - [x] **Revue d'interface : arbitree (2026-08-25).** R2 -> nouveau hook
+        `forge_check_spec`, appele avant tout rendu ; R3 -> `tree.py` reste au
+        plugin, tenu a jour par un test obligatoire dans chaque domaine.
+        R1, R4, R5, R6, R7 enterines et documentes.
 - [ ] **Phase 5 — Valeur inter-domaines**
   - [ ] Verifications de coherence (namespaces Helm vs envs, groupes Ansible vs hosts,
         nom/labels de service identiques partout) avec messages actionnables.
@@ -58,8 +59,8 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 4 terminees, **sauf la revue d'interface**, qui attend une
-validation humaine. **242 tests verts** sur un depot propre.
+**Etat** : phases 0 a 4 terminees, revue d'interface comprise. **245 tests
+verts** sur un depot propre.
 
 Les deux domaines sont livres et enregistres (`BUILTIN_PLUGINS`) : `forge new`,
 `forge generate`, `forge validate`, `forge diff` et `forge catalog <domaine>`
@@ -124,23 +125,22 @@ Ecarts assumes par rapport a `DESIGN.md` §9 (arborescence prevue) :
 
 ## Revue d'interface — releve pour arbitrage humain
 
-`PLAN.md` reserve cette revue a une validation humaine, avant tout 3e plugin.
-Deux domaines reels ont maintenant ete portes ; voici les endroits ou le
-contrat a **du plier**, avec une recommandation pour chacun. Rien n'est
-refactore tant que l'arbitrage n'est pas rendu.
+`PLAN.md` reservait cette revue a une validation humaine, avant tout 3e plugin.
+**Arbitrage rendu le 2026-08-25** : R2 et R3 tranches comme recommande, les cinq
+autres constats enterines. Le tableau reste ici comme releve de decisions — ne
+pas le rouvrir sans raison nouvelle.
 
 | # | Constat | Recommandation |
 |---|---|---|
 | R1 | **`Command.env` a ete ajoute en cours de route** (phase 3). `DESIGN.md` §2.1 decrivait `Command` sans ce champ. Sans lui, `ANSIBLE_COLLECTIONS_PATH` etait intransmissible et `--syntax-check` echouait sur des modules que `requirements.yml` declare pourtant ; Helm s'en sert pour `KUBECONFORM_SCHEMA_LOCATION`. | **Entériner** : deux domaines sur deux en ont eu besoin. Mettre `DESIGN.md` §2.1 a jour. |
-| R2 | **Le contrat n'a pas de controle croise au niveau du modele.** Un sous-modele de plugin ne voit que sa section : ni Ansible ni Helm ne peut verifier seul que les environnements qu'il cite existent dans `service.environments`. Les deux passent par `forge_consistency`, qui n'est appele qu'a `forge validate` — **pas a `forge generate`**. Une specification incoherente est donc generee sans broncher, et l'erreur ne sort qu'au `validate` suivant. | **Ajouter un hook** `forge_check_spec(spec) -> list[Issue]`, appele par le coeur juste apres l'assemblage du modele, donc avant tout rendu. `forge_consistency` resterait pour ce qui a besoin des fichiers ecrits. |
-| R3 | **La liste des fichiers a ecrire est dupliquee dans chaque plugin** (`ansible/tree.py`, `helm/tree.py`). copier ne sait pas dire a l'avance ce qu'il va produire, et les deux domaines affichent une arborescence dans leur README. Un gabarit ajoute sans mise a jour de `tree.py` rend le README faux — un test l'attrape cote Ansible, la lecon a ete apprise deux fois. | **Service du coeur** : un rendu « a blanc » dans un tmpdir donne la liste exacte. Le coeur pourrait l'exposer aux gabarits (`domain.tree`) au lieu que chaque plugin la redevine. |
+| R2 | **ARBITRE : hook ajoute.** **Le contrat n'avait pas de controle croise au niveau du modele.** Un sous-modele de plugin ne voit que sa section : ni Ansible ni Helm ne peut verifier seul que les environnements qu'il cite existent dans `service.environments`. Les deux passent par `forge_consistency`, qui n'est appele qu'a `forge validate` — **pas a `forge generate`**. Une specification incoherente est donc generee sans broncher, et l'erreur ne sort qu'au `validate` suivant. | **Ajouter un hook** `forge_check_spec(spec) -> list[Issue]`, appele par le coeur juste apres l'assemblage du modele, donc avant tout rendu. `forge_consistency` resterait pour ce qui a besoin des fichiers ecrits. |
+| R3 | **ARBITRE : laisse au plugin, avec test obligatoire.** **La liste des fichiers a ecrire est dupliquee dans chaque plugin** (`ansible/tree.py`, `helm/tree.py`). copier ne sait pas dire a l'avance ce qu'il va produire, et les deux domaines affichent une arborescence dans leur README. Un gabarit ajoute sans mise a jour de `tree.py` rend le README faux — un test l'attrape cote Ansible, la lecon a ete apprise deux fois. | **Service du coeur** : un rendu « a blanc » dans un tmpdir donne la liste exacte. Le coeur pourrait l'exposer aux gabarits (`domain.tree`) au lieu que chaque plugin la redevine. |
 | R4 | **Les deux plugins ont invente le meme idiome, separement** : `domain.role_slots.<role>` et `domain.component_slots.<famille>`, un dict `{cle: [item] ou []}` qui permet a un gabarit propre a un element d'exister sans `[% if %]` dans le chemin. | **Documenter comme motif** dans `DESIGN.md` §5.3. Ne pas l'imposer dans le coeur : c'est une convention de gabarit, pas une API. |
 | R5 | **`.copier-answers.yml` grossit.** Il porte l'integralite du dict `domain` : ~23 Ko sur le cas Ansible le plus riche. C'est voulu (decision Q3 : lisible, versionne, relu), mais personne n'avait chiffre. | **Laisser tel quel**, et le dire dans `DESIGN.md` §8 Q3. L'alternative — n'y mettre que la spec — casserait `copier update`. |
 | R6 | **`DomainInfo.outdir` n'a jamais servi** : les deux domaines emploient le defaut (`ansible/`, `helm/`). | **Garder** : le champ coute une ligne et un domaine tiers en aura besoin (`terraform/environments/` par exemple). |
 | R7 | **L'entretien demande deux fois son avis a l'utilisateur** : le coeur demande quels domaines generer, puis le plugin peut encore decliner en retournant `None`. Ansible s'en sert (aucun groupe nomme), Helm aussi (aucun composant). | **Garder**, mais le dire dans le hookspec : le `None` du plugin ne signifie pas « l'utilisateur refuse le domaine », il signifie « il n'y a rien a generer ». |
 
-**Prochaine action** : **obtenir l'arbitrage humain sur la revue d'interface
-ci-dessus**, puis demarrer la **phase 5 — valeur inter-domaines** dans une
+**Prochaine action** : demarrer la **phase 5 — valeur inter-domaines** dans une
 session neuve. Points d'entree : `MIGRATION.md` §4 (classement par artefact) et
 §7 (etat du portage Ansible, dont les ecarts a ne pas reproduire) ; `DESIGN.md`
 §3 (section `helm:`) et §8 Q6.
@@ -177,5 +177,6 @@ Rappels pour la phase 5 :
 - Session 3 (2026-08-25) : phase 3 (plugin Ansible porte a parite integrale,
   50 gabarits convertis, 7 roles, validateurs reels qui passent). 213 tests.
 - Session 4 (2026-08-25) : phase 4 (plugin Helm porte a parite 32/32, puis neuf
-  familles de ressources creees ; 5 defauts trouves par la complementation).
-  242 tests. **Revue d'interface en attente d'arbitrage humain.**
+  familles de ressources creees ; 5 defauts trouves par la complementation),
+  puis revue d'interface arbitree : hook `forge_check_spec` ajoute, `tree.py`
+  laisse au plugin sous test obligatoire. 245 tests.

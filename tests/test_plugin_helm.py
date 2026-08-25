@@ -324,3 +324,30 @@ def test_le_chart_genere_passe_ses_propres_validateurs(tmp_path):
     # Le chainage doit avoir reellement tourne, pas avoir ete saute.
     lances = [c.label for rapport in resultat.reports for c in rapport.checks]
     assert any("kubeconform" in label for label in lances)
+
+
+def test_l_arborescence_annoncee_correspond_aux_fichiers_generes(tmp_path):
+    """Arbitrage R3 : `tree.py` reste au plugin, mais un test le tient a jour.
+
+    copier ne peut pas dire a l'avance ce qu'il va ecrire, et le README du chart
+    l'affiche. Un gabarit ajoute, retire ou renomme sans mise a jour de
+    `tree.py` rendrait donc le README faux — en silence, sans ce test.
+    """
+    from forge.plugins.helm import tree
+
+    manager = _manager()
+    data = load_spec_data(SPEC_COMPLETE)
+    spec = validate_spec(data, manager)
+    pipeline.generate(data, spec, manager, tmp_path)
+
+    base = tmp_path / "helm"
+    produits = {
+        chemin.relative_to(base).as_posix()
+        for chemin in base.rglob("*")
+        if chemin.is_file()
+    }
+    annonces = set(tree.expected_paths(spec))
+    # Ecarts assumes : la plomberie de copier n'est pas annoncee, et forge.yml
+    # vit desormais a la racine du depot cible (ecart de parite 3).
+    assert produits - annonces <= {".copier-answers.yml"}
+    assert annonces - produits <= {"forge.yml"}

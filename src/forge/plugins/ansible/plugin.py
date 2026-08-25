@@ -79,15 +79,15 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 
 @hookimpl
-def forge_consistency(spec: Any, outdirs: dict[str, Path]) -> list[Issue]:
+def forge_check_spec(spec: Any) -> list[Issue]:
     """Controles que la comparaison de projections ne peut pas exprimer.
 
     Le sous-modele d'un plugin ne voit que sa propre section : il ne peut donc
     pas verifier lui-meme que les environnements cites dans `ansible.hosts`
     existent bien dans `service.environments`. Ce hook, appele avec la spec
-    complete, comble ce trou. (Point a reprendre a la revue d'interface de la
-    phase 4 : le contrat manque d'un controle croise au moment de la validation
-    du modele, pas seulement a celui de la validation du projet genere.)
+    complete et **avant tout rendu**, comble ce trou : une specification
+    incoherente est refusee au moment de la generation, pas seulement au
+    `forge validate` suivant (arbitrage R2 de la revue d'interface).
     """
     if getattr(spec, "ansible", None) is None:
         return []

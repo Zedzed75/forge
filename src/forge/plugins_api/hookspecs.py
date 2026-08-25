@@ -81,6 +81,24 @@ def forge_projection(spec: Any) -> Projection:
 
 
 @hookspec
+def forge_check_spec(spec: Any) -> list[Issue]:
+    """Controles que le sous-modele du domaine ne peut pas faire lui-meme.
+
+    Un sous-modele pydantic ne voit que **sa** section : il peut verifier que
+    les groupes qu'il cite existent, jamais que les environnements existent,
+    puisque ceux-ci sont declares dans le bloc partage `service:`.
+
+    Le coeur appelle ce hook juste apres l'assemblage du modele, **avant tout
+    rendu** : une specification incoherente doit etre refusee au moment de la
+    generation, pas seulement au `forge validate` suivant. Un `Issue` de niveau
+    `error` arrete la generation ; un `warning` est affiche et laisse passer.
+
+    A distinguer de `forge_consistency`, qui porte sur le projet **deja ecrit**
+    et recoit donc les repertoires de sortie.
+    """
+
+
+@hookspec
 def forge_consistency(spec: Any, outdirs: dict[str, Path]) -> list[Issue]:
     """Controles supplementaires propres au plugin (echappatoire).
 

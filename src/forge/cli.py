@@ -43,6 +43,15 @@ def _split(value: str | None) -> list[str] | None:
     return names or None
 
 
+def _echo_warnings(result: pipeline.GenerationResult) -> None:
+    """Affiche les constats non bloquants remontes par les plugins."""
+    for issue in result.warnings:
+        scope = f" [{', '.join(issue.domains)}]" if issue.domains else ""
+        typer.echo(f"[AVERTIR]{scope} {issue.message}", err=True)
+        if issue.hint:
+            typer.echo(f"          -> {issue.hint}", err=True)
+
+
 def _fail(message: str) -> None:
     typer.echo(message, err=True)
     raise typer.Exit(code=1)
@@ -143,6 +152,7 @@ def cmd_new(
     except ForgeError as exc:
         _fail(str(exc))
         return
+    _echo_warnings(result)
     typer.echo(result.summary())
 
 
@@ -181,6 +191,7 @@ def cmd_generate(
     except ForgeError as exc:
         _fail(str(exc))
         return
+    _echo_warnings(result)
     typer.echo(result.summary())
 
 

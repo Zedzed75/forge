@@ -33,6 +33,10 @@ class GenerationResult:
     repo_files: list[Path] = field(default_factory=list)
     dry_run: bool = False
 
+    #: Constats de niveau `warning` remontes par les plugins avant le rendu.
+    #: Les erreurs, elles, ont deja arrete la generation.
+    warnings: list[Issue] = field(default_factory=list)
+
     def summary(self) -> str:
         """Resume d'une ligne — jamais l'arborescence complete."""
         prefix = "simulation : " if self.dry_run else ""
@@ -117,6 +121,35 @@ def indexed_domains(spec: ForgeSpecBase, manager: ForgeManager) -> list[DomainIn
     return [manager.domain(name).info for name in spec.domain_names()]
 
 
+def check_spec(spec: ForgeSpecBase, manager: ForgeManager, names: list[str]) -> list[Issue]:
+    """Interroge chaque domaine sur la coherence de la specification.
+
+    Appele **avant tout rendu** : un sous-modele de plugin ne voit que sa
+    propre section, il ne peut donc pas verifier seul ce qui touche au bloc
+    partage `service:`. Sans ce controle, une specification incoherente serait
+    generee sans broncher et l'erreur ne sortirait qu'au `forge validate`
+    suivant (arbitrage R2 de la revue d'interface).
+    """
+    issues: list[Issue] = []
+    for name in names:
+        issues.extend(manager.domain(name).check_spec(spec))
+    return issues
+
+
+def raise_on_errors(issues: list[Issue]) -> list[Issue]:
+    """Arrete sur les erreurs, retourne les avertissements a afficher."""
+    erreurs = [issue for issue in issues if issue.level == "error"]
+    if erreurs:
+        detail = "\n".join(
+            f"  - {issue.message}" + (f"\n    -> {issue.hint}" if issue.hint else "")
+            for issue in erreurs
+        )
+        raise SpecValidationError(
+            f"specification incoherente ({len(erreurs)} erreur(s)) :\n{detail}"
+        )
+    return [issue for issue in issues if issue.level == "warning"]
+
+
 def generate(
     spec_data: dict[str, Any],
     spec: ForgeSpecBase,
@@ -133,6 +166,9 @@ def generate(
     target = Path(target)
     names = resolve_domains(spec, manager, only)
     result = GenerationResult(target=target, domains=names, dry_run=dry_run)
+    # Les controles croises passent AVANT le rendu : mieux vaut ne rien ecrire
+    # que d'ecrire un projet qu'on sait incoherent.
+    result.warnings = raise_on_errors(check_spec(spec, manager, names))
     if dry_run:
         return result
 
@@ -315,6 +351,7 @@ def validate(
         if projection is not None:
             projections[name] = projection
 
+    result.issues.extend(check_spec(spec, manager, names))
     result.issues.extend(compare_projections(projections))
     result.issues.extend(manager.consistency(spec, outdirs))
     return result

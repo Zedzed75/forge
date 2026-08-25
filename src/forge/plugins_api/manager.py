@@ -128,6 +128,10 @@ class DomainHooks:
         """Projection du domaine, ou None s'il n'en declare pas."""
         return self._call("forge_projection", required=False, spec=spec)
 
+    def check_spec(self, spec: Any) -> list[Issue]:
+        """Controles croises du domaine sur la specification, avant tout rendu."""
+        return self._call("forge_check_spec", required=False, spec=spec) or []
+
     def catalog(self) -> list[CatalogEntry]:
         """Catalogue du domaine, vide s'il n'en declare pas."""
         return self._call("forge_catalog", required=False) or []

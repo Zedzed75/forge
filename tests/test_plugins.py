@@ -186,3 +186,79 @@ def test_le_plugin_demo_declare_ses_hooks(manager, spec):
     commands = hooks.validators(spec, Path("demo"))
     assert commands and isinstance(commands[0], Command)
     assert [entry.name for entry in hooks.catalog()] == ["gauge", "counter", "log"]
+
+
+# ---------------------------------------------------------------------------
+# forge_check_spec : controle croise avant tout rendu (arbitrage R2)
+# ---------------------------------------------------------------------------
+
+
+def test_un_controle_croise_en_erreur_arrete_la_generation(tmp_path, spec_data, manager):
+    """Mieux vaut ne rien ecrire que d'ecrire un projet qu'on sait incoherent."""
+    from forge import pipeline
+    from forge.errors import SpecValidationError
+    from forge.spec.assembly import validate_spec
+
+    class Grognon:
+        @staticmethod
+        @hookimpl
+        def forge_domain() -> DomainInfo:
+            return DomainInfo(name="grognon", title="Grognon", summary="s")
+
+        @staticmethod
+        @hookimpl
+        def forge_spec_model() -> type[_AutreSpec]:
+            return _AutreSpec
+
+        @staticmethod
+        @hookimpl
+        def forge_template_subdir() -> str:
+            return "src/forge/plugins/demo/template"
+
+        @staticmethod
+        @hookimpl
+        def forge_check_spec(spec) -> list[Issue]:
+            return [
+                Issue(level="error", message="rien ne va", hint="corrigez", domains=("grognon",))
+            ]
+
+    manager.register(Grognon(), name="grognon")
+    spec_data["grognon"] = {"valeur": "x"}
+    spec = validate_spec(spec_data, manager)
+
+    with pytest.raises(SpecValidationError, match="rien ne va"):
+        pipeline.generate(spec_data, spec, manager, tmp_path, only=["grognon"])
+    assert list(tmp_path.iterdir()) == [], "rien ne doit avoir ete ecrit"
+
+
+def test_un_controle_croise_en_avertissement_laisse_passer(tmp_path, spec_data, manager):
+    from forge import pipeline
+    from forge.spec.assembly import validate_spec
+
+    class Ronchon:
+        @staticmethod
+        @hookimpl
+        def forge_domain() -> DomainInfo:
+            return DomainInfo(name="ronchon", title="Ronchon", summary="s")
+
+        @staticmethod
+        @hookimpl
+        def forge_spec_model() -> type[_AutreSpec]:
+            return _AutreSpec
+
+        @staticmethod
+        @hookimpl
+        def forge_template_subdir() -> str:
+            return "src/forge/plugins/demo/template"
+
+        @staticmethod
+        @hookimpl
+        def forge_check_spec(spec) -> list[Issue]:
+            return [Issue(level="warning", message="ca sent le roussi", domains=("ronchon",))]
+
+    manager.register(Ronchon(), name="ronchon")
+    spec_data["ronchon"] = {"valeur": "x"}
+    spec = validate_spec(spec_data, manager)
+
+    result = pipeline.generate(spec_data, spec, manager, tmp_path, only=["ronchon"], dry_run=True)
+    assert [issue.message for issue in result.warnings] == ["ca sent le roussi"]
