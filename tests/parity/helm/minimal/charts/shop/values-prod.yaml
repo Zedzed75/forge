@@ -1,0 +1,38 @@
+# =============================================================================
+# values-prod.yaml — surcharges de l'environnement « prod »
+# =============================================================================
+# Fichier généré par helm-forge. Il ne contient que les écarts par rapport à
+# values.yaml : tout ce qui n'apparaît pas ici garde sa valeur par défaut.
+#
+# Namespace cible de cet environnement : shop-prod
+#
+# Utilisation :
+#   helm upgrade --install shop ./charts/shop \
+#     --namespace shop-prod --create-namespace \
+#     --values ./charts/shop/values.yaml \
+#     --values ./charts/shop/values-prod.yaml
+#
+# Le namespace n'est pas une valeur du chart : il est choisi par l'option
+# --namespace de Helm. Il est rappelé ci-dessus à titre documentaire, et le
+# Makefile du projet l'applique automatiquement.
+# =============================================================================
+
+global:
+  # Alimente le label « environment » posé sur toutes les ressources, ce qui
+  # permet de filtrer par environnement avec kubectl -l environment=prod.
+  environment: prod
+
+# -----------------------------------------------------------------------------
+# Composant « api »
+# -----------------------------------------------------------------------------
+api:
+  # Profil « prod » : 3 réplique(s).
+  replicaCount: 3
+  # Ressources ajustées pour cet environnement.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 400m
+      memory: 256Mi

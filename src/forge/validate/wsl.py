@@ -27,7 +27,16 @@ from forge.errors import ForgeError
 WSL_DISTRO = os.environ.get("FORGE_WSL_DISTRO", "Debian")
 
 #: Repertoires ajoutes au PATH dans WSL, avant le PATH de la distribution.
-WSL_PATH = os.environ.get("FORGE_WSL_PATH", "/opt/forge-venv/bin:/root/.local/bin")
+#:
+#: Convention du projet : les outils de validation vivent sous `/opt`, hors du
+#: repertoire personnel d'un utilisateur. Le pont s'execute en effet sous un
+#: compte (`root` par defaut) qui n'est pas forcement celui qui a installe les
+#: outils — un binaire pose dans `~/.local/bin` d'un autre compte serait
+#: invisible. Un lien symbolique vers `/opt/forge-tools/bin` suffit a le rendre
+#: joignable, sans deplacer l'installation d'origine.
+WSL_PATH = os.environ.get(
+    "FORGE_WSL_PATH", "/opt/forge-venv/bin:/opt/forge-tools/bin:/root/.local/bin"
+)
 
 #: Utilisateur employe dans WSL.
 WSL_USER = os.environ.get("FORGE_WSL_USER", "root")

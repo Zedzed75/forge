@@ -1,0 +1,43 @@
+{{/*
+===============================================================================
+Test de connexion au composant « api »
+===============================================================================
+Fichier généré par helm-forge.
+
+Ce pod n'est créé que par « helm test <release> », grâce à l'annotation
+helm.sh/hook: test. Il interroge le Service de api et échoue si celui-ci
+ne répond pas, ce qui permet de valider une release avant de la déclarer bonne.
+
+L'annotation hook-delete-policy supprime le pod dès qu'il a réussi, tout en le
+conservant en cas d'échec pour permettre la lecture de ses journaux.
+===============================================================================
+*/}}
+{{- if and .Values.tests.enabled .Values.api.enabled .Values.api.service.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "shop.api.fullname" . }}-test-connection
+  labels:
+    {{- include "shop.api.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: connection-test
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      command:
+        - wget
+      args:
+        - --spider
+        - --timeout={{ .Values.tests.timeoutSeconds }}
+        - "{{ include "shop.api.fullname" . }}:{{ .Values.api.service.port }}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+{{- end }}
