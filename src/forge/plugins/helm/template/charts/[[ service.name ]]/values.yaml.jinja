@@ -1,0 +1,587 @@
+# =============================================================================
+# values.yaml — valeurs par défaut du chart « [[ service.name ]] »
+# =============================================================================
+# Fichier généré par forge. Il contient les valeurs communes à tous les
+# environnements. Les écarts propres à un environnement vivent dans les
+# fichiers values-<environnement>.yaml, qui ne redéfinissent que ce qui change.
+#
+# Ordre de priorité appliqué par Helm, du plus faible au plus fort :
+#   values.yaml  <  values-<env>.yaml  <  --set en ligne de commande
+#
+# Chaque bloc est précédé d'un commentaire indiquant son rôle, les valeurs
+# acceptées et la valeur par défaut retenue.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Valeurs globales
+# -----------------------------------------------------------------------------
+# Le bloc « global » est le seul propagé automatiquement aux sous-charts par
+# Helm. On y place donc ce qui doit rester cohérent à l'échelle du projet.
+global:
+  # Registry d'où proviennent les images de tous les composants.
+  # Exemples : docker.io, ghcr.io, quay.io, registry.gitlab.com
+  imageRegistry: [[ domain.image.registry | yaml_scalar ]]
+
+  # Secrets de type kubernetes.io/dockerconfigjson permettant de tirer les
+  # images depuis un registry privé. Liste de { name: <nom du secret> }.
+[% if domain.image.pull_secret_name %]
+  imagePullSecrets:
+    - name: [[ domain.image.pull_secret_name | yaml_scalar ]]
+[% else %]
+  imagePullSecrets: []
+[% endif %]
+
+  # Nom de l'environnement courant. Laissé vide ici : chaque fichier
+  # values-<env>.yaml le renseigne, et il alimente le label « environment »
+  # posé sur toutes les ressources du chart.
+  environment: ""
+
+# -----------------------------------------------------------------------------
+# Nommage des ressources
+# -----------------------------------------------------------------------------
+# Par défaut, les ressources sont nommées <release>-<chart>. Ces deux clés
+# permettent de dévier de cette règle sans toucher aux gabarits.
+#   nameOverride     : remplace le nom du chart dans les noms composés ;
+#   fullnameOverride : remplace intégralement le nom, release comprise.
+nameOverride: ""
+fullnameOverride: ""
+
+[% for component in domain.components %]
+# =============================================================================
+# Composant « [[ component.name ]] » ([[ component.kind ]])
+# =============================================================================
+[[ component.name ]]:
+  # Permet de désactiver entièrement le composant sans supprimer ses gabarits.
+  # Utile pour n'activer un worker qu'en production, par exemple.
+  enabled: true
+
+  # Nombre de répliques souhaité. Surchargé par environnement.
+  replicaCount: [[ component.replicas ]]
+
+  # ---------------------------------------------------------------------------
+  # Image du conteneur
+  # ---------------------------------------------------------------------------
+  image:
+    # Dépôt, sans le registry : celui-ci vient de global.imageRegistry.
+    repository: [[ component.image_repository | yaml_scalar ]]
+
+[% if domain.image.strategy == "appVersion" %]
+    # Tag laissé vide volontairement : les gabarits retombent alors sur
+    # appVersion du Chart.yaml. C'est la pratique Helm recommandée, elle évite
+    # que le tag et la version du chart divergent silencieusement.
+    tag: ""
+[% elif domain.image.strategy == "fixed" %]
+    # Tag figé, identique dans tous les environnements.
+    tag: [[ domain.image.tag | yaml_scalar ]]
+[% else %]
+    # Tag laissé vide ici : chaque values-<env>.yaml impose le sien.
+    tag: ""
+[% endif %]
+
+    # Always : retire l'image à chaque démarrage, indispensable avec un tag
+    #          mouvant du type « latest ».
+    # IfNotPresent : n'interroge le registry que si l'image manque localement.
+    # Never : n'interroge jamais le registry, réservé aux images préchargées.
+    pullPolicy: [[ domain.image.pull_policy ]]
+
+  # ---------------------------------------------------------------------------
+  # Port exposé par le conteneur
+  # ---------------------------------------------------------------------------
+  # Le nom du port est repris par le Service et, le cas échéant, par les sondes
+  # et la collecte de métriques. Quinze caractères maximum, contrainte de
+  # Kubernetes sur les noms de ports.
+  containerPort: [[ component.container_port ]]
+  portName: [[ component.port_name | yaml_scalar ]]
+
+[% if component.command or component.args %]
+  # ---------------------------------------------------------------------------
+  # Commande de démarrage
+  # ---------------------------------------------------------------------------
+  # Remplace l'ENTRYPOINT et le CMD de l'image. C'est ainsi qu'un worker se
+  # distingue d'une API tout en partageant la même image.
+  command:[[ component.command | yaml_value(4) ]]
+  args:[[ component.args | yaml_value(4) ]]
+[% else %]
+  # Commande de démarrage. Listes vides : l'ENTRYPOINT de l'image est conservé.
+  command: []
+  args: []
+[% endif %]
+
+[% if component.has.service %]
+  # ---------------------------------------------------------------------------
+  # Service
+  # ---------------------------------------------------------------------------
+  service:
+    enabled: true
+
+    # ClusterIP : joignable uniquement depuis le cluster (défaut recommandé).
+    # NodePort : ouvre un port sur chaque nœud, à réserver au développement.
+    # LoadBalancer : demande une adresse externe au fournisseur de cloud.
+    type: [[ component.service.type ]]
+
+    # Port exposé par le Service, redirigé vers containerPort.
+    port: [[ component.service.port ]]
+[% if component.service.headless %]
+
+    # clusterIP: None — Service headless, indispensable à un StatefulSet pour
+    # donner à chaque pod un nom DNS stable et individuel.
+    headless: true
+[% endif %]
+
+    # Annotations du Service, par exemple pour piloter un LoadBalancer cloud.
+    annotations:[[ component.service.annotations | yaml_value(6) ]]
+
+[% endif %]
+[% if component.has.ingress %]
+  # ---------------------------------------------------------------------------
+  # Ingress
+  # ---------------------------------------------------------------------------
+  ingress:
+    # Génère ou non l'Ingress. À false, le composant reste joignable par son
+    # Service à l'intérieur du cluster, mais plus depuis l'extérieur.
+    enabled: true
+
+    # Ingress controller visé, écrit dans ingressClassName.
+    # Valeurs usuelles : nginx | traefik
+    # Ne jamais doubler cette clé par l'annotation kubernetes.io/ingress.class :
+    # émettre les deux à la fois est refusé.
+    className: [[ component.ingress.class_name | yaml_scalar ]]
+
+    # Hôte HTTP servi par la règle. Laissé vide ici : chaque values-<env>.yaml
+    # pose le sien, dérivé du domaine de l'environnement. Vide, la règle est
+    # entièrement omise plutôt que d'écrire un host null, que le schéma refuse.
+    host: ""
+
+    # Chemin servi, et mode de comparaison de ce chemin :
+    #   Exact : le chemin doit correspondre caractère pour caractère ;
+    #   Prefix : correspondance par segments (/api couvre /api/v1) ;
+    #   ImplementationSpecific : la règle est laissée au controller.
+    # pathType est obligatoire sur chaque chemin : c'est l'oubli le plus
+    # fréquemment refusé par la validation stricte des schémas.
+    path: [[ component.ingress.path | yaml_scalar ]]
+    pathType: [[ component.ingress.path_type | yaml_scalar ]]
+
+    # Terminaison TLS de cet hôte. Le bloc tls du manifeste est entièrement
+    # absent quand enabled vaut false : un « tls: [] » serait refusé.
+    tls:
+      enabled: [[ component.ingress.tls | to_yaml ]]
+
+      # ClusterIssuer cert-manager chargé d'émettre le certificat.
+      issuer: [[ component.ingress.issuer | yaml_scalar ]]
+
+      # Nom du Secret portant le certificat. Vide = <ressource>-tls, dérivé du
+      # nom du composant. Le certificat doit couvrir exactement l'hôte
+      # ci-dessus, faute de quoi la connexion échoue à l'exécution alors que le
+      # manifeste reste valide.
+      secretName: ""
+
+    # Annotations posées sur l'Ingress : réécriture d'URL, taille maximale du
+    # corps, redirection HTTPS... Elles dépendent du controller retenu.
+    annotations:[[ component.ingress.annotations | yaml_value(6) ]]
+
+[% endif %]
+  # ---------------------------------------------------------------------------
+  # Sondes de santé
+  # ---------------------------------------------------------------------------
+  # liveness : un échec provoque le redémarrage du conteneur.
+  # readiness : un échec retire le pod des endpoints du Service, sans le tuer.
+  # startup : suspend les deux autres tant que l'application n'a pas démarré ;
+  #           à activer pour une application lente à s'initialiser.
+  probes:
+    enabled: [[ component.probes.enabled | to_yaml ]]
+    liveness:
+      path: [[ component.probes.liveness_path | yaml_scalar ]]
+      initialDelaySeconds: [[ component.probes.initial_delay_seconds ]]
+      periodSeconds: [[ component.probes.period_seconds ]]
+      timeoutSeconds: [[ component.probes.timeout_seconds ]]
+      failureThreshold: [[ component.probes.failure_threshold ]]
+    readiness:
+      path: [[ component.probes.readiness_path | yaml_scalar ]]
+      initialDelaySeconds: [[ component.probes.initial_delay_seconds ]]
+      periodSeconds: [[ component.probes.period_seconds ]]
+      timeoutSeconds: [[ component.probes.timeout_seconds ]]
+      failureThreshold: [[ component.probes.failure_threshold ]]
+    startup:
+      enabled: [[ component.probes.startup_enabled | to_yaml ]]
+      path: [[ component.probes.liveness_path | yaml_scalar ]]
+      periodSeconds: [[ component.probes.period_seconds ]]
+      # 30 tentatives x periodSeconds : durée maximale accordée au démarrage.
+      failureThreshold: 30
+
+  # ---------------------------------------------------------------------------
+  # Ressources CPU et mémoire
+  # ---------------------------------------------------------------------------
+  # requests : ce que l'ordonnanceur réserve, et donc ce qui détermine sur quel
+  #            nœud le pod peut atterrir.
+  # limits   : plafond appliqué à l'exécution. Dépasser la limite mémoire tue
+  #            le conteneur (OOMKilled) ; dépasser la limite CPU le ralentit.
+  # Profil retenu à la génération : [[ component.resources.profile ]]
+  resources:
+    requests:
+      cpu: [[ component.resources.cpu_request | yaml_scalar ]]
+      memory: [[ component.resources.memory_request | yaml_scalar ]]
+    limits:
+      cpu: [[ component.resources.cpu_limit | yaml_scalar ]]
+      memory: [[ component.resources.memory_limit | yaml_scalar ]]
+
+  # ---------------------------------------------------------------------------
+  # Contexte de sécurité
+  # ---------------------------------------------------------------------------
+[% if component.security.strict %]
+  # Durcissement strict demandé à la génération : conteneur non root, système
+  # de fichiers racine en lecture seule, toutes les capabilities retirées.
+  # Si l'application a besoin d'écrire, montez un volume emptyDir plutôt que
+  # de repasser readOnlyRootFilesystem à false.
+[% else %]
+  # Durcissement assoupli à la demande. Repasser ces valeurs au strict dès que
+  # l'application le permet : c'est la protection la moins coûteuse qui soit.
+[% endif %]
+  podSecurityContext:
+    runAsNonRoot: [[ component.security.run_as_non_root | to_yaml ]]
+    runAsUser: [[ component.security.run_as_user ]]
+    runAsGroup: [[ component.security.run_as_group ]]
+    # fsGroup fixe le groupe propriétaire des volumes montés, faute de quoi un
+    # conteneur non root ne peut pas y écrire.
+    fsGroup: [[ component.security.fs_group ]]
+    seccompProfile:
+      type: [[ component.security.seccomp_profile ]]
+  securityContext:
+    allowPrivilegeEscalation: [[ component.security.allow_privilege_escalation | to_yaml ]]
+    readOnlyRootFilesystem: [[ component.security.read_only_root_filesystem | to_yaml ]]
+    capabilities:
+      drop:[[ component.security.drop_capabilities | yaml_value(8) ]]
+
+  # ---------------------------------------------------------------------------
+  # Placement et métadonnées du pod
+  # ---------------------------------------------------------------------------
+  # Laissés vides par défaut. À renseigner pour contraindre l'ordonnancement,
+  # par exemple sur un groupe de nœuds dédié.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Annotations et labels ajoutés au pod, en complément des labels standards.
+  podAnnotations: {}
+  podLabels: {}
+
+  # Variables d'environnement supplémentaires, au format Kubernetes.
+  # Exemple :
+  #   extraEnv:
+  #     - name: DATABASE_URL
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: [[ component.name ]]-database
+  #           key: url
+  extraEnv: []
+[% if component.has.configmap %]
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap — configuration non sensible
+  # ---------------------------------------------------------------------------
+  config:
+    # Génère ou non le ConfigMap. À false, l'injection dans le conteneur
+    # disparaît elle aussi : rien ne référence plus une ressource absente.
+    enabled: true
+
+    # Mode d'injection dans le conteneur :
+    #   env  : chaque clé devient une variable d'environnement (envFrom) ;
+    #   file : le ConfigMap est monté en fichiers sous mountPath, un fichier
+    #          par clé — seule forme utilisable si l'application lit un fichier.
+    mountAs: [[ component.config.mount_as | yaml_scalar ]]
+
+    # Répertoire de montage, employé uniquement en mode « file ».
+    mountPath: "/etc/[[ component.name ]]"
+
+    # Clés de configuration et leurs valeurs.
+    # Toutes les valeurs sont écrites en chaînes de caractères : un entier ou
+    # un booléen nu est refusé par l'API, le gabarit les cite donc toujours.
+    # Une modification de ce bloc redémarre les pods, grâce à l'empreinte
+    # checksum/config posée sur le modèle de pod.
+[% if component.config["keys"] %]
+    data:
+[% for key in component.config["keys"] %]
+      [[ key ]]: ""
+[% endfor %]
+[% else %]
+    # Aucune clé déclarée : « {} » et non un bloc vide, qui vaudrait null.
+    data: {}
+[% endif %]
+[% endif %]
+[% if component.has.secret %]
+
+  # ---------------------------------------------------------------------------
+  # Secret — emplacements de valeurs sensibles
+  # ---------------------------------------------------------------------------
+  # forge n'écrit jamais de valeur secrète : ce bloc ne déclare que les clés
+  # attendues. Renseignez-les hors du dépôt (--set, coffre-fort, opérateur de
+  # secrets), jamais dans un fichier versionné.
+  secret:
+    # Génère ou non le Secret. Faux par défaut : tant qu'aucune valeur n'est
+    # fournie, mieux vaut ne rien créer que créer des clés vides qui feraient
+    # démarrer l'application avec une configuration silencieusement fausse.
+    enabled: false
+
+    # true  : le chart crée le Secret à partir des clés ci-dessous ;
+    # false : le chart référence existingSecret, géré hors du chart.
+    create: true
+
+    # Nom d'un Secret existant, employé quand create vaut false. Le laisser
+    # vide dans ce cas empêcherait les pods de démarrer.
+    existingSecret: ""
+
+    # Type de Secret. « Opaque » convient à des clés quelconques ; un type
+    # spécialisé impose les siennes (kubernetes.io/tls exige tls.crt et
+    # tls.key) — ne pas mélanger les deux familles de clés.
+    type: "Opaque"
+
+    # Mode d'injection dans le conteneur :
+    #   env  : chaque clé devient une variable d'environnement (envFrom) ;
+    #   file : le Secret est monté en fichiers sous mountPath.
+    mountAs: [[ component.secret.mount_as | yaml_scalar ]]
+
+    # Répertoire de montage, employé uniquement en mode « file ».
+    mountPath: "/etc/[[ component.name ]]/secrets"
+
+    # Clés attendues, en texte clair (stringData). Ne jamais renseigner la même
+    # clé à la fois ici et dans un bloc data en base64 : data l'emporterait
+    # sans le moindre avertissement.
+[% if component.secret["keys"] %]
+    stringData:
+[% for key in component.secret["keys"] %]
+      [[ key ]]: ""
+[% endfor %]
+[% else %]
+    # Aucune clé déclarée : « {} » et non un bloc vide, qui vaudrait null.
+    stringData: {}
+[% endif %]
+[% endif %]
+[% if component.kind == "statefulset" %]
+
+  # ---------------------------------------------------------------------------
+  # Volume persistant
+  # ---------------------------------------------------------------------------
+  # Un volumeClaimTemplate est IMMUABLE : changer size, storageClass ou
+  # accessMode après l'installation fait échouer « helm upgrade ». Il faut
+  # alors supprimer le StatefulSet sans ses pods (--cascade=orphan) et le
+  # recréer ; les volumes déjà provisionnés sont conservés.
+  persistence:
+    # Attache un volume à chaque pod. Toujours vrai pour un StatefulSet : sans
+    # volume, son identité stable ne sert à rien.
+    enabled: [[ component.persistence.enabled | to_yaml ]]
+
+    # Taille demandée au volume, quantité Kubernetes (10Gi, 500Mi).
+    size: [[ component.persistence.size | yaml_scalar ]]
+
+    # Nom d'une StorageClass, ou "" pour la classe par défaut du cluster.
+    # Attention à la nuance : "" ici veut dire « classe par défaut », et le
+    # gabarit omet alors la clé du manifeste — un storageClassName: "" écrit
+    # explicitement voudrait dire « aucune classe », ce qui est différent.
+    storageClass: [[ component.persistence.storage_class | yaml_scalar ]]
+
+    # Mode d'accès du volume :
+    #   ReadWriteOnce : monté en lecture-écriture par un seul nœud ;
+    #   ReadOnlyMany : lecture seule par plusieurs nœuds ;
+    #   ReadWriteMany : lecture-écriture par plusieurs nœuds (rare) ;
+    #   ReadWriteOncePod : lecture-écriture par un seul pod.
+    accessMode: [[ component.persistence.access_mode | yaml_scalar ]]
+
+    # Chemin de montage dans le conteneur. Le nom du volumeClaimTemplate et
+    # celui du volumeMount doivent rester identiques : le gabarit s'en charge.
+    mountPath: [[ component.persistence.mount_path | yaml_scalar ]]
+
+  # ---------------------------------------------------------------------------
+  # Stratégie de mise à jour des pods
+  # ---------------------------------------------------------------------------
+  updateStrategy:
+    # RollingUpdate : les pods sont remplacés un par un, de l'ordinal le plus
+    #                 élevé au plus bas ;
+    # OnDelete : aucun pod n'est remplacé automatiquement ; supprimer un pod
+    #            déclenche sa recréation à la nouvelle version.
+    type: "RollingUpdate"
+
+    # Ordinal à partir duquel les pods sont mis à jour : ceux d'ordinal
+    # inférieur restent à l'ancienne version, ce qui permet un déploiement
+    # progressif. Employé uniquement avec RollingUpdate.
+    partition: 0
+[% endif %]
+[% if component.cron is not none %]
+
+  # ---------------------------------------------------------------------------
+  # Planification (CronJob)
+  # ---------------------------------------------------------------------------
+  cron:
+    # Planification à cinq champs : minute heure jour-du-mois mois jour-semaine.
+    schedule: [[ component.cron.schedule | yaml_scalar ]]
+
+    # Que faire si l'exécution précédente dure encore à l'échéance suivante :
+    #   Allow : lancer quand même | Forbid : sauter | Replace : remplacer
+    concurrencyPolicy: [[ component.cron.concurrency_policy | yaml_scalar ]]
+
+    # Redémarrage du pod : OnFailure | Never. « Always » passe la validation de
+    # schéma mais est refusé par l'API pour un Job.
+    restartPolicy: [[ component.cron.restart_policy | yaml_scalar ]]
+
+    # Fuseau horaire IANA appliqué à la planification (Europe/Paris). Vide =
+    # fuseau du contrôleur ; la clé est alors entièrement omise du manifeste,
+    # un timeZone: "" étant refusé par l'API.
+    timeZone: ""
+
+    # Suspend les déclenchements sans supprimer l'objet ni son historique.
+    suspend: false
+
+    # Nombre d'exécutions conservées dans l'historique, réussies puis échouées.
+    successfulJobsHistoryLimit: [[ component.cron.successful_jobs_history_limit ]]
+    failedJobsHistoryLimit: [[ component.cron.failed_jobs_history_limit ]]
+
+    # Nombre de reprises avant d'abandonner une exécution.
+    backoffLimit: [[ component.cron.backoff_limit ]]
+
+[% if component.cron.starting_deadline_seconds is not none %]
+    # Retard maximal toléré, en secondes, avant de considérer une échéance
+    # comme manquée plutôt que de la rattraper.
+    startingDeadlineSeconds: [[ component.cron.starting_deadline_seconds ]]
+[% else %]
+    # Retard maximal toléré avant de considérer une échéance comme manquée.
+    # null = aucune limite ; renseigner un entier de secondes pour en poser une.
+    startingDeadlineSeconds: null
+[% endif %]
+[% endif %]
+[% if component.has.hpa %]
+
+  # ---------------------------------------------------------------------------
+  # Autoscaling horizontal
+  # ---------------------------------------------------------------------------
+  # Piloté par le profil d'environnement : désactivé en développement, activé
+  # en production par values-<env>.yaml.
+  # Quand il est actif, le gabarit cesse de rendre replicaCount : Helm et le
+  # HorizontalPodAutoscaler se disputeraient sinon le nombre de répliques à
+  # chaque mise à jour.
+  # L'autoscaling CPU exige resources.requests.cpu ci-dessus : sans réservation
+  # la métrique reste inconnue et rien ne se produit, sans qu'aucun validateur
+  # ne puisse le signaler.
+  hpa:
+    enabled: false
+
+    # Bornes du nombre de répliques. minReplicas ne peut pas dépasser
+    # maxReplicas.
+    minReplicas: [[ component.hpa.min_replicas ]]
+    maxReplicas: [[ component.hpa.max_replicas ]]
+
+    # Utilisation CPU moyenne visée, en pourcentage des requests. Entier
+    # obligatoire : la chaîne "80" est refusée.
+    targetCPUUtilizationPercentage: [[ component.hpa.target_cpu ]]
+
+[% if component.hpa.target_memory is not none %]
+    # Utilisation mémoire moyenne visée, en pourcentage des requests. Entier.
+    targetMemoryUtilizationPercentage: [[ component.hpa.target_memory ]]
+[% else %]
+    # Utilisation mémoire moyenne visée, en pourcentage des requests.
+    # null = mémoire non surveillée ; renseigner un entier pour l'ajouter.
+    targetMemoryUtilizationPercentage: null
+[% endif %]
+[% endif %]
+[% if component.has.pdb %]
+
+  # ---------------------------------------------------------------------------
+  # Budget d'interruption volontaire
+  # ---------------------------------------------------------------------------
+  # Protège le composant des drains de nœud et des mises à jour de cluster.
+  # Piloté par le profil d'environnement : désactivé en développement, où
+  # minAvailable: 1 avec une seule réplique rendrait tout drain impossible.
+  pdb:
+    enabled: false
+
+    # Nombre de pods devant rester disponibles : un entier, ou un pourcentage
+    # entre guillemets ("50%"). minAvailable et maxUnavailable sont mutuellement
+    # exclusifs ; ce chart n'expose que le premier, pour ne pas laisser écrire
+    # les deux.
+    minAvailable: [[ component.pdb.min_available | to_yaml ]]
+[% endif %]
+[% if component.has.serviceaccount %]
+
+  # ---------------------------------------------------------------------------
+  # ServiceAccount — identité du composant
+  # ---------------------------------------------------------------------------
+  serviceAccount:
+    # true  : le chart crée un ServiceAccount dédié ;
+    # false : le chart référence un compte existant, dont le nom doit alors
+    #         être donné ci-dessous — sinon les pods ne démarrent pas.
+    create: true
+
+    # Nom du compte. Vide = nom dérivé du composant.
+    name: ""
+
+    # Annotations portant l'identité fédérée du fournisseur cloud, par exemple
+    # eks.amazonaws.com/role-arn ou iam.gke.io/gcp-service-account.
+    annotations: {}
+
+    # Monte le jeton d'API Kubernetes dans les pods. Faux tant que le composant
+    # n'appelle pas l'API : c'est un secret de moins exposé dans le conteneur.
+    automountServiceAccountToken: false
+
+  # ---------------------------------------------------------------------------
+  # RBAC — droits du ServiceAccount dans le namespace
+  # ---------------------------------------------------------------------------
+  rbac:
+    # Crée un Role et son RoleBinding, liés au ServiceAccount ci-dessus.
+    # Aucune ressource de portée cluster n'est produite par ce chart.
+    # roleRef est immuable : changer le Role visé fait échouer helm upgrade.
+    create: [[ component.rbac.create | to_yaml ]]
+
+    # Règles du Role. Liste vide = ni Role ni RoleBinding : un Role sans règle
+    # est valide au schéma, mais inutile et trompeur.
+    # apiGroups doit contenir la chaîne vide pour les ressources du groupe
+    # core (pods, configmaps, secrets). Exemple :
+    #   rules:
+    #     - apiGroups: [""]
+    #       resources: ["configmaps"]
+    #       verbs: ["get", "list", "watch"]
+    rules:[[ component.rbac.rules | yaml_value(6) ]]
+[% endif %]
+[% if component.has.networkpolicy %]
+
+  # ---------------------------------------------------------------------------
+  # NetworkPolicy — cloisonnement réseau
+  # ---------------------------------------------------------------------------
+  # Fermé par défaut, ouvert explicitement. Attention : une règle vide autorise
+  # TOUT, alors que l'absence de règle interdit tout — les deux se ressemblent
+  # et aucun validateur ne les distingue.
+  networkPolicy:
+    enabled: false
+
+    # Autorise le trafic entrant venant du namespace du composant. À false sans
+    # aucun namespace autorisé ci-dessous, la liste de règles entrantes est
+    # écrite vide : plus rien n'entre, ce qui est le comportement voulu pour un
+    # composant que personne n'appelle — un CronJob, par exemple.
+    allowFromSameNamespace: [[ component.networkpolicy.allow_from_same_namespace | to_yaml ]]
+
+    # Namespaces supplémentaires autorisés en entrée, désignés par leur nom
+    # (label kubernetes.io/metadata.name, posé automatiquement par Kubernetes).
+    allowFromNamespaces:[[ component.networkpolicy.allow_from_namespaces | yaml_value(6) ]]
+
+    # La résolution DNS doit rester autorisée : dès qu'Egress est déclaré, tout
+    # le trafic sortant est coupé, résolution de noms comprise, et le composant
+    # ne joint plus rien.
+    allowDNS: [[ component.networkpolicy.allow_dns | to_yaml ]]
+
+    # Autorise tout le trafic sortant. Faux le restreint au DNS ci-dessus.
+    allowEgressAll: [[ component.networkpolicy.allow_egress_all | to_yaml ]]
+[% endif %]
+
+[% endfor %]
+[% if domain.extras.helm_tests %]
+# -----------------------------------------------------------------------------
+# Tests du chart (helm test)
+# -----------------------------------------------------------------------------
+# Ressources créées uniquement par « helm test », jamais par une installation
+# ordinaire. Elles vérifient que le Service répond avant de valider une release.
+tests:
+  enabled: true
+  image:
+    # Image utilisée par le pod de test. Toute image contenant wget convient.
+    repository: busybox
+    tag: "1.36"
+    pullPolicy: IfNotPresent
+  # Délai maximal accordé à la réponse du Service, en secondes.
+  timeoutSeconds: 10
+[% endif %]

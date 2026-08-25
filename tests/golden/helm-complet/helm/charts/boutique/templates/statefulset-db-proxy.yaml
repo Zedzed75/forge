@@ -1,0 +1,279 @@
+{{- /*
+===============================================================================
+StatefulSet du composant « db-proxy »
+===============================================================================
+Fichier généré par forge.
+
+Déploie db-proxy en tant que charge de travail à état : chaque pod garde
+son ordinal, son nom DNS et son volume d'un redémarrage à l'autre. C'est ce qui
+le distingue d'un Deployment, dont les pods sont interchangeables.
+
+Trois champs lui sont propres, et tous trois sont des pièges connus :
+  * serviceName            le Service headless qui nomme chaque pod ;
+  * volumeClaimTemplates   le volume par pod — entièrement IMMUABLE ;
+  * updateStrategy et podManagementPolicy   l'ordre de remplacement des pods.
+
+Aucune valeur n'est écrite en dur ici. Tout provient de la clé
+« db-proxy » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if (index .Values "db-proxy").enabled }}
+{{- /*
+  Nom du volume persistant, défini une seule fois et réutilisé aux deux
+  endroits qui doivent impérativement s'accorder : le volumeMount du conteneur
+  et le volumeClaimTemplate. Un écart entre les deux produirait un manifeste
+  valide au schéma, mais des pods bloqués au démarrage.
+*/}}
+{{- $dataVolume := "data" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "boutique.db-proxy.fullname" . }}
+  labels:
+    {{- include "boutique.db-proxy.labels" . | nindent 4 }}
+spec:
+  {{- /*
+    serviceName est requis, et le Service visé doit réellement être headless
+    (clusterIP: None). forge force service.headless pour un StatefulSet, et le
+    Service porte le même helper de nommage que cette charge de travail : les
+    deux ne peuvent donc pas diverger.
+    Repasser service.enabled à false laisserait ce nom sans Service derrière
+    lui, et les pods sans entrée DNS individuelle.
+  */}}
+  serviceName: {{ include "boutique.db-proxy.fullname" . }}
+  replicas: {{ (index .Values "db-proxy").replicaCount }}
+  {{- /*
+    podManagementPolicy fixe l'ordre de démarrage et d'arrêt des pods :
+      OrderedReady : un pod à la fois, du plus petit ordinal au plus grand, en
+                     attendant que le précédent soit prêt — comportement
+                     appliqué par Kubernetes lorsque la clé est absente ;
+      Parallel : tous les pods en même temps, pour un ensemble dont les membres
+                 se découvrent seuls.
+    La clé est immuable après création. Elle n'est rendue que si les values la
+    renseignent : l'omettre laisse Kubernetes appliquer OrderedReady, alors
+    qu'une valeur écrite en dur figerait le choix pour tous les environnements.
+  */}}
+  {{- with (index .Values "db-proxy").podManagementPolicy }}
+  podManagementPolicy: {{ . }}
+  {{- end }}
+  {{- /*
+    Stratégie de remplacement des pods lors d'une mise à jour :
+      RollingUpdate : les pods sont remplacés un par un, de l'ordinal le plus
+                      élevé au plus bas ;
+      OnDelete : rien n'est remplacé automatiquement ; supprimer un pod
+                 déclenche sa recréation à la nouvelle version.
+    Le sous-bloc rollingUpdate n'a de sens qu'avec RollingUpdate : l'émettre
+    avec OnDelete fait rejeter l'objet par l'API.
+  */}}
+  updateStrategy:
+    type: {{ (index .Values "db-proxy").updateStrategy.type }}
+    {{- if eq (index .Values "db-proxy").updateStrategy.type "RollingUpdate" }}
+    rollingUpdate:
+      {{- /* Les pods d'ordinal inférieur à partition restent à l'ancienne version. */}}
+      partition: {{ (index .Values "db-proxy").updateStrategy.partition | int }}
+    {{- end }}
+  {{- /*
+    Le sélecteur est requis ET immuable : il n'emploie que selectorLabels, qui
+    ne contient ni helm.sh/chart ni app.kubernetes.io/version — deux labels qui
+    changent à chaque release et rendraient l'objet non modifiable.
+  */}}
+  selector:
+    matchLabels:
+      {{- include "boutique.db-proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "boutique.db-proxy.selectorLabels" . | nindent 8 }}
+        {{- with (index .Values "db-proxy").podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- /*
+        L'empreinte du ConfigMap redémarre les pods dès que la configuration
+        change : sans elle, un « helm upgrade » qui ne touche qu'au ConfigMap
+        laisserait les pods sur l'ancienne configuration, sans aucun signe.
+        Le chemin cité est exactement celui du fichier de gabarit produit —
+        toute divergence ferait échouer le rendu sur un modèle introuvable.
+      */}}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-db-proxy.yaml") . | sha256sum }}
+        {{- with (index .Values "db-proxy").podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- /*
+        Sans cette ligne, les pods tourneraient sous le compte « default » du
+        namespace, dont les droits sont partagés par tout ce qui s'y déploie.
+      */}}
+      serviceAccountName: {{ include "boutique.db-proxy.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /*
+        fsGroup, porté par podSecurityContext, fixe le groupe propriétaire du
+        volume persistant : sans lui, un conteneur non root ne peut pas y
+        écrire, et l'application démarre puis échoue à la première écriture.
+      */}}
+      {{- with (index .Values "db-proxy").podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: db-proxy
+          image: {{ include "boutique.db-proxy.image" . }}
+          imagePullPolicy: {{ (index .Values "db-proxy").image.pullPolicy }}
+          {{- with (index .Values "db-proxy").securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with (index .Values "db-proxy").command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with (index .Values "db-proxy").args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: {{ (index .Values "db-proxy").portName }}
+              containerPort: {{ (index .Values "db-proxy").containerPort }}
+              protocol: TCP
+          {{- if (index .Values "db-proxy").probes.enabled }}
+          {{- /* Une sonde liveness en échec fait redémarrer le conteneur. */}}
+          livenessProbe:
+            httpGet:
+              path: {{ (index .Values "db-proxy").probes.liveness.path }}
+              port: {{ (index .Values "db-proxy").portName }}
+            initialDelaySeconds: {{ (index .Values "db-proxy").probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ (index .Values "db-proxy").probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ (index .Values "db-proxy").probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ (index .Values "db-proxy").probes.liveness.failureThreshold }}
+          {{- /* Une sonde readiness en échec retire le pod du Service, sans le tuer. */}}
+          readinessProbe:
+            httpGet:
+              path: {{ (index .Values "db-proxy").probes.readiness.path }}
+              port: {{ (index .Values "db-proxy").portName }}
+            initialDelaySeconds: {{ (index .Values "db-proxy").probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ (index .Values "db-proxy").probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ (index .Values "db-proxy").probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ (index .Values "db-proxy").probes.readiness.failureThreshold }}
+          {{- if (index .Values "db-proxy").probes.startup.enabled }}
+          {{- /*
+            La sonde startup suspend liveness et readiness tant qu'elle n'a pas
+            réussi : c'est ce qui évite qu'une application à état, lente à
+            rejouer son journal, soit tuée en boucle par la sonde liveness.
+          */}}
+          startupProbe:
+            httpGet:
+              path: {{ (index .Values "db-proxy").probes.startup.path }}
+              port: {{ (index .Values "db-proxy").portName }}
+            periodSeconds: {{ (index .Values "db-proxy").probes.startup.periodSeconds }}
+            failureThreshold: {{ (index .Values "db-proxy").probes.startup.failureThreshold }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.global.environment | quote }}
+            {{- with (index .Values "db-proxy").extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- /*
+            Les sources injectées en variables d'environnement sont accumulées
+            dans une liste, puis rendues d'un bloc : une clé « envFrom: » sans
+            élément vaudrait null et serait refusée.
+            La clé mountAs décide, source par source, entre injection en
+            variables (env) et montage en fichiers (file, plus bas).
+          */}}
+          {{- $envFrom := list }}
+          {{- if and (index .Values "db-proxy").config.enabled (eq (index .Values "db-proxy").config.mountAs "env") }}
+          {{- $envFrom = append $envFrom (dict "configMapRef" (dict "name" (include "boutique.db-proxy.configMapName" .))) }}
+          {{- end }}
+          {{- with $envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /*
+            Montages du conteneur : le volume persistant d'abord — son nom vient
+            de la même variable que le volumeClaimTemplate, ils ne peuvent donc
+            pas diverger — puis les sources dont mountAs vaut « file ».
+            La liste est rendue d'un bloc : une clé « volumeMounts: » sans
+            élément vaudrait null et serait refusée.
+          */}}
+          {{- $volumeMounts := list }}
+          {{- if (index .Values "db-proxy").persistence.enabled }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" $dataVolume "mountPath" (index .Values "db-proxy").persistence.mountPath) }}
+          {{- end }}
+          {{- if and (index .Values "db-proxy").config.enabled (eq (index .Values "db-proxy").config.mountAs "file") }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" "config" "mountPath" (index .Values "db-proxy").config.mountPath "readOnly" true) }}
+          {{- end }}
+          {{- with $volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with (index .Values "db-proxy").resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with (index .Values "db-proxy").nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (index .Values "db-proxy").tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (index .Values "db-proxy").affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /*
+        Volumes correspondant aux montages en fichiers déclarés plus haut. Le
+        volume persistant n'y figure pas : il vient de volumeClaimTemplates, qui
+        en crée un exemplaire par pod. La liste reste vide tant qu'aucune source
+        n'est en mode « file », et la clé « volumes: » disparaît alors.
+      */}}
+      {{- $volumes := list }}
+      {{- if and (index .Values "db-proxy").config.enabled (eq (index .Values "db-proxy").config.mountAs "file") }}
+      {{- $volumes = append $volumes (dict "name" "config" "configMap" (dict "name" (include "boutique.db-proxy.configMapName" .))) }}
+      {{- end }}
+      {{- with $volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if (index .Values "db-proxy").persistence.enabled }}
+  {{- /*
+    Un volumeClaimTemplate crée un PersistentVolumeClaim par pod, nommé
+    <nom du volume>-<nom du pod>, et le conserve même si le pod disparaît.
+
+    Ce bloc est INTÉGRALEMENT IMMUABLE : changer la taille, la classe de
+    stockage ou le mode d'accès fait échouer « helm upgrade ». Pour l'ajuster,
+    supprimer le StatefulSet sans ses pods
+    (kubectl delete statefulset <nom> --cascade=orphan) puis réinstaller ; les
+    volumes déjà provisionnés sont conservés.
+    C'est aussi la raison pour laquelle seuls les selectorLabels sont posés ici,
+    et jamais les labels complets : ces derniers portent helm.sh/chart et
+    app.kubernetes.io/version, qui changent à chaque release et rendraient tout
+    « helm upgrade » impossible.
+  */}}
+  volumeClaimTemplates:
+    - metadata:
+        {{- /* Ce nom doit être exactement celui du volumeMount ci-dessus. */}}
+        name: {{ $dataVolume }}
+        labels:
+          {{- include "boutique.db-proxy.selectorLabels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ (index .Values "db-proxy").persistence.accessMode }}
+        {{- /*
+          storageClassName absent = classe par défaut du cluster ;
+          storageClassName: "" = AUCUNE classe, donc aucun provisionnement
+          dynamique. La clé n'est donc émise que si elle est non vide.
+        */}}
+        {{- with (index .Values "db-proxy").persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ (index .Values "db-proxy").persistence.size | quote }}
+  {{- end }}
+{{- end }}

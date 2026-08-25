@@ -1,0 +1,38 @@
+{{- /*
+===============================================================================
+Service du composant « db-proxy »
+===============================================================================
+Fichier généré par forge.
+
+Expose les pods de db-proxy derrière un nom DNS stable et une adresse
+virtuelle. Le Service sélectionne ses pods par les labels de sélection du
+composant, jamais par leur nom.
+===============================================================================
+*/}}
+{{- if and (index .Values "db-proxy").enabled (index .Values "db-proxy").service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "boutique.db-proxy.fullname" . }}
+  labels:
+    {{- include "boutique.db-proxy.labels" . | nindent 4 }}
+  {{- with (index .Values "db-proxy").service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- /*
+    Service headless : sans adresse virtuelle, le DNS renvoie directement les
+    adresses des pods. C'est ce qui donne à chaque pod d'un StatefulSet un nom
+    DNS individuel et stable.
+  */}}
+  clusterIP: None
+  ports:
+    - name: {{ (index .Values "db-proxy").portName }}
+      port: {{ (index .Values "db-proxy").service.port }}
+      {{- /* targetPort désigne le port du conteneur, ici par son nom. */}}
+      targetPort: {{ (index .Values "db-proxy").portName }}
+      protocol: TCP
+  selector:
+    {{- include "boutique.db-proxy.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,102 @@
+---
+# Ce cas exerce ce que l'instantané de parité ne peut pas couvrir : les deux
+# spécifications legacy déclarent `addons: [service]` et `addons: []`, si bien
+# qu'aucune des neuf familles créées en phase 4 n'y apparaît. Il active donc
+# tout ce qui a été écrit : les trois types de charge de travail, les huit
+# addons, un nom de composant à tiret (qui oblige à passer par `values_ref`),
+# des règles RBAC non vides, et des valeurs libres par environnement.
+forge_version: 1
+
+service:
+  name: boutique
+  description: "Boutique en ligne, chart complet"
+  owner: "Equipe Plateforme"
+  owner_email: plateforme@example.net
+  labels:
+    app.kubernetes.io/part-of: commerce
+  environments:
+    - name: dev
+    - name: prod
+      domain: boutique.example.net
+      production: true
+
+helm:
+  chart_version: 1.2.0
+  app_version: "2026.08.1"
+  kubernetes:
+    version: "1.34"
+  namespace_strategy: per_env
+  image:
+    registry: ghcr.io
+    repository: acme/boutique
+    strategy: appVersion
+    pull_secret_name: registre-prive
+
+  components:
+    # Charge de travail exposée, avec la totalité des addons.
+    - name: api
+      kind: deployment
+      addons:
+        - service
+        - ingress
+        - configmap
+        - secret
+        - hpa
+        - pdb
+        - serviceaccount
+        - networkpolicy
+      container_port: 8080
+      port_name: http
+      ingress:
+        base_domain: example.net
+        tls: true
+      config:
+        keys:
+          - LOG_LEVEL
+          - APP_ENV
+      secret:
+        keys:
+          - API_KEY
+      rbac:
+        create: true
+        rules:
+          - apiGroups: [""]
+            resources: [configmaps]
+            verbs: [get, list, watch]
+
+    # Nom à tiret : `.Values.db-proxy` casserait le chart, `values_ref` non.
+    - name: db-proxy
+      kind: statefulset
+      addons:
+        - configmap
+        - serviceaccount
+      container_port: 5432
+      port_name: postgres
+      persistence:
+        size: 20Gi
+      config:
+        keys:
+          - POOL_SIZE
+        mount_as: file
+
+    # Tâche planifiée : ni Service, ni Ingress, ni autoscaling.
+    - name: cleanup
+      kind: cronjob
+      addons:
+        - configmap
+      cron:
+        schedule: "0 3 * * *"
+        concurrency_policy: Forbid
+      config:
+        keys:
+          - RETENTION_DAYS
+
+  environments:
+    prod:
+      log_level: warn
+      extra_values:
+        global:
+          monitoring: true
+      components:
+        api:
+          replicas: 4

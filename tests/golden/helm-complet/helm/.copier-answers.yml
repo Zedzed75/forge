@@ -1,0 +1,621 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « helm ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only helm
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    app_version: 2026.08.1
+    chart_dir: charts/boutique
+    chart_files:
+    -   component: api
+        family: deployment
+        label: Deployment
+        path: templates/deployment-api.yaml
+    -   component: api
+        family: service
+        label: Service
+        path: templates/service-api.yaml
+    -   component: api
+        family: ingress
+        label: Ingress
+        path: templates/ingress-api.yaml
+    -   component: api
+        family: configmap
+        label: ConfigMap
+        path: templates/configmap-api.yaml
+    -   component: api
+        family: secret
+        label: Secret
+        path: templates/secret-api.yaml
+    -   component: api
+        family: hpa
+        label: HorizontalPodAutoscaler
+        path: templates/hpa-api.yaml
+    -   component: api
+        family: pdb
+        label: PodDisruptionBudget
+        path: templates/pdb-api.yaml
+    -   component: api
+        family: serviceaccount
+        label: ServiceAccount
+        path: templates/serviceaccount-api.yaml
+    -   component: api
+        family: rbac
+        label: Role et RoleBinding
+        path: templates/rbac-api.yaml
+    -   component: api
+        family: networkpolicy
+        label: NetworkPolicy
+        path: templates/networkpolicy-api.yaml
+    -   component: db-proxy
+        family: statefulset
+        label: StatefulSet
+        path: templates/statefulset-db-proxy.yaml
+    -   component: db-proxy
+        family: service
+        label: Service
+        path: templates/service-db-proxy.yaml
+    -   component: db-proxy
+        family: configmap
+        label: ConfigMap
+        path: templates/configmap-db-proxy.yaml
+    -   component: db-proxy
+        family: serviceaccount
+        label: ServiceAccount
+        path: templates/serviceaccount-db-proxy.yaml
+    -   component: db-proxy
+        family: rbac
+        label: Role et RoleBinding
+        path: templates/rbac-db-proxy.yaml
+    -   component: cleanup
+        family: cronjob
+        label: CronJob
+        path: templates/cronjob-cleanup.yaml
+    -   component: cleanup
+        family: configmap
+        label: ConfigMap
+        path: templates/configmap-cleanup.yaml
+    -   component: api
+        family: test_connection
+        label: Test de connexion
+        path: templates/tests/test-connection.yaml
+    chart_version: 1.2.0
+    component_names:
+    - api
+    - db-proxy
+    - cleanup
+    component_slots:
+        configmap:
+        - &id002
+            addons:
+            - service
+            - ingress
+            - configmap
+            - secret
+            - hpa
+            - pdb
+            - serviceaccount
+            - networkpolicy
+            args: []
+            command: []
+            config:
+                keys:
+                - LOG_LEVEL
+                - APP_ENV
+                mount_as: env
+            container_port: 8080
+            cron: null
+            families:
+            - deployment
+            - service
+            - ingress
+            - configmap
+            - secret
+            - hpa
+            - pdb
+            - serviceaccount
+            - rbac
+            - networkpolicy
+            has:
+                configmap: true
+                hpa: true
+                ingress: true
+                networkpolicy: true
+                pdb: true
+                secret: true
+                service: true
+                serviceaccount: true
+            helper: boutique.api
+            hpa:
+                max_replicas: 5
+                min_replicas: 2
+                target_cpu: 80
+                target_memory: null
+            image_repository: acme/boutique
+            ingress:
+                annotations: {}
+                base_domain: example.net
+                class_name: nginx
+                controller: nginx
+                issuer: letsencrypt-prod
+                path: /
+                path_type: Prefix
+                tls: true
+            is_workload: true
+            kind: deployment
+            name: api
+            networkpolicy:
+                allow_dns: true
+                allow_egress_all: false
+                allow_from_namespaces: []
+                allow_from_same_namespace: true
+            pdb:
+                min_available: 1
+            persistence:
+                access_mode: ReadWriteOnce
+                enabled: false
+                mount_path: /data
+                size: 10Gi
+                storage_class: ''
+            port_name: http
+            probes:
+                enabled: true
+                failure_threshold: 3
+                initial_delay_seconds: 5
+                liveness_path: /healthz
+                period_seconds: 10
+                readiness_path: /ready
+                startup_enabled: false
+                timeout_seconds: 2
+            rbac:
+                create: true
+                rules:
+                -   apiGroups:
+                    - ''
+                    resources:
+                    - configmaps
+                    verbs:
+                    - get
+                    - list
+                    - watch
+            replicas: 1
+            resources:
+                cpu_limit: 200m
+                cpu_request: 50m
+                memory_limit: 128Mi
+                memory_request: 64Mi
+                profile: small
+            secret:
+                keys:
+                - API_KEY
+                mount_as: env
+            security:
+                allow_privilege_escalation: false
+                drop_capabilities:
+                - ALL
+                fs_group: 10001
+                read_only_root_filesystem: true
+                run_as_group: 10001
+                run_as_non_root: true
+                run_as_user: 10001
+                seccomp_profile: RuntimeDefault
+                strict: true
+            service:
+                annotations: {}
+                headless: false
+                node_port: null
+                port: 80
+                type: ClusterIP
+            values_ref: .Values.api
+        - &id003
+            addons:
+            - service
+            - configmap
+            - serviceaccount
+            args: []
+            command: []
+            config:
+                keys:
+                - POOL_SIZE
+                mount_as: file
+            container_port: 5432
+            cron: null
+            families:
+            - statefulset
+            - service
+            - configmap
+            - serviceaccount
+            - rbac
+            has:
+                configmap: true
+                hpa: false
+                ingress: false
+                networkpolicy: false
+                pdb: false
+                secret: false
+                service: true
+                serviceaccount: true
+            helper: boutique.db-proxy
+            hpa:
+                max_replicas: 5
+                min_replicas: 2
+                target_cpu: 80
+                target_memory: null
+            image_repository: acme/boutique
+            ingress:
+                annotations: {}
+                base_domain: example.com
+                class_name: nginx
+                controller: nginx
+                issuer: letsencrypt-prod
+                path: /
+                path_type: Prefix
+                tls: true
+            is_workload: true
+            kind: statefulset
+            name: db-proxy
+            networkpolicy:
+                allow_dns: true
+                allow_egress_all: false
+                allow_from_namespaces: []
+                allow_from_same_namespace: true
+            pdb:
+                min_available: 1
+            persistence:
+                access_mode: ReadWriteOnce
+                enabled: true
+                mount_path: /data
+                size: 20Gi
+                storage_class: ''
+            port_name: postgres
+            probes:
+                enabled: true
+                failure_threshold: 3
+                initial_delay_seconds: 5
+                liveness_path: /healthz
+                period_seconds: 10
+                readiness_path: /ready
+                startup_enabled: false
+                timeout_seconds: 2
+            rbac:
+                create: false
+                rules: []
+            replicas: 1
+            resources:
+                cpu_limit: 200m
+                cpu_request: 50m
+                memory_limit: 128Mi
+                memory_request: 64Mi
+                profile: small
+            secret:
+                keys:
+                - API_KEY
+                mount_as: env
+            security:
+                allow_privilege_escalation: false
+                drop_capabilities:
+                - ALL
+                fs_group: 10001
+                read_only_root_filesystem: true
+                run_as_group: 10001
+                run_as_non_root: true
+                run_as_user: 10001
+                seccomp_profile: RuntimeDefault
+                strict: true
+            service:
+                annotations: {}
+                headless: true
+                node_port: null
+                port: 80
+                type: ClusterIP
+            values_ref: (index .Values "db-proxy")
+        - &id001
+            addons:
+            - configmap
+            args: []
+            command: []
+            config:
+                keys:
+                - RETENTION_DAYS
+                mount_as: env
+            container_port: 8080
+            cron:
+                backoff_limit: 3
+                concurrency_policy: Forbid
+                failed_jobs_history_limit: 1
+                restart_policy: OnFailure
+                schedule: 0 3 * * *
+                starting_deadline_seconds: null
+                successful_jobs_history_limit: 3
+            families:
+            - cronjob
+            - configmap
+            has:
+                configmap: true
+                hpa: false
+                ingress: false
+                networkpolicy: false
+                pdb: false
+                secret: false
+                service: false
+                serviceaccount: false
+            helper: boutique.cleanup
+            hpa:
+                max_replicas: 5
+                min_replicas: 2
+                target_cpu: 80
+                target_memory: null
+            image_repository: acme/boutique
+            ingress:
+                annotations: {}
+                base_domain: example.com
+                class_name: nginx
+                controller: nginx
+                issuer: letsencrypt-prod
+                path: /
+                path_type: Prefix
+                tls: true
+            is_workload: false
+            kind: cronjob
+            name: cleanup
+            networkpolicy:
+                allow_dns: true
+                allow_egress_all: false
+                allow_from_namespaces: []
+                allow_from_same_namespace: true
+            pdb:
+                min_available: 1
+            persistence:
+                access_mode: ReadWriteOnce
+                enabled: false
+                mount_path: /data
+                size: 10Gi
+                storage_class: ''
+            port_name: http
+            probes:
+                enabled: true
+                failure_threshold: 3
+                initial_delay_seconds: 5
+                liveness_path: /healthz
+                period_seconds: 10
+                readiness_path: /ready
+                startup_enabled: false
+                timeout_seconds: 2
+            rbac:
+                create: false
+                rules: []
+            replicas: 1
+            resources:
+                cpu_limit: 200m
+                cpu_request: 50m
+                memory_limit: 128Mi
+                memory_request: 64Mi
+                profile: small
+            secret:
+                keys:
+                - API_KEY
+                mount_as: env
+            security:
+                allow_privilege_escalation: false
+                drop_capabilities:
+                - ALL
+                fs_group: 10001
+                read_only_root_filesystem: true
+                run_as_group: 10001
+                run_as_non_root: true
+                run_as_user: 10001
+                seccomp_profile: RuntimeDefault
+                strict: true
+            service:
+                annotations: {}
+                headless: false
+                node_port: null
+                port: 80
+                type: ClusterIP
+            values_ref: .Values.cleanup
+        cronjob:
+        - *id001
+        deployment:
+        - *id002
+        hpa:
+        - *id002
+        ingress:
+        - *id002
+        networkpolicy:
+        - *id002
+        pdb:
+        - *id002
+        rbac:
+        - *id002
+        - *id003
+        secret:
+        - *id002
+        service:
+        - *id002
+        - *id003
+        serviceaccount:
+        - *id002
+        - *id003
+        statefulset:
+        - *id003
+        test_connection:
+        - *id002
+    components:
+    - *id002
+    - *id003
+    - *id001
+    create_namespace: false
+    default_env: dev
+    env_names:
+    - dev
+    - prod
+    environments:
+    -   components:
+            api:
+                hpa_enabled: false
+                image_tag: null
+                ingress_host: boutique.dev.example.net
+                name: api
+                pdb_enabled: false
+                replicas: 1
+                resources: null
+            cleanup:
+                hpa_enabled: null
+                image_tag: null
+                ingress_host: null
+                name: cleanup
+                pdb_enabled: null
+                replicas: null
+                resources: null
+            db-proxy:
+                hpa_enabled: null
+                image_tag: null
+                ingress_host: null
+                name: db-proxy
+                pdb_enabled: null
+                replicas: 1
+                resources: null
+        domain: ''
+        extra_values: {}
+        log_level: debug
+        name: dev
+        namespace: boutique-dev
+        production: false
+        profile:
+            host_includes_env: true
+            hpa_enabled: false
+            log_level: debug
+            pdb_enabled: false
+            replicas: 1
+            resource_multiplier: 1
+    -   components:
+            api:
+                hpa_enabled: true
+                image_tag: null
+                ingress_host: boutique.boutique.example.net
+                name: api
+                pdb_enabled: true
+                replicas: 4
+                resources:
+                    cpu_limit: 400m
+                    cpu_request: 100m
+                    memory_limit: 256Mi
+                    memory_request: 128Mi
+                    profile: custom
+            cleanup:
+                hpa_enabled: null
+                image_tag: null
+                ingress_host: null
+                name: cleanup
+                pdb_enabled: null
+                replicas: null
+                resources:
+                    cpu_limit: 400m
+                    cpu_request: 100m
+                    memory_limit: 256Mi
+                    memory_request: 128Mi
+                    profile: custom
+            db-proxy:
+                hpa_enabled: null
+                image_tag: null
+                ingress_host: null
+                name: db-proxy
+                pdb_enabled: null
+                replicas: 3
+                resources:
+                    cpu_limit: 400m
+                    cpu_request: 100m
+                    memory_limit: 256Mi
+                    memory_request: 128Mi
+                    profile: custom
+        domain: boutique.example.net
+        extra_values:
+            global:
+                monitoring: true
+        log_level: warn
+        name: prod
+        namespace: boutique-prod
+        production: true
+        profile:
+            host_includes_env: false
+            hpa_enabled: true
+            log_level: info
+            pdb_enabled: true
+            replicas: 3
+            resource_multiplier: 2
+    expected_paths:
+    - README.md
+    - .gitignore
+    - Makefile
+    - charts/boutique/Chart.yaml
+    - charts/boutique/values.yaml
+    - charts/boutique/values-dev.yaml
+    - charts/boutique/values-prod.yaml
+    - charts/boutique/.helmignore
+    - charts/boutique/README.md
+    - charts/boutique/templates/_helpers.tpl
+    - charts/boutique/templates/NOTES.txt
+    - charts/boutique/templates/deployment-api.yaml
+    - charts/boutique/templates/service-api.yaml
+    - charts/boutique/templates/ingress-api.yaml
+    - charts/boutique/templates/configmap-api.yaml
+    - charts/boutique/templates/secret-api.yaml
+    - charts/boutique/templates/hpa-api.yaml
+    - charts/boutique/templates/pdb-api.yaml
+    - charts/boutique/templates/serviceaccount-api.yaml
+    - charts/boutique/templates/rbac-api.yaml
+    - charts/boutique/templates/networkpolicy-api.yaml
+    - charts/boutique/templates/statefulset-db-proxy.yaml
+    - charts/boutique/templates/service-db-proxy.yaml
+    - charts/boutique/templates/configmap-db-proxy.yaml
+    - charts/boutique/templates/serviceaccount-db-proxy.yaml
+    - charts/boutique/templates/rbac-db-proxy.yaml
+    - charts/boutique/templates/cronjob-cleanup.yaml
+    - charts/boutique/templates/configmap-cleanup.yaml
+    - charts/boutique/templates/tests/test-connection.yaml
+    extras:
+        helm_tests: true
+        makefile: true
+    helper: boutique
+    image:
+        pull_policy: IfNotPresent
+        pull_secret_name: registre-prive
+        registry: ghcr.io
+        repository: acme/boutique
+        strategy: appVersion
+        tag: ''
+    kubernetes:
+        full_version: 1.34.0
+        kube_version_constraint: '>=1.34.0-0'
+        version: '1.34'
+    layout: single
+    maintainer_email: plateforme@example.net
+    maintainer_name: Equipe Plateforme
+    namespace_strategy: per_env
+    secrets:
+        refresh_interval: 1h
+        store_name: default
+        strategy: placeholder
+forge_version: 1
+plugin: helm
+service:
+    description: Boutique en ligne, chart complet
+    environments:
+    -   domain: null
+        name: dev
+        production: false
+    -   domain: boutique.example.net
+        name: prod
+        production: true
+    labels:
+        app.kubernetes.io/part-of: commerce
+    name: boutique
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/helm/template
+

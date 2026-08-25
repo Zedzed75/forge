@@ -1,0 +1,889 @@
+# =============================================================================
+# values.yaml — valeurs par défaut du chart « boutique »
+# =============================================================================
+# Fichier généré par forge. Il contient les valeurs communes à tous les
+# environnements. Les écarts propres à un environnement vivent dans les
+# fichiers values-<environnement>.yaml, qui ne redéfinissent que ce qui change.
+#
+# Ordre de priorité appliqué par Helm, du plus faible au plus fort :
+#   values.yaml  <  values-<env>.yaml  <  --set en ligne de commande
+#
+# Chaque bloc est précédé d'un commentaire indiquant son rôle, les valeurs
+# acceptées et la valeur par défaut retenue.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Valeurs globales
+# -----------------------------------------------------------------------------
+# Le bloc « global » est le seul propagé automatiquement aux sous-charts par
+# Helm. On y place donc ce qui doit rester cohérent à l'échelle du projet.
+global:
+  # Registry d'où proviennent les images de tous les composants.
+  # Exemples : docker.io, ghcr.io, quay.io, registry.gitlab.com
+  imageRegistry: ghcr.io
+
+  # Secrets de type kubernetes.io/dockerconfigjson permettant de tirer les
+  # images depuis un registry privé. Liste de { name: <nom du secret> }.
+  imagePullSecrets:
+    - name: registre-prive
+
+  # Nom de l'environnement courant. Laissé vide ici : chaque fichier
+  # values-<env>.yaml le renseigne, et il alimente le label « environment »
+  # posé sur toutes les ressources du chart.
+  environment: ""
+
+# -----------------------------------------------------------------------------
+# Nommage des ressources
+# -----------------------------------------------------------------------------
+# Par défaut, les ressources sont nommées <release>-<chart>. Ces deux clés
+# permettent de dévier de cette règle sans toucher aux gabarits.
+#   nameOverride     : remplace le nom du chart dans les noms composés ;
+#   fullnameOverride : remplace intégralement le nom, release comprise.
+nameOverride: ""
+fullnameOverride: ""
+
+# =============================================================================
+# Composant « api » (deployment)
+# =============================================================================
+api:
+  # Permet de désactiver entièrement le composant sans supprimer ses gabarits.
+  # Utile pour n'activer un worker qu'en production, par exemple.
+  enabled: true
+
+  # Nombre de répliques souhaité. Surchargé par environnement.
+  replicaCount: 1
+
+  # ---------------------------------------------------------------------------
+  # Image du conteneur
+  # ---------------------------------------------------------------------------
+  image:
+    # Dépôt, sans le registry : celui-ci vient de global.imageRegistry.
+    repository: acme/boutique
+
+    # Tag laissé vide volontairement : les gabarits retombent alors sur
+    # appVersion du Chart.yaml. C'est la pratique Helm recommandée, elle évite
+    # que le tag et la version du chart divergent silencieusement.
+    tag: ""
+
+    # Always : retire l'image à chaque démarrage, indispensable avec un tag
+    #          mouvant du type « latest ».
+    # IfNotPresent : n'interroge le registry que si l'image manque localement.
+    # Never : n'interroge jamais le registry, réservé aux images préchargées.
+    pullPolicy: IfNotPresent
+
+  # ---------------------------------------------------------------------------
+  # Port exposé par le conteneur
+  # ---------------------------------------------------------------------------
+  # Le nom du port est repris par le Service et, le cas échéant, par les sondes
+  # et la collecte de métriques. Quinze caractères maximum, contrainte de
+  # Kubernetes sur les noms de ports.
+  containerPort: 8080
+  portName: http
+
+  # Commande de démarrage. Listes vides : l'ENTRYPOINT de l'image est conservé.
+  command: []
+  args: []
+
+  # ---------------------------------------------------------------------------
+  # Service
+  # ---------------------------------------------------------------------------
+  service:
+    enabled: true
+
+    # ClusterIP : joignable uniquement depuis le cluster (défaut recommandé).
+    # NodePort : ouvre un port sur chaque nœud, à réserver au développement.
+    # LoadBalancer : demande une adresse externe au fournisseur de cloud.
+    type: ClusterIP
+
+    # Port exposé par le Service, redirigé vers containerPort.
+    port: 80
+
+    # Annotations du Service, par exemple pour piloter un LoadBalancer cloud.
+    annotations: {}
+
+  # ---------------------------------------------------------------------------
+  # Ingress
+  # ---------------------------------------------------------------------------
+  ingress:
+    # Génère ou non l'Ingress. À false, le composant reste joignable par son
+    # Service à l'intérieur du cluster, mais plus depuis l'extérieur.
+    enabled: true
+
+    # Ingress controller visé, écrit dans ingressClassName.
+    # Valeurs usuelles : nginx | traefik
+    # Ne jamais doubler cette clé par l'annotation kubernetes.io/ingress.class :
+    # émettre les deux à la fois est refusé.
+    className: nginx
+
+    # Hôte HTTP servi par la règle. Laissé vide ici : chaque values-<env>.yaml
+    # pose le sien, dérivé du domaine de l'environnement. Vide, la règle est
+    # entièrement omise plutôt que d'écrire un host null, que le schéma refuse.
+    host: ""
+
+    # Chemin servi, et mode de comparaison de ce chemin :
+    #   Exact : le chemin doit correspondre caractère pour caractère ;
+    #   Prefix : correspondance par segments (/api couvre /api/v1) ;
+    #   ImplementationSpecific : la règle est laissée au controller.
+    # pathType est obligatoire sur chaque chemin : c'est l'oubli le plus
+    # fréquemment refusé par la validation stricte des schémas.
+    path: /
+    pathType: Prefix
+
+    # Terminaison TLS de cet hôte. Le bloc tls du manifeste est entièrement
+    # absent quand enabled vaut false : un « tls: [] » serait refusé.
+    tls:
+      enabled: true
+
+      # ClusterIssuer cert-manager chargé d'émettre le certificat.
+      issuer: letsencrypt-prod
+
+      # Nom du Secret portant le certificat. Vide = <ressource>-tls, dérivé du
+      # nom du composant. Le certificat doit couvrir exactement l'hôte
+      # ci-dessus, faute de quoi la connexion échoue à l'exécution alors que le
+      # manifeste reste valide.
+      secretName: ""
+
+    # Annotations posées sur l'Ingress : réécriture d'URL, taille maximale du
+    # corps, redirection HTTPS... Elles dépendent du controller retenu.
+    annotations: {}
+
+  # ---------------------------------------------------------------------------
+  # Sondes de santé
+  # ---------------------------------------------------------------------------
+  # liveness : un échec provoque le redémarrage du conteneur.
+  # readiness : un échec retire le pod des endpoints du Service, sans le tuer.
+  # startup : suspend les deux autres tant que l'application n'a pas démarré ;
+  #           à activer pour une application lente à s'initialiser.
+  probes:
+    enabled: true
+    liveness:
+      path: /healthz
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    readiness:
+      path: /ready
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    startup:
+      enabled: false
+      path: /healthz
+      periodSeconds: 10
+      # 30 tentatives x periodSeconds : durée maximale accordée au démarrage.
+      failureThreshold: 30
+
+  # ---------------------------------------------------------------------------
+  # Ressources CPU et mémoire
+  # ---------------------------------------------------------------------------
+  # requests : ce que l'ordonnanceur réserve, et donc ce qui détermine sur quel
+  #            nœud le pod peut atterrir.
+  # limits   : plafond appliqué à l'exécution. Dépasser la limite mémoire tue
+  #            le conteneur (OOMKilled) ; dépasser la limite CPU le ralentit.
+  # Profil retenu à la génération : small
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  # ---------------------------------------------------------------------------
+  # Contexte de sécurité
+  # ---------------------------------------------------------------------------
+  # Durcissement strict demandé à la génération : conteneur non root, système
+  # de fichiers racine en lecture seule, toutes les capabilities retirées.
+  # Si l'application a besoin d'écrire, montez un volume emptyDir plutôt que
+  # de repasser readOnlyRootFilesystem à false.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    # fsGroup fixe le groupe propriétaire des volumes montés, faute de quoi un
+    # conteneur non root ne peut pas y écrire.
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # ---------------------------------------------------------------------------
+  # Placement et métadonnées du pod
+  # ---------------------------------------------------------------------------
+  # Laissés vides par défaut. À renseigner pour contraindre l'ordonnancement,
+  # par exemple sur un groupe de nœuds dédié.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Annotations et labels ajoutés au pod, en complément des labels standards.
+  podAnnotations: {}
+  podLabels: {}
+
+  # Variables d'environnement supplémentaires, au format Kubernetes.
+  # Exemple :
+  #   extraEnv:
+  #     - name: DATABASE_URL
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: api-database
+  #           key: url
+  extraEnv: []
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap — configuration non sensible
+  # ---------------------------------------------------------------------------
+  config:
+    # Génère ou non le ConfigMap. À false, l'injection dans le conteneur
+    # disparaît elle aussi : rien ne référence plus une ressource absente.
+    enabled: true
+
+    # Mode d'injection dans le conteneur :
+    #   env  : chaque clé devient une variable d'environnement (envFrom) ;
+    #   file : le ConfigMap est monté en fichiers sous mountPath, un fichier
+    #          par clé — seule forme utilisable si l'application lit un fichier.
+    mountAs: env
+
+    # Répertoire de montage, employé uniquement en mode « file ».
+    mountPath: "/etc/api"
+
+    # Clés de configuration et leurs valeurs.
+    # Toutes les valeurs sont écrites en chaînes de caractères : un entier ou
+    # un booléen nu est refusé par l'API, le gabarit les cite donc toujours.
+    # Une modification de ce bloc redémarre les pods, grâce à l'empreinte
+    # checksum/config posée sur le modèle de pod.
+    data:
+      LOG_LEVEL: ""
+      APP_ENV: ""
+
+  # ---------------------------------------------------------------------------
+  # Secret — emplacements de valeurs sensibles
+  # ---------------------------------------------------------------------------
+  # forge n'écrit jamais de valeur secrète : ce bloc ne déclare que les clés
+  # attendues. Renseignez-les hors du dépôt (--set, coffre-fort, opérateur de
+  # secrets), jamais dans un fichier versionné.
+  secret:
+    # Génère ou non le Secret. Faux par défaut : tant qu'aucune valeur n'est
+    # fournie, mieux vaut ne rien créer que créer des clés vides qui feraient
+    # démarrer l'application avec une configuration silencieusement fausse.
+    enabled: false
+
+    # true  : le chart crée le Secret à partir des clés ci-dessous ;
+    # false : le chart référence existingSecret, géré hors du chart.
+    create: true
+
+    # Nom d'un Secret existant, employé quand create vaut false. Le laisser
+    # vide dans ce cas empêcherait les pods de démarrer.
+    existingSecret: ""
+
+    # Type de Secret. « Opaque » convient à des clés quelconques ; un type
+    # spécialisé impose les siennes (kubernetes.io/tls exige tls.crt et
+    # tls.key) — ne pas mélanger les deux familles de clés.
+    type: "Opaque"
+
+    # Mode d'injection dans le conteneur :
+    #   env  : chaque clé devient une variable d'environnement (envFrom) ;
+    #   file : le Secret est monté en fichiers sous mountPath.
+    mountAs: env
+
+    # Répertoire de montage, employé uniquement en mode « file ».
+    mountPath: "/etc/api/secrets"
+
+    # Clés attendues, en texte clair (stringData). Ne jamais renseigner la même
+    # clé à la fois ici et dans un bloc data en base64 : data l'emporterait
+    # sans le moindre avertissement.
+    stringData:
+      API_KEY: ""
+
+  # ---------------------------------------------------------------------------
+  # Autoscaling horizontal
+  # ---------------------------------------------------------------------------
+  # Piloté par le profil d'environnement : désactivé en développement, activé
+  # en production par values-<env>.yaml.
+  # Quand il est actif, le gabarit cesse de rendre replicaCount : Helm et le
+  # HorizontalPodAutoscaler se disputeraient sinon le nombre de répliques à
+  # chaque mise à jour.
+  # L'autoscaling CPU exige resources.requests.cpu ci-dessus : sans réservation
+  # la métrique reste inconnue et rien ne se produit, sans qu'aucun validateur
+  # ne puisse le signaler.
+  hpa:
+    enabled: false
+
+    # Bornes du nombre de répliques. minReplicas ne peut pas dépasser
+    # maxReplicas.
+    minReplicas: 2
+    maxReplicas: 5
+
+    # Utilisation CPU moyenne visée, en pourcentage des requests. Entier
+    # obligatoire : la chaîne "80" est refusée.
+    targetCPUUtilizationPercentage: 80
+
+    # Utilisation mémoire moyenne visée, en pourcentage des requests.
+    # null = mémoire non surveillée ; renseigner un entier pour l'ajouter.
+    targetMemoryUtilizationPercentage: null
+
+  # ---------------------------------------------------------------------------
+  # Budget d'interruption volontaire
+  # ---------------------------------------------------------------------------
+  # Protège le composant des drains de nœud et des mises à jour de cluster.
+  # Piloté par le profil d'environnement : désactivé en développement, où
+  # minAvailable: 1 avec une seule réplique rendrait tout drain impossible.
+  pdb:
+    enabled: false
+
+    # Nombre de pods devant rester disponibles : un entier, ou un pourcentage
+    # entre guillemets ("50%"). minAvailable et maxUnavailable sont mutuellement
+    # exclusifs ; ce chart n'expose que le premier, pour ne pas laisser écrire
+    # les deux.
+    minAvailable: 1
+
+  # ---------------------------------------------------------------------------
+  # ServiceAccount — identité du composant
+  # ---------------------------------------------------------------------------
+  serviceAccount:
+    # true  : le chart crée un ServiceAccount dédié ;
+    # false : le chart référence un compte existant, dont le nom doit alors
+    #         être donné ci-dessous — sinon les pods ne démarrent pas.
+    create: true
+
+    # Nom du compte. Vide = nom dérivé du composant.
+    name: ""
+
+    # Annotations portant l'identité fédérée du fournisseur cloud, par exemple
+    # eks.amazonaws.com/role-arn ou iam.gke.io/gcp-service-account.
+    annotations: {}
+
+    # Monte le jeton d'API Kubernetes dans les pods. Faux tant que le composant
+    # n'appelle pas l'API : c'est un secret de moins exposé dans le conteneur.
+    automountServiceAccountToken: false
+
+  # ---------------------------------------------------------------------------
+  # RBAC — droits du ServiceAccount dans le namespace
+  # ---------------------------------------------------------------------------
+  rbac:
+    # Crée un Role et son RoleBinding, liés au ServiceAccount ci-dessus.
+    # Aucune ressource de portée cluster n'est produite par ce chart.
+    # roleRef est immuable : changer le Role visé fait échouer helm upgrade.
+    create: true
+
+    # Règles du Role. Liste vide = ni Role ni RoleBinding : un Role sans règle
+    # est valide au schéma, mais inutile et trompeur.
+    # apiGroups doit contenir la chaîne vide pour les ressources du groupe
+    # core (pods, configmaps, secrets). Exemple :
+    #   rules:
+    #     - apiGroups: [""]
+    #       resources: ["configmaps"]
+    #       verbs: ["get", "list", "watch"]
+    rules:
+      - apiGroups:
+          - ''
+        resources:
+          - configmaps
+        verbs:
+          - get
+          - list
+          - watch
+
+  # ---------------------------------------------------------------------------
+  # NetworkPolicy — cloisonnement réseau
+  # ---------------------------------------------------------------------------
+  # Fermé par défaut, ouvert explicitement. Attention : une règle vide autorise
+  # TOUT, alors que l'absence de règle interdit tout — les deux se ressemblent
+  # et aucun validateur ne les distingue.
+  networkPolicy:
+    enabled: false
+
+    # Autorise le trafic entrant venant du namespace du composant. À false sans
+    # aucun namespace autorisé ci-dessous, la liste de règles entrantes est
+    # écrite vide : plus rien n'entre, ce qui est le comportement voulu pour un
+    # composant que personne n'appelle — un CronJob, par exemple.
+    allowFromSameNamespace: true
+
+    # Namespaces supplémentaires autorisés en entrée, désignés par leur nom
+    # (label kubernetes.io/metadata.name, posé automatiquement par Kubernetes).
+    allowFromNamespaces: []
+
+    # La résolution DNS doit rester autorisée : dès qu'Egress est déclaré, tout
+    # le trafic sortant est coupé, résolution de noms comprise, et le composant
+    # ne joint plus rien.
+    allowDNS: true
+
+    # Autorise tout le trafic sortant. Faux le restreint au DNS ci-dessus.
+    allowEgressAll: false
+
+# =============================================================================
+# Composant « db-proxy » (statefulset)
+# =============================================================================
+db-proxy:
+  # Permet de désactiver entièrement le composant sans supprimer ses gabarits.
+  # Utile pour n'activer un worker qu'en production, par exemple.
+  enabled: true
+
+  # Nombre de répliques souhaité. Surchargé par environnement.
+  replicaCount: 1
+
+  # ---------------------------------------------------------------------------
+  # Image du conteneur
+  # ---------------------------------------------------------------------------
+  image:
+    # Dépôt, sans le registry : celui-ci vient de global.imageRegistry.
+    repository: acme/boutique
+
+    # Tag laissé vide volontairement : les gabarits retombent alors sur
+    # appVersion du Chart.yaml. C'est la pratique Helm recommandée, elle évite
+    # que le tag et la version du chart divergent silencieusement.
+    tag: ""
+
+    # Always : retire l'image à chaque démarrage, indispensable avec un tag
+    #          mouvant du type « latest ».
+    # IfNotPresent : n'interroge le registry que si l'image manque localement.
+    # Never : n'interroge jamais le registry, réservé aux images préchargées.
+    pullPolicy: IfNotPresent
+
+  # ---------------------------------------------------------------------------
+  # Port exposé par le conteneur
+  # ---------------------------------------------------------------------------
+  # Le nom du port est repris par le Service et, le cas échéant, par les sondes
+  # et la collecte de métriques. Quinze caractères maximum, contrainte de
+  # Kubernetes sur les noms de ports.
+  containerPort: 5432
+  portName: postgres
+
+  # Commande de démarrage. Listes vides : l'ENTRYPOINT de l'image est conservé.
+  command: []
+  args: []
+
+  # ---------------------------------------------------------------------------
+  # Service
+  # ---------------------------------------------------------------------------
+  service:
+    enabled: true
+
+    # ClusterIP : joignable uniquement depuis le cluster (défaut recommandé).
+    # NodePort : ouvre un port sur chaque nœud, à réserver au développement.
+    # LoadBalancer : demande une adresse externe au fournisseur de cloud.
+    type: ClusterIP
+
+    # Port exposé par le Service, redirigé vers containerPort.
+    port: 80
+
+    # clusterIP: None — Service headless, indispensable à un StatefulSet pour
+    # donner à chaque pod un nom DNS stable et individuel.
+    headless: true
+
+    # Annotations du Service, par exemple pour piloter un LoadBalancer cloud.
+    annotations: {}
+
+  # ---------------------------------------------------------------------------
+  # Sondes de santé
+  # ---------------------------------------------------------------------------
+  # liveness : un échec provoque le redémarrage du conteneur.
+  # readiness : un échec retire le pod des endpoints du Service, sans le tuer.
+  # startup : suspend les deux autres tant que l'application n'a pas démarré ;
+  #           à activer pour une application lente à s'initialiser.
+  probes:
+    enabled: true
+    liveness:
+      path: /healthz
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    readiness:
+      path: /ready
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    startup:
+      enabled: false
+      path: /healthz
+      periodSeconds: 10
+      # 30 tentatives x periodSeconds : durée maximale accordée au démarrage.
+      failureThreshold: 30
+
+  # ---------------------------------------------------------------------------
+  # Ressources CPU et mémoire
+  # ---------------------------------------------------------------------------
+  # requests : ce que l'ordonnanceur réserve, et donc ce qui détermine sur quel
+  #            nœud le pod peut atterrir.
+  # limits   : plafond appliqué à l'exécution. Dépasser la limite mémoire tue
+  #            le conteneur (OOMKilled) ; dépasser la limite CPU le ralentit.
+  # Profil retenu à la génération : small
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  # ---------------------------------------------------------------------------
+  # Contexte de sécurité
+  # ---------------------------------------------------------------------------
+  # Durcissement strict demandé à la génération : conteneur non root, système
+  # de fichiers racine en lecture seule, toutes les capabilities retirées.
+  # Si l'application a besoin d'écrire, montez un volume emptyDir plutôt que
+  # de repasser readOnlyRootFilesystem à false.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    # fsGroup fixe le groupe propriétaire des volumes montés, faute de quoi un
+    # conteneur non root ne peut pas y écrire.
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # ---------------------------------------------------------------------------
+  # Placement et métadonnées du pod
+  # ---------------------------------------------------------------------------
+  # Laissés vides par défaut. À renseigner pour contraindre l'ordonnancement,
+  # par exemple sur un groupe de nœuds dédié.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Annotations et labels ajoutés au pod, en complément des labels standards.
+  podAnnotations: {}
+  podLabels: {}
+
+  # Variables d'environnement supplémentaires, au format Kubernetes.
+  # Exemple :
+  #   extraEnv:
+  #     - name: DATABASE_URL
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: db-proxy-database
+  #           key: url
+  extraEnv: []
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap — configuration non sensible
+  # ---------------------------------------------------------------------------
+  config:
+    # Génère ou non le ConfigMap. À false, l'injection dans le conteneur
+    # disparaît elle aussi : rien ne référence plus une ressource absente.
+    enabled: true
+
+    # Mode d'injection dans le conteneur :
+    #   env  : chaque clé devient une variable d'environnement (envFrom) ;
+    #   file : le ConfigMap est monté en fichiers sous mountPath, un fichier
+    #          par clé — seule forme utilisable si l'application lit un fichier.
+    mountAs: file
+
+    # Répertoire de montage, employé uniquement en mode « file ».
+    mountPath: "/etc/db-proxy"
+
+    # Clés de configuration et leurs valeurs.
+    # Toutes les valeurs sont écrites en chaînes de caractères : un entier ou
+    # un booléen nu est refusé par l'API, le gabarit les cite donc toujours.
+    # Une modification de ce bloc redémarre les pods, grâce à l'empreinte
+    # checksum/config posée sur le modèle de pod.
+    data:
+      POOL_SIZE: ""
+
+  # ---------------------------------------------------------------------------
+  # Volume persistant
+  # ---------------------------------------------------------------------------
+  # Un volumeClaimTemplate est IMMUABLE : changer size, storageClass ou
+  # accessMode après l'installation fait échouer « helm upgrade ». Il faut
+  # alors supprimer le StatefulSet sans ses pods (--cascade=orphan) et le
+  # recréer ; les volumes déjà provisionnés sont conservés.
+  persistence:
+    # Attache un volume à chaque pod. Toujours vrai pour un StatefulSet : sans
+    # volume, son identité stable ne sert à rien.
+    enabled: true
+
+    # Taille demandée au volume, quantité Kubernetes (10Gi, 500Mi).
+    size: 20Gi
+
+    # Nom d'une StorageClass, ou "" pour la classe par défaut du cluster.
+    # Attention à la nuance : "" ici veut dire « classe par défaut », et le
+    # gabarit omet alors la clé du manifeste — un storageClassName: "" écrit
+    # explicitement voudrait dire « aucune classe », ce qui est différent.
+    storageClass: ''
+
+    # Mode d'accès du volume :
+    #   ReadWriteOnce : monté en lecture-écriture par un seul nœud ;
+    #   ReadOnlyMany : lecture seule par plusieurs nœuds ;
+    #   ReadWriteMany : lecture-écriture par plusieurs nœuds (rare) ;
+    #   ReadWriteOncePod : lecture-écriture par un seul pod.
+    accessMode: ReadWriteOnce
+
+    # Chemin de montage dans le conteneur. Le nom du volumeClaimTemplate et
+    # celui du volumeMount doivent rester identiques : le gabarit s'en charge.
+    mountPath: /data
+
+  # ---------------------------------------------------------------------------
+  # Stratégie de mise à jour des pods
+  # ---------------------------------------------------------------------------
+  updateStrategy:
+    # RollingUpdate : les pods sont remplacés un par un, de l'ordinal le plus
+    #                 élevé au plus bas ;
+    # OnDelete : aucun pod n'est remplacé automatiquement ; supprimer un pod
+    #            déclenche sa recréation à la nouvelle version.
+    type: "RollingUpdate"
+
+    # Ordinal à partir duquel les pods sont mis à jour : ceux d'ordinal
+    # inférieur restent à l'ancienne version, ce qui permet un déploiement
+    # progressif. Employé uniquement avec RollingUpdate.
+    partition: 0
+
+  # ---------------------------------------------------------------------------
+  # ServiceAccount — identité du composant
+  # ---------------------------------------------------------------------------
+  serviceAccount:
+    # true  : le chart crée un ServiceAccount dédié ;
+    # false : le chart référence un compte existant, dont le nom doit alors
+    #         être donné ci-dessous — sinon les pods ne démarrent pas.
+    create: true
+
+    # Nom du compte. Vide = nom dérivé du composant.
+    name: ""
+
+    # Annotations portant l'identité fédérée du fournisseur cloud, par exemple
+    # eks.amazonaws.com/role-arn ou iam.gke.io/gcp-service-account.
+    annotations: {}
+
+    # Monte le jeton d'API Kubernetes dans les pods. Faux tant que le composant
+    # n'appelle pas l'API : c'est un secret de moins exposé dans le conteneur.
+    automountServiceAccountToken: false
+
+  # ---------------------------------------------------------------------------
+  # RBAC — droits du ServiceAccount dans le namespace
+  # ---------------------------------------------------------------------------
+  rbac:
+    # Crée un Role et son RoleBinding, liés au ServiceAccount ci-dessus.
+    # Aucune ressource de portée cluster n'est produite par ce chart.
+    # roleRef est immuable : changer le Role visé fait échouer helm upgrade.
+    create: false
+
+    # Règles du Role. Liste vide = ni Role ni RoleBinding : un Role sans règle
+    # est valide au schéma, mais inutile et trompeur.
+    # apiGroups doit contenir la chaîne vide pour les ressources du groupe
+    # core (pods, configmaps, secrets). Exemple :
+    #   rules:
+    #     - apiGroups: [""]
+    #       resources: ["configmaps"]
+    #       verbs: ["get", "list", "watch"]
+    rules: []
+
+# =============================================================================
+# Composant « cleanup » (cronjob)
+# =============================================================================
+cleanup:
+  # Permet de désactiver entièrement le composant sans supprimer ses gabarits.
+  # Utile pour n'activer un worker qu'en production, par exemple.
+  enabled: true
+
+  # Nombre de répliques souhaité. Surchargé par environnement.
+  replicaCount: 1
+
+  # ---------------------------------------------------------------------------
+  # Image du conteneur
+  # ---------------------------------------------------------------------------
+  image:
+    # Dépôt, sans le registry : celui-ci vient de global.imageRegistry.
+    repository: acme/boutique
+
+    # Tag laissé vide volontairement : les gabarits retombent alors sur
+    # appVersion du Chart.yaml. C'est la pratique Helm recommandée, elle évite
+    # que le tag et la version du chart divergent silencieusement.
+    tag: ""
+
+    # Always : retire l'image à chaque démarrage, indispensable avec un tag
+    #          mouvant du type « latest ».
+    # IfNotPresent : n'interroge le registry que si l'image manque localement.
+    # Never : n'interroge jamais le registry, réservé aux images préchargées.
+    pullPolicy: IfNotPresent
+
+  # ---------------------------------------------------------------------------
+  # Port exposé par le conteneur
+  # ---------------------------------------------------------------------------
+  # Le nom du port est repris par le Service et, le cas échéant, par les sondes
+  # et la collecte de métriques. Quinze caractères maximum, contrainte de
+  # Kubernetes sur les noms de ports.
+  containerPort: 8080
+  portName: http
+
+  # Commande de démarrage. Listes vides : l'ENTRYPOINT de l'image est conservé.
+  command: []
+  args: []
+
+  # ---------------------------------------------------------------------------
+  # Sondes de santé
+  # ---------------------------------------------------------------------------
+  # liveness : un échec provoque le redémarrage du conteneur.
+  # readiness : un échec retire le pod des endpoints du Service, sans le tuer.
+  # startup : suspend les deux autres tant que l'application n'a pas démarré ;
+  #           à activer pour une application lente à s'initialiser.
+  probes:
+    enabled: true
+    liveness:
+      path: /healthz
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    readiness:
+      path: /ready
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    startup:
+      enabled: false
+      path: /healthz
+      periodSeconds: 10
+      # 30 tentatives x periodSeconds : durée maximale accordée au démarrage.
+      failureThreshold: 30
+
+  # ---------------------------------------------------------------------------
+  # Ressources CPU et mémoire
+  # ---------------------------------------------------------------------------
+  # requests : ce que l'ordonnanceur réserve, et donc ce qui détermine sur quel
+  #            nœud le pod peut atterrir.
+  # limits   : plafond appliqué à l'exécution. Dépasser la limite mémoire tue
+  #            le conteneur (OOMKilled) ; dépasser la limite CPU le ralentit.
+  # Profil retenu à la génération : small
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  # ---------------------------------------------------------------------------
+  # Contexte de sécurité
+  # ---------------------------------------------------------------------------
+  # Durcissement strict demandé à la génération : conteneur non root, système
+  # de fichiers racine en lecture seule, toutes les capabilities retirées.
+  # Si l'application a besoin d'écrire, montez un volume emptyDir plutôt que
+  # de repasser readOnlyRootFilesystem à false.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    # fsGroup fixe le groupe propriétaire des volumes montés, faute de quoi un
+    # conteneur non root ne peut pas y écrire.
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # ---------------------------------------------------------------------------
+  # Placement et métadonnées du pod
+  # ---------------------------------------------------------------------------
+  # Laissés vides par défaut. À renseigner pour contraindre l'ordonnancement,
+  # par exemple sur un groupe de nœuds dédié.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Annotations et labels ajoutés au pod, en complément des labels standards.
+  podAnnotations: {}
+  podLabels: {}
+
+  # Variables d'environnement supplémentaires, au format Kubernetes.
+  # Exemple :
+  #   extraEnv:
+  #     - name: DATABASE_URL
+  #       valueFrom:
+  #         secretKeyRef:
+  #           name: cleanup-database
+  #           key: url
+  extraEnv: []
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap — configuration non sensible
+  # ---------------------------------------------------------------------------
+  config:
+    # Génère ou non le ConfigMap. À false, l'injection dans le conteneur
+    # disparaît elle aussi : rien ne référence plus une ressource absente.
+    enabled: true
+
+    # Mode d'injection dans le conteneur :
+    #   env  : chaque clé devient une variable d'environnement (envFrom) ;
+    #   file : le ConfigMap est monté en fichiers sous mountPath, un fichier
+    #          par clé — seule forme utilisable si l'application lit un fichier.
+    mountAs: env
+
+    # Répertoire de montage, employé uniquement en mode « file ».
+    mountPath: "/etc/cleanup"
+
+    # Clés de configuration et leurs valeurs.
+    # Toutes les valeurs sont écrites en chaînes de caractères : un entier ou
+    # un booléen nu est refusé par l'API, le gabarit les cite donc toujours.
+    # Une modification de ce bloc redémarre les pods, grâce à l'empreinte
+    # checksum/config posée sur le modèle de pod.
+    data:
+      RETENTION_DAYS: ""
+
+  # ---------------------------------------------------------------------------
+  # Planification (CronJob)
+  # ---------------------------------------------------------------------------
+  cron:
+    # Planification à cinq champs : minute heure jour-du-mois mois jour-semaine.
+    schedule: 0 3 * * *
+
+    # Que faire si l'exécution précédente dure encore à l'échéance suivante :
+    #   Allow : lancer quand même | Forbid : sauter | Replace : remplacer
+    concurrencyPolicy: Forbid
+
+    # Redémarrage du pod : OnFailure | Never. « Always » passe la validation de
+    # schéma mais est refusé par l'API pour un Job.
+    restartPolicy: OnFailure
+
+    # Fuseau horaire IANA appliqué à la planification (Europe/Paris). Vide =
+    # fuseau du contrôleur ; la clé est alors entièrement omise du manifeste,
+    # un timeZone: "" étant refusé par l'API.
+    timeZone: ""
+
+    # Suspend les déclenchements sans supprimer l'objet ni son historique.
+    suspend: false
+
+    # Nombre d'exécutions conservées dans l'historique, réussies puis échouées.
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+
+    # Nombre de reprises avant d'abandonner une exécution.
+    backoffLimit: 3
+
+    # Retard maximal toléré avant de considérer une échéance comme manquée.
+    # null = aucune limite ; renseigner un entier de secondes pour en poser une.
+    startingDeadlineSeconds: null
+
+# -----------------------------------------------------------------------------
+# Tests du chart (helm test)
+# -----------------------------------------------------------------------------
+# Ressources créées uniquement par « helm test », jamais par une installation
+# ordinaire. Elles vérifient que le Service répond avant de valider une release.
+tests:
+  enabled: true
+  image:
+    # Image utilisée par le pod de test. Toute image contenant wget convient.
+    repository: busybox
+    tag: "1.36"
+    pullPolicy: IfNotPresent
+  # Délai maximal accordé à la réponse du Service, en secondes.
+  timeoutSeconds: 10

@@ -1,0 +1,92 @@
+# =============================================================================
+# values-prod.yaml — surcharges de l'environnement « prod »
+# =============================================================================
+# Fichier généré par forge. Il ne contient que les écarts par rapport à
+# values.yaml : tout ce qui n'apparaît pas ici garde sa valeur par défaut.
+#
+# Namespace cible de cet environnement : boutique-prod
+#
+# Utilisation :
+#   helm upgrade --install boutique ./charts/boutique \
+#     --namespace boutique-prod --create-namespace \
+#     --values ./charts/boutique/values.yaml \
+#     --values ./charts/boutique/values-prod.yaml
+#
+# Le namespace n'est pas une valeur du chart : il est choisi par l'option
+# --namespace de Helm. Il est rappelé ci-dessus à titre documentaire, et le
+# Makefile du projet l'applique automatiquement.
+# =============================================================================
+
+global:
+  # Alimente le label « environment » posé sur toutes les ressources, ce qui
+  # permet de filtrer par environnement avec kubectl -l environment=prod.
+  environment: prod
+
+# -----------------------------------------------------------------------------
+# Composant « api »
+# -----------------------------------------------------------------------------
+api:
+  # Profil « prod » : 4 réplique(s).
+  replicaCount: 4
+  # Ressources ajustées pour cet environnement.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 400m
+      memory: 256Mi
+  # Profil « prod » : autoscaling activé. Le nombre de répliques est
+  # alors imposé par le HorizontalPodAutoscaler, entre hpa.minReplicas et
+  # hpa.maxReplicas ; replicaCount cesse d'être rendu dans le manifeste, faute
+  # de quoi Helm et l'autoscaler se disputeraient la valeur.
+  hpa:
+    enabled: true
+  # Profil « prod » : budget d'interruption actif ; les drains de
+  # nœud devront respecter pdb.minAvailable.
+  pdb:
+    enabled: true
+  # Hôte servi par l'Ingress dans cet environnement.
+  # Dérivé du domaine déclaré pour « prod » (boutique.example.net) : ce
+  # domaine portant déjà l'environnement, le nom de celui-ci n'est pas réinséré.
+  ingress:
+    host: boutique.boutique.example.net
+
+# -----------------------------------------------------------------------------
+# Composant « db-proxy »
+# -----------------------------------------------------------------------------
+db-proxy:
+  # Profil « prod » : 3 réplique(s).
+  replicaCount: 3
+  # Ressources ajustées pour cet environnement.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 400m
+      memory: 256Mi
+
+# -----------------------------------------------------------------------------
+# Composant « cleanup »
+# -----------------------------------------------------------------------------
+cleanup:
+  # Ressources ajustées pour cet environnement.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 400m
+      memory: 256Mi
+
+
+# -----------------------------------------------------------------------------
+# Valeurs libres de cet environnement
+# -----------------------------------------------------------------------------
+# Valeurs propres à cet environnement, reprises telles quelles depuis
+# forge.yml (helm.environments.prod.extra_values). forge ne les
+# interprète pas : elles sont fusionnées par Helm comme n'importe quelle
+# surcharge de values.
+global:
+  monitoring: true

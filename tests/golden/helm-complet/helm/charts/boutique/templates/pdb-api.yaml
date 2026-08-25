@@ -1,0 +1,55 @@
+{{- /*
+===============================================================================
+PodDisruptionBudget du composant « api »
+===============================================================================
+Fichier généré par forge.
+
+Garantit qu'un minimum de pods de api reste disponible pendant les
+interruptions volontaires : drain de nœud, mise à jour du cluster, rééquilibrage
+de l'ordonnanceur. Piloté par le profil d'environnement : désactivé en
+développement, activé en production par values-<env>.yaml.
+
+Pièges dont ce fichier se prémunit :
+  * policy/v1beta1 est supprimée depuis Kubernetes 1.25 ; seule policy/v1
+    subsiste ;
+  * minAvailable et maxUnavailable sont mutuellement exclusifs, et kubeconform
+    ne modélise pas cette exclusion : la garde est ci-dessous, jamais les deux
+    clés à la fois ;
+  * le sélecteur vise le composant seul — un sélecteur au niveau du chart
+    bloquerait les évictions de tous les autres composants ;
+  * minAvailable: 1 avec une seule réplique rend tout drain impossible : c'est
+    la raison pour laquelle le profil de développement laisse pdb.enabled à
+    false.
+===============================================================================
+*/}}
+{{- if and .Values.api.enabled .Values.api.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "boutique.api.fullname" . }}
+  labels:
+    {{- include "boutique.api.labels" . | nindent 4 }}
+spec:
+  {{- /*
+    Exclusion mutuelle : l'API rejette un budget qui porte les deux bornes, et
+    aucun schéma ne le détecte avant l'application. Le chart n'expose que
+    minAvailable ; si maxUnavailable a malgré tout été ajouté aux values, c'est
+    lui qui est retenu, et minAvailable disparaît.
+    Les deux clés acceptent un entier ou un pourcentage entre guillemets :
+    toYaml conserve le type d'origine plutôt que de tout aplatir en chaîne.
+  */}}
+  {{- if .Values.api.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.api.pdb.maxUnavailable | toYaml }}
+  {{- else }}
+  minAvailable: {{ .Values.api.pdb.minAvailable | toYaml }}
+  {{- end }}
+  {{- /*
+    Sélecteur restreint au composant : les selectorLabels du composant portent
+    app.kubernetes.io/component en plus de ceux du chart. Les labels complets
+    seraient à proscrire — ils contiennent helm.sh/chart et
+    app.kubernetes.io/version, qui changent à chaque release.
+  */}}
+  selector:
+    matchLabels:
+      {{- include "boutique.api.selectorLabels" . | nindent 6 }}
+{{- end }}

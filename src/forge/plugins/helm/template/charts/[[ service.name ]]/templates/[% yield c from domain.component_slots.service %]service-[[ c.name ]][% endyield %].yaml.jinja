@@ -1,0 +1,44 @@
+[% set v = c.values_ref %]
+[% set h = c.helper %]
+{{- /*
+===============================================================================
+Service du composant « [[ c.name ]] »
+===============================================================================
+Fichier généré par forge.
+
+Expose les pods de [[ c.name ]] derrière un nom DNS stable et une adresse
+virtuelle. Le Service sélectionne ses pods par les labels de sélection du
+composant, jamais par leur nom.
+===============================================================================
+*/}}
+{{- if and [[ v ]].enabled [[ v ]].service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "[[ h ]].fullname" . }}
+  labels:
+    {{- include "[[ h ]].labels" . | nindent 4 }}
+  {{- with [[ v ]].service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+[% if c.service.headless %]
+  {{- /*
+    Service headless : sans adresse virtuelle, le DNS renvoie directement les
+    adresses des pods. C'est ce qui donne à chaque pod d'un StatefulSet un nom
+    DNS individuel et stable.
+  */}}
+  clusterIP: None
+[% else %]
+  type: {{ [[ v ]].service.type }}
+[% endif %]
+  ports:
+    - name: {{ [[ v ]].portName }}
+      port: {{ [[ v ]].service.port }}
+      {{- /* targetPort désigne le port du conteneur, ici par son nom. */}}
+      targetPort: {{ [[ v ]].portName }}
+      protocol: TCP
+  selector:
+    {{- include "[[ h ]].selectorLabels" . | nindent 4 }}
+{{- end }}

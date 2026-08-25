@@ -1,0 +1,196 @@
+{{- /*
+===============================================================================
+CronJob du composant « cleanup »
+===============================================================================
+Fichier généré par forge.
+
+Exécute cleanup à échéance régulière : le contrôleur crée un Job — et donc
+un pod neuf — à chaque déclenchement de la planification.
+
+Un CronJob n'est ni un Deployment ni un StatefulSet, et les champs suivants sont
+volontairement absents :
+  * « replicas » et « selector » : c'est le Job créé à chaque échéance qui porte
+    son propre sélecteur, posé par le contrôleur. Les écrire ici serait refusé ;
+  * le port du conteneur : sans Service, aucun trafic n'entre dans ce pod ;
+  * les sondes : une readinessProbe n'aurait aucun consommateur, et une
+    livenessProbe en échec redémarrerait le conteneur au milieu d'un traitement
+    par lot. La santé d'une tâche planifiée se lit dans son code de sortie, que
+    backoffLimit et l'historique des Jobs suffisent à exploiter.
+
+L'imbrication est spec.jobTemplate.spec.template.spec : deux niveaux de plus
+qu'un Deployment, soit quatre espaces d'indentation supplémentaires sur tout le
+bloc du pod et de son conteneur.
+
+Aucune valeur n'est écrite en dur ici. Tout provient de la clé
+« cleanup » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if .Values.cleanup.enabled }}
+{{- $cron := .Values.cleanup.cron }}
+{{- /*
+  batch/v1beta1 est supprimée depuis Kubernetes 1.25 : batch/v1 est la seule
+  version servie, elle est donc écrite sans condition de version du cluster.
+*/}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "boutique.cleanup.fullname" . }}
+  labels:
+    {{- include "boutique.cleanup.labels" . | nindent 4 }}
+spec:
+  {{- /*
+    Planification à cinq champs. Citée systématiquement : une expression
+    commençant par « * » ne serait pas un scalaire YAML valide.
+  */}}
+  schedule: {{ $cron.schedule | quote }}
+  {{- /*
+    timeZone n'est émis que s'il est renseigné : l'API refuse timeZone: "",
+    alors que l'absence de la clé signifie « fuseau du contrôleur ».
+  */}}
+  {{- with $cron.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  {{- /*
+    Que faire si l'exécution précédente dure encore à l'échéance suivante :
+    Allow (lancer quand même), Forbid (sauter), Replace (remplacer).
+  */}}
+  concurrencyPolicy: {{ $cron.concurrencyPolicy }}
+  {{- /* Suspend les déclenchements sans supprimer l'objet ni son historique. */}}
+  suspend: {{ $cron.suspend }}
+  {{- /* Nombre d'exécutions conservées, réussies puis échouées. */}}
+  successfulJobsHistoryLimit: {{ $cron.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $cron.failedJobsHistoryLimit }}
+  {{- /*
+    startingDeadlineSeconds vaut null par défaut : la clé disparaît alors du
+    manifeste, ce qui signifie « rattraper sans limite de retard ». Le test
+    porte sur la nullité, et non sur la vérité de la valeur, afin que 0 reste
+    transmissible.
+  */}}
+  {{- if not (kindIs "invalid" $cron.startingDeadlineSeconds) }}
+  startingDeadlineSeconds: {{ $cron.startingDeadlineSeconds }}
+  {{- end }}
+  jobTemplate:
+    metadata:
+      {{- /*
+        Labels du Job créé à chaque échéance : ils permettent de retrouver les
+        exécutions d'un composant sans connaître le suffixe posé par le
+        contrôleur. Aucun selector n'est déclaré ici, le contrôleur pose le sien.
+      */}}
+      labels:
+        {{- include "boutique.cleanup.labels" . | nindent 8 }}
+    spec:
+      {{- /* Nombre de reprises avant d'abandonner l'exécution d'une échéance. */}}
+      backoffLimit: {{ $cron.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "boutique.cleanup.selectorLabels" . | nindent 12 }}
+            {{- with .Values.cleanup.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- /*
+            Aucune empreinte checksum/config n'est posée, contrairement à un
+            Deployment : chaque échéance crée un pod neuf, qui lit forcément la
+            configuration courante. Il n'y a donc rien à redémarrer.
+          */}}
+          {{- with .Values.cleanup.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          {{- /*
+            restartPolicy est obligatoire dans le pod d'un Job et ne peut valoir
+            que OnFailure (relancer le conteneur dans le même pod) ou Never
+            (laisser le Job créer un nouveau pod). « Always » passe la
+            validation de schéma mais est refusé à l'application.
+
+            Le modèle de forge n'accepte que ces deux valeurs dans forge.yml.
+            Un `--set <composant>.cron.restartPolicy=Always` passé à la main à
+            l'installation traverserait en revanche lint, template et
+            kubeconform : c'est l'API du cluster qui refuserait, et elle seule.
+          */}}
+          restartPolicy: {{ $cron.restartPolicy }}
+          {{- with .Values.global.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanup.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: cleanup
+              image: {{ include "boutique.cleanup.image" . }}
+              imagePullPolicy: {{ .Values.cleanup.image.pullPolicy }}
+              {{- with .Values.cleanup.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .Values.cleanup.command }}
+              command:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .Values.cleanup.args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              env:
+                - name: ENVIRONMENT
+                  value: {{ .Values.global.environment | quote }}
+                {{- with .Values.cleanup.extraEnv }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- /*
+                Les sources injectées en variables d'environnement sont
+                accumulées dans une liste, puis rendues d'un bloc : une clé
+                « envFrom: » sans élément vaudrait null et serait refusée.
+                La clé mountAs décide, source par source, entre injection en
+                variables (env) et montage en fichiers (file, plus bas).
+              */}}
+              {{- $envFrom := list }}
+              {{- if and .Values.cleanup.config.enabled (eq .Values.cleanup.config.mountAs "env") }}
+              {{- $envFrom = append $envFrom (dict "configMapRef" (dict "name" (include "boutique.cleanup.configMapName" .))) }}
+              {{- end }}
+              {{- with $envFrom }}
+              envFrom:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- /* Montages en fichiers, pour les sources dont mountAs vaut file. */}}
+              {{- $volumeMounts := list }}
+              {{- if and .Values.cleanup.config.enabled (eq .Values.cleanup.config.mountAs "file") }}
+              {{- $volumeMounts = append $volumeMounts (dict "name" "config" "mountPath" .Values.cleanup.config.mountPath "readOnly" true) }}
+              {{- end }}
+              {{- with $volumeMounts }}
+              volumeMounts:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .Values.cleanup.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          {{- with .Values.cleanup.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanup.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanup.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /*
+            Volumes correspondant aux montages en fichiers déclarés plus haut.
+            La liste reste vide tant qu'aucune source n'est en mode « file », et
+            la clé « volumes: » disparaît alors entièrement.
+          */}}
+          {{- $volumes := list }}
+          {{- if and .Values.cleanup.config.enabled (eq .Values.cleanup.config.mountAs "file") }}
+          {{- $volumes = append $volumes (dict "name" "config" "configMap" (dict "name" (include "boutique.cleanup.configMapName" .))) }}
+          {{- end }}
+          {{- with $volumes }}
+          volumes:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

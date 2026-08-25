@@ -28,7 +28,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 #: Plugins de domaine livres avec forge, enregistres en dur (decision DESIGN §2.4).
 #: Ajouter un domaine ne doit toucher aucun autre fichier du coeur.
-BUILTIN_PLUGINS: tuple[str, ...] = ("forge.plugins.ansible.plugin",)
+BUILTIN_PLUGINS: tuple[str, ...] = (
+    "forge.plugins.ansible.plugin",
+    "forge.plugins.helm.plugin",
+)
 
 #: Variable d'environnement listant des modules de plugin supplementaires,
 #: separes par des virgules. Sert aux tests (plugin `demo`) et aux essais locaux.

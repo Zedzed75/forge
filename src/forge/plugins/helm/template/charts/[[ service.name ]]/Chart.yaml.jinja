@@ -1,0 +1,37 @@
+# =============================================================================
+# Chart.yaml — métadonnées du chart Helm « [[ service.name ]] »
+# =============================================================================
+# Fichier généré par forge. Décrit l'identité du chart : son nom, sa
+# version, la version de l'application empaquetée et les versions de Kubernetes
+# sur lesquelles il est supporté.
+#
+# Deux versions distinctes cohabitent ici, ne pas les confondre :
+#   - version    : version du chart lui-même, à incrémenter à chaque
+#                  modification des gabarits ou des valeurs par défaut ;
+#   - appVersion : version de l'application déployée, qui sert de tag d'image
+#                  par défaut lorsque aucun tag n'est fourni dans les values.
+# =============================================================================
+
+apiVersion: v2
+name: [[ service.name ]]
+description: [[ service.description | yaml_scalar ]]
+
+# « application » désigne un chart déployable, par opposition à « library »
+# qui ne contient que des helpers réutilisables et ne s'installe pas.
+type: application
+
+# Version du chart, au format SemVer strict exigé par Helm.
+version: [[ domain.chart_version ]]
+
+# Version de l'application. Toujours entre quotes : sans elles, une valeur du
+# type 1.10 serait relue comme un nombre décimal et perdrait son zéro final.
+appVersion: [[ domain.app_version | yaml_scalar ]]
+
+# Versions de Kubernetes acceptées. Le suffixe -0 autorise les versions
+# portant un suffixe de distribution, par exemple v[[ domain.kubernetes.version ]].0-eks-1 ;
+# sans lui, Helm refuserait de s'installer sur ces clusters.
+kubeVersion: "[[ domain.kubernetes.kube_version_constraint ]]"
+
+maintainers:
+  - name: [[ domain.maintainer_name | yaml_scalar ]]
+    email: [[ domain.maintainer_email ]]

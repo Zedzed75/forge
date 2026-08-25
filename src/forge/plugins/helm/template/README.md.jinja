@@ -1,0 +1,128 @@
+# [[ service.name ]]
+
+[[ service.description ]]
+
+Projet Kubernetes/Helm généré par [forge](https://github.com/). Tout le
+contenu de ce dépôt est reproductible à partir de `forge.yml` :
+
+```bash
+forge generate
+```
+
+## Prérequis
+
+| Outil | Version minimale | Rôle |
+|---|---|---|
+| `helm` | 3.12 | rendu et déploiement du chart |
+| `kubectl` | [[ domain.kubernetes.version ]] | accès au cluster |
+| `kubeconform` | 0.6 | validation stricte des manifestes |
+[% if domain.extras.makefile %]
+| `make` | 4.0 | raccourcis des opérations courantes |
+[% endif %]
+
+Cluster cible : Kubernetes `[[ domain.kubernetes.kube_version_constraint ]]`.
+
+## Environnements
+
+| Environnement | Namespace | Répliques | Fichier de values |
+|---|---|---|---|
+[% for env in domain.environments %]
+| `[[ env.name ]]` | `[[ env.namespace ]]` | [% for c in domain.components %][[ c.name ]] : [[ env.components[c.name].replicas if env.components[c.name].replicas is not none else "-" ]][% if not loop.last %], [% endif %][% endfor %] | `charts/[[ service.name ]]/values-[[ env.name ]].yaml` |
+[% endfor %]
+
+## Composants
+
+| Composant | Type | Port | Ressources annexes |
+|---|---|---|---|
+[% for c in domain.components %]
+| `[[ c.name ]]` | `[[ c.kind ]]` | `[[ c.container_port ]]` | [% if c.addons %][% for a in c.addons %]`[[ a ]]`[% if not loop.last %], [% endif %][% endfor %][% else %]aucune[% endif %] |
+[% endfor %]
+
+## Utilisation
+
+[% if domain.extras.makefile %]
+### Avec make
+
+```bash
+make help                      # liste les cibles disponibles
+make lint                      # helm lint sur tous les environnements
+make template ENV=[[ domain.environments[0].name ]][[ " " * (10 - domain.environments[0].name|length) ]]# rend les manifestes sans les appliquer
+make validate ENV=[[ domain.environments[0].name ]][[ " " * (10 - domain.environments[0].name|length) ]]# rend puis valide avec kubeconform
+make validate-all              # valide tous les environnements
+make install ENV=[[ domain.environments[0].name ]][[ " " * (11 - domain.environments[0].name|length) ]]# déploie sur l'environnement choisi
+```
+
+### Commandes helm brutes
+[% else %]
+### Commandes helm
+[% endif %]
+
+[% for env in domain.environments %]
+Environnement `[[ env.name ]]` :
+
+```bash
+# Rendu local, sans contact avec le cluster
+helm template [[ service.name ]] ./charts/[[ service.name ]] \
+  --namespace [[ env.namespace ]] \
+  --values ./charts/[[ service.name ]]/values.yaml \
+  --values ./charts/[[ service.name ]]/values-[[ env.name ]].yaml
+
+# Déploiement
+helm upgrade --install [[ service.name ]] ./charts/[[ service.name ]] \
+  --namespace [[ env.namespace ]] --create-namespace \
+  --values ./charts/[[ service.name ]]/values.yaml \
+  --values ./charts/[[ service.name ]]/values-[[ env.name ]].yaml \
+  --wait --timeout 5m
+```
+
+[% endfor %]
+## Validation
+
+Un manifeste rendu doit toujours passer les trois contrôles suivants avant
+d'atteindre un cluster :
+
+```bash
+# 1. Cohérence du chart
+helm lint ./charts/[[ service.name ]]
+
+# 2. Rendu effectif de chaque environnement
+[% for env in domain.environments %]
+helm template [[ service.name ]] ./charts/[[ service.name ]] \
+  --values ./charts/[[ service.name ]]/values-[[ env.name ]].yaml > /dev/null
+[% endfor %]
+
+# 3. Conformité aux schémas de l'API Kubernetes [[ domain.kubernetes.version ]]
+helm template [[ service.name ]] ./charts/[[ service.name ]] | \
+  kubeconform -strict -summary -kubernetes-version [[ domain.kubernetes.full_version ]] -
+```
+
+## Modifier le projet
+
+Deux voies, selon la nature du changement :
+
+1. **Changement de structure** (ajouter un composant, un environnement, un type
+   de ressource) : modifier `forge.yml` puis relancer
+   `forge generate --force`.
+2. **Réglage d'exploitation** (répliques, ressources, hôtes) : modifier
+   directement `charts/[[ service.name ]]/values-<env>.yaml`.
+
+Attention : une régénération réécrit les fichiers du chart. Les modifications
+faites à la main dans `templates/` seront perdues ; portez-les dans `forge.yml`.
+
+## Arborescence
+
+```
+.
+├── forge.yml                       # spécification, source de vérité
+[% if domain.extras.makefile %]
+├── Makefile                        # raccourcis lint / template / validate / install
+[% endif %]
+└── charts/[[ service.name ]]/
+    ├── Chart.yaml                  # métadonnées du chart
+    ├── values.yaml                 # valeurs par défaut, entièrement commentées
+[% for env in domain.environments %]
+    ├── values-[[ env.name ]].yaml[[ " " * (18 - env.name|length) ]]# écarts de l'environnement [[ env.name ]]
+[% endfor %]
+    ├── README.md                   # documentation du chart et de ses values
+    └── templates/                  # gabarits des ressources Kubernetes
+```

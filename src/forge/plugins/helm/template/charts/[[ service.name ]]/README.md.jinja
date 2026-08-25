@@ -1,0 +1,183 @@
+# Chart `[[ service.name ]]`
+
+[[ service.description ]]
+
+> Chart généré par forge. Pour le régénérer après modification de la
+> spécification : `helm-forge generate --spec forge.yml`.
+
+| | |
+|---|---|
+| Version du chart | `[[ domain.chart_version ]]` |
+| Version de l'application | `[[ domain.app_version ]]` |
+| Kubernetes supporté | `[[ domain.kubernetes.kube_version_constraint ]]` |
+| Environnements | [% for env in domain.environments %]`[[ env.name ]]`[% if not loop.last %], [% endif %][% endfor %] |
+| Composants | [% for c in domain.components %]`[[ c.name ]]`[% if not loop.last %], [% endif %][% endfor %] |
+
+## Installation
+
+Chaque environnement se déploie en superposant son fichier de values à
+`values.yaml`. L'ordre des `--values` compte : le dernier gagne.
+
+[% for env in domain.environments %]
+### [[ env.name ]]
+
+```bash
+helm upgrade --install [[ service.name ]] ./charts/[[ service.name ]] \
+  --namespace [[ env.namespace ]] --create-namespace \
+  --values ./charts/[[ service.name ]]/values.yaml \
+  --values ./charts/[[ service.name ]]/values-[[ env.name ]].yaml
+```
+
+[% endfor %]
+## Structure du chart
+
+| Fichier | Rôle |
+|---|---|
+| `Chart.yaml` | Métadonnées : nom, versions, compatibilité Kubernetes. |
+| `values.yaml` | Valeurs par défaut, communes à tous les environnements. |
+[% for env in domain.environments %]
+| `values-[[ env.name ]].yaml` | Écarts propres à l'environnement `[[ env.name ]]` (namespace `[[ env.namespace ]]`). |
+[% endfor %]
+| `templates/_helpers.tpl` | Helpers de nommage et d'étiquetage, utilisés partout. |
+| `templates/NOTES.txt` | Message affiché après installation. |
+[# Les lignes viennent de `tree.chart_files`, c'est-à-dire de la liste même des
+   fichiers que forge écrit : le tableau ne peut donc pas mentir sur le contenu
+   du répertoire `templates/`. Une famille énumérée à la main ici finirait par
+   diverger dès qu'un composant porterait un addon de plus. #]
+[% for entree in domain.chart_files %]
+[% if entree.family == "test_connection" %]
+| `[[ entree.path ]]` | Test exécuté par `helm test`. |
+[% else %]
+| `[[ entree.path ]]` | [[ entree.label ]] du composant `[[ entree.component ]]`. |
+[% endif %]
+[% endfor %]
+
+## Valeurs
+
+### Globales
+
+| Clé | Défaut | Rôle |
+|---|---|---|
+| `global.imageRegistry` | `[[ domain.image.registry ]]` | Registry commun à tous les composants. |
+| `global.imagePullSecrets` | `[]` | Secrets de tirage pour un registry privé. |
+| `global.environment` | `""` | Nom de l'environnement, posé en label sur les ressources. |
+| `nameOverride` | `""` | Remplace le nom du chart dans les noms composés. |
+| `fullnameOverride` | `""` | Remplace intégralement le nom des ressources. |
+
+[% for component in domain.components %]
+### Composant `[[ component.name ]]`
+
+Type : `[[ component.kind ]]`[% if component.command %] — commande : `[[ component.command | join(" ") ]]`[% endif %]
+
+| Clé | Défaut | Rôle |
+|---|---|---|
+| `[[ component.name ]].enabled` | `true` | Active ou désactive entièrement le composant. |
+| `[[ component.name ]].replicaCount` | `[[ component.replicas ]]` | Nombre de répliques, surchargé par environnement. |
+| `[[ component.name ]].image.repository` | `[[ component.image_repository ]]` | Dépôt de l'image, sans le registry. |
+| `[[ component.name ]].image.tag` | `[[ domain.image.tag or "\"\"" ]]` | Tag de l'image ; vide, il retombe sur `appVersion`. |
+| `[[ component.name ]].image.pullPolicy` | `[[ domain.image.pull_policy ]]` | Politique de tirage de l'image. |
+| `[[ component.name ]].containerPort` | `[[ component.container_port ]]` | Port écouté par le conteneur. |
+| `[[ component.name ]].portName` | `[[ component.port_name ]]` | Nom du port, repris par le Service et les sondes. |
+[% if component.has.service %]
+| `[[ component.name ]].service.enabled` | `true` | Crée ou non le Service. |
+| `[[ component.name ]].service.type` | `[[ component.service.type ]]` | `ClusterIP`, `NodePort` ou `LoadBalancer`. |
+| `[[ component.name ]].service.port` | `[[ component.service.port ]]` | Port exposé par le Service. |
+[% endif %]
+[% if component.has.ingress %]
+| `[[ component.name ]].ingress.enabled` | `true` | Publie ou non le composant hors du cluster. |
+| `[[ component.name ]].ingress.className` | `[[ component.ingress.class_name ]]` | Controller visé ; ne jamais doubler par l'annotation `kubernetes.io/ingress.class`. |
+| `[[ component.name ]].ingress.host` | `""` | Hôte servi ; posé par chaque `values-<env>.yaml`, vide l'Ingress est omis. |
+| `[[ component.name ]].ingress.path` | `[[ component.ingress.path ]]` | Chemin servi par la règle. |
+| `[[ component.name ]].ingress.pathType` | `[[ component.ingress.path_type ]]` | `Exact`, `Prefix` ou `ImplementationSpecific` ; champ obligatoire. |
+| `[[ component.name ]].ingress.tls.enabled` | `[[ component.ingress.tls | to_yaml ]]` | Termine TLS ; à `false` le bloc `tls` disparaît entièrement. |
+| `[[ component.name ]].ingress.tls.issuer` | `[[ component.ingress.issuer ]]` | ClusterIssuer cert-manager émettant le certificat. |
+| `[[ component.name ]].ingress.tls.secretName` | `""` | Secret portant le certificat ; vide = `<ressource>-tls`. |
+| `[[ component.name ]].ingress.annotations` | `{}` | Annotations propres au controller. |
+[% endif %]
+| `[[ component.name ]].probes.enabled` | `[[ component.probes.enabled | to_yaml ]]` | Active les sondes liveness et readiness. |
+| `[[ component.name ]].probes.liveness.path` | `[[ component.probes.liveness_path ]]` | Chemin HTTP de la sonde liveness. |
+| `[[ component.name ]].probes.readiness.path` | `[[ component.probes.readiness_path ]]` | Chemin HTTP de la sonde readiness. |
+| `[[ component.name ]].probes.startup.enabled` | `[[ component.probes.startup_enabled | to_yaml ]]` | Sonde de démarrage, pour une application lente. |
+| `[[ component.name ]].resources.requests.cpu` | `[[ component.resources.cpu_request ]]` | CPU réservé par l'ordonnanceur. |
+| `[[ component.name ]].resources.requests.memory` | `[[ component.resources.memory_request ]]` | Mémoire réservée par l'ordonnanceur. |
+| `[[ component.name ]].resources.limits.cpu` | `[[ component.resources.cpu_limit ]]` | Plafond CPU, au-delà duquel le conteneur est ralenti. |
+| `[[ component.name ]].resources.limits.memory` | `[[ component.resources.memory_limit ]]` | Plafond mémoire, au-delà duquel le conteneur est tué. |
+| `[[ component.name ]].podSecurityContext` | voir `values.yaml` | Contexte de sécurité du pod. |
+| `[[ component.name ]].securityContext` | voir `values.yaml` | Contexte de sécurité du conteneur. |
+| `[[ component.name ]].nodeSelector` | `{}` | Contrainte de placement sur les nœuds. |
+| `[[ component.name ]].tolerations` | `[]` | Tolérances aux marquages de nœuds. |
+| `[[ component.name ]].affinity` | `{}` | Règles d'affinité et d'anti-affinité. |
+| `[[ component.name ]].extraEnv` | `[]` | Variables d'environnement supplémentaires. |
+[% if component.has.configmap %]
+| `[[ component.name ]].config.enabled` | `true` | Crée le ConfigMap et son injection dans le conteneur. |
+| `[[ component.name ]].config.mountAs` | `[[ component.config["mount_as"] ]]` | `env` (via `envFrom`) ou `file` (monté sous `mountPath`). |
+| `[[ component.name ]].config.mountPath` | `/etc/[[ component.name ]]` | Répertoire de montage, en mode `file` uniquement. |
+| `[[ component.name ]].config.data` | voir `values.yaml` | Clés de configuration ; valeurs toujours écrites en chaînes. |
+[% endif %]
+[% if component.has.secret %]
+| `[[ component.name ]].secret.enabled` | `false` | Crée l'emplacement de secret ; aucune valeur n'est jamais générée. |
+| `[[ component.name ]].secret.create` | `true` | À `false`, le chart référence `existingSecret` au lieu de créer. |
+| `[[ component.name ]].secret.existingSecret` | `""` | Secret géré hors du chart ; obligatoire quand `create` vaut `false`. |
+| `[[ component.name ]].secret.type` | `Opaque` | Type de Secret ; un type spécialisé impose ses propres clés. |
+| `[[ component.name ]].secret.mountAs` | `[[ component.secret["mount_as"] ]]` | `env` (via `envFrom`) ou `file` (monté sous `mountPath`). |
+| `[[ component.name ]].secret.stringData` | voir `values.yaml` | Clés attendues, en clair ; jamais de bloc `data` en base64 à côté. |
+[% endif %]
+[% if component.kind == "statefulset" %]
+| `[[ component.name ]].persistence.enabled` | `[[ component.persistence.enabled | to_yaml ]]` | Attache un volume par pod. |
+| `[[ component.name ]].persistence.size` | `[[ component.persistence.size ]]` | Taille demandée — **immuable** après installation. |
+| `[[ component.name ]].persistence.storageClass` | `[[ component.persistence.storage_class or '""' ]]` | Vide = classe par défaut du cluster ; la clé est alors omise. |
+| `[[ component.name ]].persistence.accessMode` | `[[ component.persistence.access_mode ]]` | `ReadWriteOnce`, `ReadOnlyMany`, `ReadWriteMany` ou `ReadWriteOncePod`. |
+| `[[ component.name ]].persistence.mountPath` | `[[ component.persistence.mount_path ]]` | Chemin de montage du volume dans le conteneur. |
+| `[[ component.name ]].updateStrategy.type` | `RollingUpdate` | `RollingUpdate` ou `OnDelete`. |
+| `[[ component.name ]].updateStrategy.partition` | `0` | Ordinal à partir duquel les pods sont mis à jour. |
+| `[[ component.name ]].podManagementPolicy` | absent | `OrderedReady` (défaut de Kubernetes) ou `Parallel` ; **immuable**. |
+[% endif %]
+[% if component.cron is not none %]
+| `[[ component.name ]].cron.schedule` | `[[ component.cron.schedule ]]` | Planification cron à cinq champs. |
+| `[[ component.name ]].cron.concurrencyPolicy` | `[[ component.cron.concurrency_policy ]]` | `Allow`, `Forbid` ou `Replace`. |
+| `[[ component.name ]].cron.restartPolicy` | `[[ component.cron.restart_policy ]]` | `OnFailure` ou `Never` ; `Always` est refusé par l'API. |
+| `[[ component.name ]].cron.timeZone` | `""` | Fuseau IANA ; vide, la clé est omise du manifeste. |
+| `[[ component.name ]].cron.suspend` | `false` | Suspend les déclenchements sans supprimer l'objet. |
+| `[[ component.name ]].cron.successfulJobsHistoryLimit` | `[[ component.cron.successful_jobs_history_limit ]]` | Exécutions réussies conservées. |
+| `[[ component.name ]].cron.failedJobsHistoryLimit` | `[[ component.cron.failed_jobs_history_limit ]]` | Exécutions échouées conservées. |
+| `[[ component.name ]].cron.backoffLimit` | `[[ component.cron.backoff_limit ]]` | Reprises avant d'abandonner une exécution. |
+| `[[ component.name ]].cron.startingDeadlineSeconds` | `[[ component.cron.starting_deadline_seconds if component.cron.starting_deadline_seconds is not none else "null" ]]` | Retard toléré ; `null` = rattrapage sans limite. |
+[% endif %]
+[% if component.has.hpa %]
+| `[[ component.name ]].hpa.enabled` | `false` | Autoscaling ; posé par le profil de chaque environnement. |
+| `[[ component.name ]].hpa.minReplicas` | `[[ component.hpa.min_replicas ]]` | Plancher de répliques. |
+| `[[ component.name ]].hpa.maxReplicas` | `[[ component.hpa.max_replicas ]]` | Plafond de répliques. |
+| `[[ component.name ]].hpa.targetCPUUtilizationPercentage` | `[[ component.hpa.target_cpu ]]` | Cible CPU en pourcent ; entier obligatoire. |
+| `[[ component.name ]].hpa.targetMemoryUtilizationPercentage` | `[[ component.hpa.target_memory if component.hpa.target_memory is not none else "null" ]]` | Cible mémoire ; `null` = mémoire non surveillée. |
+[% endif %]
+[% if component.has.pdb %]
+| `[[ component.name ]].pdb.enabled` | `false` | Budget d'interruption ; posé par le profil de chaque environnement. |
+| `[[ component.name ]].pdb.minAvailable` | `[[ component.pdb.min_available | to_yaml ]]` | Entier ou pourcentage ; exclusif de `maxUnavailable`. |
+[% endif %]
+[% if component.has.serviceaccount %]
+| `[[ component.name ]].serviceAccount.create` | `true` | Crée le compte dédié, ou référence un compte existant. |
+| `[[ component.name ]].serviceAccount.name` | `""` | Vide = nom dérivé du composant. |
+| `[[ component.name ]].serviceAccount.annotations` | `{}` | Identité fédérée du fournisseur cloud. |
+| `[[ component.name ]].serviceAccount.automountServiceAccountToken` | `false` | Monte le jeton d'API dans les pods. |
+| `[[ component.name ]].rbac.create` | `false` | Crée le Role et son RoleBinding, liés au compte ci-dessus. |
+| `[[ component.name ]].rbac.rules` | `[]` | Règles du Role ; liste vide = ni Role ni RoleBinding. |
+[% endif %]
+[% if component.has.networkpolicy %]
+| `[[ component.name ]].networkPolicy.enabled` | `false` | Applique le cloisonnement réseau. |
+| `[[ component.name ]].networkPolicy.allowFromSameNamespace` | `[[ component.networkpolicy.allow_from_same_namespace | to_yaml ]]` | Trafic entrant venant du namespace du composant. |
+| `[[ component.name ]].networkPolicy.allowFromNamespaces` | `[[ component.networkpolicy.allow_from_namespaces | to_yaml ]]` | Namespaces autorisés en entrée, par nom. |
+| `[[ component.name ]].networkPolicy.allowDNS` | `[[ component.networkpolicy.allow_dns | to_yaml ]]` | Autorise la résolution de noms sortante. |
+| `[[ component.name ]].networkPolicy.allowEgressAll` | `[[ component.networkpolicy.allow_egress_all | to_yaml ]]` | Autorise tout le trafic sortant. |
+[% endif %]
+
+[% endfor %]
+## Vérification
+
+```bash
+helm lint ./charts/[[ service.name ]]
+[% for env in domain.environments %]
+helm template [[ service.name ]] ./charts/[[ service.name ]] \
+  --values ./charts/[[ service.name ]]/values-[[ env.name ]].yaml | \
+  kubeconform -strict -summary -kubernetes-version [[ domain.kubernetes.full_version ]] -
+[% endfor %]
+```

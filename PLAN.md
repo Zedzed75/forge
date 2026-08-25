@@ -35,13 +35,15 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] Catalogue de roles complet : les 7 roles portes, donnees identiques au legacy.
   - [x] Spec golden (`ansible-ci.yml`) couvrant `write_ci`, que la parite ne couvrait pas.
   - [x] MIGRATION.md et PLAN.md mis a jour, commit.
-- [ ] **Phase 4 — Portage du plugin Helm**
-  - [ ] Instantane de parite si l'outil legacy sait generer.
-  - [ ] Portage gabarits (delimiteurs -> `[[ ]]`), sous-modele, validateurs, tests.
-  - [ ] Catalogue de composants : deployment+service, ingress, configmap, statefulset,
-        cronjob, secret (placeholders), hpa, pdb, serviceaccount+RBAC, networkpolicy.
-  - [ ] Revue d'interface : points ou le hookspec/coeur a du plier ; refactor du contrat
-        **avec validation humaine** avant tout 3e plugin.
+- [x] **Phase 4 — Portage du plugin Helm** (2026-08-25)
+  - [x] Instantane de parite : 32 fichiers, 2 cas -> `tests/parity/helm/`.
+  - [x] Portage gabarits, sous-modele, validateurs, entretien, tests.
+  - [x] Catalogue de composants **complet** : les 13 familles, dont les 9 creees
+        (ingress, configmap, statefulset, cronjob, secret, hpa, pdb,
+        serviceaccount+RBAC, networkpolicy).
+  - [ ] **Revue d'interface : en attente de validation humaine.** Le releve est
+        pret (voir « Revue d'interface » ci-dessous) ; rien ne doit etre refactore
+        avant l'arbitrage, et aucun 3e plugin ne doit demarrer avant.
 - [ ] **Phase 5 — Valeur inter-domaines**
   - [ ] Verifications de coherence (namespaces Helm vs envs, groupes Ansible vs hosts,
         nom/labels de service identiques partout) avec messages actionnables.
@@ -56,15 +58,23 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 3 terminees. **213 tests verts** sur un depot propre.
+**Etat** : phases 0 a 4 terminees, **sauf la revue d'interface**, qui attend une
+validation humaine. **242 tests verts** sur un depot propre.
 
-Le domaine Ansible est livre et enregistre (`BUILTIN_PLUGINS`) :
-`forge new`, `forge generate`, `forge validate` et `forge catalog ansible`
-fonctionnent de bout en bout sur un vrai projet Ansible.
+Les deux domaines sont livres et enregistres (`BUILTIN_PLUGINS`) : `forge new`,
+`forge generate`, `forge validate`, `forge diff` et `forge catalog <domaine>`
+fonctionnent de bout en bout sur un vrai projet Ansible **et** sur un vrai chart
+Helm.
 
-**Parite avec le generateur d'origine : 313 fichiers identiques octet pour
-octet** sur les 6 cas de l'instantane, aux 12 ecarts documentes pres
-(`MIGRATION.md` §7). Et au-dela de la parite : le projet genere passe
+Helm : **parite 32/32** avec le generateur d'origine, **plus neuf familles de
+ressources creees** que le legacy n'avait jamais eues. Le chart complet passe
+`helm lint`, `helm template` sur chaque environnement et `kubeconform -strict`.
+Cinq defauts ont ete trouves par la complementation elle-meme et corriges
+(cf. `MIGRATION.md` §7) — dont un StatefulSet prive de son Service headless,
+qu'aucun validateur ne pouvait voir.
+
+Ansible : **parite 313/313** sur les 6 cas de l'instantane, aux ecarts
+documentes pres (`MIGRATION.md` §7). Et au-dela de la parite, le projet genere passe
 `ansible-playbook --syntax-check` sur chaque environnement **et** `ansible-lint`
 en profil `production` — ce que la suite legacy n'avait jamais verifie, son
 unique test ignore portant precisement la-dessus.
@@ -112,43 +122,51 @@ Ecarts assumes par rapport a `DESIGN.md` §9 (arborescence prevue) :
   Ajouter Helm en phase 4 = une ligne de plus, aucune autre modification du coeur :
   c'est la promesse de DESIGN.md §2.4, tenue.
 
-**Prochaine action** : demarrer la **phase 4 — portage du plugin Helm** dans une
+## Revue d'interface — releve pour arbitrage humain
+
+`PLAN.md` reserve cette revue a une validation humaine, avant tout 3e plugin.
+Deux domaines reels ont maintenant ete portes ; voici les endroits ou le
+contrat a **du plier**, avec une recommandation pour chacun. Rien n'est
+refactore tant que l'arbitrage n'est pas rendu.
+
+| # | Constat | Recommandation |
+|---|---|---|
+| R1 | **`Command.env` a ete ajoute en cours de route** (phase 3). `DESIGN.md` §2.1 decrivait `Command` sans ce champ. Sans lui, `ANSIBLE_COLLECTIONS_PATH` etait intransmissible et `--syntax-check` echouait sur des modules que `requirements.yml` declare pourtant ; Helm s'en sert pour `KUBECONFORM_SCHEMA_LOCATION`. | **Entériner** : deux domaines sur deux en ont eu besoin. Mettre `DESIGN.md` §2.1 a jour. |
+| R2 | **Le contrat n'a pas de controle croise au niveau du modele.** Un sous-modele de plugin ne voit que sa section : ni Ansible ni Helm ne peut verifier seul que les environnements qu'il cite existent dans `service.environments`. Les deux passent par `forge_consistency`, qui n'est appele qu'a `forge validate` — **pas a `forge generate`**. Une specification incoherente est donc generee sans broncher, et l'erreur ne sort qu'au `validate` suivant. | **Ajouter un hook** `forge_check_spec(spec) -> list[Issue]`, appele par le coeur juste apres l'assemblage du modele, donc avant tout rendu. `forge_consistency` resterait pour ce qui a besoin des fichiers ecrits. |
+| R3 | **La liste des fichiers a ecrire est dupliquee dans chaque plugin** (`ansible/tree.py`, `helm/tree.py`). copier ne sait pas dire a l'avance ce qu'il va produire, et les deux domaines affichent une arborescence dans leur README. Un gabarit ajoute sans mise a jour de `tree.py` rend le README faux — un test l'attrape cote Ansible, la lecon a ete apprise deux fois. | **Service du coeur** : un rendu « a blanc » dans un tmpdir donne la liste exacte. Le coeur pourrait l'exposer aux gabarits (`domain.tree`) au lieu que chaque plugin la redevine. |
+| R4 | **Les deux plugins ont invente le meme idiome, separement** : `domain.role_slots.<role>` et `domain.component_slots.<famille>`, un dict `{cle: [item] ou []}` qui permet a un gabarit propre a un element d'exister sans `[% if %]` dans le chemin. | **Documenter comme motif** dans `DESIGN.md` §5.3. Ne pas l'imposer dans le coeur : c'est une convention de gabarit, pas une API. |
+| R5 | **`.copier-answers.yml` grossit.** Il porte l'integralite du dict `domain` : ~23 Ko sur le cas Ansible le plus riche. C'est voulu (decision Q3 : lisible, versionne, relu), mais personne n'avait chiffre. | **Laisser tel quel**, et le dire dans `DESIGN.md` §8 Q3. L'alternative — n'y mettre que la spec — casserait `copier update`. |
+| R6 | **`DomainInfo.outdir` n'a jamais servi** : les deux domaines emploient le defaut (`ansible/`, `helm/`). | **Garder** : le champ coute une ligne et un domaine tiers en aura besoin (`terraform/environments/` par exemple). |
+| R7 | **L'entretien demande deux fois son avis a l'utilisateur** : le coeur demande quels domaines generer, puis le plugin peut encore decliner en retournant `None`. Ansible s'en sert (aucun groupe nomme), Helm aussi (aucun composant). | **Garder**, mais le dire dans le hookspec : le `None` du plugin ne signifie pas « l'utilisateur refuse le domaine », il signifie « il n'y a rien a generer ». |
+
+**Prochaine action** : **obtenir l'arbitrage humain sur la revue d'interface
+ci-dessus**, puis demarrer la **phase 5 — valeur inter-domaines** dans une
 session neuve. Points d'entree : `MIGRATION.md` §4 (classement par artefact) et
 §7 (etat du portage Ansible, dont les ecarts a ne pas reproduire) ; `DESIGN.md`
 §3 (section `helm:`) et §8 Q6.
 
-Ce que la phase 3 a etabli et qui sert directement a la phase 4 :
-- **Le patron de portage d'un gabarit** : conversion mecanique des delimiteurs,
-  puis renommage des variables de contexte fichier par fichier, puis boucle sur
-  l'instantane de parite jusqu'a zero ecart. Les gabarits Helm sont **deja** en
-  `[[ ]]` : la premiere etape est sans objet, ce sera plus court.
-- **`partials/header.jinja` a la racine du depot** : macro d'en-tete partagee,
-  importable par tout plugin, jamais emise dans la sortie.
-- **`domain.role_slots`-like** : un dict `{cle: [item] ou []}` permet a un
-  gabarit propre a un composant d'exister sans `[% if %]` dans le chemin.
-- **`Command.env`** : les outils Helm auront besoin de `HELM_*` de la meme facon
-  qu'Ansible a besoin de `ANSIBLE_COLLECTIONS_PATH`.
+Ce que les phases 3 et 4 ont etabli, et qui sert a la phase 5 :
+- **Le patron de portage** : instantane de parite fige d'abord, conversion
+  ensuite, boucle jusqu'a zero ecart. Il a tenu deux fois.
+- **La parite ne se degrade pas quand on ajoute**, a condition d'ecrire les
+  ajouts de facon inerte pour les cas figes. C'est ce qui a permis de creer neuf
+  familles Helm sans perdre un seul des 32 fichiers de reference.
+- **Les validateurs reels trouvent ce que les tests ne voient pas**, et
+  reciproquement : ansible-lint a trouve 255 violations dans un fichier que la
+  parite declarait parfait ; le test de rendu complet a trouve un StatefulSet
+  prive de son Service, qu'aucun validateur ne pouvait voir.
 
-Rappels pour la phase 4 :
-- Poser le tag `v0.3.0` a la fin de la phase 4 (`v0.2.0` marque la phase 3).
-- helm 4.2.4 et kubeconform 0.8.0 sont dans WSL **sous le compte `zedzed`**
-  (`/home/zedzed/.local/bin`), pas sous `root` : le pont WSL emploie `root` par
-  defaut, il faudra soit `FORGE_WSL_USER=zedzed`, soit `FORGE_WSL_PATH` etendu,
-  soit reinstaller ces outils dans `/opt`.
-- La **revue d'interface du contrat de plugin** est prevue en fin de phase 4,
-  avec validation humaine. Trois points sont deja au dossier : `Command.env`
-  (ajoute en phase 3), l'absence de controle croise spec-niveau dans le hookspec
-  (le plugin Ansible passe par `forge_consistency`, appele seulement a la
-  validation), et la duplication de l'arborescence attendue (`tree.py`).
-- Environnement : `.venv` du depot, `uv pip install --python .venv/... -e ".[dev]"`.
-  `uv` est installe via `python -m pip install uv` (pas de binaire `uv` sur le PATH).
-- Les domaines factices de `tests/domaines_factices/` permettent d'eprouver tout
-  ce qui demande **deux** domaines (filtrage `--only`, controles inter-domaines
-  en echec, outil de validation absent) sans attendre le plugin Ansible.
-- Ecrire les tests d'un gabarit avec l'astuce de
-  `tests/test_cli_couverture.py::_depot_de_gabarit` : un depot de gabarit
-  temporaire, copie du gabarit courant, qui rend les tests de `forge update`
-  independants de l'etat git du depot forge.
+Rappels pour la phase 5 :
+- Poser le tag `v0.4.0` a la fin de la phase 5 (`v0.3.0` marque la phase 4).
+- Les deux domaines declarent deja des facettes comparables : Ansible expose
+  `hosts` et `groups`, Helm expose `hosts` et `namespaces`. La comparaison
+  generique du coeur (`validate/consistency.py`) est ecrite mais n'a jamais eu
+  deux domaines a comparer sur une meme specification : c'est le coeur de la
+  phase 5.
+- `forge update` et `forge diff` existent depuis la phase 2 et sont testes ; la
+  phase 5 demande d'y ajouter le test d'une mise a jour **apres modification
+  deliberee d'un gabarit** — le motif du depot de gabarit temporaire
+  (`tests/test_cli_couverture.py::_depot_de_gabarit`) le permet deja.
 
 ## Journal des sessions
 
@@ -158,3 +176,6 @@ Rappels pour la phase 4 :
   tests portee de 129 a 179 cas.
 - Session 3 (2026-08-25) : phase 3 (plugin Ansible porte a parite integrale,
   50 gabarits convertis, 7 roles, validateurs reels qui passent). 213 tests.
+- Session 4 (2026-08-25) : phase 4 (plugin Helm porte a parite 32/32, puis neuf
+  familles de ressources creees ; 5 defauts trouves par la complementation).
+  242 tests. **Revue d'interface en attente d'arbitrage humain.**

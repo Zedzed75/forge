@@ -1,0 +1,67 @@
+{{/*
+===============================================================================
+NOTES.txt — message affiché après une installation ou une mise à jour
+===============================================================================
+Fichier généré par forge. Rendu par Helm à la fin de « helm install » et
+de « helm upgrade », il rappelle ce qui vient d'être déployé et les commandes
+de vérification immédiates.
+===============================================================================
+*/}}
+Chart « {{ .Chart.Name }} » version {{ .Chart.Version }} (application {{ .Chart.AppVersion }})
+Release « {{ .Release.Name }} » déployée dans le namespace « {{ .Release.Namespace }} ».
+{{- if .Values.global.environment }}
+Environnement : {{ .Values.global.environment }}
+{{- end }}
+
+Composants déployés :
+{{- if .Values.api.enabled }}
+  - api (deployment) : {{ include "boutique.api.fullname" . }}
+{{- if .Values.api.replicaCount }} — {{ .Values.api.replicaCount }} réplique(s)
+{{- end }}
+{{- end }}
+{{- if (index .Values "db-proxy").enabled }}
+  - db-proxy (statefulset) : {{ include "boutique.db-proxy.fullname" . }}
+{{- if (index .Values "db-proxy").replicaCount }} — {{ (index .Values "db-proxy").replicaCount }} réplique(s)
+{{- end }}
+{{- end }}
+{{- if .Values.cleanup.enabled }}
+  - cleanup (cronjob) : {{ include "boutique.cleanup.fullname" . }}
+{{- if .Values.cleanup.replicaCount }} — {{ .Values.cleanup.replicaCount }} réplique(s)
+{{- end }}
+{{- end }}
+
+Vérifier l'état du déploiement :
+
+  kubectl --namespace {{ .Release.Namespace }} get pods \
+    --selector app.kubernetes.io/instance={{ .Release.Name }}
+
+Suivre les journaux :
+{{- if .Values.api.enabled }}
+
+  kubectl --namespace {{ .Release.Namespace }} logs \
+    --selector app.kubernetes.io/component=api --follow --tail=100
+{{- end }}
+{{- if (index .Values "db-proxy").enabled }}
+
+  kubectl --namespace {{ .Release.Namespace }} logs \
+    --selector app.kubernetes.io/component=db-proxy --follow --tail=100
+{{- end }}
+{{- if .Values.cleanup.enabled }}
+
+  kubectl --namespace {{ .Release.Namespace }} logs \
+    --selector app.kubernetes.io/component=cleanup --follow --tail=100
+{{- end }}
+{{- if and .Values.api.enabled .Values.api.service.enabled }}
+
+Joindre le composant « api » depuis le poste local :
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward \
+    svc/{{ include "boutique.api.fullname" . }} \
+    8080:{{ .Values.api.service.port }}
+
+  puis ouvrir http://127.0.0.1:8080
+{{- end }}
+
+Exécuter les tests embarqués dans le chart :
+
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}

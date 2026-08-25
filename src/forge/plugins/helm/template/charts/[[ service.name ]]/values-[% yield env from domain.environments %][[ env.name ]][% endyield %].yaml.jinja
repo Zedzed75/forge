@@ -1,0 +1,117 @@
+# =============================================================================
+# values-[[ env.name ]].yaml — surcharges de l'environnement « [[ env.name ]] »
+# =============================================================================
+# Fichier généré par forge. Il ne contient que les écarts par rapport à
+# values.yaml : tout ce qui n'apparaît pas ici garde sa valeur par défaut.
+#
+# Namespace cible de cet environnement : [[ env.namespace ]]
+#
+# Utilisation :
+#   helm upgrade --install [[ service.name ]] ./charts/[[ service.name ]] \
+#     --namespace [[ env.namespace ]] --create-namespace \
+#     --values ./charts/[[ service.name ]]/values.yaml \
+#     --values ./charts/[[ service.name ]]/values-[[ env.name ]].yaml
+#
+# Le namespace n'est pas une valeur du chart : il est choisi par l'option
+# --namespace de Helm. Il est rappelé ci-dessus à titre documentaire, et le
+# Makefile du projet l'applique automatiquement.
+# =============================================================================
+
+global:
+  # Alimente le label « environment » posé sur toutes les ressources, ce qui
+  # permet de filtrer par environnement avec kubectl -l environment=[[ env.name ]].
+  environment: [[ env.name | yaml_scalar ]]
+
+[% for component in domain.components %]
+[% set override = env.components[component.name] %]
+[% set ecart_tag = override.image_tag or domain.image.strategy == "per_env" %]
+[% set a_un_ecart = override.replicas is not none or ecart_tag or override.resources is not none or override.hpa_enabled is not none or override.pdb_enabled is not none or override.ingress_host is not none %]
+[% if a_un_ecart %]
+# -----------------------------------------------------------------------------
+# Composant « [[ component.name ]] »
+# -----------------------------------------------------------------------------
+[# Un composant sans le moindre écart n'écrit RIEN ici : une clé « <nom>: » sans
+   contenu vaut null en YAML, et effacerait tout le bloc de values.yaml. #]
+[[ component.name ]]:
+[% if override.replicas is not none %]
+  # Profil « [[ env.name ]] » : [[ override.replicas ]] réplique(s).
+  replicaCount: [[ override.replicas ]]
+[% endif %]
+[% if override.image_tag %]
+  image:
+    # Tag propre à cet environnement (stratégie de tag « per_env »).
+    tag: [[ override.image_tag | yaml_scalar ]]
+[% elif domain.image.strategy == "per_env" %]
+  image:
+    # Stratégie de tag « per_env » : renseignez ici le tag déployé sur
+    # [[ env.name ]]. Laissé vide, le chart retombe sur appVersion du Chart.yaml.
+    tag: ""
+[% endif %]
+[% if override.resources is not none %]
+  # Ressources ajustées pour cet environnement.
+  resources:
+    requests:
+      cpu: [[ override.resources.cpu_request | yaml_scalar ]]
+      memory: [[ override.resources.memory_request | yaml_scalar ]]
+    limits:
+      cpu: [[ override.resources.cpu_limit | yaml_scalar ]]
+      memory: [[ override.resources.memory_limit | yaml_scalar ]]
+[% endif %]
+[% if override.hpa_enabled is not none %]
+[% if override.hpa_enabled %]
+  # Profil « [[ env.name ]] » : autoscaling activé. Le nombre de répliques est
+  # alors imposé par le HorizontalPodAutoscaler, entre hpa.minReplicas et
+  # hpa.maxReplicas ; replicaCount cesse d'être rendu dans le manifeste, faute
+  # de quoi Helm et l'autoscaler se disputeraient la valeur.
+[% else %]
+  # Profil « [[ env.name ]] » : autoscaling désactivé. Le nombre de répliques
+  # reste celui que fixe replicaCount ci-dessus.
+[% endif %]
+  hpa:
+    enabled: [[ override.hpa_enabled | to_yaml ]]
+[% endif %]
+[% if override.pdb_enabled is not none %]
+[% if override.pdb_enabled %]
+  # Profil « [[ env.name ]] » : budget d'interruption actif ; les drains de
+  # nœud devront respecter pdb.minAvailable.
+[% else %]
+  # Profil « [[ env.name ]] » : budget d'interruption désactivé ; avec une
+  # seule réplique, minAvailable: 1 rendrait tout drain de nœud impossible.
+[% endif %]
+  pdb:
+    enabled: [[ override.pdb_enabled | to_yaml ]]
+[% endif %]
+[% if override.ingress_host is not none %]
+  # Hôte servi par l'Ingress dans cet environnement.
+[% if env.domain %]
+  # Dérivé du domaine déclaré pour « [[ env.name ]] » ([[ env.domain ]]) : ce
+  # domaine portant déjà l'environnement, le nom de celui-ci n'est pas réinséré.
+[% elif env.profile.host_includes_env %]
+  # Dérivé du domaine de base du composant, avec le nom de l'environnement
+  # inséré : c'est ce qui distingue les hôtes hors production.
+[% else %]
+  # Dérivé du domaine de base du composant, sans infixe d'environnement : cet
+  # environnement est la production.
+[% endif %]
+  ingress:
+    host: [[ override.ingress_host | yaml_scalar ]]
+[% endif %]
+
+[% endif %]
+[% endfor %]
+[% if env.extra_values %]
+
+# -----------------------------------------------------------------------------
+# Valeurs libres de cet environnement
+# -----------------------------------------------------------------------------
+[# ------------------------------------------------------------------------ #]
+[# `helm.environments.<env>.extra_values` : ce que la specification demande   #]
+[# d'injecter tel quel. Le generateur d'origine ne le rendait nulle part, si  #]
+[# bien que ces valeurs disparaissaient en silence.                          #]
+[# ------------------------------------------------------------------------ #]
+# Valeurs propres à cet environnement, reprises telles quelles depuis
+# forge.yml (helm.environments.[[ env.name ]].extra_values). forge ne les
+# interprète pas : elles sont fusionnées par Helm comme n'importe quelle
+# surcharge de values.
+[[ env.extra_values | to_yaml ]]
+[% endif %]

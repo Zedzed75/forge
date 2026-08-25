@@ -1,0 +1,67 @@
+{{- /*
+===============================================================================
+HorizontalPodAutoscaler du composant « api »
+===============================================================================
+Fichier généré par forge.
+
+Ajuste le nombre de répliques de api entre hpa.minReplicas et
+hpa.maxReplicas, d'après l'utilisation moyenne des ressources réservées par le
+conteneur. Piloté par le profil d'environnement : désactivé en développement,
+activé en production par values-<env>.yaml.
+
+Pièges dont ce fichier se prémunit :
+  * autoscaling/v2beta1 et v2beta2 sont supprimées depuis Kubernetes 1.26 ;
+    seule autoscaling/v2 subsiste ;
+  * la forme des métriques de la v2 n'est pas celle de la v1 : un
+    « targetCPUUtilizationPercentage » posé au niveau de spec y serait un
+    champ inconnu, d'où la liste « metrics » ci-dessous ;
+  * averageUtilization doit être un entier — la chaîne "80" est refusée ;
+  * sans resources.requests sur le conteneur, la métrique correspondante reste
+    inconnue et l'autoscaling ne fait rien, sans qu'aucun validateur ne puisse
+    le signaler : chaque métrique n'est donc émise que si sa réservation
+    existe.
+===============================================================================
+*/}}
+{{- if and .Values.api.enabled .Values.api.hpa.enabled }}
+{{- /*
+  Les métriques sont calculées AVANT l'objet : un HorizontalPodAutoscaler sans
+  aucune métrique est accepté par les validateurs et par l'API, mais il
+  n'agira jamais — un autoscaler muet est plus trompeur que pas d'autoscaler
+  du tout. Quand aucune réservation n'est déclarée, la ressource n'est donc
+  pas générée, et le commentaire ci-dessus dit pourquoi.
+
+  Une métrique dont la réservation correspondante est absente n'est pas émise :
+  elle serait acceptée par les validateurs et ne déclencherait pourtant rien.
+*/}}
+{{- $metrics := list }}
+{{- if .Values.api.resources.requests.cpu }}
+{{- $metrics = append $metrics (dict "type" "Resource" "resource" (dict "name" "cpu" "target" (dict "type" "Utilization" "averageUtilization" (int .Values.api.hpa.targetCPUUtilizationPercentage)))) }}
+{{- end }}
+{{- if and .Values.api.hpa.targetMemoryUtilizationPercentage .Values.api.resources.requests.memory }}
+{{- $metrics = append $metrics (dict "type" "Resource" "resource" (dict "name" "memory" "target" (dict "type" "Utilization" "averageUtilization" (int .Values.api.hpa.targetMemoryUtilizationPercentage)))) }}
+{{- end }}
+{{- if $metrics }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "boutique.api.fullname" . }}
+  labels:
+    {{- include "boutique.api.labels" . | nindent 4 }}
+spec:
+  {{- /*
+    La cible est la charge de travail du composant, désignée par son fullname :
+    le fullname du chart désignerait une autre ressource — voire aucune — et
+    l'autoscaler resterait sans effet visible.
+  */}}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "boutique.api.fullname" . }}
+  {{- /* Les bornes sont forcées en entier : une chaîne serait refusée. */}}
+  minReplicas: {{ .Values.api.hpa.minReplicas | int }}
+  maxReplicas: {{ .Values.api.hpa.maxReplicas | int }}
+  {{- /* Une clé « metrics: » sans élément vaudrait null et serait refusée. */}}
+  metrics:
+    {{- toYaml $metrics | nindent 4 }}
+{{- end }}
+{{- end }}

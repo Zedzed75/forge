@@ -184,6 +184,58 @@ Cible par défaut : `src/forge/plugins/helm/`.
 | `docs/DESIGN.md` (§1.1–1.10 : questionnaire complet) | **garder comme référence** | absorbé par `plugins/helm/interview.py` en phase 4 | catalogue de questions déjà rédigé, à ne pas réinventer. |
 | `pyproject.toml`, entrée `helm-forge = helm_forge.cli:main` | **jeter** | — | pointe vers un module inexistant. |
 
+### Arbitrages du portage Helm (phase 4, 2026-08-25)
+
+L'audit de phase 1 disait « portage plus complétion » ; la mesure le confirme et
+le précise : **le modèle legacy est très en avance sur ses gabarits.**
+`models/component.py` déclare 9 addons et 12 sous-blocs, mais `templates/chart/`
+n'en rend que deux — `deployment` et `service`. Les 32 fichiers de l'instantané
+de parité ne couvrent donc qu'une fraction du modèle.
+
+**Conséquence sur la nature de la phase 4** : ce n'est pas un portage à parité
+comme la phase 3. C'est un **portage du modèle** (fidèle et vérifiable, parité
+définie sur les 32 fichiers de l'instantané) **plus la création de neuf familles
+de gabarits** qui n'ont jamais existé. Ces neuf-là ne peuvent pas être prouvées
+par la parité : elles le sont par `helm lint`, `helm template` et
+`kubeconform -strict`, et par des références golden neuves.
+
+Décisions prises, à ne pas rouvrir sans raison nouvelle :
+
+| # | Point | Décision |
+|---|---|---|
+| H1 | **Double source pour l'hôte d'Ingress** : le cœur apporte `service.environments[].domain`, le legacy dérive l'hôte de `components[].ingress.base_domain` + `host_includes_env` | `service.environments[].domain` **l'emporte** quand il est renseigné : l'hôte devient `<préfixe>.<domaine-de-l-env>`, **sans** réinsérer le nom d'environnement (le domaine le porte déjà). Repli sur `base_domain` sinon. Aucune des deux specs de l'instantané n'a de `domain` : la parité est préservée, et le champ du cœur prend enfin un sens. |
+| H2 | **Double source pour « cet environnement est la production »** : `service.environments[].production` (booléen explicite) vs reconnaissance par le NOM (`prod`, `prd`, `production`…) | `production: true` **force** le profil prod (et `host_includes_env=false`). En son absence, la reconnaissance par nom s'applique — c'est elle qui rend une spec minimale équivalente à une spec complète, et MIGRATION §4 demande de la garder. Un `Issue` de niveau **warning** est émis quand les deux sources divergent, plutôt que de trancher en silence. |
+| H3 | `layout: umbrella` déclaré dans l'enum mais `NotImplementedError` dans le planner, aucun gabarit | **Retiré de l'enum.** Laisser une valeur non implémentée dans un schéma `extra="forbid"` est un piège pour l'utilisateur : il l'écrit, elle passe la validation, et la génération explose. À réintroduire avec ses gabarits. |
+| H4 | `helm.environments` : liste d'objets portant leur `name` (legacy) ou dict clé par nom (DESIGN §3.1) | **Dict**, comme `ansible.hosts.<env>` et `ansible.group_vars.<env>`. Le nom et l'ordre vivent désormais dans `service.environments`. Conséquence : le contrôle croisé « clé d'environnement inconnue » devient indispensable, exactement comme dans `ansible/answers.cross_check`. |
+| H5 | `components[].port` (DESIGN §3) contre `container_port` / `port_name` / `service.port` (legacy) | **Les trois champs legacy sont conservés.** Les fusionner perdrait le cas nominal Helm (Service:80 → conteneur:8080) et le nom de port que reprennent les sondes. `port` serait un faux ami : DESIGN §3 est corrigé. |
+| H6 | Plafonds de longueur (`service.name` ≤ 40, nom d'environnement ≤ 20, `description` ≤ 200) et format d'`owner_email` | Vérifiés par le **contrôle croisé du plugin Helm**, jamais par le cœur : ce sont des contraintes de `Chart.yaml` et du budget de 63 caractères des noms de ressources Kubernetes. Le cœur n'a pas à connaître Helm. |
+| H7 | Champs morts du legacy (modélisés, jamais lus par un gabarit) | **Gardés** ceux dont le gabarit arrive en phase 4 : `create_namespace`, `secrets.*`, `persistence`, `hpa`, `pdb`, `config`, `secret`, `cron`, `networkpolicy`, `serviceaccount`, `ingress`. **Abandonnés** : `extras.helmfile` et `extras.ci` (aucun gabarit prévu, et la CI est de niveau dépôt — décision Q6), `servicemonitor` (hors périmètre, MIGRATION §4). `extra="forbid"` les refusera proprement. |
+| H8 | `extras.ci` (enum `none\|github\|gitlab`) contre `ansible.options.write_ci` (booléen) | Deux domaines exprimaient la même chose de deux façons. **Non porté.** Si une CI Helm devient nécessaire, elle s'alignera sur la forme booléenne, ou remontera au bloc partagé. |
+| H9 | `.gitignore` de niveau projet du legacy Helm (il ignore `secrets.yaml`) | Devient `helm/.gitignore`, comme le `.gitignore` d'Ansible : chaque domaine reste autonome et supprimable (décision Q6). |
+| H10 | Sentinelle `@spec` : le planner écrivait une copie de la spécification dans le projet | **Supprimée.** La spécification unifiée est écrite par le cœur à la racine de la cible (écart de parité 3). |
+| H11 | `validate_assignment=True` du `ForgeModel` legacy, contourné par des écritures dans `__dict__` | **Non réintroduit.** Les dérivations sont calculées dans un `derive.py` pur qui produit directement le dict `domain`, la spec pydantic restant immuable après validation — seul mode compatible avec `.copier-answers.yml`. |
+| H12 | Fenêtre `KUBERNETES_VERSIONS` (1.34, 1.35, 1.36) contre l'exemple `1.31` de DESIGN §3 | La fenêtre du modèle fait foi ; **l'exemple de DESIGN §3 est corrigé**. Elle est revalidée contre le `kubeconform` réellement installé, et non élargie pour faire passer un exemple. |
+
+Pièges de conversion mesurés, propres à Helm :
+
+- `comment` n'est appelé par **aucun** gabarit Helm existant : le piège de
+  signature signalé en §5 ne concerne pas le portage. En revanche tout **nouvel**
+  appel écrit pendant la complétion du catalogue doit nommer la largeur
+  (`| comment(width=76)`), sans quoi 76 serait lu comme une indentation.
+- `yaml_value(4)` et consorts sont positionnels dans les gabarits legacy, mais
+  les deux implémentations ont la **même** signature : rien à renommer. Le filtre
+  produit lui-même son séparateur, d'où la balise collée au deux-points — ne pas
+  ajouter d'espace en portant, cela créerait un blanc de fin de ligne que le cœur
+  ne nettoie plus (écart 10).
+- `values.yaml.j2` et `values-env.yaml.j2` sont denses en blocs `[% if %]` et en
+  boucles à lignes vides intercalaires. Le moteur legacy écrasait les lignes
+  vides multiples après rendu ; le cœur ne le fait plus. **La correction est dans
+  le gabarit**, jamais dans le cœur.
+- `values_ref(name)` (de `engine/naming.py`) est indispensable : il rend
+  `.Values.api` pour un nom compatible Go, et `(index .Values "mon-api")` pour un
+  nom à tiret. Sans lui, un composant nommé avec un tiret produit un chart qui ne
+  compile pas. À exposer via `forge.plugins.helm.jinja_ext.GLOBALS`.
+
 ---
 
 ## 5. Doublons à fusionner (dette évitée)
@@ -289,6 +341,58 @@ un champ `env`. `ANSIBLE_COLLECTIONS_PATH` ne se transmet que par
 l'environnement, et sans lui `--syntax-check` échoue sur des modules que
 `requirements.yml` déclare pourtant. À reprendre à la revue d'interface de la
 phase 4 : `DESIGN.md` §2.1 décrivait `Command` sans ce champ.
+
+| 13 | `charts/<chart>/README.md` annonce encore `helm-forge generate --spec forge.yml` (forme courte) | helm | la substitution de l'écart 7 ne couvre que la forme longue ; la parité octet impose de conserver le nom legacy. Jumeau Helm de l'écart 12. |
+| 14 | Le `README.md` de projet Helm écrit `forge generate --force`, drapeau qui ne correspond à aucune option de la CLI | helm | résultat mécanique de la substitution appliquée au contenu attendu. Même famille que 12 et 13. |
+| 15 | L'arborescence ASCII du `README.md` de projet Helm liste toujours `forge.yml` sous `helm/` | helm | la spécification est remontée à la racine (écart 3), mais l'arborescence est figée pour la parité. |
+| 16 | Le `.gitignore` de niveau projet devient `helm/.gitignore` | helm | décision H9 : chaque domaine reste autonome et supprimable (Q6). |
+
+> **Les écarts 12 à 15 forment un seul lot.** Ce sont tous des mentions périmées
+> de l'outil d'origine dans les README générés, maintenues par la contrainte de
+> parité. Les corriger un par un casse la parité à chaque fois ; il faut les
+> lever **d'un bloc**, en re-bénissant l'instantané dans le même commit, quand
+> la parité aura fini de servir — c'est-à-dire au plus tard en phase 6, avec la
+> suppression de `_legacy/`.
+
+### État du portage Helm (phase 4, 2026-08-25)
+
+**Parité atteinte : 32 fichiers identiques octet pour octet** sur les deux cas
+de `tests/parity/helm/`, aux écarts ci-dessus près.
+
+**Et complétion : neuf familles de ressources créées** — ingress, configmap,
+statefulset, cronjob, secret, hpa, pdb, serviceaccount + RBAC, networkpolicy.
+Le modèle legacy les déclarait toutes ; aucune n'avait de gabarit.
+
+Le point de méthode qui a rendu la chose vérifiable : les deux spécifications
+de parité déclarent `addons: [service]` et `addons: []`, donc **aucun** des neuf
+addons. La complétion a donc été écrite pour leur être **totalement inerte** —
+chaque bloc n'est rendu que si son addon est présent. La parité n'a pas eu à
+être dégradée pour laisser place au neuf : elle est restée à 32/32 pendant tout
+le chantier, et les neuf familles sont prouvées séparément par
+`tests/golden/helm-complet/`, par `helm lint`, `helm template` et
+`kubeconform -strict`.
+
+Cinq défauts trouvés **par la complétion elle-même**, corrigés :
+
+1. **Un StatefulSet sans son Service headless.** Le modèle forçait
+   `service.headless = true` mais pas l'addon : le Service n'était donc pas
+   généré, et `serviceName` désignait une ressource inexistante — le
+   StatefulSet perdait l'identité réseau stable qui est sa seule raison d'être.
+   Aucun validateur ne pouvait le voir, le manifeste restant valide.
+2. **`rbac.create` et `rbac.rules` écrits en dur dans `values.yaml`**, donc
+   inatteignables depuis `forge.yml` et perdus à chaque régénération. Un bloc
+   `rbac` a été ajouté au modèle de composant, avec validation des règles
+   (l'API refuse une règle sans `verbs` ; `kubeconform` la laisse passer).
+3. **`port_name` sans contrainte.** Kubernetes impose le format IANA_SVC_NAME
+   (15 caractères) ; un nom de 29 caractères passe `helm lint`, `helm template`
+   **et** `kubeconform -strict`, et n'est refusé qu'à l'application.
+4. **Un HorizontalPodAutoscaler sans aucune métrique** était généré quand
+   aucune réservation de ressources n'était déclarée. Valide au schéma, il
+   n'aurait jamais agi — un autoscaler muet est plus trompeur que pas
+   d'autoscaler.
+5. **`helm.environments.<env>.extra_values` n'était rendu nulle part** : les
+   valeurs libres de l'utilisateur disparaissaient en silence. Manque hérité du
+   legacy, corrigé ici.
 
 *(À compléter au fil des phases 3 et 4 : toute différence volontaire avec
 l'instantané de parité s'inscrit dans ce tableau.)*

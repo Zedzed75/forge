@@ -1,0 +1,68 @@
+{{- /*
+===============================================================================
+Role et RoleBinding du composant « db-proxy »
+===============================================================================
+Fichier généré par forge.
+
+Accorde au ServiceAccount de db-proxy des droits minimaux, et uniquement
+dans le namespace de la release. Le Role énumère les permissions, le RoleBinding
+les attache au compte : les deux vont ensemble et vivent donc dans le même
+fichier, séparés par « --- ».
+
+Portée : namespace, exclusivement. Ce chart ne produit ni ClusterRole ni
+ClusterRoleBinding — des droits de portée cluster débordent de ce qu'une release
+doit pouvoir s'accorder à elle-même.
+
+Trois points de vigilance :
+  * un Role sans règle est valide au regard du schéma, mais inutile et trompeur :
+    tant que rbac.rules est vide, ni Role ni RoleBinding ne sont produits ;
+  * roleRef est immuable une fois le RoleBinding créé. Le Role visé est donc
+    nommé par le helper de nommage du composant, jamais par une valeur libre :
+    un nom qui changerait ferait échouer le « helm upgrade » suivant ;
+  * dans les règles, apiGroups doit contenir la chaîne vide ("") pour les
+    ressources du groupe core — pods, configmaps, secrets, services. Un
+    apiGroups omis ou nommé « core » n'accorde rien, sans la moindre erreur.
+
+Aucune valeur n'est écrite en dur ici. Tout provient de la clé
+« db-proxy.rbac » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if and (index .Values "db-proxy").enabled (index .Values "db-proxy").rbac.create (index .Values "db-proxy").rbac.rules }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "boutique.db-proxy.fullname" . }}
+  labels:
+    {{- include "boutique.db-proxy.labels" . | nindent 4 }}
+{{- /*
+  Les règles sont reprises telles quelles depuis les values : c'est à
+  l'exploitant de les tenir au plus juste, une règle par besoin réel.
+*/}}
+rules:
+  {{- toYaml (index .Values "db-proxy").rbac.rules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "boutique.db-proxy.fullname" . }}
+  labels:
+    {{- include "boutique.db-proxy.labels" . | nindent 4 }}
+{{- /*
+  Le Role visé est celui défini juste au-dessus, désigné par le même helper.
+  Ce champ est immuable : le modifier impose de supprimer le RoleBinding.
+*/}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "boutique.db-proxy.fullname" . }}
+{{- /*
+  Un sujet de type ServiceAccount exige un namespace explicite : sans lui,
+  l'API ne rattache le droit à personne et le composant reste sans permission.
+  Le nom vient du helper dédié, celui-là même que le workload emploie — un nom
+  recopié finirait par désigner un compte inexistant.
+*/}}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "boutique.db-proxy.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

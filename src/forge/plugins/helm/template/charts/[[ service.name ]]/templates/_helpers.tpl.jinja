@@ -1,0 +1,167 @@
+{{/*
+===============================================================================
+_helpers.tpl — fonctions de nommage et d'étiquetage du chart « [[ service.name ]] »
+===============================================================================
+Fichier généré par forge.
+
+Aucun nom de ressource ni aucun label n'est écrit en dur dans les gabarits :
+tout passe par les helpers définis ici. Une seule modification suffit donc pour
+renommer ou réétiqueter l'ensemble du chart.
+
+Convention de nommage des helpers :
+  [[ service.name ]].<nom>              helper global au chart
+  [[ service.name ]].<composant>.<nom>  helper propre à un composant
+===============================================================================
+*/}}
+
+{{/*
+Nom du chart, éventuellement remplacé par nameOverride.
+Tronqué à 63 caractères : c'est la limite d'un label DNS-1123, et un nom plus
+long serait refusé par l'API Kubernetes.
+*/}}
+{{- define "[[ service.name ]].name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Nom complet des ressources : <release>-<chart>.
+Lorsque le nom de la release contient déjà le nom du chart, il est utilisé seul
+afin d'éviter les doublons du type « shop-shop ».
+*/}}
+{{- define "[[ service.name ]].fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Identifiant du chart, au format <nom>-<version>, posé dans le label
+helm.sh/chart. Le « + » d'un éventuel build SemVer est remplacé : il n'est pas
+autorisé dans une valeur de label.
+*/}}
+{{- define "[[ service.name ]].chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Labels de sélection : sous-ensemble stable et immuable des labels.
+Ils servent de selector aux Deployments et aux Services ; ne jamais y ajouter
+une valeur changeante comme la version, sous peine de rendre le Deployment non
+modifiable (le champ selector est immuable après création).
+*/}}
+{{- define "[[ service.name ]].selectorLabels" -}}
+app.kubernetes.io/name: {{ include "[[ service.name ]].name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Labels standards recommandés par Kubernetes, posés sur toutes les ressources.
+*/}}
+{{- define "[[ service.name ]].labels" -}}
+helm.sh/chart: {{ include "[[ service.name ]].chart" . }}
+{{ include "[[ service.name ]].selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Values.global.environment }}
+environment: {{ .Values.global.environment | quote }}
+{{- end }}
+{{- end }}
+
+[% for component in domain.components %]
+{{/*
+-------------------------------------------------------------------------------
+Composant « [[ component.name ]] »
+-------------------------------------------------------------------------------
+*/}}
+
+{{/*
+Nom complet des ressources du composant : <release>-<chart>-[[ component.name ]].
+*/}}
+{{- define "[[ component.helper ]].fullname" -}}
+{{- printf "%s-%s" (include "[[ service.name ]].fullname" .) "[[ component.name ]]" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Labels de sélection du composant : ceux du chart, plus le label de composant.
+*/}}
+{{- define "[[ component.helper ]].selectorLabels" -}}
+{{ include "[[ service.name ]].selectorLabels" . }}
+app.kubernetes.io/component: [[ component.name ]]
+{{- end }}
+
+{{/*
+Labels complets du composant.
+*/}}
+{{- define "[[ component.helper ]].labels" -}}
+{{ include "[[ service.name ]].labels" . }}
+app.kubernetes.io/component: [[ component.name ]]
+{{- end }}
+
+{{/*
+Référence complète de l'image : <registry>/<dépôt>:<tag>.
+Le tag laissé vide dans les values retombe sur appVersion du Chart.yaml, ce qui
+évite d'avoir à le renseigner à deux endroits à chaque livraison.
+*/}}
+{{- define "[[ component.helper ]].image" -}}
+{{- $values := [[ component.values_ref ]] -}}
+{{- $tag := $values.image.tag | default .Chart.AppVersion -}}
+{{- if .Values.global.imageRegistry -}}
+{{- printf "%s/%s:%s" .Values.global.imageRegistry $values.image.repository $tag -}}
+{{- else -}}
+{{- printf "%s:%s" $values.image.repository $tag -}}
+{{- end -}}
+{{- end }}
+[% if component.has.serviceaccount %]
+
+{{/*
+Nom du ServiceAccount sous lequel tournent les pods du composant.
+Lorsque le chart crée le compte, son nom est celui du composant ; sinon c'est
+celui d'un compte préexistant, et « default » à défaut — auquel cas les pods
+héritent des droits partagés par tout le namespace.
+Le workload DOIT poser serviceAccountName avec ce helper : sans lui, le compte
+dédié est créé mais personne ne l'utilise.
+*/}}
+{{- define "[[ component.helper ]].serviceAccountName" -}}
+{{- $values := [[ component.values_ref ]] -}}
+{{- if $values.serviceAccount.create -}}
+{{- default (include "[[ component.helper ]].fullname" .) $values.serviceAccount.name -}}
+{{- else -}}
+{{- default "default" $values.serviceAccount.name -}}
+{{- end -}}
+{{- end }}
+[% endif %]
+[% if component.has.configmap %]
+
+{{/*
+Nom du ConfigMap du composant. Toute ressource qui le référence passe par ce
+helper : un nom recopié à la main finirait par diverger.
+*/}}
+{{- define "[[ component.helper ]].configMapName" -}}
+{{- printf "%s-config" (include "[[ component.helper ]].fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+[% endif %]
+[% if component.has.secret %]
+
+{{/*
+Nom du Secret du composant : celui que le chart crée, ou celui d'un Secret géré
+hors du chart quand secret.create vaut false.
+*/}}
+{{- define "[[ component.helper ]].secretName" -}}
+{{- $values := [[ component.values_ref ]] -}}
+{{- if and (not $values.secret.create) $values.secret.existingSecret -}}
+{{- $values.secret.existingSecret -}}
+{{- else -}}
+{{- printf "%s-secret" (include "[[ component.helper ]].fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end }}
+[% endif %]
+[% endfor %]

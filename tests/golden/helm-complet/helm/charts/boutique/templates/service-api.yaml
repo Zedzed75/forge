@@ -1,0 +1,33 @@
+{{- /*
+===============================================================================
+Service du composant « api »
+===============================================================================
+Fichier généré par forge.
+
+Expose les pods de api derrière un nom DNS stable et une adresse
+virtuelle. Le Service sélectionne ses pods par les labels de sélection du
+composant, jamais par leur nom.
+===============================================================================
+*/}}
+{{- if and .Values.api.enabled .Values.api.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "boutique.api.fullname" . }}
+  labels:
+    {{- include "boutique.api.labels" . | nindent 4 }}
+  {{- with .Values.api.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - name: {{ .Values.api.portName }}
+      port: {{ .Values.api.service.port }}
+      {{- /* targetPort désigne le port du conteneur, ici par son nom. */}}
+      targetPort: {{ .Values.api.portName }}
+      protocol: TCP
+  selector:
+    {{- include "boutique.api.selectorLabels" . | nindent 4 }}
+{{- end }}

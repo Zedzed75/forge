@@ -1,0 +1,188 @@
+{{- /*
+===============================================================================
+Deployment du composant « api »
+===============================================================================
+Fichier généré par forge.
+
+Déploie api en tant que charge de travail sans état : les pods sont
+interchangeables et remplacés par des copies neuves à chaque mise à jour.
+
+Aucune valeur n'est écrite en dur ici. Tout provient de la clé
+« api » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "boutique.api.fullname" . }}
+  labels:
+    {{- include "boutique.api.labels" . | nindent 4 }}
+spec:
+  {{- /*
+    Quand l'autoscaling est actif, « replicas » n'est délibérément pas rendu :
+    Helm le remettrait à replicaCount à chaque mise à jour, le
+    HorizontalPodAutoscaler le recalculerait aussitôt, et les deux se
+    battraient à chaque « helm upgrade ».
+  */}}
+  {{- if not .Values.api.hpa.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "boutique.api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "boutique.api.selectorLabels" . | nindent 8 }}
+        {{- with .Values.api.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- /*
+        L'empreinte du ConfigMap redémarre les pods dès que la configuration
+        change : sans elle, un « helm upgrade » qui ne touche qu'au ConfigMap
+        laisserait les pods sur l'ancienne configuration, sans aucun signe.
+        Le chemin cité est exactement celui du fichier de gabarit produit —
+        toute divergence ferait échouer le rendu sur un modèle introuvable.
+      */}}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-api.yaml") . | sha256sum }}
+        {{- with .Values.api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- /*
+        Sans cette ligne, les pods tourneraient sous le compte « default » du
+        namespace, dont les droits sont partagés par tout ce qui s'y déploie.
+      */}}
+      serviceAccountName: {{ include "boutique.api.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "boutique.api.image" . }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          {{- with .Values.api.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: {{ .Values.api.portName }}
+              containerPort: {{ .Values.api.containerPort }}
+              protocol: TCP
+          {{- if .Values.api.probes.enabled }}
+          {{- /* Une sonde liveness en échec fait redémarrer le conteneur. */}}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.api.probes.liveness.path }}
+              port: {{ .Values.api.portName }}
+            initialDelaySeconds: {{ .Values.api.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.api.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.api.probes.liveness.failureThreshold }}
+          {{- /* Une sonde readiness en échec retire le pod du Service, sans le tuer. */}}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.api.probes.readiness.path }}
+              port: {{ .Values.api.portName }}
+            initialDelaySeconds: {{ .Values.api.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.api.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.api.probes.readiness.failureThreshold }}
+          {{- if .Values.api.probes.startup.enabled }}
+          {{- /*
+            La sonde startup suspend liveness et readiness tant qu'elle n'a pas
+            réussi : c'est ce qui évite qu'une application lente à démarrer soit
+            tuée en boucle par la sonde liveness.
+          */}}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.api.probes.startup.path }}
+              port: {{ .Values.api.portName }}
+            periodSeconds: {{ .Values.api.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.api.probes.startup.failureThreshold }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.global.environment | quote }}
+            {{- with .Values.api.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- /*
+            Les sources injectées en variables d'environnement sont accumulées
+            dans une liste, puis rendues d'un bloc : une clé « envFrom: » sans
+            élément vaudrait null et serait refusée.
+            La clé mountAs décide, source par source, entre injection en
+            variables (env) et montage en fichiers (file, plus bas).
+          */}}
+          {{- $envFrom := list }}
+          {{- if and .Values.api.config.enabled (eq .Values.api.config.mountAs "env") }}
+          {{- $envFrom = append $envFrom (dict "configMapRef" (dict "name" (include "boutique.api.configMapName" .))) }}
+          {{- end }}
+          {{- if and .Values.api.secret.enabled (eq .Values.api.secret.mountAs "env") }}
+          {{- $envFrom = append $envFrom (dict "secretRef" (dict "name" (include "boutique.api.secretName" .))) }}
+          {{- end }}
+          {{- with $envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* Montages en fichiers, pour les sources dont mountAs vaut file. */}}
+          {{- $volumeMounts := list }}
+          {{- if and .Values.api.config.enabled (eq .Values.api.config.mountAs "file") }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" "config" "mountPath" .Values.api.config.mountPath "readOnly" true) }}
+          {{- end }}
+          {{- if and .Values.api.secret.enabled (eq .Values.api.secret.mountAs "file") }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" "secret" "mountPath" .Values.api.secret.mountPath "readOnly" true) }}
+          {{- end }}
+          {{- with $volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /*
+        Volumes correspondant aux montages en fichiers déclarés plus haut. La
+        liste reste vide tant qu'aucune source n'est en mode « file », et la
+        clé « volumes: » disparaît alors entièrement.
+      */}}
+      {{- $volumes := list }}
+      {{- if and .Values.api.config.enabled (eq .Values.api.config.mountAs "file") }}
+      {{- $volumes = append $volumes (dict "name" "config" "configMap" (dict "name" (include "boutique.api.configMapName" .))) }}
+      {{- end }}
+      {{- if and .Values.api.secret.enabled (eq .Values.api.secret.mountAs "file") }}
+      {{- $volumes = append $volumes (dict "name" "secret" "secret" (dict "secretName" (include "boutique.api.secretName" .))) }}
+      {{- end }}
+      {{- with $volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

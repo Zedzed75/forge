@@ -1,0 +1,31 @@
+# =============================================================================
+# .helmignore — fichiers exclus de l'archive produite par « helm package »
+# =============================================================================
+# Fichier généré par forge. La syntaxe suit celle de .gitignore.
+# =============================================================================
+
+# Contrôle de version
+.git/
+.gitignore
+.bzr/
+.hg/
+.svn/
+
+# Fichiers temporaires et sauvegardes d'éditeurs
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.DS_Store
+
+# Éditeurs et environnements de développement
+.idea/
+.vscode/
+.project
+.vs/
+
+# Outillage du dépôt, sans intérêt dans une archive de chart
+Makefile
+.github/
+.gitlab-ci.yml

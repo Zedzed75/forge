@@ -1,0 +1,58 @@
+{{- /*
+===============================================================================
+ConfigMap du composant « cleanup »
+===============================================================================
+Fichier généré par forge.
+
+Porte la configuration NON sensible de cleanup. Rien de secret ne doit
+transiter par ici : un ConfigMap est lisible par quiconque a le droit de lire
+les ressources du namespace. Les valeurs sensibles vont dans le Secret du
+composant.
+
+Deux modes d'injection, choisis par la clé « mountAs » de values.yaml :
+  env  : le ConfigMap entier est injecté en variables d'environnement, via
+         envFrom sur le conteneur ;
+  file : le ConfigMap est monté sous « mountPath », un fichier par clé — le
+         nom du fichier est la clé, son contenu la valeur.
+
+Le nom de ce fichier de gabarit est contraint : le modèle de pod de la charge
+de travail calcule l'empreinte « checksum/config » en citant littéralement
+« configmap-cleanup.yaml ». C'est cette empreinte qui fait redémarrer les
+pods quand la configuration change — sans elle, un « helm upgrade » qui ne
+touche qu'à ce ConfigMap laisserait les pods sur l'ancienne configuration, sans
+le moindre signe. Renommer ce fichier ferait échouer le rendu du workload sur
+un modèle introuvable.
+
+Aucune valeur n'est écrite en dur ici : tout provient de la clé
+« cleanup.config » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if and .Values.cleanup.enabled .Values.cleanup.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "boutique.cleanup.configMapName" . }}
+  labels:
+    {{- include "boutique.cleanup.labels" . | nindent 4 }}
+{{- /*
+  Le bloc « data » n'est rendu que s'il a du contenu : une clé « data: » suivie
+  de rien vaut null en YAML, et null est refusé là où le schéma attend une
+  table de chaînes. Sans clé déclarée, on écrit donc explicitement « {} ».
+
+  Clés ET valeurs passent par « quote » :
+    - une valeur non citée (8080, true, 1.5) sortirait en entier, booléen ou
+      flottant, alors que data n'accepte que des chaînes : refusé en strict ;
+    - une clé non citée subit le même sort, et « on » ou « yes » deviendraient
+      même des booléens sous les analyseurs YAML 1.1.
+  L'itération « range » sur une table Go se fait par clé triée : la sortie est
+  donc stable d'un rendu à l'autre.
+*/}}
+{{- with .Values.cleanup.config.data }}
+data:
+  {{- range $key, $value := . }}
+  {{ $key | quote }}: {{ $value | quote }}
+  {{- end }}
+{{- else }}
+data: {}
+{{- end }}
+{{- end }}

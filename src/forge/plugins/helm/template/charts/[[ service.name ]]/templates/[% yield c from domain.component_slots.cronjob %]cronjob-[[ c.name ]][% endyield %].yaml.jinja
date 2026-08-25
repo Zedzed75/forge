@@ -1,0 +1,230 @@
+[% set v = c.values_ref %]
+[% set h = c.helper %]
+{{- /*
+===============================================================================
+CronJob du composant « [[ c.name ]] »
+===============================================================================
+Fichier généré par forge.
+
+Exécute [[ c.name ]] à échéance régulière : le contrôleur crée un Job — et donc
+un pod neuf — à chaque déclenchement de la planification.
+
+Un CronJob n'est ni un Deployment ni un StatefulSet, et les champs suivants sont
+volontairement absents :
+  * « replicas » et « selector » : c'est le Job créé à chaque échéance qui porte
+    son propre sélecteur, posé par le contrôleur. Les écrire ici serait refusé ;
+  * le port du conteneur : sans Service, aucun trafic n'entre dans ce pod ;
+  * les sondes : une readinessProbe n'aurait aucun consommateur, et une
+    livenessProbe en échec redémarrerait le conteneur au milieu d'un traitement
+    par lot. La santé d'une tâche planifiée se lit dans son code de sortie, que
+    backoffLimit et l'historique des Jobs suffisent à exploiter.
+
+L'imbrication est spec.jobTemplate.spec.template.spec : deux niveaux de plus
+qu'un Deployment, soit quatre espaces d'indentation supplémentaires sur tout le
+bloc du pod et de son conteneur.
+
+Aucune valeur n'est écrite en dur ici. Tout provient de la clé
+« [[ c.name ]] » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if [[ v ]].enabled }}
+{{- $cron := [[ v ]].cron }}
+{{- /*
+  batch/v1beta1 est supprimée depuis Kubernetes 1.25 : batch/v1 est la seule
+  version servie, elle est donc écrite sans condition de version du cluster.
+*/}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "[[ h ]].fullname" . }}
+  labels:
+    {{- include "[[ h ]].labels" . | nindent 4 }}
+spec:
+  {{- /*
+    Planification à cinq champs. Citée systématiquement : une expression
+    commençant par « * » ne serait pas un scalaire YAML valide.
+  */}}
+  schedule: {{ $cron.schedule | quote }}
+  {{- /*
+    timeZone n'est émis que s'il est renseigné : l'API refuse timeZone: "",
+    alors que l'absence de la clé signifie « fuseau du contrôleur ».
+  */}}
+  {{- with $cron.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  {{- /*
+    Que faire si l'exécution précédente dure encore à l'échéance suivante :
+    Allow (lancer quand même), Forbid (sauter), Replace (remplacer).
+  */}}
+  concurrencyPolicy: {{ $cron.concurrencyPolicy }}
+  {{- /* Suspend les déclenchements sans supprimer l'objet ni son historique. */}}
+  suspend: {{ $cron.suspend }}
+  {{- /* Nombre d'exécutions conservées, réussies puis échouées. */}}
+  successfulJobsHistoryLimit: {{ $cron.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $cron.failedJobsHistoryLimit }}
+  {{- /*
+    startingDeadlineSeconds vaut null par défaut : la clé disparaît alors du
+    manifeste, ce qui signifie « rattraper sans limite de retard ». Le test
+    porte sur la nullité, et non sur la vérité de la valeur, afin que 0 reste
+    transmissible.
+  */}}
+  {{- if not (kindIs "invalid" $cron.startingDeadlineSeconds) }}
+  startingDeadlineSeconds: {{ $cron.startingDeadlineSeconds }}
+  {{- end }}
+  jobTemplate:
+    metadata:
+      {{- /*
+        Labels du Job créé à chaque échéance : ils permettent de retrouver les
+        exécutions d'un composant sans connaître le suffixe posé par le
+        contrôleur. Aucun selector n'est déclaré ici, le contrôleur pose le sien.
+      */}}
+      labels:
+        {{- include "[[ h ]].labels" . | nindent 8 }}
+    spec:
+      {{- /* Nombre de reprises avant d'abandonner l'exécution d'une échéance. */}}
+      backoffLimit: {{ $cron.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "[[ h ]].selectorLabels" . | nindent 12 }}
+            {{- with [[ v ]].podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- /*
+            Aucune empreinte checksum/config n'est posée, contrairement à un
+            Deployment : chaque échéance crée un pod neuf, qui lit forcément la
+            configuration courante. Il n'y a donc rien à redémarrer.
+          */}}
+          {{- with [[ v ]].podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          {{- /*
+            restartPolicy est obligatoire dans le pod d'un Job et ne peut valoir
+            que OnFailure (relancer le conteneur dans le même pod) ou Never
+            (laisser le Job créer un nouveau pod). « Always » passe la
+            validation de schéma mais est refusé à l'application.
+
+            Le modèle de forge n'accepte que ces deux valeurs dans forge.yml.
+            Un `--set <composant>.cron.restartPolicy=Always` passé à la main à
+            l'installation traverserait en revanche lint, template et
+            kubeconform : c'est l'API du cluster qui refuserait, et elle seule.
+          */}}
+          restartPolicy: {{ $cron.restartPolicy }}
+[% if c.has.serviceaccount %]
+          {{- /*
+            Sans cette ligne, les pods tourneraient sous le compte « default » du
+            namespace, dont les droits sont partagés par tout ce qui s'y déploie.
+          */}}
+          serviceAccountName: {{ include "[[ h ]].serviceAccountName" . }}
+[% endif %]
+          {{- with .Values.global.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with [[ v ]].podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: [[ c.name ]]
+              image: {{ include "[[ h ]].image" . }}
+              imagePullPolicy: {{ [[ v ]].image.pullPolicy }}
+              {{- with [[ v ]].securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with [[ v ]].command }}
+              command:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with [[ v ]].args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              env:
+                - name: ENVIRONMENT
+                  value: {{ .Values.global.environment | quote }}
+                {{- with [[ v ]].extraEnv }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+[% if c.has.configmap or c.has.secret %]
+              {{- /*
+                Les sources injectées en variables d'environnement sont
+                accumulées dans une liste, puis rendues d'un bloc : une clé
+                « envFrom: » sans élément vaudrait null et serait refusée.
+                La clé mountAs décide, source par source, entre injection en
+                variables (env) et montage en fichiers (file, plus bas).
+              */}}
+              {{- $envFrom := list }}
+[% if c.has.configmap %]
+              {{- if and [[ v ]].config.enabled (eq [[ v ]].config.mountAs "env") }}
+              {{- $envFrom = append $envFrom (dict "configMapRef" (dict "name" (include "[[ h ]].configMapName" .))) }}
+              {{- end }}
+[% endif %]
+[% if c.has.secret %]
+              {{- if and [[ v ]].secret.enabled (eq [[ v ]].secret.mountAs "env") }}
+              {{- $envFrom = append $envFrom (dict "secretRef" (dict "name" (include "[[ h ]].secretName" .))) }}
+              {{- end }}
+[% endif %]
+              {{- with $envFrom }}
+              envFrom:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- /* Montages en fichiers, pour les sources dont mountAs vaut file. */}}
+              {{- $volumeMounts := list }}
+[% if c.has.configmap %]
+              {{- if and [[ v ]].config.enabled (eq [[ v ]].config.mountAs "file") }}
+              {{- $volumeMounts = append $volumeMounts (dict "name" "config" "mountPath" [[ v ]].config.mountPath "readOnly" true) }}
+              {{- end }}
+[% endif %]
+[% if c.has.secret %]
+              {{- if and [[ v ]].secret.enabled (eq [[ v ]].secret.mountAs "file") }}
+              {{- $volumeMounts = append $volumeMounts (dict "name" "secret" "mountPath" [[ v ]].secret.mountPath "readOnly" true) }}
+              {{- end }}
+[% endif %]
+              {{- with $volumeMounts }}
+              volumeMounts:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+[% endif %]
+              {{- with [[ v ]].resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          {{- with [[ v ]].nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with [[ v ]].tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with [[ v ]].affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+[% if c.has.configmap or c.has.secret %]
+          {{- /*
+            Volumes correspondant aux montages en fichiers déclarés plus haut.
+            La liste reste vide tant qu'aucune source n'est en mode « file », et
+            la clé « volumes: » disparaît alors entièrement.
+          */}}
+          {{- $volumes := list }}
+[% if c.has.configmap %]
+          {{- if and [[ v ]].config.enabled (eq [[ v ]].config.mountAs "file") }}
+          {{- $volumes = append $volumes (dict "name" "config" "configMap" (dict "name" (include "[[ h ]].configMapName" .))) }}
+          {{- end }}
+[% endif %]
+[% if c.has.secret %]
+          {{- if and [[ v ]].secret.enabled (eq [[ v ]].secret.mountAs "file") }}
+          {{- $volumes = append $volumes (dict "name" "secret" "secret" (dict "secretName" (include "[[ h ]].secretName" .))) }}
+          {{- end }}
+[% endif %]
+          {{- with $volumes }}
+          volumes:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+[% endif %]
+{{- end }}

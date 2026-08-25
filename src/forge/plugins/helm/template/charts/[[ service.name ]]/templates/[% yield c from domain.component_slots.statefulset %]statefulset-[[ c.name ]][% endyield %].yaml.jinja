@@ -1,0 +1,337 @@
+[% set v = c.values_ref %]
+[% set h = c.helper %]
+{{- /*
+===============================================================================
+StatefulSet du composant « [[ c.name ]] »
+===============================================================================
+Fichier généré par forge.
+
+Déploie [[ c.name ]] en tant que charge de travail à état : chaque pod garde
+son ordinal, son nom DNS et son volume d'un redémarrage à l'autre. C'est ce qui
+le distingue d'un Deployment, dont les pods sont interchangeables.
+
+Trois champs lui sont propres, et tous trois sont des pièges connus :
+  * serviceName            le Service headless qui nomme chaque pod ;
+  * volumeClaimTemplates   le volume par pod — entièrement IMMUABLE ;
+  * updateStrategy et podManagementPolicy   l'ordre de remplacement des pods.
+
+Aucune valeur n'est écrite en dur ici. Tout provient de la clé
+« [[ c.name ]] » de values.yaml, surchargeable par environnement.
+===============================================================================
+*/}}
+{{- if [[ v ]].enabled }}
+{{- /*
+  Nom du volume persistant, défini une seule fois et réutilisé aux deux
+  endroits qui doivent impérativement s'accorder : le volumeMount du conteneur
+  et le volumeClaimTemplate. Un écart entre les deux produirait un manifeste
+  valide au schéma, mais des pods bloqués au démarrage.
+*/}}
+{{- $dataVolume := "data" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "[[ h ]].fullname" . }}
+  labels:
+    {{- include "[[ h ]].labels" . | nindent 4 }}
+spec:
+[% if c.has.service %]
+  {{- /*
+    serviceName est requis, et le Service visé doit réellement être headless
+    (clusterIP: None). forge force service.headless pour un StatefulSet, et le
+    Service porte le même helper de nommage que cette charge de travail : les
+    deux ne peuvent donc pas diverger.
+    Repasser service.enabled à false laisserait ce nom sans Service derrière
+    lui, et les pods sans entrée DNS individuelle.
+  */}}
+  serviceName: {{ include "[[ h ]].fullname" . }}
+[% else %]
+  {{- /*
+    serviceName est un champ requis : il est rendu pour que le manifeste reste
+    valide. ATTENTION : le composant « [[ c.name ]] » n'a pas l'addon
+    « service », aucun Service headless n'est donc généré et les pods n'auront
+    pas de nom DNS stable. Ajoutez l'addon « service » à la spécification.
+  */}}
+  serviceName: {{ include "[[ h ]].fullname" . }}
+[% endif %]
+[% if c.has.hpa %]
+  {{- /*
+    Quand l'autoscaling est actif, « replicas » n'est délibérément pas rendu :
+    Helm le remettrait à replicaCount à chaque mise à jour, le
+    HorizontalPodAutoscaler le recalculerait aussitôt, et les deux se
+    battraient à chaque « helm upgrade ».
+  */}}
+  {{- if not [[ v ]].hpa.enabled }}
+  replicas: {{ [[ v ]].replicaCount }}
+  {{- end }}
+[% else %]
+  replicas: {{ [[ v ]].replicaCount }}
+[% endif %]
+  {{- /*
+    podManagementPolicy fixe l'ordre de démarrage et d'arrêt des pods :
+      OrderedReady : un pod à la fois, du plus petit ordinal au plus grand, en
+                     attendant que le précédent soit prêt — comportement
+                     appliqué par Kubernetes lorsque la clé est absente ;
+      Parallel : tous les pods en même temps, pour un ensemble dont les membres
+                 se découvrent seuls.
+    La clé est immuable après création. Elle n'est rendue que si les values la
+    renseignent : l'omettre laisse Kubernetes appliquer OrderedReady, alors
+    qu'une valeur écrite en dur figerait le choix pour tous les environnements.
+  */}}
+  {{- with [[ v ]].podManagementPolicy }}
+  podManagementPolicy: {{ . }}
+  {{- end }}
+  {{- /*
+    Stratégie de remplacement des pods lors d'une mise à jour :
+      RollingUpdate : les pods sont remplacés un par un, de l'ordinal le plus
+                      élevé au plus bas ;
+      OnDelete : rien n'est remplacé automatiquement ; supprimer un pod
+                 déclenche sa recréation à la nouvelle version.
+    Le sous-bloc rollingUpdate n'a de sens qu'avec RollingUpdate : l'émettre
+    avec OnDelete fait rejeter l'objet par l'API.
+  */}}
+  updateStrategy:
+    type: {{ [[ v ]].updateStrategy.type }}
+    {{- if eq [[ v ]].updateStrategy.type "RollingUpdate" }}
+    rollingUpdate:
+      {{- /* Les pods d'ordinal inférieur à partition restent à l'ancienne version. */}}
+      partition: {{ [[ v ]].updateStrategy.partition | int }}
+    {{- end }}
+  {{- /*
+    Le sélecteur est requis ET immuable : il n'emploie que selectorLabels, qui
+    ne contient ni helm.sh/chart ni app.kubernetes.io/version — deux labels qui
+    changent à chaque release et rendraient l'objet non modifiable.
+  */}}
+  selector:
+    matchLabels:
+      {{- include "[[ h ]].selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "[[ h ]].selectorLabels" . | nindent 8 }}
+        {{- with [[ v ]].podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+[% if c.has.configmap and c.config["keys"] %]
+      {{- /*
+        L'empreinte du ConfigMap redémarre les pods dès que la configuration
+        change : sans elle, un « helm upgrade » qui ne touche qu'au ConfigMap
+        laisserait les pods sur l'ancienne configuration, sans aucun signe.
+        Le chemin cité est exactement celui du fichier de gabarit produit —
+        toute divergence ferait échouer le rendu sur un modèle introuvable.
+      */}}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-[[ c.name ]].yaml") . | sha256sum }}
+        {{- with [[ v ]].podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+[% else %]
+      {{- with [[ v ]].podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+[% endif %]
+    spec:
+[% if c.has.serviceaccount %]
+      {{- /*
+        Sans cette ligne, les pods tourneraient sous le compte « default » du
+        namespace, dont les droits sont partagés par tout ce qui s'y déploie.
+      */}}
+      serviceAccountName: {{ include "[[ h ]].serviceAccountName" . }}
+[% endif %]
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- /*
+        fsGroup, porté par podSecurityContext, fixe le groupe propriétaire du
+        volume persistant : sans lui, un conteneur non root ne peut pas y
+        écrire, et l'application démarre puis échoue à la première écriture.
+      */}}
+      {{- with [[ v ]].podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: [[ c.name ]]
+          image: {{ include "[[ h ]].image" . }}
+          imagePullPolicy: {{ [[ v ]].image.pullPolicy }}
+          {{- with [[ v ]].securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with [[ v ]].command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with [[ v ]].args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: {{ [[ v ]].portName }}
+              containerPort: {{ [[ v ]].containerPort }}
+              protocol: TCP
+          {{- if [[ v ]].probes.enabled }}
+          {{- /* Une sonde liveness en échec fait redémarrer le conteneur. */}}
+          livenessProbe:
+            httpGet:
+              path: {{ [[ v ]].probes.liveness.path }}
+              port: {{ [[ v ]].portName }}
+            initialDelaySeconds: {{ [[ v ]].probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ [[ v ]].probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ [[ v ]].probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ [[ v ]].probes.liveness.failureThreshold }}
+          {{- /* Une sonde readiness en échec retire le pod du Service, sans le tuer. */}}
+          readinessProbe:
+            httpGet:
+              path: {{ [[ v ]].probes.readiness.path }}
+              port: {{ [[ v ]].portName }}
+            initialDelaySeconds: {{ [[ v ]].probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ [[ v ]].probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ [[ v ]].probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ [[ v ]].probes.readiness.failureThreshold }}
+          {{- if [[ v ]].probes.startup.enabled }}
+          {{- /*
+            La sonde startup suspend liveness et readiness tant qu'elle n'a pas
+            réussi : c'est ce qui évite qu'une application à état, lente à
+            rejouer son journal, soit tuée en boucle par la sonde liveness.
+          */}}
+          startupProbe:
+            httpGet:
+              path: {{ [[ v ]].probes.startup.path }}
+              port: {{ [[ v ]].portName }}
+            periodSeconds: {{ [[ v ]].probes.startup.periodSeconds }}
+            failureThreshold: {{ [[ v ]].probes.startup.failureThreshold }}
+          {{- end }}
+          {{- end }}
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.global.environment | quote }}
+            {{- with [[ v ]].extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+[% if c.has.configmap or c.has.secret %]
+          {{- /*
+            Les sources injectées en variables d'environnement sont accumulées
+            dans une liste, puis rendues d'un bloc : une clé « envFrom: » sans
+            élément vaudrait null et serait refusée.
+            La clé mountAs décide, source par source, entre injection en
+            variables (env) et montage en fichiers (file, plus bas).
+          */}}
+          {{- $envFrom := list }}
+[% if c.has.configmap %]
+          {{- if and [[ v ]].config.enabled (eq [[ v ]].config.mountAs "env") }}
+          {{- $envFrom = append $envFrom (dict "configMapRef" (dict "name" (include "[[ h ]].configMapName" .))) }}
+          {{- end }}
+[% endif %]
+[% if c.has.secret %]
+          {{- if and [[ v ]].secret.enabled (eq [[ v ]].secret.mountAs "env") }}
+          {{- $envFrom = append $envFrom (dict "secretRef" (dict "name" (include "[[ h ]].secretName" .))) }}
+          {{- end }}
+[% endif %]
+          {{- with $envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+[% endif %]
+          {{- /*
+            Montages du conteneur : le volume persistant d'abord — son nom vient
+            de la même variable que le volumeClaimTemplate, ils ne peuvent donc
+            pas diverger — puis les sources dont mountAs vaut « file ».
+            La liste est rendue d'un bloc : une clé « volumeMounts: » sans
+            élément vaudrait null et serait refusée.
+          */}}
+          {{- $volumeMounts := list }}
+          {{- if [[ v ]].persistence.enabled }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" $dataVolume "mountPath" [[ v ]].persistence.mountPath) }}
+          {{- end }}
+[% if c.has.configmap %]
+          {{- if and [[ v ]].config.enabled (eq [[ v ]].config.mountAs "file") }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" "config" "mountPath" [[ v ]].config.mountPath "readOnly" true) }}
+          {{- end }}
+[% endif %]
+[% if c.has.secret %]
+          {{- if and [[ v ]].secret.enabled (eq [[ v ]].secret.mountAs "file") }}
+          {{- $volumeMounts = append $volumeMounts (dict "name" "secret" "mountPath" [[ v ]].secret.mountPath "readOnly" true) }}
+          {{- end }}
+[% endif %]
+          {{- with $volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with [[ v ]].resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with [[ v ]].nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with [[ v ]].tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with [[ v ]].affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+[% if c.has.configmap or c.has.secret %]
+      {{- /*
+        Volumes correspondant aux montages en fichiers déclarés plus haut. Le
+        volume persistant n'y figure pas : il vient de volumeClaimTemplates, qui
+        en crée un exemplaire par pod. La liste reste vide tant qu'aucune source
+        n'est en mode « file », et la clé « volumes: » disparaît alors.
+      */}}
+      {{- $volumes := list }}
+[% if c.has.configmap %]
+      {{- if and [[ v ]].config.enabled (eq [[ v ]].config.mountAs "file") }}
+      {{- $volumes = append $volumes (dict "name" "config" "configMap" (dict "name" (include "[[ h ]].configMapName" .))) }}
+      {{- end }}
+[% endif %]
+[% if c.has.secret %]
+      {{- if and [[ v ]].secret.enabled (eq [[ v ]].secret.mountAs "file") }}
+      {{- $volumes = append $volumes (dict "name" "secret" "secret" (dict "secretName" (include "[[ h ]].secretName" .))) }}
+      {{- end }}
+[% endif %]
+      {{- with $volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+[% endif %]
+  {{- if [[ v ]].persistence.enabled }}
+  {{- /*
+    Un volumeClaimTemplate crée un PersistentVolumeClaim par pod, nommé
+    <nom du volume>-<nom du pod>, et le conserve même si le pod disparaît.
+
+    Ce bloc est INTÉGRALEMENT IMMUABLE : changer la taille, la classe de
+    stockage ou le mode d'accès fait échouer « helm upgrade ». Pour l'ajuster,
+    supprimer le StatefulSet sans ses pods
+    (kubectl delete statefulset <nom> --cascade=orphan) puis réinstaller ; les
+    volumes déjà provisionnés sont conservés.
+    C'est aussi la raison pour laquelle seuls les selectorLabels sont posés ici,
+    et jamais les labels complets : ces derniers portent helm.sh/chart et
+    app.kubernetes.io/version, qui changent à chaque release et rendraient tout
+    « helm upgrade » impossible.
+  */}}
+  volumeClaimTemplates:
+    - metadata:
+        {{- /* Ce nom doit être exactement celui du volumeMount ci-dessus. */}}
+        name: {{ $dataVolume }}
+        labels:
+          {{- include "[[ h ]].selectorLabels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - {{ [[ v ]].persistence.accessMode }}
+        {{- /*
+          storageClassName absent = classe par défaut du cluster ;
+          storageClassName: "" = AUCUNE classe, donc aucun provisionnement
+          dynamique. La clé n'est donc émise que si elle est non vide.
+        */}}
+        {{- with [[ v ]].persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ [[ v ]].persistence.size | quote }}
+  {{- end }}
+{{- end }}
