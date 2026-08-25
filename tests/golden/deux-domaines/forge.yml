@@ -1,0 +1,76 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Specification du service
+# ---------------------------------------------------------------------------
+# Ce fichier decrit entierement ce qui doit etre genere. Il est rejouable :
+#   forge generate --spec forge.yml
+# produit exactement la meme arborescence, octet pour octet.
+#
+# Editez-le a la main puis relancez la generation ; ne modifiez pas
+# 'forge_version' manuellement.
+#
+# Domaines generes par cette specification :
+#   - ansible
+#   - helm
+# ---------------------------------------------------------------------------
+forge_version: 1
+service:
+  name: boutique
+  description: Boutique en ligne, deployee sur Kubernetes et administree par Ansible
+  owner: Equipe Plateforme
+  owner_email: plateforme@example.net
+  labels:
+    app.kubernetes.io/part-of: commerce
+    tier: frontend
+  environments:
+    - name: dev
+    - name: prod
+      domain: example.net
+      production: true
+ansible:
+  os_family: debian
+  remote_user: deploy
+  ssh_port: 22
+  groups:
+    - name: dbservers
+      description: Serveurs de base de donnees, hors cluster
+      roles:
+        - common
+        - users
+        - ssh_hardening
+        - firewall
+        - postgresql
+  hosts:
+    dev:
+      dbservers:
+        - name: db-dev-01
+          ansible_host: 10.0.1.21
+    prod:
+      dbservers:
+        - name: db-prod-01
+          ansible_host: 10.0.2.21
+helm:
+  chart_version: 1.0.0
+  app_version: 2026.08.1
+  kubernetes:
+    version: '1.34'
+  namespace_strategy: per_env
+  image:
+    registry: ghcr.io
+    repository: acme/boutique
+    strategy: appVersion
+  components:
+    - name: api
+      kind: deployment
+      addons:
+        - service
+        - ingress
+        - configmap
+        - serviceaccount
+      container_port: 8080
+      ingress:
+        base_domain: example.net
+      config:
+        keys:
+          - LOG_LEVEL
+          - DATABASE_HOST

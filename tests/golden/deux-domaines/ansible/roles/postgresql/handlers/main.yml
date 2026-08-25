@@ -1,0 +1,20 @@
+---
+# ---------------------------------------------------------------------------
+# roles/postgresql/handlers/main.yml — handlers du rôle postgresql
+# ---------------------------------------------------------------------------
+# Un changement de pg_hba.conf ne demande qu'un rechargement ; un
+# changement de paramètre du serveur peut exiger un redémarrage complet.
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+- name: Recharger PostgreSQL
+  ansible.builtin.service:
+    name: "{{ postgresql_service }}"
+    state: reloaded
+
+- name: Redémarrer PostgreSQL
+  ansible.builtin.service:
+    name: "{{ postgresql_service }}"
+    state: restarted

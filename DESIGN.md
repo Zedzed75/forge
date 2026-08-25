@@ -74,12 +74,23 @@ class Projection:
     règles « si ansible alors… » — qui implémente les contrôles inter-domaines.
     """
     service_name: str
-    environments: tuple[str, ...]
+    environments: tuple[str, ...]   # ceux que le domaine MATÉRIALISE (phase 5),
+                                    # pas une recopie de service.environments
     labels: dict[str, str] = field(default_factory=dict)
     facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    # ex. ansible → {"hosts": (...), "groups": (...)}
-    #     helm    → {"namespaces": (...), "hosts": (...)}
-    # Une facette n'est comparée que si au moins deux domaines la déclarent.
+    # ex. ansible → {"inventory_hosts": (...), "groups": (...)}
+    #     helm    → {"namespaces": (...), "ingress_hosts": (...)}
+    #
+    # Le nom d'une facette appartient à un VOCABULAIRE PARTAGÉ entre domaines
+    # (`forge.validate.consistency.FACET_VOCABULARY`) : deux domaines qui
+    # emploient le même nom affirment parler de la même chose. Une facette hors
+    # vocabulaire n'est comparée à personne.
+    #
+    # Corrigé en phase 5 : cette section proposait `hosts` pour les deux
+    # domaines, en supposant que même nom = même sens. Ansible entendait par là
+    # ses machines d'inventaire, Helm ses hôtes d'Ingress — et `forge validate`
+    # échouait sur toute spécification à deux domaines. C'est le premier défaut
+    # qu'a révélé la rencontre de deux domaines réels.
 ```
 
 ### 2.2 Hookspecs

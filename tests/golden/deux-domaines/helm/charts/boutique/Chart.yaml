@@ -1,0 +1,37 @@
+# =============================================================================
+# Chart.yaml — métadonnées du chart Helm « boutique »
+# =============================================================================
+# Fichier généré par forge. Décrit l'identité du chart : son nom, sa
+# version, la version de l'application empaquetée et les versions de Kubernetes
+# sur lesquelles il est supporté.
+#
+# Deux versions distinctes cohabitent ici, ne pas les confondre :
+#   - version    : version du chart lui-même, à incrémenter à chaque
+#                  modification des gabarits ou des valeurs par défaut ;
+#   - appVersion : version de l'application déployée, qui sert de tag d'image
+#                  par défaut lorsque aucun tag n'est fourni dans les values.
+# =============================================================================
+
+apiVersion: v2
+name: boutique
+description: Boutique en ligne, deployee sur Kubernetes et administree par Ansible
+
+# « application » désigne un chart déployable, par opposition à « library »
+# qui ne contient que des helpers réutilisables et ne s'installe pas.
+type: application
+
+# Version du chart, au format SemVer strict exigé par Helm.
+version: 1.0.0
+
+# Version de l'application. Toujours entre quotes : sans elles, une valeur du
+# type 1.10 serait relue comme un nombre décimal et perdrait son zéro final.
+appVersion: 2026.08.1
+
+# Versions de Kubernetes acceptées. Le suffixe -0 autorise les versions
+# portant un suffixe de distribution, par exemple v1.34.0-eks-1 ;
+# sans lui, Helm refuserait de s'installer sur ces clusters.
+kubeVersion: ">=1.34.0-0"
+
+maintainers:
+  - name: Equipe Plateforme
+    email: plateforme@example.net

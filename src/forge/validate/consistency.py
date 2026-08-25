@@ -14,6 +14,25 @@ from forge.plugins_api.types import Issue, Projection
 #: Une facette n'est comparee que si au moins ce nombre de domaines la declare.
 MIN_DECLARERS = 2
 
+#: **Vocabulaire partage des facettes.**
+#:
+#: Le coeur compare les facettes **par leur nom** : ce nom est donc un espace de
+#: noms partage entre tous les plugins, et deux domaines qui emploient le meme
+#: nom affirment parler de la meme chose. Sans regle explicite, la collision est
+#: silencieuse et produit un faux positif — mesure en phase 5 : Ansible
+#: declarait `hosts` pour ses machines d'inventaire, Helm pour ses hotes
+#: d'Ingress, et `forge validate` echouait sur un projet parfaitement coherent.
+#:
+#: Un plugin qui declare une facette hors de ce vocabulaire n'est compare a
+#: personne : c'est sans danger, mais sans effet non plus. Pour qu'une facette
+#: serve, il faut l'ajouter ici **et** s'accorder sur son sens.
+FACET_VOCABULARY: dict[str, str] = {
+    "ingress_hosts": "noms de domaine par lesquels le service est joignable de l'exterieur",
+    "inventory_hosts": "machines nommees dans un inventaire de configuration",
+    "namespaces": "cloisons logiques dans lesquelles le service est deploye",
+    "groups": "regroupements de machines partageant un role",
+}
+
 
 def _sorted_domains(projections: dict[str, Projection]) -> list[str]:
     return sorted(projections)
@@ -39,32 +58,47 @@ def _check_service_name(projections: dict[str, Projection]) -> list[Issue]:
 
 
 def _check_environments(projections: dict[str, Projection]) -> list[Issue]:
+    """Compare ce que **chaque domaine materialise reellement**.
+
+    `Projection.environments` ne recopie pas `service.environments` : un domaine
+    y declare les environnements pour lesquels il produit quelque chose. Un
+    environnement qu'Ansible ignore alors que Helm y deploie est donc visible
+    ici, et nulle part ailleurs — c'est precisement ce que la comparaison de
+    projections apporte, et qu'aucun domaine ne peut voir seul.
+    """
     issues: list[Issue] = []
     domains = _sorted_domains(projections)
-    reference_domain = domains[0]
-    reference = projections[reference_domain].environments
-    for domain in domains[1:]:
-        current = projections[domain].environments
-        if set(current) != set(reference):
-            missing = sorted(set(reference) - set(current))
-            extra = sorted(set(current) - set(reference))
-            parts = []
-            if missing:
-                parts.append(f"absents de {domain} : {', '.join(missing)}")
-            if extra:
-                parts.append(f"absents de {reference_domain} : {', '.join(extra)}")
-            issues.append(
-                Issue(
-                    level="error",
-                    message=(
-                        f"environnements incoherents entre {reference_domain} et "
-                        f"{domain} ({' ; '.join(parts)})"
-                    ),
-                    hint="tous les domaines partent de service.environments",
-                    domains=(reference_domain, domain),
-                )
+    tous = sorted({env for domain in domains for env in projections[domain].environments})
+
+    for env in tous:
+        absents = [d for d in domains if env not in projections[d].environments]
+        if not absents:
+            continue
+        presents = [d for d in domains if env in projections[d].environments]
+        issues.append(
+            Issue(
+                level="warning",
+                message=(
+                    f"l'environnement '{env}' est materialise par "
+                    f"{', '.join(presents)} mais pas par {', '.join(absents)}"
+                ),
+                hint=(
+                    f"si c'est voulu, rien a faire ; sinon, completez la section "
+                    f"de {absents[0]} pour '{env}', ou retirez-le de "
+                    "service.environments"
+                ),
+                domains=tuple(domains),
             )
-        elif current != reference:
+        )
+
+    # L'ordre reste porteur de sens : il decrit la promotion dev -> prod.
+    reference_domain = domains[0]
+    reference = [e for e in projections[reference_domain].environments]
+    for domain in domains[1:]:
+        current = [e for e in projections[domain].environments]
+        communs_ref = [e for e in reference if e in current]
+        communs_cur = [e for e in current if e in reference]
+        if communs_ref != communs_cur:
             issues.append(
                 Issue(
                     level="warning",
@@ -112,7 +146,7 @@ def _check_facets(projections: dict[str, Projection]) -> list[Issue]:
             declarers.setdefault(facet, []).append(domain)
 
     for facet, domains in sorted(declarers.items()):
-        if len(domains) < MIN_DECLARERS:
+        if len(domains) < MIN_DECLARERS or facet not in FACET_VOCABULARY:
             continue
         reference_domain = domains[0]
         reference = set(projections[reference_domain].facets[facet])

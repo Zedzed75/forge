@@ -1,0 +1,670 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « ansible ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only ansible
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    author: Equipe Plateforme
+    become: true
+    collection_users:
+        ansible.posix:
+        - firewall
+        - users
+        community.general:
+        - common
+        - firewall
+        community.postgresql:
+        - postgresql
+    collections:
+    - ansible.posix
+    - community.general
+    - community.postgresql
+    default_env: dev
+    env_names:
+    - dev
+    - prod
+    environments:
+    -   domain: ''
+        group_vars:
+            dbservers: []
+        groups:
+        -   description: Serveurs de base de donnees, hors cluster
+            hosts:
+            -   ansible_host: 10.0.1.21
+                ansible_port: null
+                ansible_user: null
+                name: db-dev-01
+                variables: []
+                vars: {}
+            name: dbservers
+            role_names:
+            - common
+            - users
+            - ssh_hardening
+            - firewall
+            - postgresql
+            roles:
+            - &id001
+                author: Equipe Plateforme
+                collections:
+                - community.general
+                example_group: dbservers
+                handlers:
+                - Redémarrer le service de synchronisation horaire
+                internal_vars:
+                -   description: paquet de synchronisation horaire résolu selon la
+                        famille d'OS
+                    name: common_ntp_package
+                -   description: service de synchronisation horaire résolu selon la
+                        famille d'OS
+                    name: common_ntp_service
+                name: common
+                options:
+                -   allowed: Identifiant de la base tz, par exemple 'Europe/Paris'
+                        ou 'UTC'.
+                    default: Europe/Paris
+                    description: Fuseau horaire appliqué à toutes les machines du
+                        groupe.
+                    name: timezone
+                    var_name: common_timezone
+                -   allowed: Liste de noms de paquets valides pour la famille d'OS
+                        ciblée.
+                    default:
+                    - ca-certificates
+                    - curl
+                    - htop
+                    - vim
+                    description: Paquets installés sur toutes les machines du groupe.
+                    name: packages
+                    var_name: common_packages
+                -   allowed: true ou false.
+                    default: true
+                    description: Active la configuration du fuseau horaire par le
+                        rôle.
+                    name: manage_timezone
+                    var_name: common_manage_timezone
+                -   allowed: true ou false.
+                    default: true
+                    description: Installe et active la synchronisation horaire (systemd-timesyncd).
+                    name: enable_ntp
+                    var_name: common_enable_ntp
+                -   allowed: true ou false.
+                    default: true
+                    description: Déploie un fichier /etc/motd décrivant le rôle de
+                        la machine.
+                    name: manage_motd
+                    var_name: common_manage_motd
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Socle système : paquets de base, fuseau horaire, synchronisation
+                    NTP, bannière MOTD.'
+                tags:
+                - common
+                - base
+            - &id002
+                author: Equipe Plateforme
+                collections:
+                - ansible.posix
+                example_group: dbservers
+                handlers: []
+                internal_vars:
+                -   description: nom du fichier déposé dans /etc/sudoers.d
+                    name: users_sudoers_file
+                -   description: groupes secondaires déduits de users_accounts
+                    name: users_secondary_groups
+                -   description: comptes présents disposant d'un accès sudo
+                    name: users_sudo_accounts
+                name: users
+                options:
+                -   allowed: Liste de dictionnaires (name, groups, sudo, shell, ssh_public_key,
+                        state).
+                    default: []
+                    description: Liste des comptes locaux gérés par le rôle.
+                    name: accounts
+                    var_name: users_accounts
+                -   allowed: true ou false.
+                    default: true
+                    description: Écrit un fichier dans /etc/sudoers.d pour les comptes
+                        marqués sudo.
+                    name: manage_sudoers
+                    var_name: users_manage_sudoers
+                -   allowed: true ou false.
+                    default: false
+                    description: Supprime /home/<user> lorsque le compte passe à l'état
+                        absent.
+                    name: remove_absent_home
+                    var_name: users_remove_absent_home
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Comptes locaux : création, groupes secondaires, sudo et
+                    clés SSH autorisées.'
+                tags:
+                - users
+                - security
+            - &id003
+                author: Equipe Plateforme
+                collections: []
+                example_group: dbservers
+                handlers:
+                - Redémarrer le service SSH
+                internal_vars:
+                -   description: répertoire des fichiers de configuration additionnels
+                        de sshd
+                    name: ssh_hardening_dropin_dir
+                -   description: nom du service SSH, résolu selon la famille d'OS
+                    name: ssh_hardening_service
+                name: ssh_hardening
+                options:
+                -   allowed: Entier de 1 à 65535.
+                    default: 22
+                    description: Port TCP sur lequel sshd écoute.
+                    name: port
+                    var_name: ssh_hardening_port
+                -   allowed: yes, no, prohibit-password ou forced-commands-only.
+                    default: prohibit-password
+                    description: Valeur de la directive PermitRootLogin.
+                    name: permit_root_login
+                    var_name: ssh_hardening_permit_root_login
+                -   allowed: true ou false.
+                    default: false
+                    description: Valeur de la directive PasswordAuthentication.
+                    name: password_authentication
+                    var_name: ssh_hardening_password_authentication
+                -   allowed: true ou false.
+                    default: true
+                    description: Valeur de la directive PubkeyAuthentication.
+                    name: pubkey_authentication
+                    var_name: ssh_hardening_pubkey_authentication
+                -   allowed: true ou false.
+                    default: false
+                    description: Valeur de la directive X11Forwarding.
+                    name: x11_forwarding
+                    var_name: ssh_hardening_x11_forwarding
+                -   allowed: Entier de 1 à 10.
+                    default: 3
+                    description: Valeur de la directive MaxAuthTries.
+                    name: max_auth_tries
+                    var_name: ssh_hardening_max_auth_tries
+                -   allowed: Liste de noms de groupes système.
+                    default: []
+                    description: Valeur de la directive AllowGroups ; vide désactive
+                        la directive.
+                    name: allow_groups
+                    var_name: ssh_hardening_allow_groups
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Durcissement OpenSSH : connexion root, authentification
+                    par mot de passe, limites.'
+                tags:
+                - ssh
+                - security
+                - hardening
+            - &id004
+                author: Equipe Plateforme
+                collections:
+                - community.general
+                - ansible.posix
+                example_group: dbservers
+                handlers:
+                - Recharger le pare-feu
+                internal_vars:
+                -   description: backend réellement utilisé, une fois « auto » résolu
+                    name: firewall_effective_backend
+                -   description: zone firewalld dans laquelle les règles sont posées
+                    name: firewall_zone
+                -   description: cible de zone firewalld déduite de la politique par
+                        défaut
+                    name: firewall_zone_target
+                name: firewall
+                options:
+                -   allowed: auto, ufw ou firewalld.
+                    default: auto
+                    description: Backend utilisé ; 'auto' choisit ufw sur Debian et
+                        firewalld sur RedHat.
+                    name: backend
+                    var_name: firewall_backend
+                -   allowed: deny, reject ou allow.
+                    default: deny
+                    description: Action appliquée au trafic entrant non explicitement
+                        autorisé.
+                    name: default_incoming_policy
+                    var_name: firewall_default_incoming_policy
+                -   allowed: allow, deny ou reject.
+                    default: allow
+                    description: Action appliquée au trafic sortant non explicitement
+                        autorisé.
+                    name: default_outgoing_policy
+                    var_name: firewall_default_outgoing_policy
+                -   allowed: Liste d'entiers de 1 à 65535.
+                    default:
+                    - 22
+                    - 80
+                    - 443
+                    description: Ports TCP ouverts en entrée.
+                    name: allowed_tcp_ports
+                    var_name: firewall_allowed_tcp_ports
+                -   allowed: Liste d'entiers de 1 à 65535.
+                    default: []
+                    description: Ports UDP ouverts en entrée.
+                    name: allowed_udp_ports
+                    var_name: firewall_allowed_udp_ports
+                -   allowed: true ou false.
+                    default: true
+                    description: Active et démarre le service de pare-feu.
+                    name: enabled
+                    var_name: firewall_enabled
+                -   allowed: off, low, medium, high ou full.
+                    default: low
+                    description: Verbosité des journaux du pare-feu.
+                    name: log_level
+                    var_name: firewall_log_level
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Pare-feu local : ufw (Debian) ou firewalld (RedHat), politique
+                    par défaut et ports ouverts.'
+                tags:
+                - firewall
+                - security
+            - &id005
+                author: Equipe Plateforme
+                collections:
+                - community.postgresql
+                example_group: dbservers
+                handlers:
+                - Recharger PostgreSQL
+                - Redémarrer PostgreSQL
+                internal_vars:
+                -   description: répertoire de postgresql.conf et pg_hba.conf, selon
+                        la famille d'OS
+                    name: postgresql_config_dir
+                -   description: paramètres appliqués au serveur, construits depuis
+                        les options
+                    name: postgresql_settings
+                -   description: rôles disposant d'une variable de mot de passe renseignée
+                    name: postgresql_users_with_password
+                name: postgresql
+                options:
+                -   allowed: Numéro de version majeure, par exemple '15' ou '16'.
+                    default: '16'
+                    description: Version majeure installée depuis les dépôts de la
+                        distribution.
+                    name: version
+                    var_name: postgresql_version
+                -   allowed: '''localhost'', ''*'' ou une liste d''adresses séparées
+                        par des virgules.'
+                    default: localhost
+                    description: Valeur de listen_addresses dans postgresql.conf.
+                    name: listen_addresses
+                    var_name: postgresql_listen_addresses
+                -   allowed: Entier de 1 à 65535.
+                    default: 5432
+                    description: Port TCP du serveur PostgreSQL.
+                    name: port
+                    var_name: postgresql_port
+                -   allowed: Liste de dictionnaires (name, owner, encoding).
+                    default: []
+                    description: Bases créées et maintenues par le rôle.
+                    name: databases
+                    var_name: postgresql_databases
+                -   allowed: Liste de dictionnaires (name, password_var, privileges).
+                    default: []
+                    description: Rôles de connexion créés et maintenus par le rôle.
+                    name: db_users
+                    var_name: postgresql_db_users
+                -   allowed: Liste de chaînes à cinq champs « type base utilisateur
+                        adresse méthode », par exemple 'host all all 10.0.0.0/8 scram-sha-256'.
+                    default: []
+                    description: Lignes ajoutées à pg_hba.conf en plus des règles
+                        locales par défaut.
+                    name: hba_entries
+                    var_name: postgresql_hba_entries
+                -   allowed: Entier positif.
+                    default: 100
+                    description: Valeur de max_connections dans postgresql.conf.
+                    name: max_connections
+                    var_name: postgresql_max_connections
+                os_families: []
+                platforms:
+                - Debian
+                - Ubuntu
+                summary: 'Serveur PostgreSQL : installation, écoute réseau, bases,
+                    rôles et règles pg_hba.'
+                tags:
+                - postgresql
+                - database
+            variables: []
+        host_count: 1
+        hosts:
+        -   ansible_host: 10.0.1.21
+            ansible_port: null
+            ansible_user: null
+            name: db-dev-01
+            variables: []
+            vars: {}
+        name: dev
+        production: false
+        vars_all: []
+        vault_secrets:
+        -   description: Exemple de secret. Remplacez-le par les vôtres, un par ligne,
+                chacun précédé d'un commentaire.
+            name: vault_example_secret
+            placeholder: CHANGEZ-MOI
+    -   domain: example.net
+        group_vars:
+            dbservers: []
+        groups:
+        -   description: Serveurs de base de donnees, hors cluster
+            hosts:
+            -   ansible_host: 10.0.2.21
+                ansible_port: null
+                ansible_user: null
+                name: db-prod-01
+                variables: []
+                vars: {}
+            name: dbservers
+            role_names:
+            - common
+            - users
+            - ssh_hardening
+            - firewall
+            - postgresql
+            roles:
+            - *id001
+            - *id002
+            - *id003
+            - *id004
+            - *id005
+            variables: []
+        host_count: 1
+        hosts:
+        -   ansible_host: 10.0.2.21
+            ansible_port: null
+            ansible_user: null
+            name: db-prod-01
+            variables: []
+            vars: {}
+        name: prod
+        production: true
+        vars_all: []
+        vault_secrets:
+        -   description: Exemple de secret. Remplacez-le par les vôtres, un par ligne,
+                chacun précédé d'un commentaire.
+            name: vault_example_secret
+            placeholder: CHANGEZ-MOI
+    groups:
+    -   description: Serveurs de base de donnees, hors cluster
+        name: dbservers
+        role_names:
+        - common
+        - users
+        - ssh_hardening
+        - firewall
+        - postgresql
+        roles:
+        - *id001
+        - *id002
+        - *id003
+        - *id004
+        - *id005
+        variables: []
+    options:
+        use_vault: true
+        write_ci: false
+        write_lint_config: true
+    os_family: debian
+    python_interpreter: auto_silent
+    remote_user: deploy
+    role_overrides: []
+    role_slots:
+        common:
+        - *id001
+        docker: []
+        firewall:
+        - *id004
+        nginx: []
+        postgresql:
+        - *id005
+        ssh_hardening:
+        - *id003
+        users:
+        - *id002
+    roles:
+    - *id001
+    - *id002
+    - *id003
+    - *id004
+    - *id005
+    ssh_port: 22
+    tree: 'boutique/
+
+        ├── group_vars/
+
+        │   ├── all.yml
+
+        │   └── dbservers.yml
+
+        ├── inventories/
+
+        │   ├── dev/
+
+        │   │   ├── group_vars/
+
+        │   │   │   ├── all/
+
+        │   │   │   │   ├── main.yml
+
+        │   │   │   │   └── vault.yml.example
+
+        │   │   │   └── dbservers.yml
+
+        │   │   ├── host_vars/
+
+        │   │   │   └── db-dev-01.yml
+
+        │   │   └── hosts.yml
+
+        │   └── prod/
+
+        │       ├── group_vars/
+
+        │       │   ├── all/
+
+        │       │   │   ├── main.yml
+
+        │       │   │   └── vault.yml.example
+
+        │       │   └── dbservers.yml
+
+        │       ├── host_vars/
+
+        │       │   └── db-prod-01.yml
+
+        │       └── hosts.yml
+
+        ├── playbooks/
+
+        │   ├── dbservers.yml
+
+        │   ├── ping.yml
+
+        │   └── site.yml
+
+        ├── roles/
+
+        │   ├── common/
+
+        │   │   ├── defaults/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── handlers/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── meta/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── tasks/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── templates/
+
+        │   │   │   └── motd.j2
+
+        │   │   ├── vars/
+
+        │   │   │   └── main.yml
+
+        │   │   └── README.md
+
+        │   ├── firewall/
+
+        │   │   ├── defaults/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── handlers/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── meta/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── tasks/
+
+        │   │   │   ├── firewalld.yml
+
+        │   │   │   ├── main.yml
+
+        │   │   │   └── ufw.yml
+
+        │   │   ├── vars/
+
+        │   │   │   └── main.yml
+
+        │   │   └── README.md
+
+        │   ├── postgresql/
+
+        │   │   ├── defaults/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── handlers/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── meta/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── tasks/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── vars/
+
+        │   │   │   └── main.yml
+
+        │   │   └── README.md
+
+        │   ├── ssh_hardening/
+
+        │   │   ├── defaults/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── handlers/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── meta/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── tasks/
+
+        │   │   │   └── main.yml
+
+        │   │   ├── templates/
+
+        │   │   │   └── hardening.conf.j2
+
+        │   │   ├── vars/
+
+        │   │   │   └── main.yml
+
+        │   │   └── README.md
+
+        │   └── users/
+
+        │       ├── defaults/
+
+        │       │   └── main.yml
+
+        │       ├── meta/
+
+        │       │   └── main.yml
+
+        │       ├── tasks/
+
+        │       │   └── main.yml
+
+        │       ├── templates/
+
+        │       │   └── sudoers.j2
+
+        │       ├── vars/
+
+        │       │   └── main.yml
+
+        │       └── README.md
+
+        ├── .ansible-lint
+
+        ├── .gitignore
+
+        ├── .yamllint
+
+        ├── README.md
+
+        ├── ansible.cfg
+
+        ├── forge.yml
+
+        └── requirements.yml'
+forge_version: 1
+plugin: ansible
+service:
+    description: Boutique en ligne, deployee sur Kubernetes et administree par Ansible
+    environments:
+    -   domain: null
+        name: dev
+        production: false
+    -   domain: example.net
+        name: prod
+        production: true
+    labels:
+        app.kubernetes.io/part-of: commerce
+        tier: frontend
+    name: boutique
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/ansible/template
+

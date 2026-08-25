@@ -45,11 +45,19 @@ mettre a jour la section « Etat courant », committer, s'arreter.
         `forge_check_spec`, appele avant tout rendu ; R3 -> `tree.py` reste au
         plugin, tenu a jour par un test obligatoire dans chaque domaine.
         R1, R4, R5, R6, R7 enterines et documentes.
-- [ ] **Phase 5 — Valeur inter-domaines**
-  - [ ] Verifications de coherence (namespaces Helm vs envs, groupes Ansible vs hosts,
-        nom/labels de service identiques partout) avec messages actionnables.
-  - [ ] `forge update` (copier update par domaine, `--only`) et `forge diff`.
-  - [ ] Tests des deux, dont une mise a jour apres modification deliberee d'un gabarit.
+- [x] **Phase 5 — Valeur inter-domaines** (2026-08-25)
+  - [x] Verifications de coherence, avec messages actionnables. **Un faux positif
+        corrige** : les deux domaines declaraient une facette `hosts` qui ne
+        designait pas la meme chose, et `forge validate` echouait sur une
+        specification parfaitement coherente.
+  - [x] **Vocabulaire partage des facettes** (`FACET_VOCABULARY`) : le nom d'une
+        facette est un espace de noms commun a tous les plugins.
+  - [x] `Projection.environments` porte desormais ce que le domaine **materialise**,
+        et non une recopie de `service.environments` : un environnement deploye
+        par un domaine et ignore par l'autre devient visible.
+  - [x] `forge update --only` et `forge diff` par domaine, testes sur deux domaines.
+  - [x] Specification `deux-domaines.yml` + golden, et test d'integration lancant
+        les **neuf** validateurs reels des deux chaines d'outils.
 - [ ] **Phase 6 — Finition**
   - [ ] Revue critique : code mort, duplication, cas d'erreur.
   - [ ] README (architecture, guide d'ecriture de plugin, exemples) + section migration.
@@ -59,8 +67,14 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 4 terminees, revue d'interface comprise. **245 tests
-verts** sur un depot propre.
+**Etat** : phases 0 a 5 terminees. **260 tests verts** sur un depot propre.
+
+La promesse du projet est desormais demontree de bout en bout : une seule
+specification `tests/specs/deux-domaines.yml` produit un projet Ansible **et**
+un chart Helm, et les **neuf** validateurs externes des deux chaines d'outils
+passent (`ansible-playbook --syntax-check` par environnement, `ansible-lint`,
+`helm lint`, `helm template` et `kubeconform -strict` par environnement), sans
+que le coeur sache ce qu'est un role ou un chart.
 
 Les deux domaines sont livres et enregistres (`BUILTIN_PLUGINS`) : `forge new`,
 `forge generate`, `forge validate`, `forge diff` et `forge catalog <domaine>`
@@ -140,8 +154,28 @@ pas le rouvrir sans raison nouvelle.
 | R6 | **`DomainInfo.outdir` n'a jamais servi** : les deux domaines emploient le defaut (`ansible/`, `helm/`). | **Garder** : le champ coute une ligne et un domaine tiers en aura besoin (`terraform/environments/` par exemple). |
 | R7 | **L'entretien demande deux fois son avis a l'utilisateur** : le coeur demande quels domaines generer, puis le plugin peut encore decliner en retournant `None`. Ansible s'en sert (aucun groupe nomme), Helm aussi (aucun composant). | **Garder**, mais le dire dans le hookspec : le `None` du plugin ne signifie pas « l'utilisateur refuse le domaine », il signifie « il n'y a rien a generer ». |
 
-**Prochaine action** : demarrer la **phase 5 — valeur inter-domaines** dans une
-session neuve. Points d'entree : `MIGRATION.md` §4 (classement par artefact) et
+**Prochaine action** : demarrer la **phase 6 — finition** dans une session
+neuve : revue critique, README complet, `examples/`, suppression de `_legacy/`.
+
+Ce que la phase 5 a etabli :
+- **Deux domaines qui se rencontrent revelent ce qu'un seul ne peut pas.** Le
+  faux positif sur `hosts` etait invisible tant qu'un seul domaine existait, et
+  DESIGN.md proposait litteralement les deux noms qui entraient en collision.
+- Le **vocabulaire des facettes** est un espace de noms partage : l'ajouter a la
+  documentation ne suffit pas, le coeur ne compare desormais que les facettes
+  qui y figurent. Une facette hors vocabulaire est sans danger, mais sans effet.
+- La comparaison de projections rend un constat qu'aucun domaine ne peut faire
+  seul : « l'environnement 'prod' est materialise par helm mais pas par
+  ansible ». C'est un avertissement, pas une erreur — un service uniquement
+  conteneurise est legitime ; ce qui ne l'est pas, c'est que personne ne le dise.
+
+Rappels pour la phase 6 :
+- Poser le tag `v1.0.0` a la fin de la phase 6 (`v0.4.0` marque la phase 5).
+- Les ecarts de parite 12 a 15 (mentions periemees de `ansible-forge` et
+  `helm-forge` dans les README generes) doivent etre leves **d'un bloc**, en
+  re-benissant les instantanes dans le meme commit — c'est le bon moment,
+  puisque `_legacy/` disparait et que la parite cesse alors de servir.
+- `tests/specs/deux-domaines.yml` est le candidat naturel pour `examples/`. Points d'entree : `MIGRATION.md` §4 (classement par artefact) et
 §7 (etat du portage Ansible, dont les ecarts a ne pas reproduire) ; `DESIGN.md`
 §3 (section `helm:`) et §8 Q6.
 
@@ -180,3 +214,6 @@ Rappels pour la phase 5 :
   familles de ressources creees ; 5 defauts trouves par la complementation),
   puis revue d'interface arbitree : hook `forge_check_spec` ajoute, `tree.py`
   laisse au plugin sous test obligatoire. 245 tests.
+- Session 5 (2026-08-25) : phase 5 (controles inter-domaines reellement
+  exerces ; faux positif de facette corrige, vocabulaire partage introduit,
+  specification a deux domaines et ses neuf validateurs reels). 260 tests.

@@ -49,11 +49,24 @@ def forge_answers(spec: Any) -> dict[str, Any]:
 def forge_projection(spec: Any) -> Projection:
     """Ce que le domaine Ansible affirme produire.
 
-    La facette `hosts` est declaree parce qu'un autre domaine peut parler des
-    memes machines (les hotes d'Ingress cote Helm, par exemple) : le coeur
-    comparera alors les deux declarations sans rien savoir d'Ansible.
+    `environments` ne recopie pas `service.environments` : Ansible y declare les
+    environnements pour lesquels il a **reellement** des machines. Un
+    environnement sans hote produit bien un inventaire, mais vide : le signaler
+    est le genre de constat qu'aucun domaine ne peut faire seul, et que la
+    comparaison de projections rend visible.
+
+    La facette est nommee `inventory_hosts`, et non `hosts` : le vocabulaire des
+    facettes est un espace de noms partage entre domaines (cf.
+    `forge.validate.consistency.FACET_VOCABULARY`). Helm declare des hotes lui
+    aussi, mais ce sont des noms de domaine d'Ingress : les confondre produisait
+    un faux positif sur toute specification a deux domaines.
     """
     ansible: AnsibleSpec = spec.ansible
+    materialises = tuple(
+        env.name
+        for env in spec.service.environments
+        if any(hotes for hotes in ansible.hosts.get(env.name, {}).values())
+    )
     hotes = sorted(
         {
             hote.name
@@ -64,10 +77,10 @@ def forge_projection(spec: Any) -> Projection:
     )
     return Projection(
         service_name=spec.service.name,
-        environments=tuple(env.name for env in spec.service.environments),
+        environments=materialises,
         labels=dict(spec.service.labels),
         facets={
-            "hosts": tuple(hotes),
+            "inventory_hosts": tuple(hotes),
             "groups": tuple(groupe.name for groupe in ansible.groups),
         },
     )

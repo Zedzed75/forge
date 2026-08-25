@@ -63,10 +63,14 @@ def forge_check_spec(spec: Any) -> list[Issue]:
 def forge_projection(spec: Any) -> Projection:
     """Ce que le domaine Helm affirme produire.
 
-    Deux facettes sont declarees parce qu'un autre domaine peut parler des memes
-    choses : `hosts` — les hotes d'Ingress, qu'Ansible connait aussi par ses
-    machines — et `namespaces`, qu'un futur domaine d'infrastructure pourrait
-    provisionner. Le coeur les comparera sans rien savoir de Helm.
+    Les noms de facette appartiennent a un **vocabulaire partage** entre
+    domaines (cf. `forge.validate.consistency.FACET_VOCABULARY`) : `ingress_hosts`
+    designe les noms de domaine par lesquels le service est joignable de
+    l'exterieur, et non les machines d'un inventaire — Ansible declare
+    `inventory_hosts`, ce qui n'est pas la meme chose. Les avoir tous deux
+    nommes `hosts` produisait un faux positif sur toute specification a deux
+    domaines : c'est le premier defaut qu'a revele la rencontre de deux domaines
+    reels.
     """
     projection = answers_module.build(spec)
     hotes = sorted(
@@ -82,7 +86,7 @@ def forge_projection(spec: Any) -> Projection:
         service_name=spec.service.name,
         environments=tuple(env.name for env in spec.service.environments),
         labels=dict(spec.service.labels),
-        facets={"hosts": tuple(hotes), "namespaces": tuple(namespaces)},
+        facets={"ingress_hosts": tuple(hotes), "namespaces": tuple(namespaces)},
     )
 
 

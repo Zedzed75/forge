@@ -1,0 +1,23 @@
+---
+# ---------------------------------------------------------------------------
+# inventories/prod/group_vars/all.yml — variables de l'environnement « prod »
+# ---------------------------------------------------------------------------
+# Ces valeurs s'appliquent à toutes les machines de l'environnement « prod »
+# et surchargent group_vars/all.yml et group_vars/<groupe>.yml.
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Identité de l'environnement
+# ------------------------------------------------------------
+# Nom de l'environnement courant, utilisable dans les templates et les conditions.
+# Valeurs admises : dev, prod.
+env_name: prod
+
+# Surcharges propres à cet environnement
+# ------------------------------------------------------------
+# Aucune surcharge définie pour cet environnement.
+# Exemple : pour ouvrir un port supplémentaire uniquement en « prod »,
+# ajoutez ici la variable du rôle concerné, commentée comme dans
+# roles/<rôle>/defaults/main.yml.

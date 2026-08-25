@@ -1,0 +1,36 @@
+---
+# ---------------------------------------------------------------------------
+# roles/firewall/vars/main.yml — variables internes du rôle firewall
+# ---------------------------------------------------------------------------
+# Résolution du backend « auto » et traduction de la politique par défaut
+# vers la cible de zone attendue par firewalld.
+#
+# Fichier généré par forge à partir de forge.yml.
+# Régénérez le projet plutôt que de modifier ce fichier à la main.
+# ---------------------------------------------------------------------------
+
+# Backend choisi lorsque firewall_backend vaut « auto », selon la famille d'OS.
+# Valeurs admises : dictionnaire indexé par ansible_facts['os_family'].
+firewall_default_backend_map:
+  Debian: ufw
+  RedHat: firewalld
+
+# Cible de zone firewalld correspondant à chaque politique par défaut.
+# Valeurs admises : dictionnaire indexé par la valeur de
+# firewall_default_incoming_policy.
+firewall_zone_target_map:
+  deny: DROP
+  reject: '%%REJECT%%'
+  allow: ACCEPT
+
+# Zone firewalld dans laquelle les règles sont posées.
+# Valeurs admises : nom d'une zone firewalld existante.
+firewall_zone: public
+
+# Backend de pare-feu réellement utilisé sur la machine courante.
+# Valeurs admises : calculée automatiquement ; ne pas surcharger.
+firewall_effective_backend: "{{ firewall_default_backend_map[ansible_facts['os_family']] if firewall_backend == 'auto' else firewall_backend }}"
+
+# Cible de zone firewalld déduite de la politique par défaut.
+# Valeurs admises : calculée automatiquement ; ne pas surcharger.
+firewall_zone_target: "{{ firewall_zone_target_map[firewall_default_incoming_policy] }}"

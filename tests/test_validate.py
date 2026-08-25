@@ -205,12 +205,21 @@ def test_un_nom_de_service_divergent_est_une_erreur():
     assert "nom de service" in issues[0].message
 
 
-def test_des_environnements_divergents_sont_une_erreur():
+def test_un_environnement_materialise_par_un_seul_domaine_est_signale():
+    """C'est le constat que seule la comparaison de projections peut produire.
+
+    Un avertissement, pas une erreur : deployer en production sans machine de
+    configuration peut etre parfaitement voulu (un service uniquement
+    conteneurise). Ce qui ne doit pas arriver, c'est que personne ne le dise.
+    """
     issues = compare_projections(
         {"a": _projection(), "b": _projection(environments=("dev",))}
     )
-    assert has_errors(issues)
+    assert not has_errors(issues)
+    assert [issue.level for issue in issues] == ["warning"]
     assert "prod" in issues[0].message
+    assert "materialise par a" in issues[0].message
+    assert issues[0].hint
 
 
 def test_un_ordre_d_environnement_different_est_un_avertissement():
@@ -236,15 +245,43 @@ def test_une_facette_declaree_par_un_seul_domaine_n_est_pas_comparee():
     assert issues == []
 
 
-def test_une_facette_declaree_par_deux_domaines_doit_concorder():
+def test_une_facette_du_vocabulaire_partage_doit_concorder():
     issues = compare_projections(
         {
-            "a": _projection(facets={"hosts": ("web-01", "web-02")}),
-            "b": _projection(facets={"hosts": ("web-01",)}),
+            "a": _projection(facets={"inventory_hosts": ("web-01", "web-02")}),
+            "b": _projection(facets={"inventory_hosts": ("web-01",)}),
         }
     )
     assert has_errors(issues)
     assert "web-02" in issues[0].message
+
+
+def test_une_facette_hors_vocabulaire_n_est_pas_comparee():
+    """Le nom d'une facette est un espace de noms **partage** entre domaines.
+
+    Deux domaines qui emploient le meme nom affirment parler de la meme chose.
+    Sans cette regle, la collision est silencieuse : mesure en phase 5, Ansible
+    declarait `hosts` pour ses machines et Helm pour ses hotes d'Ingress, et
+    `forge validate` echouait sur une specification parfaitement coherente.
+    """
+    issues = compare_projections(
+        {
+            "a": _projection(facets={"maison": ("x",)}),
+            "b": _projection(facets={"maison": ("y",)}),
+        }
+    )
+    assert issues == []
+
+
+def test_le_vocabulaire_distingue_les_deux_sortes_d_hotes():
+    """Machines d'inventaire et hotes d'Ingress ne sont pas la meme chose."""
+    from forge.validate.consistency import FACET_VOCABULARY
+
+    assert "inventory_hosts" in FACET_VOCABULARY
+    assert "ingress_hosts" in FACET_VOCABULARY
+    assert "hosts" not in FACET_VOCABULARY, (
+        "un nom aussi vague invite precisement a la collision qu'on vient de corriger"
+    )
 
 
 def test_le_format_des_constats_place_les_erreurs_avant_les_avertissements():

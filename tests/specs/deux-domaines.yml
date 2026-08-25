@@ -1,0 +1,78 @@
+---
+# Premiere specification qui demande les DEUX domaines a la fois. C'est elle qui
+# donne son sens a la promesse du projet : une seule description du service, et
+# deux projets d'infrastructure coherents entre eux.
+#
+# Elle est aussi le seul cas ou les controles inter-domaines du coeur ont deux
+# projections a comparer : nom de service, labels, environnements materialises,
+# et les facettes du vocabulaire partage.
+forge_version: 1
+
+service:
+  name: boutique
+  description: "Boutique en ligne, deployee sur Kubernetes et administree par Ansible"
+  owner: "Equipe Plateforme"
+  owner_email: plateforme@example.net
+  labels:
+    app.kubernetes.io/part-of: commerce
+    tier: frontend
+  environments:
+    - name: dev
+    - name: prod
+      domain: example.net
+      production: true
+
+# ---------------------------------------------------------------------------
+# Les machines : ce qui heberge les dependances hors du cluster.
+# ---------------------------------------------------------------------------
+ansible:
+  os_family: debian
+  remote_user: deploy
+  ssh_port: 22
+  groups:
+    - name: dbservers
+      description: "Serveurs de base de donnees, hors cluster"
+      roles:
+        - common
+        - users
+        - ssh_hardening
+        - firewall
+        - postgresql
+  hosts:
+    dev:
+      dbservers:
+        - name: db-dev-01
+          ansible_host: 10.0.1.21
+    prod:
+      dbservers:
+        - name: db-prod-01
+          ansible_host: 10.0.2.21
+
+# ---------------------------------------------------------------------------
+# Le chart : ce qui tourne dans le cluster.
+# ---------------------------------------------------------------------------
+helm:
+  chart_version: 1.0.0
+  app_version: "2026.08.1"
+  kubernetes:
+    version: "1.34"
+  namespace_strategy: per_env
+  image:
+    registry: ghcr.io
+    repository: acme/boutique
+    strategy: appVersion
+  components:
+    - name: api
+      kind: deployment
+      addons:
+        - service
+        - ingress
+        - configmap
+        - serviceaccount
+      container_port: 8080
+      ingress:
+        base_domain: example.net
+      config:
+        keys:
+          - LOG_LEVEL
+          - DATABASE_HOST

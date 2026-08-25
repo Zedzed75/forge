@@ -1,0 +1,96 @@
+{{- /*
+===============================================================================
+Ingress du composant « api »
+===============================================================================
+Fichier généré par forge.
+
+Publie api à l'extérieur du cluster : l'Ingress controller reçoit le
+trafic HTTP(S) pour un hôte, puis le relaie vers le Service du composant.
+
+L'hôte n'est PAS calculé ici. Il est posé par values-<environnement>.yaml, qui
+le dérive du domaine de l'environnement ; ce gabarit ne fait que le lire. Tant
+qu'il reste vide, l'objet entier est omis : une règle sans hôte écrirait un
+« host: null » que le schéma refuse, et un Ingress sans la moindre règle
+n'acheminerait rien.
+
+Le backend désigne le Service par le NOM de son port, jamais par un numéro :
+changer le port dans les values suffit alors, sans avoir à le répercuter ici.
+Ce Service existe toujours : la spécification refuse l'addon ingress sans
+l'addon service. Reste le cas où il est désactivé à l'exécution, testé ci-après.
+===============================================================================
+*/}}
+{{- if and .Values.api.enabled .Values.api.service.enabled .Values.api.ingress.enabled .Values.api.ingress.host }}
+{{- /*
+  Raccourcis locaux. $host est lu une seule fois puis réutilisé partout : la
+  règle et la liste tls[].hosts doivent porter littéralement le même hôte, sinon
+  le certificat ne couvre pas l'hôte servi. Aucun validateur ne voit cet écart —
+  il ne se manifeste qu'à l'exécution, par une erreur de certificat.
+*/}}
+{{- $ingress := .Values.api.ingress }}
+{{- $host := $ingress.host }}
+{{- /*
+  Les annotations sont recopiées dans un dict local avant d'être complétées :
+  écrire dans .Values contaminerait tous les gabarits rendus ensuite.
+*/}}
+{{- $annotations := merge (dict) (default (dict) $ingress.annotations) }}
+{{- /*
+  Annotation cert-manager déduite de tls.issuer, et seulement si l'utilisateur
+  n'a pas déjà posé la sienne : c'est elle qui déclenche l'émission du
+  certificat référencé plus bas par secretName.
+*/}}
+{{- if and $ingress.tls.enabled $ingress.tls.issuer (not (hasKey $annotations "cert-manager.io/cluster-issuer")) }}
+{{- $_ := set $annotations "cert-manager.io/cluster-issuer" $ingress.tls.issuer }}
+{{- end }}
+{{- /*
+  ingressClassName et l'annotation obsolète kubernetes.io/ingress.class ne
+  doivent jamais coexister : les controllers en tirent des conclusions
+  contradictoires. Le champ moderne gagne, l'annotation est retirée.
+*/}}
+{{- if $ingress.className }}
+{{- $annotations = omit $annotations "kubernetes.io/ingress.class" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "boutique.api.fullname" . }}
+  labels:
+    {{- include "boutique.api.labels" . | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $ingress.className }}
+  {{- /* Controller chargé de servir cette règle (nginx, traefik...). */}}
+  ingressClassName: {{ $ingress.className | quote }}
+  {{- end }}
+  {{- if $ingress.tls.enabled }}
+  {{- /*
+    Bloc tls entièrement absent quand la terminaison TLS est désactivée : un
+    « tls: [] » serait refusé. secretName vide retombe sur <ressource>-tls.
+  */}}
+  tls:
+    - hosts:
+        - {{ $host | quote }}
+      secretName: {{ default (printf "%s-tls" (include "boutique.api.fullname" .)) $ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          {{- /*
+            pathType est obligatoire sur chaque chemin. Son oubli est le refus
+            le plus fréquent d'une validation stricte de schéma.
+          */}}
+          - path: {{ $ingress.path | quote }}
+            pathType: {{ $ingress.pathType | quote }}
+            backend:
+              service:
+                name: {{ include "boutique.api.fullname" . }}
+                {{- /*
+                  « port » accepte exactement l'une des deux formes, number OU
+                  name — jamais les deux. Ce chart s'en tient au nom.
+                */}}
+                port:
+                  name: {{ .Values.api.portName | quote }}
+{{- end }}
