@@ -31,7 +31,10 @@ ssh_hardening_config_file: /etc/ssh/sshd_config
 ssh_hardening_dropin_dir: /etc/ssh/sshd_config.d
 
 [[ var_doc(
-     "Nom du fichier déposé par ce rôle. Le préfixe numérique fixe l'ordre de lecture.",
+     "Nom du fichier déposé par ce rôle. Le préfixe numérique fixe l'ordre de "
+     "lecture. Le nom porte celui de l'outil d'origine, et c'est délibéré : le "
+     "changer laisserait l'ancien fichier en place sur les machines déjà gérées, "
+     "et deux drop-in contradictoires cohabiteraient sans que rien ne le signale.",
      "Nom de fichier se terminant par .conf.") ]]
 ssh_hardening_dropin_file: 99-ansible-forge.conf
 

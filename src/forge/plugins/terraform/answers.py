@@ -14,6 +14,7 @@ from typing import Any
 from forge.plugins.terraform import derive, derive_env, tree
 from forge.plugins.terraform.constants import MAX_NAMESPACE_LENGTH
 from forge.plugins.terraform.enums import BackendKind, NamespaceStrategy, ResourceFamily
+from forge.plugins_api import checks
 from forge.plugins_api.types import Issue
 
 
@@ -70,34 +71,17 @@ def cross_check(spec: Any) -> list[Issue]:
         return []
 
     issues: list[Issue] = []
-    issues.extend(_check_environment_keys(spec, terraform))
+    issues.extend(
+        checks.unknown_environments(
+            spec, "terraform", {"terraform.environments": terraform.environments}
+        )
+    )
     issues.extend(_check_custom_namespaces(spec, terraform))
     issues.extend(_check_namespace_lengths(spec, terraform))
     issues.extend(_check_orphan_overrides(spec, terraform))
     issues.extend(_check_state_safety(spec, terraform))
     issues.extend(_check_cluster_context(spec, terraform))
     return issues
-
-
-def _check_environment_keys(spec: Any, terraform: Any) -> list[Issue]:
-    """Refuse une cle de `terraform.environments` absente de `service.environments`."""
-    connus = {env.name for env in spec.service.environments}
-    declares = ", ".join(env.name for env in spec.service.environments)
-    return [
-        Issue(
-            level="error",
-            message=(
-                f"terraform.environments cite l'environnement '{nom}', absent "
-                f"de service.environments (declares : {declares})."
-            ),
-            hint=(
-                f"Ajoutez un environnement '{nom}' a service.environments, ou "
-                f"corrigez la cle '{nom}' dans terraform.environments."
-            ),
-            domains=("terraform",),
-        )
-        for nom in sorted(set(terraform.environments) - connus)
-    ]
 
 
 def _check_custom_namespaces(spec: Any, terraform: Any) -> list[Issue]:

@@ -36,18 +36,3 @@ def selected(names: list[str] | tuple[str, ...]) -> tuple[Family, ...]:
 def all_alerts() -> tuple[Alert, ...]:
     """Toutes les alertes du catalogue, familles confondues."""
     return tuple(alerte for famille in FAMILIES for alerte in famille.alerts)
-
-
-def thresholds_for(families: tuple[Family, ...]) -> dict[str, Alert]:
-    """Seuils reglables des familles retenues : champ -> alerte qui l'emploie.
-
-    Sert au controle croise, qui signale un seuil regle pour une famille absente
-    de `monitoring.rules` : une valeur soigneusement choisie et silencieusement
-    ignoree est pire qu'une erreur.
-    """
-    return {
-        alerte.threshold_field: alerte
-        for famille in families
-        for alerte in famille.alerts
-        if alerte.threshold_field
-    }

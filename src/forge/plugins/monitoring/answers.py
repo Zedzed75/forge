@@ -17,6 +17,7 @@ from typing import Any
 from forge.plugins.monitoring import derive, render, tree
 from forge.plugins.monitoring.catalog.registry import selected
 from forge.plugins.monitoring.enums import RuleFamily
+from forge.plugins_api import checks
 from forge.plugins_api.types import Issue
 
 DOMAIN_NAME = "monitoring"
@@ -75,33 +76,16 @@ def cross_check(spec: Any) -> list[Issue]:
         return []
 
     issues: list[Issue] = []
-    issues.extend(_check_environment_keys(spec, monitoring))
+    issues.extend(
+        checks.unknown_environments(
+            spec, "monitoring", {"monitoring.environments": monitoring.environments}
+        )
+    )
     issues.extend(_check_targets(spec, monitoring))
     issues.extend(_check_probes(spec, monitoring))
     issues.extend(_check_namespaces(spec, monitoring))
     issues.extend(_check_orphan_thresholds(monitoring))
     return issues
-
-
-def _check_environment_keys(spec: Any, monitoring: Any) -> list[Issue]:
-    """Refuse une cle de `monitoring.environments` absente de `service.environments`."""
-    connus = {env.name for env in spec.service.environments}
-    declares = ", ".join(env.name for env in spec.service.environments)
-    return [
-        Issue(
-            level="error",
-            message=(
-                f"monitoring.environments cite l'environnement '{nom}', absent "
-                f"de service.environments (declares : {declares})."
-            ),
-            hint=(
-                f"Ajoutez un environnement '{nom}' a service.environments, ou "
-                f"corrigez la cle '{nom}' dans monitoring.environments."
-            ),
-            domains=(DOMAIN_NAME,),
-        )
-        for nom in sorted(set(monitoring.environments) - connus)
-    ]
 
 
 def _check_targets(spec: Any, monitoring: Any) -> list[Issue]:

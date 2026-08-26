@@ -4,8 +4,8 @@ Boutique en ligne, deployee sur Kubernetes et administree par Ansible
 
 **Responsable :** Equipe Plateforme
 
-> Ce projet a été généré à partir de `forge.yml`. Pour le régénérer à
-> l'identique : `ansible-forge generate --spec forge.yml`.
+> Ce projet a été généré à partir de `forge.yml`, à la racine du dépôt. Pour
+> le régénérer à l'identique : `forge generate --only ansible`.
 
 ## Prérequis
 
@@ -224,8 +224,15 @@ pour toutes les machines de l'environnement.
 `forge.yml` décrit entièrement ce projet. Modifiez-le puis relancez :
 
 ```bash
-ansible-forge generate --spec forge.yml --output . --force
+forge generate --only ansible --force
 ```
 
 Les fichiers générés portent tous un en-tête le rappelant : vos modifications
 manuelles y seraient perdues.
+
+Pour ne recevoir que les évolutions du gabarit **sans** perdre vos
+modifications, préférez :
+
+```bash
+forge update --only ansible
+```

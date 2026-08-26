@@ -34,15 +34,3 @@ def get_family(name: str) -> ComponentFamily:
         raise SpecValidationError(
             f"Famille de ressources inconnue : '{name}'. Familles disponibles : {connues}."
         ) from None
-
-
-def families_by_selection(selection: str) -> tuple[ComponentFamily, ...]:
-    """Familles retenues par un mode de selection (`kind`, `addon`, `derive`)."""
-    return tuple(famille for famille in FAMILIES if famille.selection == selection)
-
-
-def sort_families(names: list[str] | tuple[str, ...]) -> list[str]:
-    """Trie des noms de famille dans l'ordre du catalogue, doublons retires."""
-    ordre = family_names()
-    connues = [nom for nom in dict.fromkeys(names) if nom in ordre]
-    return sorted(connues, key=ordre.index)

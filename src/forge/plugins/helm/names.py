@@ -100,11 +100,6 @@ def is_valid_email(value: str) -> bool:
     return bool(EMAIL_RE.match(value))
 
 
-def is_valid_quantity(value: str) -> bool:
-    """Indique si `value` est une quantite Kubernetes acceptable."""
-    return bool(QUANTITY_RE.match(value))
-
-
 # --------------------------------------------------------------------------
 # Types annotes exportes
 # --------------------------------------------------------------------------

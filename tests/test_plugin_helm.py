@@ -1,10 +1,14 @@
 """Tests du plugin Helm : modele, controles croises, validateurs, catalogue.
 
-La parite avec le generateur d'origine est couverte par
-`tests/test_parite_helm.py` ; les neuf familles creees en phase 4 le sont par
-`tests/golden/helm-complet/` et par les validateurs reels. Ce module couvre ce
-que ni l'un ni l'autre ne dit : les refus, les normalisations imposees, et les
-garde-fous que seuls le modele ou le controle croise peuvent porter.
+La parite avec le generateur d'origine a servi pendant tout le portage, puis a
+ete retiree en phase 10 avec `_legacy/`. Elle avait deja cesse de couvrir
+l'essentiel : les neuf familles de ressources creees en phase 4 n'existaient pas
+dans l'outil d'origine, et ce sont `tests/golden/helm-complet/` et les
+validateurs reels qui les tiennent.
+
+Ce module couvre ce que ni l'un ni l'autre ne dit : les refus, les
+normalisations imposees, et les garde-fous que seuls le modele ou le controle
+croise peuvent porter.
 """
 
 from __future__ import annotations

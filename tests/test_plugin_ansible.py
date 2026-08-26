@@ -1,8 +1,13 @@
 """Tests du plugin Ansible : modele, controles croises, validateurs, entretien.
 
-La parite avec le generateur d'origine est couverte par
-`tests/test_parite_ansible.py` ; ce module couvre ce que la parite ne dit pas —
-les refus, les messages, et les garde-fous propres au portage.
+La parite avec le generateur d'origine a servi pendant tout le portage, puis a
+ete retiree en phase 10 avec `_legacy/` : elle mesurait une ressemblance a un
+outil qui n'existe plus, et le projet genere l'a depuis depassee — il passe
+`ansible-lint` en profil production, ce que la suite d'origine n'avait jamais
+verifie. La non-regression est desormais tenue par `tests/golden/` seul.
+
+Ce module couvre ce que ni l'un ni l'autre ne dit : les refus, les messages, et
+les garde-fous propres au domaine.
 """
 
 from __future__ import annotations

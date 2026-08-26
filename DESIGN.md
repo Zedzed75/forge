@@ -323,6 +323,40 @@ terraform:
     tflint_config: true
 ```
 
+```yaml
+# ---------------------------------------------------------------------------
+# Domaine monitoring (phase 9)
+# ---------------------------------------------------------------------------
+# Domaine autonome : il ne lit aucune autre section. Ce qu'il surveille est
+# déclaré ici, et la cohérence avec les autres domaines passe par les facettes.
+monitoring:
+  scrape:
+    interval: 30s                 # le délai doit rester sous l'intervalle
+    timeout: 10s
+    metrics_path: /metrics
+  metrics:                        # noms propres à la bibliothèque cliente
+    requests_total: http_requests_total
+    request_duration_seconds: http_request_duration_seconds
+    status_label: status
+  rules:                          # familles retenues ; le reste n'est pas généré
+    - availability
+    - error_rate
+    - probe
+  environments:
+    prod:
+      namespace: boutique-prod
+      targets: ["api-1.example.net:9090"]
+      probe_urls: ["https://boutique.example.net"]
+      thresholds: { error_rate: 0.02, certificate_days: 30 }
+  extras:
+    makefile: true
+    dashboard: true
+```
+
+Une configuration de collecte et un jeu de règles **par environnement** : les
+seuils diffèrent, le namespace observé aussi. Chaque règle d'alerte est livrée
+avec le test unitaire qui prouve qu'elle se déclenche — ce n'est pas une option.
+
 La clé d'état (`key`, `prefix`) n'est **pas** demandée à la spécification : elle
 est dérivée par environnement, pour que deux racines n'écrivent jamais le même
 état. Le domaine Terraform déclare la facette `namespaces`, la même que Helm :
@@ -626,31 +660,50 @@ d'update stables aux projets générés.
 
 ---
 
-## 9. Arborescence prévue du dépôt forge
+## 9. Arborescence du dépôt forge
+
+*Constatée après la phase 10, et non plus prévue.*
 
 ```
 forge/
 ├── CLAUDE.md  PLAN.md  MIGRATION.md  DESIGN.md  README.md
 ├── copier.yml                     # gabarit racine unique (§5.1)
+├── partials/header.jinja          # macros partagées par les gabarits
 ├── pyproject.toml                 # uv, python >=3.11
 ├── .gitattributes                 # * text=auto eol=lf
+├── examples/                      # cinq spécifications, toutes testées
 ├── src/forge/
-│   ├── cli.py  errors.py  jinja_ext.py
+│   ├── cli.py  errors.py  jinja_ext.py  pipeline.py
 │   ├── spec/         io.py  service.py  assembly.py  names.py  types.py
-│   ├── plugins_api/  hookspecs.py  manager.py  types.py
-│   ├── interview/    prompter.py
-│   ├── render/       copier_runner.py
+│   ├── plugins_api/  hookspecs.py  manager.py  types.py  checks.py
+│   ├── interview/    prompter.py  service_flow.py
+│   ├── render/       copier_runner.py  scaffold.py  diff.py
 │   ├── validate/     runner.py  tools.py  wsl.py  consistency.py
 │   └── plugins/
-│       ├── demo/     plugin.py  template/          # tests du cœur uniquement
-│       ├── ansible/  plugin.py  spec.py  catalog/  interview.py  validators.py  template/
-│       └── helm/     plugin.py  spec.py  catalog/  interview.py  validators.py  template/
+│       ├── demo/        plugin.py  template/        # tests du cœur uniquement
+│       ├── ansible/     plugin.py  spec.py  catalog/  interview.py  validators.py  template/
+│       ├── helm/        plugin.py  spec.py  catalog/  interview.py  validators.py  template/
+│       ├── terraform/   plugin.py  spec.py  catalog/  interview.py  validators.py  template/  hcl.py
+│       └── monitoring/  plugin.py  spec.py  catalog/  interview.py  validators.py  template/  render.py
 └── tests/
-    ├── specs/  golden/  parity/
-    ├── conftest.py  scripted_prompter.py
+    ├── specs/  golden/
+    ├── conftest.py  scripted_prompter.py  domaine_isole.py  domaines_factices/
     └── test_*.py
 ```
 
-Limite de 600 lignes par fichier (CLAUDE.md global) : `models/spec.py` (380 l.),
-`component.py` (395 l.) et `planner.py` (382 l.) passent ; leur découpage par
-responsabilité est de toute façon imposé par le portage.
+### Écarts avec ce que ce document prévoyait
+
+| Ajout | Pourquoi |
+| --- | --- |
+| `pipeline.py` | pour que `cli.py` ne porte aucune logique : les opérations sont appelables sans terminal |
+| `interview/service_flow.py`, `render/scaffold.py`, `render/diff.py` | responsabilité unique, et limite de 600 lignes |
+| `plugins_api/checks.py` | quatre domaines réécrivaient le même contrôle « environnement inconnu » ; il ne parle que de `service.environments`, donc il reste agnostique |
+| `plugins/terraform/hcl.py` | `terraform fmt` aligne le `=` de lignes consécutives : un gabarit ne peut pas aligner des clés dont il ignore la longueur, la projection si |
+| `plugins/monitoring/render.py` | une annotation d'alerte et l'annotation attendue par son test unitaire sont calculées ensemble, sans quoi elles divergent |
+| `partials/` à la racine | macros partagées entre gabarits, résolues par le chargeur Jinja de copier |
+
+`tests/parity/` a existé pendant tout le portage puis a été retiré en phase 10,
+avec `_legacy/` (cf. `MIGRATION.md`, section de clôture).
+
+Limite de 600 lignes par fichier (CLAUDE.md global) : le plus gros fichier de
+`src/` en compte 420 ; le plus gros module de test, 468.

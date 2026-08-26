@@ -113,21 +113,37 @@ mettre a jour la section « Etat courant », committer, s'arreter.
         les autres domaines passe par les facettes (`namespaces`,
         `ingress_hosts`), comme prevu depuis la phase 5.
   - [x] Golden + test d'integration lancant promtool. 66 tests ajoutes.
-- [ ] **Phase 10 — Finition**
-  - [ ] Revue critique : code mort, duplication, cas d'erreur.
-  - [ ] README (architecture, guide d'ecriture de plugin, exemples) + section migration.
-  - [ ] `examples/` : plusieurs specs commitees, dont des cas **mono-domaine**.
-  - [ ] Suppression de `_legacy/`.
-  - [ ] Recapitulatif des changements, commit final.
+- [x] **Phase 10 — Finition** (2026-08-26)
+  - [x] Revue critique. Six elements de code mort supprimes apres verification
+        qu'aucun chemin ne les atteignait, dont deux classes d'erreur jamais
+        levees (`ToolMissingError`, `ValidationFailed`) : le coeur signale un
+        outil absent par un **rapport**, pas par une exception, et lever aurait
+        fait perdre le rapport.
+  - [x] Duplication : le controle « environnement inconnu » etait reecrit a
+        l'identique dans quatre domaines. Il vit desormais dans
+        `plugins_api/checks.py`, qui ne parle que de `service.environments` —
+        donc sans ajouter la moindre connaissance de domaine au coeur.
+  - [x] README complet : architecture, guide d'ecriture de plugin (les dix
+        hooks, la marche a suivre, les trois pieges qui ont mordu), provenance.
+  - [x] `examples/` : cinq specifications commitees, dont **quatre cas
+        mono-domaine**, toutes generees par la suite de tests.
+  - [x] Ecarts de parite 12 a 15 leves **d'un bloc**, instantane re-beni dans le
+        meme commit. Deux mentions conservees et expliquees : ce sont des noms de
+        fichiers deposes sur les machines gerees, les renommer laisserait
+        l'ancien en place.
+  - [x] Suppression de `_legacy/`, de `tests/parity/`, de ses deux modules de
+        test et de son harnais.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 7 et 9 terminees ; phase 8 mise de cote sur une branche.
-**531 tests collectes**, tous verts (integration comprise).
+**Etat** : **projet livre**. Phases 0 a 7, 9 et 10 terminees ; phase 8 mise de
+cote sur la branche `phase-8-pipeline`. **515 tests collectes**, tous verts,
+integration comprise.
 
 Quatre domaines livres et valides par leurs outils reels : **Ansible**, **Helm**,
 **Terraform**, **monitoring**. Chacun se genere seul, et c'est le cas d'usage
-normal.
+normal. Les cinq specifications de reference declenchent **31 commandes
+externes** sur de vrais projets rendus.
 
 La promesse du projet : **une seule description du service, et vous choisissez
 ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
@@ -281,9 +297,25 @@ Ce que la phase 9 a etabli :
   l'autre sur la sortie rendue. Les gabarits Helm employaient deja la forme sure
   `c.config["keys"]` sans que ce soit ecrit nulle part.
 
-**Prochaine action** : **phase 10 — finition**. Revue critique, README complet
-(architecture, guide d'ecriture de plugin), levee d'un bloc des ecarts de parite
-12 a 15, suppression de `_legacy/`, tag `v1.0.0`.
+Ce que la phase 10 a etabli :
+- **La parite avait cesse de mesurer ce qui compte.** Elle comparait la sortie a
+  des outils qui n'existent plus, alors que le projet genere les avait depasses
+  des la phase 4 — neuf familles Helm inedites, `ansible-lint` en profil
+  production. La retirer etait la seule facon de ne pas mentir sur ce que la
+  suite verifie.
+- **La revue de code mort a trouve une intention, pas seulement des lignes.**
+  `ToolMissingError` et `ValidationFailed` decrivaient une conception qui n'a pas
+  ete retenue : signaler par exception plutot que par rapport. Les garder aurait
+  laisse croire qu'elles servaient.
+- **Une duplication a quatre exemplaires est une specification implicite.** Le
+  controle « environnement inconnu » etait identique partout parce qu'il ne
+  releve d'aucun domaine : il porte sur `service.environments`, qui est du coeur.
+
+**Prochaine action** : aucune. Le projet est livre, tag `v1.0.0`.
+
+La phase 8 (domaine `pipeline`) reste disponible sur sa branche. Reprendre son
+message de commit avant toute chose : il porte trois defauts trouves puis mis de
+cote, qui ne se redevinent pas.
 
 La phase 8 (pipeline) reste sur sa branche ; elle peut etre reprise apres. Le premier domaine dont
 la sortie **depend des autres sections** de la specification. Le point a cadrer
@@ -318,8 +350,7 @@ Ce que la phase 7 a etabli, et qui sert a la phase 8 :
   helm » n'existe dans le coeur.
 
 Rappels pour la phase 8 :
-- Poser le tag `v0.8.0` a la fin de la phase 9 (`v0.7.0` marque la consolidation
-  du choix des domaines).
+- Poser le tag `v1.0.0` a la fin de la phase 10 (`v0.8.0` marque la phase 9).
   **Correction de numerotation** : le rappel de la phase 6 reservait `v1.0.0`
   a cette phase, a une epoque ou elle etait la derniere. La cible corrigee en
   compte dix : `v1.0.0` revient a la phase 10, et les phases 6 et 7 portent
@@ -415,3 +446,6 @@ Rappels pour la phase 5 :
   Puis phase 9 (plugin monitoring : six familles, huit alertes, chacune livree
   avec le test unitaire qui prouve qu'elle se declenche). Deux defauts trouves
   par promtool et par le garde-fou generique. 531 tests.
+  Puis phase 10 (finition) : revue critique, duplication a quatre exemplaires
+  factorisee, ecarts de parite leves d'un bloc, `_legacy/` et la parite
+  supprimes, README complet. 515 tests. **Projet livre, `v1.0.0`.**
