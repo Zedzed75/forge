@@ -4,10 +4,30 @@ Generateur deterministe de projets d'infrastructure complets et commentes
 (Ansible, Helm, et d'autres domaines ensuite) a partir d'une seule
 specification `forge.yml`.
 
-> **Etat** : en construction. Le coeur (phase 2) est en place ; les plugins
-> Ansible et Helm arrivent aux phases 3 et 4. La documentation complete —
-> architecture, guide d'ecriture de plugin, exemples — est ecrite en phase 6.
-> Voir `PLAN.md` pour l'avancement et `DESIGN.md` pour l'architecture.
+> **Etat** : en construction. Le coeur et les domaines **Ansible** et **Helm**
+> sont livres et valides par leurs outils reels. Les domaines **Terraform**,
+> **pipeline** et **monitoring** prevus par l'architecture restent a ecrire.
+> La documentation complete — architecture, guide d'ecriture de plugin,
+> exemples — arrive en derniere phase. Voir `PLAN.md` pour l'avancement et
+> `DESIGN.md` pour l'architecture.
+
+## Les domaines sont un choix, pas un lot
+
+forge ne produit **que** ce que la specification demande. Trois facons de
+choisir :
+
+| Vous voulez | Vous faites |
+| --- | --- |
+| un seul domaine | n'ecrivez que sa section dans `forge.yml` — une section absente ne genere rien |
+| une execution restreinte | `forge generate --only helm` |
+| decider a la creation | `forge new` demande quels domaines produire |
+
+`forge plugins` dit, pour la specification courante, quels domaines sont
+demandes et lesquels ne le sont pas. `forge generate` annonce ce qu'il va
+produire avant d'ecrire.
+
+Demander deux domaines a la fois est **un** usage possible — forge verifie alors
+qu'ils restent coherents entre eux — pas l'usage normal.
 
 ## Principes
 
@@ -38,7 +58,7 @@ Sous Linux et macOS, remplacez `.venv/Scripts/python.exe` par
 
 | Commande | Role |
 | --- | --- |
-| `forge new` | entretien interactif, ecrit `forge.yml` puis genere |
+| `forge new` | entretien interactif — **demande quels domaines generer** — ecrit `forge.yml` puis genere |
 | `forge generate` | rejoue une specification existante |
 | `forge validate` | validateurs de chaque domaine + coherence inter-domaines |
 | `forge update` | applique les evolutions de gabarit (`copier update`) |

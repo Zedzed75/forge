@@ -58,23 +58,54 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] `forge update --only` et `forge diff` par domaine, testes sur deux domaines.
   - [x] Specification `deux-domaines.yml` + golden, et test d'integration lancant
         les **neuf** validateurs reels des deux chaines d'outils.
-- [ ] **Phase 6 — Finition**
+- [x] **Phase 6 — Le choix des domaines, rendu explicite** (2026-08-25)
+  - [x] `CLAUDE.md` porte l'arborescence cible **complete** du brief (cinq
+        plugins) et la regle « les domaines sont un choix, jamais un lot ».
+  - [x] README : section dediee aux trois facons de choisir.
+  - [x] CLI : `forge generate` annonce ce qu'il va produire avant d'ecrire ;
+        message actionnable quand aucun domaine n'est demande ; `forge plugins`
+        distingue les domaines demandes par la specification des autres.
+  - [x] `tests/test_choix_des_domaines.py` : 11 tests verrouillant les trois
+        facons de choisir, dont un entretien ne retenant qu'un domaine.
+- [ ] **Phase 7 — Plugin Terraform** (premier domaine ecrit de zero)
+  - [ ] Aucun code legacy a porter : c'est la premiere mise a l'epreuve reelle
+        de la promesse « ajouter un domaine ne touche pas au coeur ».
+  - [ ] Catalogue de ressources, sous-modele `terraform:`, gabarits, entretien.
+  - [ ] Validateurs : `terraform fmt -check`, `terraform validate`, `tflint`.
+  - [ ] Golden + test d'integration lancant les validateurs reels.
+- [ ] **Phase 8 — Plugin pipeline** (CI/CD)
+  - [ ] Le domaine qui federe les autres : build d'image, appel des validateurs
+        de chaque domaine present, deploiement par environnement.
+  - [ ] Doit lire ce que les autres domaines declarent **sans les connaitre** :
+        c'est le premier plugin dont la sortie depend des autres sections. A
+        cadrer avec soin — le coeur ne doit pas devenir un ordonnanceur.
+  - [ ] Validateurs : `actionlint` (GitHub) ou le linter GitLab.
+- [ ] **Phase 9 — Plugin monitoring**
+  - [ ] Sondes, tableaux de bord, regles d'alerte, adosses aux environnements et
+        aux composants deja declares.
+  - [ ] Validateurs : `promtool check rules`, validation des tableaux de bord.
+- [ ] **Phase 10 — Finition**
   - [ ] Revue critique : code mort, duplication, cas d'erreur.
   - [ ] README (architecture, guide d'ecriture de plugin, exemples) + section migration.
-  - [ ] `examples/` : un spec commite et sa sortie deux domaines.
+  - [ ] `examples/` : plusieurs specs commitees, dont des cas **mono-domaine**.
   - [ ] Suppression de `_legacy/`.
   - [ ] Recapitulatif des changements, commit final.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 5 terminees. **260 tests verts** sur un depot propre.
+**Etat** : phases 0 a 6 terminees. **271 tests verts** sur un depot propre.
 
-La promesse du projet est desormais demontree de bout en bout : une seule
-specification `tests/specs/deux-domaines.yml` produit un projet Ansible **et**
-un chart Helm, et les **neuf** validateurs externes des deux chaines d'outils
-passent (`ansible-playbook --syntax-check` par environnement, `ansible-lint`,
-`helm lint`, `helm template` et `kubeconform -strict` par environnement), sans
-que le coeur sache ce qu'est un role ou un chart.
+La promesse du projet : **une seule description du service, et vous choisissez
+ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
+`--only` restreint une execution ; l'entretien demande quels domaines produire.
+
+Le cas a deux domaines (`tests/specs/deux-domaines.yml`) est **un** usage
+possible, pas l'usage normal : il sert a prouver que deux domaines restent
+coherents entre eux quand on les demande ensemble. Les **neuf** validateurs
+externes des deux chaines d'outils y passent (`ansible-playbook --syntax-check`
+par environnement, `ansible-lint`, `helm lint`, `helm template` et
+`kubeconform -strict` par environnement), sans que le coeur sache ce qu'est un
+role ou un chart.
 
 Les deux domaines sont livres et enregistres (`BUILTIN_PLUGINS`) : `forge new`,
 `forge generate`, `forge validate`, `forge diff` et `forge catalog <domaine>`
@@ -154,8 +185,24 @@ pas le rouvrir sans raison nouvelle.
 | R6 | **`DomainInfo.outdir` n'a jamais servi** : les deux domaines emploient le defaut (`ansible/`, `helm/`). | **Garder** : le champ coute une ligne et un domaine tiers en aura besoin (`terraform/environments/` par exemple). |
 | R7 | **L'entretien demande deux fois son avis a l'utilisateur** : le coeur demande quels domaines generer, puis le plugin peut encore decliner en retournant `None`. Ansible s'en sert (aucun groupe nomme), Helm aussi (aucun composant). | **Garder**, mais le dire dans le hookspec : le `None` du plugin ne signifie pas « l'utilisateur refuse le domaine », il signifie « il n'y a rien a generer ». |
 
-**Prochaine action** : demarrer la **phase 6 — finition** dans une session
-neuve : revue critique, README complet, `examples/`, suppression de `_legacy/`.
+**CORRECTION DE CIBLE (2026-08-25).** Le brief d'origine nommait **cinq**
+plugins — `ansible`, `helm`, `terraform`, `pipeline`, `monitoring` — et
+`CLAUDE.md` les avait reduits a « Ansible, Helm, more later ». Les cinq phases
+deja faites l'ont donc ete sur une cible amputee. `CLAUDE.md` porte desormais
+l'arborescence cible complete ; le plan est etendu de trois phases de domaine.
+
+Rien de ce qui a ete construit n'est remis en cause : le coeur est agnostique,
+et les trois domaines restants sont precisement ce qui va le prouver — aucun ne
+vient d'un outil legacy.
+
+**Point de cadrage a corriger aussi** : les domaines sont un **choix**, jamais un
+lot. Le mecanisme existe et fonctionne (section absente de forge.yml, `--only`,
+entretien), mais la documentation et la CLI le mettent mal en avant.
+
+**Prochaine action** : **phase 7 — plugin Terraform**, premier domaine ecrit
+de zero. C'est la premiere mise a l'epreuve reelle de la promesse « ajouter un
+domaine ne touche pas au coeur » : les deux domaines existants venaient d'outils
+legacy, celui-ci n'aura aucun modele a porter.
 
 Ce que la phase 5 a etabli :
 - **Deux domaines qui se rencontrent revelent ce qu'un seul ne peut pas.** Le
@@ -217,3 +264,6 @@ Rappels pour la phase 5 :
 - Session 5 (2026-08-25) : phase 5 (controles inter-domaines reellement
   exerces ; faux positif de facette corrige, vocabulaire partage introduit,
   specification a deux domaines et ses neuf validateurs reels). 260 tests.
+  Puis **correction de cible** : le brief nommait cinq plugins, `CLAUDE.md` les
+  avait reduits a deux. Plan etendu, cadrage du choix des domaines corrige
+  (phase 6). 271 tests.

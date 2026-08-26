@@ -1,7 +1,25 @@
 # Project: forge
-Plugin-based deterministic generator of complete, commented IaC projects
-(Ansible, Helm, more later) from a single service spec. Built by porting the
-legacy standalone tools in _legacy/ (read-only reference; never import from it).
+Plugin-based deterministic generator of complete, commented IaC projects from a
+single service spec. Built by porting the legacy standalone tools in _legacy/
+(read-only reference; never import from it).
+
+## Target architecture (from the original brief — five plugins, not two)
+```
+forge/
+├── core/          # shared: spec model, Jinja2 engine (custom delimiters),
+│                  # golden tests, CLI verbs, validation runner
+├── plugins/
+│   ├── ansible/   # templates + spec section + validators (ansible-lint, syntax-check)
+│   ├── helm/      # templates + spec section + validators (helm lint, kubeconform)
+│   ├── terraform/
+│   ├── pipeline/
+│   └── monitoring/
+```
+Ansible and Helm are the only ones with legacy code to port; the other three are
+written from scratch. **The domains are a choice, never a package**: a section
+absent from forge.yml generates nothing, `--only` restricts a run, and the
+interview asks which domains to generate. Producing an Ansible project *and* a
+Helm chart together is one possible use, not the normal one.
 
 ## Hard rules
 - Core is domain-agnostic. Domain knowledge lives only in plugins/<domain>/.

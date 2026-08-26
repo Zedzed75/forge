@@ -43,6 +43,30 @@ def _split(value: str | None) -> list[str] | None:
     return names or None
 
 
+def _echo_plan(manager: ForgeManager, result: pipeline.GenerationResult) -> None:
+    """Annonce ce qui va etre produit — ou pourquoi rien ne le sera.
+
+    Les domaines sont un **choix**, jamais un lot : un projet peut tres bien
+    n'en demander qu'un. Encore faut-il que forge dise lequel, et qu'il ne
+    reponde pas par un projet vide sans explication quand aucun n'est demande.
+    """
+    if not result.domains:
+        connus = ", ".join(manager.domain_names()) or "aucun"
+        typer.echo(
+            "aucun domaine n'est demande par cette specification : seuls les "
+            "fichiers de niveau depot seront ecrits.\n"
+            f"  domaines disponibles : {connus}\n"
+            "  ajoutez la section correspondante a forge.yml pour en generer un "
+            "(par exemple une section `ansible:` ou `helm:`)."
+        )
+        return
+    verbe = "seraient produits" if result.dry_run else "produits"
+    typer.echo(f"domaine(s) {verbe} :")
+    for nom in result.domains:
+        info = manager.domain(nom).info
+        typer.echo(f"  {info.outdir}/  {info.title} — {info.summary}")
+
+
 def _echo_warnings(result: pipeline.GenerationResult) -> None:
     """Affiche les constats non bloquants remontes par les plugins."""
     for issue in result.warnings:
@@ -152,6 +176,7 @@ def cmd_new(
     except ForgeError as exc:
         _fail(str(exc))
         return
+    _echo_plan(manager, result)
     _echo_warnings(result)
     typer.echo(result.summary())
 
@@ -191,6 +216,7 @@ def cmd_generate(
     except ForgeError as exc:
         _fail(str(exc))
         return
+    _echo_plan(manager, result)
     _echo_warnings(result)
     typer.echo(result.summary())
 
@@ -323,8 +349,21 @@ def cmd_plugins(
     except ForgeError:
         model = None
 
+    demandes = set(model.domain_names()) if model is not None else set()
+    if model is not None:
+        typer.echo(
+            f"specification lue : {len(demandes)} domaine(s) demande(s) sur "
+            f"{len(domains)} disponible(s).\n"
+        )
+
     for info in domains:
-        typer.echo(f"{info.name} — {info.title} : {info.summary}")
+        if model is None:
+            etat = ""
+        elif info.name in demandes:
+            etat = "  [demande par la specification]"
+        else:
+            etat = "  [non demande — ajoutez une section pour le generer]"
+        typer.echo(f"{info.name} — {info.title} : {info.summary}{etat}")
         typer.echo(f"  section forge.yml : {info.name}:    sortie : {info.outdir}/")
         hooks = manager.domain(info.name)
         try:
