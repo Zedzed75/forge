@@ -27,6 +27,19 @@ class DomainInfo:
     #: Sous-repertoire de sortie dans la cible ; par defaut identique a `name`.
     outdir: str = ""
 
+    #: Rang de deploiement : **le plus petit part le premier**. Le socle avant
+    #: ce qui s'y pose — un namespace avant le chart qu'on y installe.
+    #:
+    #: Il existe parce qu'aucun tri generique ne pouvait le remplacer. L'ordre
+    #: alphabetique deployait le chart avant l'infrastructure qui accueille son
+    #: namespace ; l'ordre d'enregistrement aurait fait dependre un deploiement
+    #: reel de l'ordre d'une liste de modules. C'est une propriete du domaine,
+    #: donc le domaine la declare — le coeur se contente de trier.
+    #:
+    #: Le defaut place un domaine apres l'infrastructure et la configuration de
+    #: machines : c'est le cas le plus frequent, celui d'une charge applicative.
+    deploy_order: int = 50
+
     def __post_init__(self) -> None:
         if not self.outdir:
             object.__setattr__(self, "outdir", self.name)
@@ -122,3 +135,74 @@ class CatalogEntry:
 
     #: Options reconnues : nom -> description.
     options: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DomainSummary:
+    """Ce qu'un domaine demande par la specification declare de lui-meme.
+
+    Assemble par le coeur a partir de hooks qui existaient deja — aucune
+    nouvelle connaissance n'y entre. Sert au domaine `pipeline`, qui doit
+    engendrer un job par domaine present **sans connaitre aucun domaine par son
+    nom** : il ne lit ici que du vocabulaire du contrat (`DomainInfo`,
+    `Command`, `Projection`).
+    """
+
+    #: Identite du domaine.
+    info: DomainInfo
+
+    #: Ce que le domaine affirme produire, ou None s'il ne le declare pas.
+    projection: Projection | None = None
+
+    #: Commandes de validation, chemins **relatifs a la racine du projet**.
+    validators: tuple[Command, ...] = ()
+
+    #: Commandes de deploiement, par environnement, dans l'ordre de la
+    #: specification : `(("prod", (cmd, ...)), ...)`. Vide si le domaine ne
+    #: declare pas comment se deployer — auquel cas le pipeline genere une
+    #: etape a completer plutot que d'inventer une commande.
+    deployments: tuple[tuple[str, tuple[Command, ...]], ...] = ()
+
+    @property
+    def name(self) -> str:
+        """Nom du domaine."""
+        return self.info.name
+
+    def tools(self) -> tuple[str, ...]:
+        """Outils externes cites par ce domaine, tries et dedoublonnes."""
+        cites = {commande.tool for commande in self.validators}
+        cites |= {
+            commande.tool for _, commandes in self.deployments for commande in commandes
+        }
+        return tuple(sorted(cites))
+
+
+@dataclass(frozen=True)
+class GenerationContext:
+    """Vue du coeur sur les domaines demandes, passee a `forge_answers`.
+
+    Le coeur n'ordonnance rien : il transmet des faits qu'il calcule deja, dans
+    le vocabulaire du contrat. C'est le plugin qui decide quoi en faire.
+    """
+
+    #: Domaines demandes par la specification, dans l'ordre d'enregistrement.
+    domains: tuple[DomainSummary, ...] = ()
+
+    def names(self) -> tuple[str, ...]:
+        """Noms des domaines demandes."""
+        return tuple(sommaire.name for sommaire in self.domains)
+
+    def get(self, name: str) -> DomainSummary | None:
+        """Sommaire du domaine `name`, ou None s'il n'est pas demande."""
+        for sommaire in self.domains:
+            if sommaire.name == name:
+                return sommaire
+        return None
+
+    def others(self, name: str) -> tuple[DomainSummary, ...]:
+        """Tous les domaines demandes sauf `name`."""
+        return tuple(sommaire for sommaire in self.domains if sommaire.name != name)
+
+    def tools(self) -> tuple[str, ...]:
+        """Outils externes cites par l'ensemble des domaines, tries."""
+        return tuple(sorted({outil for s in self.domains for outil in s.tools()}))

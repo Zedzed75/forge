@@ -64,7 +64,13 @@ def _readme(service: dict[str, Any], domains: list[DomainInfo]) -> str:
         "| --- | --- | --- |",
     ]
     for info in domains:
-        lines.append(f"| {info.title} | `{info.outdir}/` | {info.summary} |")
+        # Un domaine dont la sortie est la racine du depot — un pipeline de CI,
+        # que son outil ne lit qu'a un emplacement impose — n'a pas de
+        # sous-repertoire a montrer.
+        emplacement = (
+            "racine du depot" if info.outdir in (".", "") else f"`{info.outdir}/`"
+        )
+        lines.append(f"| {info.title} | {emplacement} | {info.summary} |")
     lines += [
         "",
         "Chaque domaine est autonome : son `.copier-answers.yml` permet de le",

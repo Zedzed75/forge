@@ -92,3 +92,25 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
         )
     )
     return liste
+
+
+def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Commandes deployant le projet sur `environment` (hook `forge_deploy`).
+
+    Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+
+    `--diff` est present a dessein : le journal du pipeline devient la trace de
+    ce qui a change sur les machines, ce qu'aucun autre artefact ne conserve.
+    """
+    return [
+        Command(
+            label=f"ansible-playbook ({environment})",
+            tool="ansible-playbook",
+            argv=("-i", f"inventories/{environment}", "playbooks/site.yml", "--diff"),
+            cwd=outdir,
+            timeout=TIMEOUT,
+            env=environnement(),
+            install_hint=INSTALL_HINT,
+            requires_linux=True,
+        )
+    ]

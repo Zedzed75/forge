@@ -30,6 +30,9 @@ def forge_domain() -> DomainInfo:
         name="terraform",
         title="Terraform",
         summary="Socle d'infrastructure : namespace, budget, identite de deploiement",
+        # Le socle part en premier : c'est lui qui cree le cloisonnement
+        # dans lequel les autres domaines deposent quelque chose.
+        deploy_order=10,
     )
 
 
@@ -51,6 +54,12 @@ def forge_answers(spec: Any) -> dict[str, Any]:
 @hookimpl
 def forge_validators(spec: Any, outdir: Path) -> list[Command]:
     return validators_module.commands(spec, outdir)
+
+
+@hookimpl
+def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Comment ce domaine se deploie. Le coeur ne l'execute jamais."""
+    return validators_module.deploy_commands(spec, outdir, environment)
 
 
 @hookimpl

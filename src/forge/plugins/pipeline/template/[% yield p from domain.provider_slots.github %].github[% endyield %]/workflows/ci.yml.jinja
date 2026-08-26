@@ -1,0 +1,115 @@
+# =============================================================================
+# ci.yml — chaîne d'intégration de « [[ service.name ]] »
+# =============================================================================
+# Fichier généré par forge. Ne l'éditez pas à la main : modifiez `forge.yml` à la
+# racine du dépôt, puis relancez `forge generate` — ou `forge update --only
+# pipeline` pour ne recevoir que les évolutions du gabarit.
+#
+# Ce fichier n'a pas été écrit domaine par domaine : chaque domaine déclaré dans
+# `forge.yml` a dit lui-même quels outils il fallait lancer et dans quel
+# répertoire. Ajouter une section à `forge.yml` ajoute donc un job ici, sans que
+# ce gabarit change.
+#
+# Domaines pris en compte :
+[% for domaine in domain.domains %]
+#   - [[ domaine.title ]] ([[ domaine.name ]]) — [[ domaine.validator_count ]] commande(s) de validation[[ (', déploie ' ~ domaine.deploys|join(', ')) if domaine.deploys else '' ]]
+[% endfor %]
+[% if domain.undeployed %]
+#
+# Domaines SANS commande de déploiement — forge n'en invente aucune, ils sont
+# donc absents des jobs de déploiement : [[ domain.undeployed | join(', ') ]].
+[% endif %]
+[% if domain.unknown_tools %]
+#
+# ATTENTION — forge ne sait pas installer : [[ domain.unknown_tools | join(', ') ]].
+# Les étapes concernées échouent en le disant, plutôt que de laisser le job
+# tomber plus loin sur un « command not found ». Complétez-les.
+[% endif %]
+#
+# Aucun identifiant n'est écrit dans ce fichier. Les accès passent par les
+# secrets du dépôt (`${{ secrets.* }}`) ou par le jeton fourni d'office.
+# =============================================================================
+
+name: [[ service.name | yaml_scalar ]]
+
+on:
+  push:
+    branches:
+[% for branche in domain.trigger.branches %]
+      - [[ branche | yaml_scalar ]]
+[% endfor %]
+[% if domain.trigger.on_tag %]
+    tags:
+      - "v*"
+[% endif %]
+[% if domain.trigger.on_pull_request %]
+  # Une validation n'empêche vraiment quelque chose qu'avant la fusion.
+  pull_request:
+[% endif %]
+
+# Droits minimaux : seule la lecture du dépôt est accordée par défaut.
+permissions:
+  contents: read
+[% if domain.build_job %]
+  # Nécessaire pour publier l'image dans le registre du dépôt.
+  packages: write
+[% endif %]
+
+# Une exécution par référence : un push qui en remplace un autre annule le
+# précédent, plutôt que de faire la queue derrière lui.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+[% for job in domain.jobs %]
+  [[ job.key ]]:
+    name: [[ job.name | yaml_scalar ]]
+    runs-on: [[ domain.runner | yaml_scalar ]]
+[% if job.needs %]
+    needs:
+[% for prealable in job.needs %]
+      - [[ prealable ]]
+[% endfor %]
+[% endif %]
+[% if job.default_branch_only %]
+    # Ne part que depuis la branche par défaut : une proposition de fusion ne
+    # publie rien et ne déploie rien.
+    if: github.ref == 'refs/heads/[[ domain.default_branch ]]'
+[% endif %]
+[% if job.environment %]
+    # C'est ici que GitHub attache l'approbation humaine : elle se configure
+    # dans les réglages du dépôt (Settings > Environments > [[ job.environment ]]),
+    # pas dans ce fichier. Sans « required reviewers » sur cet environnement,
+[% if job.manual %]
+    # le déploiement partira sans que personne l'ait validé — alors que
+    # `forge.yml` demande une approbation. Configurez-la.
+[% else %]
+    # le déploiement part sans approbation, ce que `forge.yml` demande.
+[% endif %]
+    environment: [[ job.environment | yaml_scalar ]]
+[% endif %]
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+[% for step in job.steps %]
+
+      - name: [[ step.name | yaml_scalar ]]
+[% if step.workdir %]
+        working-directory: [[ step.workdir | yaml_scalar ]]
+[% endif %]
+[% if step.env %]
+        env:
+[% for cle, valeur in step.env.items() %]
+          [[ cle ]]: [[ valeur | yaml_scalar ]]
+[% endfor %]
+[% endif %]
+        run: |
+[% for ligne in step.run %]
+          [[ ligne ]]
+[% endfor %]
+[% endfor %]
+[% if not loop.last %]
+
+[% endif %]
+[% endfor %]

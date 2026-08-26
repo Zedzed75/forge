@@ -18,7 +18,15 @@ import pluggy
 
 from forge.errors import PluginError
 from forge.plugins_api import hookspecs
-from forge.plugins_api.types import CatalogEntry, Command, DomainInfo, Issue, Projection
+from forge.plugins_api.types import (
+    CatalogEntry,
+    Command,
+    DomainInfo,
+    DomainSummary,
+    GenerationContext,
+    Issue,
+    Projection,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import BaseModel
@@ -32,6 +40,7 @@ BUILTIN_PLUGINS: tuple[str, ...] = (
     "forge.plugins.ansible.plugin",
     "forge.plugins.helm.plugin",
     "forge.plugins.terraform.plugin",
+    "forge.plugins.pipeline.plugin",
 )
 
 #: Variable d'environnement listant des modules de plugin supplementaires,
@@ -113,9 +122,17 @@ class DomainHooks:
         """Chemin du gabarit copier, relatif a la racine du depot forge."""
         return self._call("forge_template_subdir", required=True)
 
-    def answers(self, spec: Any) -> dict[str, Any]:
-        """Dict `domain` passe a copier pour ce domaine."""
-        return self._call("forge_answers", required=True, spec=spec)
+    def answers(self, spec: Any, context: GenerationContext | None = None) -> dict[str, Any]:
+        """Dict `domain` passe a copier pour ce domaine.
+
+        Le contexte — ce que les **autres** domaines demandes declarent — est
+        calcule ici quand l'appelant ne le fournit pas. Un plugin qui n'en a pas
+        besoin ne declare pas le parametre : pluggy n'appelle un hookimpl
+        qu'avec les arguments qu'il nomme.
+        """
+        if context is None:
+            context = self.manager.context(spec)
+        return self._call("forge_answers", required=True, spec=spec, context=context)
 
     def interview(self, prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
         """Entretien du domaine ; None si l'utilisateur decline le domaine."""
@@ -124,6 +141,22 @@ class DomainHooks:
     def validators(self, spec: Any, outdir: Path) -> list[Command]:
         """Commandes externes de validation, dans l'ordre d'execution."""
         return self._call("forge_validators", required=False, spec=spec, outdir=outdir) or []
+
+    def deploy(self, spec: Any, outdir: Path, environment: str) -> list[Command]:
+        """Commandes deployant ce domaine dans `environment`, vides s'il se tait.
+
+        Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+        """
+        return (
+            self._call(
+                "forge_deploy",
+                required=False,
+                spec=spec,
+                outdir=outdir,
+                environment=environment,
+            )
+            or []
+        )
 
     def projection(self, spec: Any) -> Projection | None:
         """Projection du domaine, ou None s'il n'en declare pas."""
@@ -218,6 +251,48 @@ class ForgeManager:
             raise PluginError(f"domaine inconnu : '{name}' (connus : {known})")
         info, plugin = self._domains[name]
         return DomainHooks(self, info, plugin)
+
+    # -- vue d'ensemble ----------------------------------------------------
+
+    def context(self, spec: Any) -> GenerationContext:
+        """Ce que chaque domaine **demande par la specification** declare.
+
+        Un seul plugin en a besoin — celui qui federe les autres — mais rien ici
+        ne lui est propre : le coeur rassemble des hooks qui existaient deja,
+        dans le vocabulaire du contrat, et n'en tire aucune conclusion.
+
+        Les chemins des commandes sont **relatifs a la racine du projet** :
+        `Path(info.outdir)` et non un repertoire absolu. Le contexte alimente un
+        fichier de pipeline, ou un chemin de poste de developpement n'aurait
+        aucun sens.
+
+        Un `PluginError` leve par un domaine n'est pas rattrape : une commande
+        qu'on ne sait pas construire ne doit pas devenir un job silencieusement
+        absent du pipeline.
+        """
+        demandes = [nom for nom in self.domain_names() if getattr(spec, nom, None) is not None]
+        environnements = [env.name for env in spec.service.environments]
+        sommaires: list[DomainSummary] = []
+        for nom in demandes:
+            hooks = self.domain(nom)
+            racine = Path(hooks.info.outdir)
+            deploiements = tuple(
+                (env, tuple(hooks.deploy(spec, racine, env))) for env in environnements
+            )
+            sommaires.append(
+                DomainSummary(
+                    info=hooks.info,
+                    projection=hooks.projection(spec),
+                    validators=tuple(hooks.validators(spec, racine)),
+                    # Un domaine muet sur le deploiement ne laisse aucune entree :
+                    # le pipeline ecrira une etape a completer, pas une commande
+                    # devinee.
+                    deployments=tuple(
+                        (env, commandes) for env, commandes in deploiements if commandes
+                    ),
+                )
+            )
+        return GenerationContext(domains=tuple(sommaires))
 
     # -- hook multi-plugins ------------------------------------------------
 

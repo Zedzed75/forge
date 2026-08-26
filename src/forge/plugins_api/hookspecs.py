@@ -12,7 +12,14 @@ from typing import TYPE_CHECKING, Any
 
 import pluggy
 
-from forge.plugins_api.types import CatalogEntry, Command, DomainInfo, Issue, Projection
+from forge.plugins_api.types import (
+    CatalogEntry,
+    Command,
+    DomainInfo,
+    GenerationContext,
+    Issue,
+    Projection,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - uniquement pour les annotations
     from pydantic import BaseModel
@@ -62,17 +69,43 @@ def forge_template_subdir() -> str:
 
 
 @hookspec
-def forge_answers(spec: Any) -> dict[str, Any]:
+def forge_answers(spec: Any, context: GenerationContext) -> dict[str, Any]:
     """Projette la spec unifiee vers le dict `domain` passe a copier.
 
     Sortie JSON-serialisable et deterministe : elle est ecrite telle quelle dans
     `.copier-answers.yml` et rejouee par `copier update`.
+
+    `context` decrit **les autres domaines demandes par la specification**, dans
+    le vocabulaire du contrat : leur `DomainInfo`, leur `Projection`, leurs
+    `Command` de validation et de deploiement. Un plugin qui n'en a pas besoin
+    ne declare pas le parametre — pluggy n'appelle un hookimpl qu'avec les
+    arguments qu'il nomme, et les trois premiers domaines s'en passent.
+
+    Il existe pour le domaine `pipeline`, dont la sortie depend des autres
+    sections : il doit engendrer un job par domaine present **sans connaitre
+    aucun domaine par son nom**. Le coeur n'ordonnance rien pour autant — il
+    transmet des faits qu'il calculait deja.
     """
 
 
 @hookspec
 def forge_validators(spec: Any, outdir: Path) -> list[Command]:
     """Commandes externes validant le domaine genere, dans l'ordre d'execution."""
+
+
+@hookspec
+def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Commandes deployant ce domaine dans `environment` (facultatif).
+
+    Symetrique de `forge_validators`, et soumis a la meme regle : le plugin
+    decrit **quoi lancer**, jamais comment l'executer. La difference est qu'un
+    deploiement touche a une infrastructure reelle — le coeur ne les lance
+    jamais lui-meme. Elles n'existent que pour etre **ecrites** dans un pipeline
+    par le domaine `pipeline`, qui ne saurait pas les inventer.
+
+    Un domaine qui ne l'implemente pas fait engendrer une etape a completer,
+    plutot qu'une commande devinee.
+    """
 
 
 @hookspec

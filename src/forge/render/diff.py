@@ -9,6 +9,7 @@ un diff integral (regle d'economie de contexte de CLAUDE.md).
 from __future__ import annotations
 
 import difflib
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,16 +42,27 @@ class DomainDiff:
         )
 
 
-def _relative_files(root: Path) -> dict[str, Path]:
+def _relative_files(root: Path, ignore: Collection[str] = ()) -> dict[str, Path]:
+    """Fichiers de `root`, indexes par chemin relatif.
+
+    `ignore` porte des **noms de premier niveau** a ecarter : c'est ce qui rend
+    comparable un domaine dont la sortie est la racine du depot. Sans cela, un
+    tel domaine verrait les repertoires des autres domaines comme des fichiers
+    supprimes de son gabarit.
+    """
     files: dict[str, Path] = {}
     if not root.is_dir():
         return files
+    ecartes = set(ignore)
     for path in sorted(root.rglob("*")):
         if not path.is_file() or ".git" in path.parts:
             continue
         if path.name in IGNORED_NAMES:
             continue
-        files[path.relative_to(root).as_posix()] = path
+        relatif = path.relative_to(root)
+        if relatif.parts[0] in ecartes:
+            continue
+        files[relatif.as_posix()] = path
     return files
 
 
@@ -77,13 +89,19 @@ def _changed_lines(left: Path, right: Path) -> int:
     return count_changed_lines(a, b)
 
 
-def diff_trees(domain: str, current: Path, fresh: Path) -> DomainDiff:
+def diff_trees(
+    domain: str, current: Path, fresh: Path, *, ignore: Collection[str] = ()
+) -> DomainDiff:
     """Compare la cible `current` au rendu neuf `fresh`.
 
     « ajoute » signifie : present dans le rendu neuf, absent de la cible.
+
+    `ignore` n'est renseigne que pour un domaine dont la sortie **est** la
+    racine du depot : il y ecarte ce qui appartient aux autres domaines et aux
+    fichiers de niveau depot, compares ailleurs.
     """
     result = DomainDiff(domain=domain)
-    current_files = _relative_files(current)
+    current_files = _relative_files(current, ignore)
     fresh_files = _relative_files(fresh)
 
     for name in sorted(set(fresh_files) - set(current_files)):
