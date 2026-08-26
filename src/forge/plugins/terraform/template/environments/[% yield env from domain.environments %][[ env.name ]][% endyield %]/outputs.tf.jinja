@@ -1,0 +1,20 @@
+# =============================================================================
+# outputs.tf — sorties de l'environnement « [[ env.name ]] »
+# =============================================================================
+# Fichier généré par forge.
+#
+# Ces sorties sont le point de rencontre avec le reste de la chaîne : c'est par
+#
+#   terraform -chdir=environments/[[ env.name ]] output -raw namespace
+#
+# qu'un pipeline apprend où déployer, plutôt que de recopier une convention de
+# nommage qui finirait par diverger.
+# =============================================================================
+[% for output in domain.outputs %]
+
+[[ output.description | comment(width=76) ]]
+output "[[ output.name ]]" {
+  description = [[ output.description | hcl ]]
+  value       = module.[[ domain.module_name ]].[[ output.name ]]
+}
+[% endfor %]

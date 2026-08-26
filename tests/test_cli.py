@@ -93,7 +93,9 @@ def test_catalog_refuse_un_element_inconnu(monkeypatch):
 
 
 def test_catalog_refuse_un_domaine_inconnu(monkeypatch):
-    result = _invoke(["catalog", "terraform"], monkeypatch)
+    # Un nom qu'aucun plugin ne portera : « terraform » servait ici jusqu'a
+    # ce qu'il devienne un domaine reel (phase 7).
+    result = _invoke(["catalog", "inexistant"], monkeypatch)
     assert result.exit_code == 1
 
 

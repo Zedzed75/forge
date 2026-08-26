@@ -1,0 +1,72 @@
+# Module Terraform « [[ service.name ]] »
+
+[[ service.description ]]
+
+> Fichier généré par forge. Ne l'éditez pas à la main : modifiez `forge.yml` à
+> la racine du projet, puis relancez `forge generate` — ou `forge update` pour
+> ne recevoir que les évolutions du gabarit.
+
+Ce module pose **le socle** sur lequel le service est déployé : le
+cloisonnement, son budget, l'identité qui y déploie. Il ne déploie **pas** la
+charge applicative — c'est le rôle d'un chart Helm, qui vise le namespace que ce
+module expose en sortie.
+
+Il ne configure aucun provider : c'est la racine appelante
+(`environments/<env>/`) qui décide du cluster visé. Le module reste donc
+appelable depuis n'importe quelle racine.
+
+## Fichiers
+
+| Fichier | Rôle |
+| --- | --- |
+[% for fichier in domain.module_files %]
+| `[[ fichier.path ]]` | [[ fichier.purpose ]] |
+[% endfor %]
+
+## Entrées
+
+| Variable | Type | Obligatoire | Défaut |
+| --- | --- | --- | --- |
+[% for variable in domain.variables %]
+| `[[ variable.name ]]` | `[[ variable.type ]]` | [% if variable.has_default %]non[% else %]**oui**[% endif %] | [% if variable.sensitive %]— *(secrète : `TF_VAR_[[ variable.name ]]`)*[% elif variable.has_default %]`[[ variable.default ]]`[% else %]—[% endif %] |
+[% endfor %]
+
+Chaque variable est commentée dans `variables.tf`, avec son usage et ses
+valeurs admises.
+
+## Sorties
+
+| Sortie | Rôle |
+| --- | --- |
+[% for output in domain.outputs %]
+| `[[ output.name ]]` | [[ output.description ]] |
+[% endfor %]
+
+## Familles de ressources retenues
+
+[% for famille in domain.families %]
+### `[[ famille.name ]]` — [[ famille.summary ]]
+
+[[ famille.details ]]
+
+Pose : [% for ressource in famille.resources %]`[[ ressource ]]`[% if not loop.last %], [% endif %][% endfor %].
+
+[% if famille.traps %]
+Points de vigilance :
+
+[% for piege in famille.traps %]
+- [[ piege ]]
+[% endfor %]
+
+[% endif %]
+[% endfor %]
+## Ce que ce module ne fait pas
+
+- **Il ne déploie pas l'application.** Le namespace qu'il expose est destiné à
+  recevoir un chart Helm ou un manifeste ; les deux se rencontrent sur le nom du
+  namespace, pas sur autre chose.
+- **Il ne gère aucun secret réel.** Les valeurs secrètes arrivent par
+  `TF_VAR_<nom>` ; celles qu'il engendre lui-même vivent dans l'état Terraform,
+  qu'il faut donc chiffrer.
+- **Il n'accorde aucun droit à l'échelle du cluster.** Un `Role` ne porte que
+  dans son namespace, et c'est délibéré.

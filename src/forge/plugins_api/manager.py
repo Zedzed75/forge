@@ -31,6 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover
 BUILTIN_PLUGINS: tuple[str, ...] = (
     "forge.plugins.ansible.plugin",
     "forge.plugins.helm.plugin",
+    "forge.plugins.terraform.plugin",
 )
 
 #: Variable d'environnement listant des modules de plugin supplementaires,

@@ -1,0 +1,20 @@
+# =============================================================================
+# outputs.tf — ce que le module rend à son appelant
+# =============================================================================
+# Fichier généré par forge.
+#
+# Les sorties sont le contrat du module vers le reste de la chaîne : c'est par
+# « terraform output -raw namespace » qu'un pipeline apprend où déployer, sans
+# recopier une convention de nommage qui pourrait dériver.
+#
+# Aucune sortie ne rend une valeur secrète. Un mot de passe engendré reste dans
+# l'état ; le module ne fait que nommer le Secret qui le porte.
+# =============================================================================
+[% for output in domain.outputs %]
+
+[[ output.description | comment(width=76) ]]
+output "[[ output.name ]]" {
+  description = [[ output.description | hcl ]]
+  value       = [[ output.value ]]
+}
+[% endfor %]

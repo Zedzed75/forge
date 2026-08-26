@@ -1,0 +1,30 @@
+# =============================================================================
+# variables.tf — entrées de la racine « [[ env.name ]] »
+# =============================================================================
+# Fichier généré par forge.
+#
+# Ces variables reprennent celles du module, plus ce qui concerne l'accès au
+# cluster. Les valeurs de cet environnement sont dans terraform.tfvars ; toute
+# variable non secrète peut y être surchargée, même celles que forge n'y a pas
+# pré-remplies.
+#
+# Les variables secrètes n'ont pas de valeur par défaut et ne figurent pas dans
+# terraform.tfvars : elles se fournissent par TF_VAR_<nom>.
+# =============================================================================
+[% for variable in domain.root_variables %]
+
+[[ variable.description | comment(width=76) ]]
+[% if variable.sensitive %]
+# Valeur secrète : fournissez-la par TF_VAR_[[ variable.name ]].
+[% endif %]
+variable "[[ variable.name ]]" {
+  description = [[ variable.description | hcl ]]
+  type        = [[ variable.type ]]
+[% if variable.has_default %]
+  default     = [[ variable.default ]]
+[% endif %]
+[% if variable.sensitive %]
+  sensitive   = true
+[% endif %]
+}
+[% endfor %]

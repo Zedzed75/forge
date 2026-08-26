@@ -1,0 +1,43 @@
+# =============================================================================
+# .gitignore — artefacts à ne jamais versionner
+# =============================================================================
+# Fichier généré par forge.
+#
+# La première section est la plus importante : l'état Terraform porte EN CLAIR
+# tout ce que les ressources exposent, mots de passe engendrés et clés privées
+# compris. Un état committé est une fuite, pas une maladresse.
+# =============================================================================
+
+# État Terraform et ses sauvegardes
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Répertoire de travail : providers téléchargés, modules résolus, verrou de
+# l'espace de travail. Reconstruit par « terraform init ».
+.terraform/
+
+# Plans enregistrés : un fichier de plan contient l'état complet, en clair.
+*.tfplan
+plan.out
+
+# Fichiers de valeurs contenant des valeurs réelles. Les terraform.tfvars
+# générés par forge, eux, sont versionnés : ils ne portent aucun secret.
+*.auto.tfvars
+terraform.tfvars.local
+secrets.tfvars
+
+# Journaux
+crash.log
+crash.*.log
+
+# Configuration d'accès au cluster
+kubeconfig
+*.kubeconfig
+
+# Éditeurs et systèmes de fichiers
+.idea/
+.vscode/
+.DS_Store
+*~
+*.swp

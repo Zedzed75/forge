@@ -1,0 +1,27 @@
+# =============================================================================
+# versions.tf — versions exigées par la racine « [[ env.name ]] »
+# =============================================================================
+# Fichier généré par forge.
+#
+# Chaque racine redéclare ses providers : Terraform ne les hérite pas du
+# module appelé. Les contraintes sont volontairement identiques à celles du
+# module — deux déclarations divergentes ne produisent aucune erreur, Terraform
+# résout l'intersection, et l'écart ne se voit que le jour où elle devient vide.
+# =============================================================================
+
+terraform {
+  required_version = "[[ domain.terraform_version ]]"
+
+  required_providers {
+[% for provider in domain.providers %]
+    # [[ provider.reason ]]
+    [[ provider.name ]] = {
+      source  = "[[ provider.source ]]"
+      version = "[[ provider.version ]]"
+    }
+[% if not loop.last %]
+
+[% endif %]
+[% endfor %]
+  }
+}

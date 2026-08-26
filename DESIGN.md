@@ -293,7 +293,41 @@ helm:
   extras:
     makefile: true
     helm_tests: true
+
+# ---------------------------------------------------------------------------
+# Domaine Terraform (phase 7)
+# ---------------------------------------------------------------------------
+# Le socle sur lequel les autres domaines se posent : le cloisonnement, son
+# budget, l'identité qui y déploie. Pas la charge applicative — c'est Helm.
+terraform:
+  terraform_version: "~> 1.9"     # contrainte, jamais une version nue
+  namespace_strategy: per_env     # same | per_env | custom
+  resources:                      # familles retenues ; le reste n'est pas généré
+    - namespace
+    - quota
+    - service_account
+  backend:
+    kind: s3                      # local | s3 | gcs | azurerm | http
+    config:                       # aucune clé secrète : le modèle les refuse
+      bucket: etats-terraform
+      region: eu-west-3
+  kubernetes:
+    auth: kubeconfig              # kubeconfig | in_cluster
+    context_per_environment: true
+  environments:
+    prod:
+      kube_context: prod-eu-west-3
+      quota: { cpu: "16", memory: 32Gi, pods: 120 }
+  extras:
+    makefile: true
+    tflint_config: true
 ```
+
+La clé d'état (`key`, `prefix`) n'est **pas** demandée à la spécification : elle
+est dérivée par environnement, pour que deux racines n'écrivent jamais le même
+état. Le domaine Terraform déclare la facette `namespaces`, la même que Helm :
+c'est là que les deux domaines doivent s'accorder, et `forge validate` le
+vérifie sans qu'aucune règle « si terraform alors helm » n'existe dans le cœur.
 
 ### 3.1 Correspondance avec les specs legacy
 

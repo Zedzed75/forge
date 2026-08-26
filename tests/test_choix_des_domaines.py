@@ -176,7 +176,7 @@ def test_plugins_distingue_les_domaines_demandes_des_autres():
 
     assert "demande par la specification" in ligne_helm
     assert "non demande" in ligne_ansible
-    assert "1 domaine(s) demande(s) sur 2" in resultat.stdout
+    assert "1 domaine(s) demande(s) sur 3" in resultat.stdout
 
 
 @pytest.mark.parametrize(

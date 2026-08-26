@@ -1,0 +1,32 @@
+# =============================================================================
+# variables.tf — entrées du module « [[ service.name ]] »
+# =============================================================================
+# Fichier généré par forge.
+#
+# Chaque variable porte deux fois son explication, et ce n'est pas une
+# redondance : le commentaire s'adresse à qui lit le fichier, l'attribut
+# « description » à qui lit « terraform plan », la documentation générée par
+# terraform-docs, ou le message d'erreur d'une variable manquante.
+#
+# Les variables sans valeur par défaut sont obligatoires : Terraform les
+# réclame, et « -input=false » transforme l'oubli en échec net plutôt qu'en
+# question restée sans réponse dans un journal de CI.
+# =============================================================================
+[% for variable in domain.variables %]
+
+[[ variable.description | comment(width=76) ]]
+[% if variable.sensitive %]
+# Valeur secrète : aucune valeur par défaut, et absente de terraform.tfvars.
+# Fournissez-la par la variable d'environnement TF_VAR_[[ variable.name ]].
+[% endif %]
+variable "[[ variable.name ]]" {
+  description = [[ variable.description | hcl ]]
+  type        = [[ variable.type ]]
+[% if variable.has_default %]
+  default     = [[ variable.default ]]
+[% endif %]
+[% if variable.sensitive %]
+  sensitive   = true
+[% endif %]
+}
+[% endfor %]

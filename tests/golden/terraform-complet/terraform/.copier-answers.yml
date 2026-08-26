@@ -1,0 +1,1016 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « terraform ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only terraform
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    backend:
+        config:
+            bucket: etats-terraform-plateforme
+            encrypt: 'true'
+            region: eu-west-3
+        is_local: false
+        kind: s3
+        state_file: terraform.tfstate
+    creates_namespace: true
+    default_env: dev
+    env_names:
+    - dev
+    - staging
+    - prod
+    environment_files:
+    -   path: versions.tf
+        purpose: Version de Terraform et providers exiges par cette racine.
+    -   path: backend.tf
+        purpose: Ou l'etat de cet environnement est conserve.
+    -   path: providers.tf
+        purpose: 'Configuration des providers : cluster vise, contexte.'
+    -   path: variables.tf
+        purpose: Entrees de la racine, reprises de celles du module.
+    -   path: main.tf
+        purpose: Appel du module, avec les valeurs de cet environnement.
+    -   path: outputs.tf
+        purpose: Sorties remontees depuis le module.
+    -   path: terraform.tfvars
+        purpose: Valeurs de cet environnement. Aucune valeur secrete.
+    environments:
+    -   backend_config:
+        -   name: bucket
+            value: '"etats-terraform-plateforme"'
+        -   name: encrypt
+            value: '"true"'
+        -   name: key
+            value: '"boutique/dev/terraform.tfstate"'
+        -   name: region
+            value: '"eu-west-3"'
+        domain: dev.example.net
+        kube_context: dev
+        module_arguments: &id001
+        -   name: service_name
+            value: var.service_name
+        -   name: environment
+            value: var.environment
+        -   name: namespace
+            value: var.namespace
+        -   name: labels
+            value: var.labels
+        -   name: annotations
+            value: var.annotations
+        -   name: quota_cpu
+            value: var.quota_cpu
+        -   name: quota_memory
+            value: var.quota_memory
+        -   name: quota_pods
+            value: var.quota_pods
+        -   name: limit_range_default_cpu
+            value: var.limit_range_default_cpu
+        -   name: limit_range_default_memory
+            value: var.limit_range_default_memory
+        -   name: registry_server
+            value: var.registry_server
+        -   name: registry_username
+            value: var.registry_username
+        -   name: registry_password
+            value: var.registry_password
+        -   name: service_account_name
+            value: var.service_account_name
+        -   name: ingress_namespace_labels
+            value: var.ingress_namespace_labels
+        -   name: dns_namespace_labels
+            value: var.dns_namespace_labels
+        -   name: generated_secret_keys
+            value: var.generated_secret_keys
+        -   name: generated_secret_length
+            value: var.generated_secret_length
+        -   name: tls_common_name
+            value: var.tls_common_name
+        -   name: tls_dns_names
+            value: var.tls_dns_names
+        -   name: tls_validity_hours
+            value: var.tls_validity_hours
+        -   name: tls_early_renewal_hours
+            value: var.tls_early_renewal_hours
+        name: dev
+        namespace: boutique-dev
+        production: false
+        tfvars:
+        -   name: service_name
+            value: '"boutique"'
+        -   name: environment
+            value: '"dev"'
+        -   name: namespace
+            value: '"boutique-dev"'
+        -   name: labels
+            value: '{ tier = "frontend", cost-center = "4210" }'
+        -   name: kube_context
+            value: '"dev"'
+        -   name: quota_cpu
+            value: '"2"'
+        -   name: quota_memory
+            value: '"4Gi"'
+        -   name: quota_pods
+            value: '20'
+        -   name: tls_dns_names
+            value: '["boutique.dev.example.net"]'
+        -   name: tls_common_name
+            value: '"boutique.dev.example.net"'
+        variable_names:
+        - kube_config_path
+        - kube_context
+        - service_name
+        - environment
+        - namespace
+        - labels
+        - annotations
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+        - registry_server
+        - registry_username
+        - registry_password
+        - service_account_name
+        - ingress_namespace_labels
+        - dns_namespace_labels
+        - generated_secret_keys
+        - generated_secret_length
+        - tls_common_name
+        - tls_dns_names
+        - tls_validity_hours
+        - tls_early_renewal_hours
+    -   backend_config:
+        -   name: bucket
+            value: '"etats-terraform-plateforme"'
+        -   name: encrypt
+            value: '"true"'
+        -   name: key
+            value: '"boutique/staging/terraform.tfstate"'
+        -   name: region
+            value: '"eu-west-3"'
+        domain: staging.example.net
+        kube_context: staging
+        module_arguments: *id001
+        name: staging
+        namespace: boutique-staging
+        production: false
+        tfvars:
+        -   name: service_name
+            value: '"boutique"'
+        -   name: environment
+            value: '"staging"'
+        -   name: namespace
+            value: '"boutique-staging"'
+        -   name: labels
+            value: '{ tier = "frontend", cost-center = "4210" }'
+        -   name: kube_context
+            value: '"staging"'
+        -   name: quota_cpu
+            value: '"4"'
+        -   name: quota_memory
+            value: '"8Gi"'
+        -   name: quota_pods
+            value: '30'
+        -   name: tls_dns_names
+            value: '["boutique.staging.example.net"]'
+        -   name: tls_common_name
+            value: '"boutique.staging.example.net"'
+        variable_names:
+        - kube_config_path
+        - kube_context
+        - service_name
+        - environment
+        - namespace
+        - labels
+        - annotations
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+        - registry_server
+        - registry_username
+        - registry_password
+        - service_account_name
+        - ingress_namespace_labels
+        - dns_namespace_labels
+        - generated_secret_keys
+        - generated_secret_length
+        - tls_common_name
+        - tls_dns_names
+        - tls_validity_hours
+        - tls_early_renewal_hours
+    -   backend_config:
+        -   name: bucket
+            value: '"etats-terraform-plateforme"'
+        -   name: encrypt
+            value: '"true"'
+        -   name: key
+            value: '"boutique/prod/terraform.tfstate"'
+        -   name: region
+            value: '"eu-west-3"'
+        domain: example.net
+        kube_context: plateforme-prod-eu-west-3
+        module_arguments: *id001
+        name: prod
+        namespace: boutique-prod
+        production: true
+        tfvars:
+        -   name: service_name
+            value: '"boutique"'
+        -   name: environment
+            value: '"prod"'
+        -   name: namespace
+            value: '"boutique-prod"'
+        -   name: labels
+            value: '{ tier = "frontend", cost-center = "4210", criticality = "high"
+                }'
+        -   name: kube_context
+            value: '"plateforme-prod-eu-west-3"'
+        -   name: quota_cpu
+            value: '"16"'
+        -   name: quota_memory
+            value: '"32Gi"'
+        -   name: quota_pods
+            value: '120'
+        -   name: tls_dns_names
+            value: '["boutique.example.net"]'
+        -   name: tls_common_name
+            value: '"boutique.example.net"'
+        variable_names:
+        - kube_config_path
+        - kube_context
+        - service_name
+        - environment
+        - namespace
+        - labels
+        - annotations
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+        - registry_server
+        - registry_username
+        - registry_password
+        - service_account_name
+        - ingress_namespace_labels
+        - dns_namespace_labels
+        - generated_secret_keys
+        - generated_secret_length
+        - tls_common_name
+        - tls_dns_names
+        - tls_validity_hours
+        - tls_early_renewal_hours
+    expected_paths:
+    - .copier-answers.yml
+    - .gitignore
+    - .tflint.hcl
+    - Makefile
+    - README.md
+    - environments/dev/backend.tf
+    - environments/dev/main.tf
+    - environments/dev/outputs.tf
+    - environments/dev/providers.tf
+    - environments/dev/terraform.tfvars
+    - environments/dev/variables.tf
+    - environments/dev/versions.tf
+    - environments/prod/backend.tf
+    - environments/prod/main.tf
+    - environments/prod/outputs.tf
+    - environments/prod/providers.tf
+    - environments/prod/terraform.tfvars
+    - environments/prod/variables.tf
+    - environments/prod/versions.tf
+    - environments/staging/backend.tf
+    - environments/staging/main.tf
+    - environments/staging/outputs.tf
+    - environments/staging/providers.tf
+    - environments/staging/terraform.tfvars
+    - environments/staging/variables.tf
+    - environments/staging/versions.tf
+    - modules/boutique/README.md
+    - modules/boutique/locals.tf
+    - modules/boutique/namespace.tf
+    - modules/boutique/network_policy.tf
+    - modules/boutique/outputs.tf
+    - modules/boutique/quota.tf
+    - modules/boutique/random_secret.tf
+    - modules/boutique/registry_secret.tf
+    - modules/boutique/service_account.tf
+    - modules/boutique/tls_certificate.tf
+    - modules/boutique/variables.tf
+    - modules/boutique/versions.tf
+    extras:
+        makefile: true
+        tflint_config: true
+    families:
+    -   details: 'Pose le cloisonnement lui-meme, avec les labels app.kubernetes.io
+            du service. C''est la famille pivot : les autres s''y rattachent par reference,
+            ce qui donne a Terraform l''ordre de creation sans aucun depends_on explicite.
+
+
+            Absente, le module suppose le namespace deja cree par l''equipe plateforme
+            et se contente de s''y rattacher par son nom.'
+        name: namespace
+        outputs:
+        - namespace
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_namespace
+        summary: Cree le namespace dans lequel le service est deploye
+        traps:
+        - '`terraform destroy` supprime le namespace, donc **tout** ce qu''il contient
+            — y compris ce qu''un chart Helm y a deploye et que Terraform ne connait
+            pas. La destruction deborde du perimetre.'
+        - 'Changer le nom du namespace le detruit et le recree (comportement ForceNew)
+            : le contenu est perdu, sans avertissement autre que la ligne de plan.'
+        - Un namespace en cours de suppression reste en phase Terminating tant qu'un
+            finalizer n'a pas rendu la main ; Terraform attend, et l'attente ressemble
+            a un blocage.
+        variables: []
+    -   details: 'Plafonne ce que le namespace peut consommer et donne une taille
+            par defaut aux conteneurs qui n''en declarent pas.
+
+
+            C''est la famille qui a le plus d''effet sur les autres domaines : des
+            qu''un ResourceQuota porte sur cpu ou memory, l''API refuse tout pod dont
+            un conteneur n''a pas de `resources.requests`.'
+        name: quota
+        outputs:
+        - resource_quota_name
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_resource_quota
+        - kubernetes_limit_range
+        summary: 'ResourceQuota et LimitRange : le budget du namespace'
+        traps:
+        - Des qu'un quota porte sur `requests.cpu` ou `requests.memory`, **tout**
+            pod sans `resources.requests` est refuse a l'admission. Le chart Helm
+            du meme service doit donc declarer ses requests, sinon le deploiement
+            casse le jour ou le quota est pose.
+        - 'Le LimitRange ne s''applique qu''aux pods **crees apres** lui : les pods
+            deja en place gardent leur configuration, et l''ecart ne se voit qu''au
+            redemarrage suivant.'
+        - 'Un quota reduit sous la consommation courante n''expulse rien : il bloque
+            seulement les creations suivantes. Le namespace parait sain jusqu''au
+            prochain deploiement.'
+        variables:
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+    -   details: 'Pose un Secret `kubernetes.io/dockerconfigjson` que les pods referencent
+            en `imagePullSecrets`. Les identifiants ne sont **jamais** ecrits dans
+            la specification ni dans les fichiers generes : ils arrivent par TF_VAR_registry_password.'
+        name: registry_secret
+        outputs:
+        - image_pull_secret_name
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_secret
+        summary: Secret de tirage d'image pour un registre prive
+        traps:
+        - 'La cle du Secret doit etre exactement `.dockerconfigjson`, point initial
+            compris, et la valeur un document complet `{"auths": {...}}`. Une cle
+            `auths` nue est acceptee par Terraform et rejetee par kubelet au premier
+            tirage.'
+        - Le provider encode `data` en base64 lui-meme ; y passer une valeur deja
+            encodee la double-encode en silence. C'est `data`, pas `binary_data`,
+            qui recoit du texte clair.
+        - Le champ `auth` du document est le couple `utilisateur:motdepasse` en base64
+            — un encodage, pas un chiffrement. Quiconque lit l'etat Terraform ou le
+            Secret lit le mot de passe.
+        - 'Un imagePullSecret ne vaut que dans son namespace : un service deploye
+            dans plusieurs namespaces a besoin d''un Secret par namespace.'
+        variables:
+        - registry_server
+        - registry_username
+        - registry_password
+    -   details: 'Donne a la chaine de deploiement une identite propre dans le namespace,
+            avec les droits strictement necessaires a un `helm upgrade` : lire et
+            ecrire les objets applicatifs, rien de plus. Aucun droit cluster-scoped
+            n''est accorde.'
+        name: service_account
+        outputs:
+        - service_account_name
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_service_account
+        - kubernetes_role
+        - kubernetes_role_binding
+        summary: ServiceAccount, Role et RoleBinding pour les deploiements
+        traps:
+        - 'Depuis Kubernetes 1.24, aucun Secret de jeton n''est cree automatiquement
+            pour un ServiceAccount : `default_secret_name` est vide. Un jeton durable
+            exige un Secret `kubernetes.io/service-account-token` declare explicitement
+            — preferez un jeton court obtenu par `kubectl create token`.'
+        - Dans un `subject` de RoleBinding, un ServiceAccount veut `api_group = ""`
+            ; c'est `rbac.authorization.k8s.io` qui vaut pour un User ou un Group.
+            L'inverse est accepte par Terraform et rejete par l'API au moment d'appliquer.
+        - Un Role ne porte que dans son namespace. Les objets cluster-scoped — CustomResourceDefinition,
+            StorageClass — resteront inaccessibles, ce qui est voulu.
+        variables:
+        - service_account_name
+    -   details: 'Pose une politique deny-by-default sur tout le namespace, puis rouvre
+            ce sans quoi rien ne fonctionne : la resolution DNS, et le trafic entrant
+            venant du namespace de l''ingress controller.
+
+
+            Sans plugin reseau qui les applique (Calico, Cilium, Antrea), une NetworkPolicy
+            est acceptee par l''API et **sans aucun effet** : le namespace parait
+            protege et ne l''est pas.'
+        name: network_policy
+        outputs: []
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_network_policy
+        summary: Ferme le namespace par defaut, et rouvre le strict necessaire
+        traps:
+        - Une politique deny-by-default sans regle d'egress vers le DNS (port 53,
+            UDP **et** TCP) casse toute resolution de nom dans le namespace. La panne
+            se presente comme une lenteur applicative, pas comme un probleme reseau.
+        - '`pod_selector {}` vide selectionne **tous** les pods du namespace. C''est
+            exactement ce qu''on veut pour un deny-by-default, et exactement ce qu''on
+            ne veut pas dans une regle d''ouverture.'
+        - Dans une regle `from`, `namespace_selector` et `pod_selector` dans un **meme**
+            bloc forment un ET ; dans deux blocs separes, un OU. L'ecart entre les
+            deux est une ouverture bien plus large que prevu, et rien ne le signale.
+        - 'Les sondes du kubelet viennent du noeud, pas d''un pod : une regle d''ingress
+            trop stricte fait echouer les probes et redemarre le service en boucle.'
+        variables:
+        - ingress_namespace_labels
+        - dns_namespace_labels
+    -   details: 'Engendre un mot de passe par cle demandee et les depose dans un
+            Secret unique. Aucune valeur secrete n''entre dans forge.yml ni dans un
+            fichier genere : c''est le point de la famille.'
+        name: random_secret
+        outputs:
+        - generated_secret_name
+        providers:
+        - random
+        - kubernetes
+        resources:
+        - random_password
+        - kubernetes_secret
+        summary: Mots de passe engendres, deposes en Secret
+        traps:
+        - '`random_password` conserve la valeur **en clair dans l''etat Terraform**.
+            Le backend d''etat doit donc etre chiffre et son acces restreint : le
+            mot de passe n''est pas plus secret que l''etat.'
+        - Sans `keepers`, la valeur ne change jamais — ce qui est le comportement
+            voulu, mais interdit toute rotation. Faire tourner un mot de passe demande
+            de modifier un keeper, pas de detruire la ressource.
+        - '`random_password` produit par defaut des caracteres speciaux qui cassent
+            les URL de connexion (`@`, `/`, `:`). D''ou `override_special` restreint
+            dans le code genere.'
+        - 'Le service qui lit ce Secret ne le relit pas tout seul : un Secret monte
+            en volume est rafraichi avec du retard, un Secret injecte en variable
+            d''environnement ne l''est **jamais** avant un redemarrage.'
+        variables:
+        - generated_secret_keys
+        - generated_secret_length
+    -   details: 'Fabrique une cle privee et un certificat auto-signe, deposes en
+            Secret `kubernetes.io/tls` pret a etre reference par un Ingress.
+
+
+            **Pour les environnements de travail uniquement.** En production, un certificat
+            auto-signe est refuse par tout client serieux : employez cert-manager
+            ou un certificat emis par une autorite reconnue. Le code genere le rappelle
+            en commentaire.'
+        name: tls_certificate
+        outputs:
+        - tls_secret_name
+        providers:
+        - tls
+        - kubernetes
+        resources:
+        - tls_private_key
+        - tls_self_signed_cert
+        - kubernetes_secret
+        summary: Certificat auto-signe des environnements de travail
+        traps:
+        - 'Le certificat expire sans rien signaler : Terraform ne le reengendre qu''au
+            prochain apply, et seulement si `early_renewal_hours` est atteint. Un
+            projet applique deux fois par an avec un certificat d''un an tombe en
+            panne.'
+        - La cle privee est stockee **en clair dans l'etat**, comme toute ressource
+            du provider tls.
+        - 'Les navigateurs ignorent le Common Name depuis 2017 : un certificat sans
+            `dns_names` correspondant a l''hote est refuse, quel que soit son CN.'
+        - Un Secret `kubernetes.io/tls` exige exactement les deux cles `tls.crt` et
+            `tls.key`. Toute autre nomenclature est acceptee par l'API et ignoree
+            par l'ingress controller.
+        variables:
+        - tls_common_name
+        - tls_dns_names
+        - tls_validity_hours
+        - tls_early_renewal_hours
+    kubernetes:
+        auth: kubeconfig
+        config_path: ~/.kube/config
+        context_per_environment: true
+        uses_kubeconfig: true
+    labels:
+        cost-center: '4210'
+        tier: frontend
+    module_dir: modules/boutique
+    module_files:
+    -   path: versions.tf
+        purpose: Version de Terraform et providers exiges par le module.
+    -   path: variables.tf
+        purpose: Toutes les entrees du module, chacune commentee.
+    -   path: locals.tf
+        purpose: 'Valeurs calculees : namespace effectif, labels communs.'
+    -   path: outputs.tf
+        purpose: Ce que le module rend a son appelant.
+    -   path: README.md
+        purpose: Role du module, entrees, sorties et pieges de chaque famille.
+    -   path: namespace.tf
+        purpose: Cree le namespace dans lequel le service est deploye (kubernetes_namespace).
+    -   path: quota.tf
+        purpose: 'ResourceQuota et LimitRange : le budget du namespace (kubernetes_resource_quota,
+            kubernetes_limit_range).'
+    -   path: registry_secret.tf
+        purpose: Secret de tirage d'image pour un registre prive (kubernetes_secret).
+    -   path: service_account.tf
+        purpose: ServiceAccount, Role et RoleBinding pour les deploiements (kubernetes_service_account,
+            kubernetes_role, kubernetes_role_binding).
+    -   path: network_policy.tf
+        purpose: Ferme le namespace par defaut, et rouvre le strict necessaire (kubernetes_network_policy).
+    -   path: random_secret.tf
+        purpose: Mots de passe engendres, deposes en Secret (random_password, kubernetes_secret).
+    -   path: tls_certificate.tf
+        purpose: Certificat auto-signe des environnements de travail (tls_private_key,
+            tls_self_signed_cert, kubernetes_secret).
+    module_name: boutique
+    namespace_strategy: per_env
+    outputs:
+    -   description: Namespace dans lequel le service est deploye.
+        name: namespace
+        value: local.namespace
+    -   description: Nom du ResourceQuota pose sur le namespace.
+        name: resource_quota_name
+        value: kubernetes_resource_quota.this.metadata[0].name
+    -   description: Nom du Secret a citer dans imagePullSecrets, cote chart Helm.
+        name: image_pull_secret_name
+        value: kubernetes_secret.registry.metadata[0].name
+    -   description: Nom du ServiceAccount de deploiement.
+        name: service_account_name
+        value: kubernetes_service_account.deployer.metadata[0].name
+    -   description: Nom du Secret portant les valeurs engendrees. Sa valeur n'est
+            pas exposee en sortie.
+        name: generated_secret_name
+        value: kubernetes_secret.generated.metadata[0].name
+    -   description: Nom du Secret kubernetes.io/tls a citer dans l'Ingress.
+        name: tls_secret_name
+        value: kubernetes_secret.tls.metadata[0].name
+    providers:
+    -   name: kubernetes
+        reason: pose les objets Kubernetes qui accueillent le service
+        source: hashicorp/kubernetes
+        version: ~> 2.32
+    -   name: random
+        reason: engendre les mots de passe, jamais ecrits dans la specification
+        source: hashicorp/random
+        version: ~> 3.6
+    -   name: tls
+        reason: fabrique les certificats auto-signes des environnements de travail
+        source: hashicorp/tls
+        version: ~> 4.0
+    resource_slots:
+        namespace:
+        -   name: namespace
+            summary: Cree le namespace dans lequel le service est deploye
+        network_policy:
+        -   name: network_policy
+            summary: Ferme le namespace par defaut, et rouvre le strict necessaire
+        quota:
+        -   name: quota
+            summary: 'ResourceQuota et LimitRange : le budget du namespace'
+        random_secret:
+        -   name: random_secret
+            summary: Mots de passe engendres, deposes en Secret
+        registry_secret:
+        -   name: registry_secret
+            summary: Secret de tirage d'image pour un registre prive
+        service_account:
+        -   name: service_account
+            summary: ServiceAccount, Role et RoleBinding pour les deploiements
+        tls_certificate:
+        -   name: tls_certificate
+            summary: Certificat auto-signe des environnements de travail
+    resources:
+    - namespace
+    - quota
+    - registry_secret
+    - service_account
+    - network_policy
+    - random_secret
+    - tls_certificate
+    root_files:
+    -   path: .copier-answers.yml
+        purpose: Reponses du gabarit, relues par `forge update`. Ne pas editer.
+    -   path: .gitignore
+        purpose: 'Exclut l''etat, les plans et le cache de providers. L''etat porte
+            des valeurs en clair : il ne doit jamais etre committe.'
+    -   path: .tflint.hcl
+        purpose: Jeu de regles tflint applique au projet.
+    -   path: Makefile
+        purpose: 'Raccourcis : `make init ENV=prod`, `make plan ENV=prod`.'
+    -   path: README.md
+        purpose: 'Ce fichier : comment employer le projet.'
+    root_variables:
+    -   default: '"~/.kube/config"'
+        description: 'Chemin du fichier kubeconfig employe pour joindre le cluster.
+            Propre a la machine : laissez la valeur par defaut et surchargez-la par
+            TF_VAR_kube_config_path si besoin.'
+        has_default: true
+        name: kube_config_path
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '""'
+        description: 'Contexte kubeconfig vise. Ne le laissez jamais vide : sans contexte
+            explicite, Terraform applique sur le contexte courant de la machine, quel
+            qu''il soit.'
+        has_default: true
+        name: kube_context
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Nom du service. Prefixe toutes les ressources creees et alimente
+            le label app.kubernetes.io/name.
+        has_default: false
+        name: service_name
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Nom de l'environnement (dev, staging, prod). Sert de suffixe
+            de ressource et de valeur du label app.kubernetes.io/instance.
+        has_default: false
+        name: environment
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Namespace Kubernetes vise. Cree par ce module si la famille 'namespace'
+            est retenue, suppose exister sinon.
+        has_default: false
+        name: namespace
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '{}'
+        description: Labels apposes sur toutes les ressources, en plus des labels
+            app.kubernetes.io calcules par le module.
+        has_default: true
+        name: labels
+        per_environment: true
+        sensitive: false
+        type: map(string)
+    -   default: '{}'
+        description: Annotations apposees sur toutes les ressources. Laissez vide
+            si aucun controleur du cluster n'en attend.
+        has_default: true
+        name: annotations
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '"4"'
+        description: Plafond de CPU demandable dans le namespace, en unites Kubernetes
+            (ex. '4' pour 4 coeurs, '500m' pour un demi).
+        has_default: true
+        name: quota_cpu
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '"8Gi"'
+        description: Plafond de memoire demandable, suffixe Kubernetes obligatoire
+            (Mi, Gi). Un nombre nu serait compris en octets.
+        has_default: true
+        name: quota_memory
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '30'
+        description: Nombre maximal de pods simultanes dans le namespace.
+        has_default: true
+        name: quota_pods
+        per_environment: true
+        sensitive: false
+        type: number
+    -   default: '"500m"'
+        description: CPU attribue a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_cpu
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '"512Mi"'
+        description: Memoire attribuee a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_memory
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '"https://index.docker.io/v1/"'
+        description: Adresse du registre. Docker Hub exige la forme historique https://index.docker.io/v1/
+            ; les autres registres prennent leur nom d'hote nu.
+        has_default: true
+        name: registry_server
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '""'
+        description: Identifiant de lecture sur le registre. Employez un compte de
+            service en lecture seule, jamais un compte nominatif.
+        has_default: true
+        name: registry_username
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: 'Mot de passe ou jeton du registre. Sans valeur par defaut et
+            absent de terraform.tfvars : fournissez-le par TF_VAR_registry_password.'
+        has_default: false
+        name: registry_password
+        per_environment: false
+        sensitive: true
+        type: string
+    -   default: '""'
+        description: Nom du ServiceAccount. Vide, il vaut '<service>-deployer'.
+        has_default: true
+        name: service_account_name
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '{ "kubernetes.io/metadata.name" = "ingress-nginx" }'
+        description: Labels du namespace autorise a joindre le service (celui de l'ingress
+            controller). Vide, seul le trafic interne au namespace est autorise.
+        has_default: true
+        name: ingress_namespace_labels
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '{ "kubernetes.io/metadata.name" = "kube-system" }'
+        description: Labels du namespace hebergeant le service DNS du cluster. Sans
+            cette ouverture, plus aucun nom ne se resout.
+        has_default: true
+        name: dns_namespace_labels
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '["password"]'
+        description: Cles a engendrer dans le Secret (ex. ['database-password', 'api-token']).
+            Une valeur aleatoire est produite par cle.
+        has_default: true
+        name: generated_secret_keys
+        per_environment: false
+        sensitive: false
+        type: list(string)
+    -   default: '32'
+        description: Longueur de chaque valeur engendree, en caracteres.
+        has_default: true
+        name: generated_secret_length
+        per_environment: false
+        sensitive: false
+        type: number
+    -   default: '""'
+        description: Nom porte par le certificat (CN). Vide, il vaut le premier nom
+            de tls_dns_names.
+        has_default: true
+        name: tls_common_name
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '[]'
+        description: 'Noms DNS couverts par le certificat (SAN). Les navigateurs ignorent
+            le CN depuis longtemps : c''est cette liste qui compte.'
+        has_default: true
+        name: tls_dns_names
+        per_environment: true
+        sensitive: false
+        type: list(string)
+    -   default: '8760'
+        description: Duree de validite du certificat, en heures (8760 = un an).
+        has_default: true
+        name: tls_validity_hours
+        per_environment: false
+        sensitive: false
+        type: number
+    -   default: '720'
+        description: Delai avant expiration a partir duquel un apply reengendre le
+            certificat, en heures (720 = trente jours).
+        has_default: true
+        name: tls_early_renewal_hours
+        per_environment: false
+        sensitive: false
+        type: number
+    terraform_version: ~> 1.9
+    variables:
+    -   default: ''
+        description: Nom du service. Prefixe toutes les ressources creees et alimente
+            le label app.kubernetes.io/name.
+        has_default: false
+        name: service_name
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Nom de l'environnement (dev, staging, prod). Sert de suffixe
+            de ressource et de valeur du label app.kubernetes.io/instance.
+        has_default: false
+        name: environment
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Namespace Kubernetes vise. Cree par ce module si la famille 'namespace'
+            est retenue, suppose exister sinon.
+        has_default: false
+        name: namespace
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '{}'
+        description: Labels apposes sur toutes les ressources, en plus des labels
+            app.kubernetes.io calcules par le module.
+        has_default: true
+        name: labels
+        per_environment: true
+        sensitive: false
+        type: map(string)
+    -   default: '{}'
+        description: Annotations apposees sur toutes les ressources. Laissez vide
+            si aucun controleur du cluster n'en attend.
+        has_default: true
+        name: annotations
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '"4"'
+        description: Plafond de CPU demandable dans le namespace, en unites Kubernetes
+            (ex. '4' pour 4 coeurs, '500m' pour un demi).
+        has_default: true
+        name: quota_cpu
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '"8Gi"'
+        description: Plafond de memoire demandable, suffixe Kubernetes obligatoire
+            (Mi, Gi). Un nombre nu serait compris en octets.
+        has_default: true
+        name: quota_memory
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '30'
+        description: Nombre maximal de pods simultanes dans le namespace.
+        has_default: true
+        name: quota_pods
+        per_environment: true
+        sensitive: false
+        type: number
+    -   default: '"500m"'
+        description: CPU attribue a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_cpu
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '"512Mi"'
+        description: Memoire attribuee a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_memory
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '"https://index.docker.io/v1/"'
+        description: Adresse du registre. Docker Hub exige la forme historique https://index.docker.io/v1/
+            ; les autres registres prennent leur nom d'hote nu.
+        has_default: true
+        name: registry_server
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '""'
+        description: Identifiant de lecture sur le registre. Employez un compte de
+            service en lecture seule, jamais un compte nominatif.
+        has_default: true
+        name: registry_username
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: 'Mot de passe ou jeton du registre. Sans valeur par defaut et
+            absent de terraform.tfvars : fournissez-le par TF_VAR_registry_password.'
+        has_default: false
+        name: registry_password
+        per_environment: false
+        sensitive: true
+        type: string
+    -   default: '""'
+        description: Nom du ServiceAccount. Vide, il vaut '<service>-deployer'.
+        has_default: true
+        name: service_account_name
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '{ "kubernetes.io/metadata.name" = "ingress-nginx" }'
+        description: Labels du namespace autorise a joindre le service (celui de l'ingress
+            controller). Vide, seul le trafic interne au namespace est autorise.
+        has_default: true
+        name: ingress_namespace_labels
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '{ "kubernetes.io/metadata.name" = "kube-system" }'
+        description: Labels du namespace hebergeant le service DNS du cluster. Sans
+            cette ouverture, plus aucun nom ne se resout.
+        has_default: true
+        name: dns_namespace_labels
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '["password"]'
+        description: Cles a engendrer dans le Secret (ex. ['database-password', 'api-token']).
+            Une valeur aleatoire est produite par cle.
+        has_default: true
+        name: generated_secret_keys
+        per_environment: false
+        sensitive: false
+        type: list(string)
+    -   default: '32'
+        description: Longueur de chaque valeur engendree, en caracteres.
+        has_default: true
+        name: generated_secret_length
+        per_environment: false
+        sensitive: false
+        type: number
+    -   default: '""'
+        description: Nom porte par le certificat (CN). Vide, il vaut le premier nom
+            de tls_dns_names.
+        has_default: true
+        name: tls_common_name
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '[]'
+        description: 'Noms DNS couverts par le certificat (SAN). Les navigateurs ignorent
+            le CN depuis longtemps : c''est cette liste qui compte.'
+        has_default: true
+        name: tls_dns_names
+        per_environment: true
+        sensitive: false
+        type: list(string)
+    -   default: '8760'
+        description: Duree de validite du certificat, en heures (8760 = un an).
+        has_default: true
+        name: tls_validity_hours
+        per_environment: false
+        sensitive: false
+        type: number
+    -   default: '720'
+        description: Delai avant expiration a partir duquel un apply reengendre le
+            certificat, en heures (720 = trente jours).
+        has_default: true
+        name: tls_early_renewal_hours
+        per_environment: false
+        sensitive: false
+        type: number
+forge_version: 1
+plugin: terraform
+service:
+    description: Boutique en ligne, socle d'infrastructure
+    environments:
+    -   domain: dev.example.net
+        name: dev
+        production: false
+    -   domain: staging.example.net
+        name: staging
+        production: false
+    -   domain: example.net
+        name: prod
+        production: true
+    labels:
+        cost-center: '4210'
+        tier: frontend
+    name: boutique
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/terraform/template
+

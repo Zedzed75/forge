@@ -67,12 +67,22 @@ mettre a jour la section « Etat courant », committer, s'arreter.
         distingue les domaines demandes par la specification des autres.
   - [x] `tests/test_choix_des_domaines.py` : 11 tests verrouillant les trois
         facons de choisir, dont un entretien ne retenant qu'un domaine.
-- [ ] **Phase 7 — Plugin Terraform** (premier domaine ecrit de zero)
-  - [ ] Aucun code legacy a porter : c'est la premiere mise a l'epreuve reelle
-        de la promesse « ajouter un domaine ne touche pas au coeur ».
-  - [ ] Catalogue de ressources, sous-modele `terraform:`, gabarits, entretien.
-  - [ ] Validateurs : `terraform fmt -check`, `terraform validate`, `tflint`.
-  - [ ] Golden + test d'integration lancant les validateurs reels.
+- [x] **Phase 7 — Plugin Terraform** (premier domaine ecrit de zero) (2026-08-26)
+  - [x] Aucun code legacy a porter. Promesse tenue : **une seule ligne du coeur
+        a change**, l'entree de `BUILTIN_PLUGINS`. Le reste est dans
+        `plugins/terraform/`, plus quatre attentes de test qui comptaient les
+        domaines.
+  - [x] Catalogue de **sept familles** (`namespace`, `quota`, `registry_secret`,
+        `service_account`, `network_policy`, `random_secret`, `tls_certificate`)
+        et de leurs pieges mesures ; sous-modele `terraform:` ; 24 gabarits ;
+        entretien.
+  - [x] Validateurs : `terraform fmt -check`, `terraform init -backend=false`,
+        `terraform validate` par environnement, `tflint --recursive`.
+  - [x] Golden (`terraform-complet`) + test d'integration lancant les **huit**
+        commandes reelles. 48 tests ajoutes.
+  - [x] CI : les validateurs des domaines Helm **et** Terraform y sont installes.
+        Helm n'y avait jamais ete ajoute (manque de la phase 4) : ses tests
+        d'integration s'y ignoraient en silence.
 - [ ] **Phase 8 — Plugin pipeline** (CI/CD)
   - [ ] Le domaine qui federe les autres : build d'image, appel des validateurs
         de chaque domaine present, deploiement par environnement.
@@ -93,7 +103,9 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 6 terminees. **271 tests verts** sur un depot propre.
+**Etat** : phases 0 a 7 terminees. **319 tests verts** sur un depot propre
+(312 hors integration, 7 marques `integration` dont 1 ignore tant que l'arbre de
+travail est sale).
 
 La promesse du projet : **une seule description du service, et vous choisissez
 ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
@@ -199,10 +211,60 @@ vient d'un outil legacy.
 lot. Le mecanisme existe et fonctionne (section absente de forge.yml, `--only`,
 entretien), mais la documentation et la CLI le mettent mal en avant.
 
-**Prochaine action** : **phase 7 — plugin Terraform**, premier domaine ecrit
-de zero. C'est la premiere mise a l'epreuve reelle de la promesse « ajouter un
-domaine ne touche pas au coeur » : les deux domaines existants venaient d'outils
-legacy, celui-ci n'aura aucun modele a porter.
+**Prochaine action** : **phase 8 — plugin pipeline**. Le premier domaine dont
+la sortie **depend des autres sections** de la specification. Le point a cadrer
+n'est pas technique : c'est de lire ce que les autres domaines declarent sans
+les connaitre, et sans que le coeur devienne un ordonnanceur.
+
+Ce que la phase 7 a etabli, et qui sert a la phase 8 :
+- **La promesse tient.** Ajouter un domaine a coute **une ligne** du coeur
+  (`BUILTIN_PLUGINS`). Aucun hook n'a manque, aucun type n'a du etre elargi —
+  contrairement a la phase 3, ou `Command.env` avait du etre ajoute en cours de
+  route (constat R1).
+- **Un validateur peut dicter une decision d'architecture.** `terraform fmt`
+  aligne le `=` de lignes d'affectation consecutives ; un gabarit ne peut pas
+  aligner des cles dont il ignore la longueur, la projection si. D'ou
+  `plugins/terraform/hcl.py` et ses filtres exposes par la convention
+  `<paquet>.jinja_ext` — premier domaine a avoir besoin de filtres pour autre
+  chose que du YAML, et la convention a suffi.
+- **Les validateurs reels trouvent encore ce que les tests ne voient pas.**
+  `tflint` a signale `var.annotations` declaree et jamais employee des que la
+  famille `namespace` n'etait pas retenue. Correction : les annotations sont
+  apposees sur **toutes** les ressources — ce que leur description promettait
+  deja. D'ou `test_toute_variable_declaree_est_employee_par_un_gabarit`, qui
+  eprouve **chaque famille isolement** : le cas complet aurait masque le defaut.
+- **La CI ne validait pas ce qu'elle croyait valider.** Ni `helm` ni
+  `kubeconform` n'y avaient jamais ete installes : les tests `integration` s'y
+  ignoraient, et une suite verte ne disait rien des projets generes. Les quatre
+  validateurs manquants y sont desormais installes.
+- **Le vocabulaire des facettes a son premier cas reel.** Terraform et Helm
+  declarent tous deux `namespaces` : Terraform cree le cloisonnement, Helm y
+  deploie. Un desaccord signifie que le chart vise un namespace que personne ne
+  cree, et `forge validate` le dit sans qu'aucune regle « si terraform alors
+  helm » n'existe dans le coeur.
+
+Rappels pour la phase 8 :
+- Poser le tag `v0.7.0` a la fin de la phase 8 (`v0.6.0` marque la phase 7).
+  **Correction de numerotation** : le rappel de la phase 6 reservait `v1.0.0`
+  a cette phase, a une epoque ou elle etait la derniere. La cible corrigee en
+  compte dix : `v1.0.0` revient a la phase 10, et les phases 6 et 7 portent
+  `v0.5.0` et `v0.6.0`.
+- Le domaine `pipeline` ne doit connaitre **aucun** autre domaine par son nom.
+  Ce qu'il peut lire : `manager.domain_names()`, les `DomainInfo` (dont
+  `outdir`), les `Command` rendues par `forge_validators`, et les `Projection`.
+  C'est deja tout ce qu'il faut pour engendrer un job par domaine present.
+- `Command` porte deja `tool`, `argv`, `cwd`, `env` et `install_hint` : un job
+  de CI se derive de cette liste sans que le plugin sache ce qu'est un chart.
+  Le risque est ailleurs — l'**installation** de chaque outil, que `Command` ne
+  decrit pas. A trancher en phase 8 : l'inferer d'une table propre au plugin
+  pipeline, ou elargir le contrat.
+
+**Ce que la phase 7 n'a PAS fait**, et qu'il ne faut pas croire acquis :
+- le domaine Terraform ne pose que des objets **Kubernetes** (plus `random` et
+  `tls`). Aucun provider de cloud : il faudrait des identifiants pour valider,
+  et `forge validate` ne joint jamais aucune infrastructure ;
+- `terraform plan` et `apply` ne sont **pas** des validateurs : ils demandent un
+  cluster. Seuls `fmt`, `init -backend=false`, `validate` et `tflint` le sont.
 
 Ce que la phase 5 a etabli :
 - **Deux domaines qui se rencontrent revelent ce qu'un seul ne peut pas.** Le
@@ -217,7 +279,8 @@ Ce que la phase 5 a etabli :
   conteneurise est legitime ; ce qui ne l'est pas, c'est que personne ne le dise.
 
 Rappels pour la phase 6 :
-- Poser le tag `v1.0.0` a la fin de la phase 6 (`v0.4.0` marque la phase 5).
+- Poser le tag `v0.5.0` a la fin de la phase 6 (`v0.4.0` marque la phase 5).
+  *(Ce rappel disait `v1.0.0` : corrige, cf. les rappels de la phase 8.)*
 - Les ecarts de parite 12 a 15 (mentions periemees de `ansible-forge` et
   `helm-forge` dans les README generes) doivent etre leves **d'un bloc**, en
   re-benissant les instantanes dans le meme commit — c'est le bon moment,
@@ -267,3 +330,6 @@ Rappels pour la phase 5 :
   Puis **correction de cible** : le brief nommait cinq plugins, `CLAUDE.md` les
   avait reduits a deux. Plan etendu, cadrage du choix des domaines corrige
   (phase 6). 271 tests.
+- Session 6 (2026-08-26) : phase 7 (plugin Terraform ecrit de zero — sept
+  familles, 24 gabarits, huit validateurs reels qui passent). Un defaut trouve
+  par tflint et corrige ; manque de la CI de la phase 4 comble. 319 tests.

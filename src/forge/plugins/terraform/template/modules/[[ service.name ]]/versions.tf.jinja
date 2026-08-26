@@ -1,0 +1,34 @@
+[# --------------------------------------------------------------------- #]
+[# Les commentaires HCL sont écrits avec « # » et non « // » : terraform  #]
+[# fmt convertit les seconds en premiers, et « terraform fmt -check » est #]
+[# l'un des validateurs du domaine.                                       #]
+[# --------------------------------------------------------------------- #]
+# =============================================================================
+# versions.tf — versions exigées par le module « [[ service.name ]] »
+# =============================================================================
+# Fichier généré par forge.
+#
+# Un module déclare les versions dont il a besoin ; il ne configure jamais un
+# provider. C'est la racine appelante — environments/<env>/providers.tf — qui
+# décide quel cluster est visé. Un bloc « provider » écrit ici rendrait le
+# module inutilisable ailleurs.
+# =============================================================================
+
+terraform {
+  # Borne haute obligatoire : une contrainte ouverte laisserait une version
+  # majeure future de Terraform casser ce module sans qu'on ait rien changé.
+  required_version = "[[ domain.terraform_version ]]"
+
+  required_providers {
+[% for provider in domain.providers %]
+    # [[ provider.reason ]]
+    [[ provider.name ]] = {
+      source  = "[[ provider.source ]]"
+      version = "[[ provider.version ]]"
+    }
+[% if not loop.last %]
+
+[% endif %]
+[% endfor %]
+  }
+}

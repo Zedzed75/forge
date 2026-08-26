@@ -3,8 +3,9 @@
 # ---------------------------------------------------------------------------
 # La CI fait autorite : c'est le seul environnement Linux ou tous les outils de
 # validation des domaines peuvent tourner nativement (decision DESIGN.md §8 Q7).
-# Les outils propres a chaque domaine (ansible-lint, helm, kubeconform) seront
-# ajoutes ici avec leurs plugins, en phases 3 et 4.
+# Chaque domaine livre installe ici ses validateurs. Sans eux, les tests
+# marques `integration` s'ignorent en silence : une suite verte ne voudrait
+# alors plus dire que le projet genere est valide.
 # ---------------------------------------------------------------------------
 name: CI
 
@@ -58,6 +59,32 @@ jobs:
             community.general ansible.posix community.postgresql \
             -p "$HOME/.ansible/collections"
           echo "FORGE_ANSIBLE_COLLECTIONS=$HOME/.ansible/collections" >> "$GITHUB_ENV"
+
+      # Domaine Helm. Les tests marques `integration` s'ignorent si ces outils
+      # manquent : les installer est ce qui rend la CI concluante.
+      - name: Installer les outils du domaine Helm
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3             | bash -s -- --version v3.16.3
+          curl -fsSL -o /tmp/kubeconform.tar.gz             https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+          helm version --short
+          kubeconform -v
+
+      # Domaine Terraform. `terraform init` telecharge les providers : le cache
+      # evite de recommencer pour chaque racine d'environnement.
+      - name: Installer les outils du domaine Terraform
+        run: |
+          curl -fsSL -o /tmp/terraform.zip             https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+          unzip -qo /tmp/terraform.zip -d /tmp
+          sudo install -m 0755 /tmp/terraform /usr/local/bin/terraform
+          curl -fsSL -o /tmp/tflint.zip             https://github.com/terraform-linters/tflint/releases/download/v0.59.1/tflint_linux_amd64.zip
+          unzip -qo /tmp/tflint.zip -d /tmp
+          sudo install -m 0755 /tmp/tflint /usr/local/bin/tflint
+          mkdir -p "$HOME/.terraform.d/plugin-cache"
+          echo "FORGE_TF_PLUGIN_CACHE=$HOME/.terraform.d/plugin-cache" >> "$GITHUB_ENV"
+          terraform version
+          tflint --version
 
       # `uv run` garantit que le pytest execute est celui de l'environnement
       # qu'on vient de creer, et non un pytest quelconque du PATH.

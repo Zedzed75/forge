@@ -1,11 +1,11 @@
 # forge
 
 Generateur deterministe de projets d'infrastructure complets et commentes
-(Ansible, Helm, et d'autres domaines ensuite) a partir d'une seule
-specification `forge.yml`.
+(Ansible, Helm, Terraform, et d'autres domaines ensuite) a partir d'une
+seule specification `forge.yml`.
 
-> **Etat** : en construction. Le coeur et les domaines **Ansible** et **Helm**
-> sont livres et valides par leurs outils reels. Les domaines **Terraform**,
+> **Etat** : en construction. Le coeur et les domaines **Ansible**, **Helm** et
+> **Terraform** sont livres et valides par leurs outils reels. Les domaines
 > **pipeline** et **monitoring** prevus par l'architecture restent a ecrire.
 > La documentation complete — architecture, guide d'ecriture de plugin,
 > exemples — arrive en derniere phase. Voir `PLAN.md` pour l'avancement et
@@ -26,8 +26,10 @@ choisir :
 demandes et lesquels ne le sont pas. `forge generate` annonce ce qu'il va
 produire avant d'ecrire.
 
-Demander deux domaines a la fois est **un** usage possible — forge verifie alors
-qu'ils restent coherents entre eux — pas l'usage normal.
+Demander plusieurs domaines a la fois est **un** usage possible — forge verifie
+alors qu'ils restent coherents entre eux — pas l'usage normal. Terraform cree le
+namespace, Helm y deploie : si les deux ne s'accordent pas sur son nom,
+`forge validate` le dit.
 
 ## Principes
 
