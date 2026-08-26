@@ -1,0 +1,84 @@
+# =============================================================================
+# probe — Sonde externe : joignabilite et expiration du certificat
+# =============================================================================
+# Règles d'alerte de « boutique », environnement prod.
+# Fichier généré par forge.
+#
+# La seule famille qui regarde le service **de l'exterieur**, comme un
+# utilisateur. Un service peut tourner parfaitement et rester injoignable :
+# DNS casse, ingress mal configure, certificat expire. Aucune metrique
+# interne ne le montre.
+#
+# Exige un blackbox exporter joignable par le collecteur, et des URL a
+# sonder declarees par environnement.
+#
+# Exige : blackbox exporter.
+#
+# POINTS DE VIGILANCE
+#
+# La configuration de sonde du blackbox exporter est un ballet de
+# `relabel_configs` : l'adresse a sonder passe par `__param_target`, puis
+# devient `instance`, et `__address__` est finalement remplace par l'adresse
+# de l'exporter. Sauter une etape fait sonder l'exporter lui-meme, qui
+# repond toujours.
+#
+# `probe_ssl_earliest_cert_expiry` n'existe que pour les sondes **HTTPS**.
+# Une URL en `http://` ne produit pas cette serie, et l'alerte de certificat
+# reste muette sans que rien ne le signale.
+#
+# La sonde voit ce qu'un client voit depuis le reseau du collecteur. Si
+# celui-ci est dans le cluster, elle ne teste ni le DNS public, ni le
+# repartiteur de charge, ni le pare-feu — c'est-a-dire l'essentiel de ce qui
+# casse.
+#
+# Un certificat renouvele automatiquement declenche quand meme l'alerte si
+# le renouvellement echoue silencieusement. C'est le but ; ce n'est pas un
+# faux positif.
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/prod/probe.yml
+# =============================================================================
+
+groups:
+  - name: boutique-prod-probe
+    rules:
+      # -----------------------------------------------------------------------
+      # Le service n'est plus joignable de l'exterieur
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueSondeExterneEnEchec
+        expr: |
+          probe_success{job="blackbox"} == 0
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 5m
+        labels:
+          criticality: high
+          env: prod
+          service: boutique
+          severity: critical
+        annotations:
+          summary: Le service n'est plus joignable de l'exterieur
+          description: 'La sonde externe sur {{ $labels.instance }} echoue depuis 5 minutes. Le service peut tourner et rester injoignable : c''est precisement ce que cette sonde voit et que les autres ne voient pas.'
+
+      # -----------------------------------------------------------------------
+      # Un certificat TLS approche de son expiration
+      # Seuil : 30 (jours avant expiration), réglable par
+      # monitoring.environments.prod.thresholds.certificate_days
+      # dans forge.yml.
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueCertificatBientotExpire
+        expr: |
+          (
+            probe_ssl_earliest_cert_expiry{job="blackbox"} - time()
+          ) / 86400 < 30
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 15m
+        labels:
+          criticality: high
+          env: prod
+          service: boutique
+          severity: warning
+        annotations:
+          summary: Un certificat TLS approche de son expiration
+          description: 'Le certificat servi sur {{ $labels.instance }} expire dans moins de 30 jours. Un certificat expire ne previent pas : il casse toutes les connexions d''un coup.'

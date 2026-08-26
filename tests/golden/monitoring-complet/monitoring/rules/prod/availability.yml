@@ -1,0 +1,52 @@
+# =============================================================================
+# availability — La cible ne repond plus au collecteur
+# =============================================================================
+# Règles d'alerte de « boutique », environnement prod.
+# Fichier généré par forge.
+#
+# L'alerte la plus simple, et celle qu'on oublie le plus souvent : `up ==
+# 0`. Prometheus fabrique lui-meme la metrique `up` a chaque collecte, sans
+# qu'aucun exporter n'ait a l'exposer.
+#
+# C'est la seule famille qui ne depend d'aucune convention de nommage : elle
+# fonctionne des la premiere collecte.
+#
+# POINTS DE VIGILANCE
+#
+# `up == 0` ne se declenche que si la cible est **connue** du collecteur.
+# Une cible jamais declaree ne produit aucune serie, donc aucune alerte : le
+# silence n'est pas la sante. C'est pourquoi les cibles sont ecrites dans la
+# configuration plutot que decouvertes.
+#
+# Sans clause `for`, un redemarrage de deux minutes reveille quelqu'un. Avec
+# un `for` trop long, une panne reelle attend. Cinq minutes est le compromis
+# usuel, pas une verite.
+#
+# Une alerte qui se declenche pour **toutes** les instances a la fois
+# designe presque toujours le collecteur ou le reseau, pas le service. Un
+# recepteur qui ne fait pas la difference noie l'astreinte.
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/prod/availability.yml
+# =============================================================================
+
+groups:
+  - name: boutique-prod-availability
+    rules:
+      # -----------------------------------------------------------------------
+      # La cible ne repond plus au collecteur
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueCibleInjoignable
+        expr: |
+          up{job="boutique"} == 0
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 5m
+        labels:
+          criticality: high
+          env: prod
+          service: boutique
+          severity: critical
+        annotations:
+          summary: La cible ne repond plus au collecteur
+          description: L'instance {{ $labels.instance }} du job {{ $labels.job }} ne repond plus depuis 5 minutes.

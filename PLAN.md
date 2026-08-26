@@ -100,10 +100,19 @@ mettre a jour la section « Etat courant », committer, s'arreter.
         c'est le premier plugin dont la sortie depend des autres sections. A
         cadrer avec soin — le coeur ne doit pas devenir un ordonnanceur.
   - [ ] Validateurs : `actionlint` (GitHub) ou le linter GitLab.
-- [ ] **Phase 9 — Plugin monitoring**
-  - [ ] Sondes, tableaux de bord, regles d'alerte, adosses aux environnements et
-        aux composants deja declares.
-  - [ ] Validateurs : `promtool check rules`, validation des tableaux de bord.
+- [x] **Phase 9 — Plugin monitoring** (2026-08-26)
+  - [x] Six familles de regles (`availability`, `error_rate`, `latency`,
+        `saturation`, `restarts`, `probe`), huit alertes, une configuration de
+        collecte **par environnement** — les seuils et le namespace observe
+        different d'un environnement a l'autre.
+  - [x] Validateurs : `promtool check config`, `check rules`, et surtout
+        **`promtool test rules`** : chaque alerte est livree avec un test
+        unitaire qui prouve qu'elle se declenche, avec les bons libelles et les
+        bonnes annotations. Trois commandes par environnement.
+  - [x] Domaine **autonome** : il ne lit aucune autre section. Sa rencontre avec
+        les autres domaines passe par les facettes (`namespaces`,
+        `ingress_hosts`), comme prevu depuis la phase 5.
+  - [x] Golden + test d'integration lancant promtool. 66 tests ajoutes.
 - [ ] **Phase 10 — Finition**
   - [ ] Revue critique : code mort, duplication, cas d'erreur.
   - [ ] README (architecture, guide d'ecriture de plugin, exemples) + section migration.
@@ -113,11 +122,12 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 7 terminees, puis **consolidation du choix des domaines**
-(2026-08-26). **342 tests collectes**, tous verts hors integration.
+**Etat** : phases 0 a 7 et 9 terminees ; phase 8 mise de cote sur une branche.
+**531 tests collectes**, tous verts (integration comprise).
 
-Trois domaines livres et valides par leurs outils reels : **Ansible**, **Helm**,
-**Terraform**. Chacun se genere seul, et c'est le cas d'usage normal.
+Quatre domaines livres et valides par leurs outils reels : **Ansible**, **Helm**,
+**Terraform**, **monitoring**. Chacun se genere seul, et c'est le cas d'usage
+normal.
 
 La promesse du projet : **une seule description du service, et vous choisissez
 ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
@@ -249,8 +259,33 @@ Un comportement a ete **decouvert** en ecrivant ces tests, et verrouille :
 nommee au lieu de ne rien produire. C'est le bon comportement — un silence
 laisserait croire que le domaine a ete genere — mais il n'etait teste nulle part.
 
-**Prochaine action** : **phase 8 — plugin pipeline**, si elle est reprise
-(branche `phase-8-pipeline`). Sinon phase 9 ou 10. Le premier domaine dont
+Ce que la phase 9 a etabli :
+- **Un domaine peut se passer de connaitre les autres.** Le monitoring ne lit
+  aucune section voisine : ce qu'il surveille est declare chez lui, et la
+  coherence passe par les facettes. C'est le contre-exemple utile a la phase 8,
+  ou le pipeline avait besoin d'un contexte fourni par le coeur.
+- **`promtool test rules` verifie ce qu'aucun autre validateur du projet ne
+  verifie : le sens.** Une regle d'alerte peut etre syntaxiquement irreprochable
+  et rester muette pour toujours — metrique inexistante, libelle mal
+  orthographie, comparaison du mauvais cote du seuil. Les tests unitaires
+  d'alerte sont donc **inconditionnels** : les rendre facultatifs invitait au
+  mauvais choix.
+- **Les series de test doivent suivre les seuils.** promtool a trouve le defaut
+  seul : un quantile de test a 1.9 s validait un seuil a 1 s et echouait sur un
+  seuil a 2 s. Les fixtures sont desormais calculees a partir du seuil, avec une
+  marge franche, et un test verifie cette propriete.
+- **Un piege de Jinja est devenu une regle testee.** Une cle nommee `values`
+  faisait ecrire `<built-in method values...>` dans un fichier genere : en
+  Jinja, `objet.values` resout la methode du dict avant la cle. Deux garde-fous
+  couvrent desormais **tous** les domaines — l'un sur la source des gabarits,
+  l'autre sur la sortie rendue. Les gabarits Helm employaient deja la forme sure
+  `c.config["keys"]` sans que ce soit ecrit nulle part.
+
+**Prochaine action** : **phase 10 — finition**. Revue critique, README complet
+(architecture, guide d'ecriture de plugin), levee d'un bloc des ecarts de parite
+12 a 15, suppression de `_legacy/`, tag `v1.0.0`.
+
+La phase 8 (pipeline) reste sur sa branche ; elle peut etre reprise apres. Le premier domaine dont
 la sortie **depend des autres sections** de la specification. Le point a cadrer
 n'est pas technique : c'est de lire ce que les autres domaines declarent sans
 les connaitre, et sans que le coeur devienne un ordonnanceur.
@@ -283,7 +318,8 @@ Ce que la phase 7 a etabli, et qui sert a la phase 8 :
   helm » n'existe dans le coeur.
 
 Rappels pour la phase 8 :
-- Poser le tag `v0.7.0` a la fin de la phase 8 (`v0.6.0` marque la phase 7).
+- Poser le tag `v0.8.0` a la fin de la phase 9 (`v0.7.0` marque la consolidation
+  du choix des domaines).
   **Correction de numerotation** : le rappel de la phase 6 reservait `v1.0.0`
   a cette phase, a une epoque ou elle etait la derniere. La cible corrigee en
   compte dix : `v1.0.0` revient a la phase 10, et les phases 6 et 7 portent
@@ -376,3 +412,6 @@ Rappels pour la phase 5 :
   `phase-8-pipeline`** a la demande de l'utilisateur, pour consolider d'abord
   le choix des domaines : tests derives du registre, `examples/` livre,
   README recentre. 342 tests.
+  Puis phase 9 (plugin monitoring : six familles, huit alertes, chacune livree
+  avec le test unitaire qui prouve qu'elle se declenche). Deux defauts trouves
+  par promtool et par le garde-fou generique. 531 tests.

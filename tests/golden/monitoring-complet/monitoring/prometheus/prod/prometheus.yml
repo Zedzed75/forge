@@ -1,0 +1,78 @@
+# =============================================================================
+# prometheus.yml — collecte de « boutique » en environnement prod
+# =============================================================================
+# Fichier généré par forge. Ne l'éditez pas à la main : modifiez `forge.yml` à la
+# racine du dépôt, puis relancez `forge generate`.
+#
+# Une configuration par environnement, et non une seule partagée : les seuils
+# d'alerte diffèrent, le namespace observé aussi. Une configuration commune
+# devrait porter des filtres larges et des seuils moyens, c'est-à-dire ne bien
+# servir aucun des deux.
+#
+# Les cibles sont ÉCRITES ici, pas découvertes. C'est un choix : une cible
+# jamais déclarée ne produit aucune série, donc aucune alerte. Le silence n'est
+# pas la santé. Si vos cibles changent souvent, remplacez `static_configs` par
+# `file_sd_configs` ou par une découverte Kubernetes — c'est une modification
+# locale, le reste du fichier ne bouge pas.
+# =============================================================================
+
+global:
+  # Période entre deux collectes. Elle borne la finesse de tout ce qui suit :
+  # une fenêtre `rate()` doit couvrir au moins deux collectes.
+  scrape_interval: 30s
+
+  # Délai au-delà duquel une collecte est abandonnée. Toujours inférieur à
+  # l'intervalle, sans quoi les collectes se chevauchent.
+  scrape_timeout: 10s
+
+  # Étiquettes ajoutées à tout ce que cette instance produit. Elles permettent
+  # de distinguer les environnements dans un Alertmanager commun.
+  external_labels:
+    service: boutique
+    env: prod
+
+# Règles d'alerte de cet environnement. Le chemin est relatif à ce fichier.
+rule_files:
+  - ../../rules/prod/*.yml
+
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # Le service lui-même.
+  # ---------------------------------------------------------------------------
+  - job_name: boutique
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api-1.example.net:9090
+          - api-2.example.net:9090
+        labels:
+          criticality: high
+          tier: frontend
+
+  # ---------------------------------------------------------------------------
+  # Sonde externe, via le blackbox exporter.
+  # ---------------------------------------------------------------------------
+  # Le ballet de relabels ci-dessous n'est pas décoratif : sans lui, Prometheus
+  # collecterait l'exporter lui-même, qui répond toujours. L'adresse à sonder
+  # passe par `__param_target`, devient l'étiquette `instance`, et `__address__`
+  # est finalement remplacé par l'adresse de l'exporter.
+  - job_name: blackbox
+    metrics_path: /probe
+    params:
+      module: ['http_2xx']
+    static_configs:
+      - targets:
+          - https://boutique.example.net
+        labels:
+          env: prod
+    relabel_configs:
+      # 1. l'adresse listée devient le paramètre `target` de la requête ;
+      - source_labels: [__address__]
+        target_label: __param_target
+      # 2. ce paramètre devient l'étiquette `instance`, celle que les alertes
+      #    citent dans leurs annotations ;
+      - source_labels: [__param_target]
+        target_label: instance
+      # 3. et l'adresse réellement interrogée devient celle de l'exporter.
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

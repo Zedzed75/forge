@@ -1,0 +1,1176 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « monitoring ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only monitoring
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    alert_prefix: Boutique
+    blackbox:
+        address: blackbox-exporter:9115
+        job: blackbox
+        module: http_2xx
+        needed: true
+    dash:
+    -   name: boutique
+    dashboard_file: grafana/dashboards/boutique.json
+    dashboard_panels:
+    -   alert: BoutiqueCibleInjoignable
+        expr: up{job="boutique"}
+        family: availability
+        threshold: ''
+        title: La cible ne repond plus au collecteur
+    -   alert: BoutiqueTauxErreurEleve
+        expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"5..\"}[5m]))\n\
+            \  /\nsum(rate(http_requests_total{job=\"boutique\"}[5m]))"
+        family: error_rate
+        threshold: '0.2'
+        title: Trop de reponses en erreur
+    -   alert: BoutiqueLatenceElevee
+        expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
+            boutique\"}[5m]))\n)"
+        family: latency
+        threshold: '2'
+        title: Le service repond trop lentement
+    -   alert: BoutiqueMemoireProcheDeLaLimite
+        expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\", container!=\"\
+            \"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"boutique-dev\"\
+            , container!=\"\"}"
+        family: saturation
+        threshold: '0.9'
+        title: Un conteneur approche de sa limite memoire
+    -   alert: BoutiqueCpuEleve
+        expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
+            boutique-dev\", container!=\"\"}[5m])\n)"
+        family: saturation
+        threshold: '1.5'
+        title: Un pod consomme durablement beaucoup de CPU
+    -   alert: BoutiqueRedemarragesEnBoucle
+        expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
+            boutique-dev\"}[1h]\n)"
+        family: restarts
+        threshold: '3'
+        title: Un conteneur redemarre en boucle
+    -   alert: BoutiqueSondeExterneEnEchec
+        expr: probe_success{job="blackbox"}
+        family: probe
+        threshold: ''
+        title: Le service n'est plus joignable de l'exterieur
+    -   alert: BoutiqueCertificatBientotExpire
+        expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"} - time()\n) /\
+            \ 86400"
+        family: probe
+        threshold: '21'
+        title: Un certificat TLS approche de son expiration
+    default_env: dev
+    env_names:
+    - dev
+    - prod
+    environments:
+    -   domain: dev.example.net
+        family_names:
+        - availability
+        - error_rate
+        - latency
+        - saturation
+        - restarts
+        - probe
+        labels:
+            tier: frontend
+        name: dev
+        namespace: boutique-dev
+        probe_urls:
+        - https://boutique.dev.example.net
+        production: false
+        rules:
+            availability:
+                alerts:
+                -   description: L'instance {{ $labels.instance }} du job {{ $labels.job
+                        }} ne repond plus depuis 5 minutes.
+                    expr: up{job="boutique"} == 0
+                    for: 5m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: critical
+                    name: BoutiqueCibleInjoignable
+                    panel_expr: up{job="boutique"}
+                    severity: critical
+                    summary: La cible ne repond plus au collecteur
+                    test:
+                        eval_time: 6m
+                        exp_annotations:
+                            description: L'instance instance-de-test:9090 du job boutique
+                                ne repond plus depuis 5 minutes.
+                            summary: La cible ne repond plus au collecteur
+                        exp_labels:
+                            env: dev
+                            instance: instance-de-test:9090
+                            job: boutique
+                            service: boutique
+                            severity: critical
+                        series:
+                        -   points: 0+0x10
+                            series: up{job="boutique", instance="instance-de-test:9090"}
+                    threshold: ''
+                    threshold_field: ''
+                    threshold_unit: ''
+                group: boutique-dev-availability
+                summary: La cible ne repond plus au collecteur
+                traps:
+                - '`up == 0` ne se declenche que si la cible est **connue** du collecteur.
+                    Une cible jamais declaree ne produit aucune serie, donc aucune
+                    alerte : le silence n''est pas la sante. C''est pourquoi les cibles
+                    sont ecrites dans la configuration plutot que decouvertes.'
+                - Sans clause `for`, un redemarrage de deux minutes reveille quelqu'un.
+                    Avec un `for` trop long, une panne reelle attend. Cinq minutes
+                    est le compromis usuel, pas une verite.
+                - Une alerte qui se declenche pour **toutes** les instances a la fois
+                    designe presque toujours le collecteur ou le reseau, pas le service.
+                    Un recepteur qui ne fait pas la difference noie l'astreinte.
+            error_rate:
+                alerts:
+                -   description: Plus de 20 % des reponses du service sont en erreur
+                        serveur depuis 10 minutes.
+                    expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
+                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
+                        }[5m]))\n  > 0.2"
+                    for: 10m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: critical
+                    name: BoutiqueTauxErreurEleve
+                    panel_expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
+                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
+                        }[5m]))"
+                    severity: critical
+                    summary: Trop de reponses en erreur
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Plus de 20 % des reponses du service sont
+                                en erreur serveur depuis 10 minutes.
+                            summary: Trop de reponses en erreur
+                        exp_labels:
+                            env: dev
+                            service: boutique
+                            severity: critical
+                        series:
+                        -   points: 0+1000x20
+                            series: http_requests_total{job="boutique", status="500"}
+                        -   points: 0+667x20
+                            series: http_requests_total{job="boutique", status="200"}
+                    threshold: '0.2'
+                    threshold_field: error_rate
+                    threshold_unit: proportion (0.05 = 5 %)
+                group: boutique-dev-error_rate
+                summary: Trop de reponses en erreur serveur
+                traps:
+                - 'Un ratio sur un denominateur nul donne `NaN`, et une comparaison
+                    avec `NaN` est fausse : l''alerte ne se declenche pas. Un service
+                    qui ne recoit plus **aucune** requete est donc invisible ici —
+                    c''est la famille `availability` qui le voit.'
+                - '`rate()` sur une fenetre plus courte que deux intervalles de collecte
+                    rend `NaN`. Avec une collecte toutes les 30 s, une fenetre de
+                    5 minutes laisse de la marge ; une fenetre d''une minute n''en
+                    laisse aucune.'
+                - 'Le libelle de statut n''est pas normalise : `status`, `code`, `status_code`
+                    selon la bibliotheque. Se tromper de nom donne une regle valide,
+                    acceptee par promtool, et definitivement muette.'
+                - Compter les 5xx seulement laisse passer les timeouts cote client
+                    et les connexions refusees, qui ne produisent aucune reponse et
+                    donc aucune ligne dans le compteur.
+            latency:
+                alerts:
+                -   description: Le quantile 95 du temps de reponse depasse 2 seconde(s)
+                        depuis 10 minutes.
+                    expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
+                        boutique\"}[5m]))\n) > 2"
+                    for: 10m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueLatenceElevee
+                    panel_expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
+                        boutique\"}[5m]))\n)"
+                    severity: warning
+                    summary: Le service repond trop lentement
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Le quantile 95 du temps de reponse depasse
+                                2 seconde(s) depuis 10 minutes.
+                            summary: Le service repond trop lentement
+                        exp_labels:
+                            env: dev
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 0+10x20
+                            series: http_request_duration_seconds_bucket{job="boutique",
+                                le="2"}
+                        -   points: 0+100x20
+                            series: http_request_duration_seconds_bucket{job="boutique",
+                                le="4"}
+                        -   points: 0+100x20
+                            series: http_request_duration_seconds_bucket{job="boutique",
+                                le="+Inf"}
+                    threshold: '2'
+                    threshold_field: latency_p95_seconds
+                    threshold_unit: secondes
+                group: boutique-dev-latency
+                summary: Le service repond trop lentement
+                traps:
+                - '`histogram_quantile` **interpole lineairement** dans le seau ou
+                    tombe le quantile. La precision du resultat ne depasse donc jamais
+                    celle du decoupage en seaux : avec des seaux 0.5 s / 2 s, aucun
+                    quantile ne peut valoir 1.2 s autrement que par interpolation.'
+                - Si le quantile tombe dans le dernier seau (`+Inf`), la fonction
+                    rend la borne haute du seau precedent — jamais l'infini. Une latence
+                    catastrophique peut donc s'afficher comme egale a la borne du
+                    plus grand seau fini, et ne pas franchir un seuil place au-dessus.
+                - 'L''agregation `sum by (le)` est obligatoire avant `histogram_quantile`
+                    : appliquer la fonction a des seaux non agreges calcule un quantile
+                    par instance, ce qui n''a pas de sens quand on veut celui du service.'
+                - 'Les seaux d''un histogramme sont **cumulatifs** : `le="2"` compte
+                    aussi les observations sous 0.5 s. Ecrire une serie de test avec
+                    des seaux decroissants produit un histogramme invalide que Prometheus
+                    accepte et interprete de travers.'
+            probe:
+                alerts:
+                -   description: 'La sonde externe sur {{ $labels.instance }} echoue
+                        depuis 5 minutes. Le service peut tourner et rester injoignable
+                        : c''est precisement ce que cette sonde voit et que les autres
+                        ne voient pas.'
+                    expr: probe_success{job="blackbox"} == 0
+                    for: 5m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: critical
+                    name: BoutiqueSondeExterneEnEchec
+                    panel_expr: probe_success{job="blackbox"}
+                    severity: critical
+                    summary: Le service n'est plus joignable de l'exterieur
+                    test:
+                        eval_time: 6m
+                        exp_annotations:
+                            description: 'La sonde externe sur https://sonde-de-test.invalid
+                                echoue depuis 5 minutes. Le service peut tourner et
+                                rester injoignable : c''est precisement ce que cette
+                                sonde voit et que les autres ne voient pas.'
+                            summary: Le service n'est plus joignable de l'exterieur
+                        exp_labels:
+                            env: dev
+                            instance: https://sonde-de-test.invalid
+                            job: blackbox
+                            service: boutique
+                            severity: critical
+                        series:
+                        -   points: 0+0x10
+                            series: probe_success{job="blackbox", instance="https://sonde-de-test.invalid"}
+                    threshold: ''
+                    threshold_field: ''
+                    threshold_unit: ''
+                -   description: 'Le certificat servi sur {{ $labels.instance }} expire
+                        dans moins de 21 jours. Un certificat expire ne previent pas
+                        : il casse toutes les connexions d''un coup.'
+                    expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"} -\
+                        \ time()\n) / 86400 < 21"
+                    for: 15m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueCertificatBientotExpire
+                    panel_expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"\
+                        } - time()\n) / 86400"
+                    severity: warning
+                    summary: Un certificat TLS approche de son expiration
+                    test:
+                        eval_time: 20m
+                        exp_annotations:
+                            description: 'Le certificat servi sur https://sonde-de-test.invalid
+                                expire dans moins de 21 jours. Un certificat expire
+                                ne previent pas : il casse toutes les connexions d''un
+                                coup.'
+                            summary: Un certificat TLS approche de son expiration
+                        exp_labels:
+                            env: dev
+                            instance: https://sonde-de-test.invalid
+                            job: blackbox
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 908400+0x25
+                            series: probe_ssl_earliest_cert_expiry{job="blackbox",
+                                instance="https://sonde-de-test.invalid"}
+                    threshold: '21'
+                    threshold_field: certificate_days
+                    threshold_unit: jours avant expiration
+                group: boutique-dev-probe
+                summary: 'Sonde externe : joignabilite et expiration du certificat'
+                traps:
+                - 'La configuration de sonde du blackbox exporter est un ballet de
+                    `relabel_configs` : l''adresse a sonder passe par `__param_target`,
+                    puis devient `instance`, et `__address__` est finalement remplace
+                    par l''adresse de l''exporter. Sauter une etape fait sonder l''exporter
+                    lui-meme, qui repond toujours.'
+                - '`probe_ssl_earliest_cert_expiry` n''existe que pour les sondes
+                    **HTTPS**. Une URL en `http://` ne produit pas cette serie, et
+                    l''alerte de certificat reste muette sans que rien ne le signale.'
+                - La sonde voit ce qu'un client voit depuis le reseau du collecteur.
+                    Si celui-ci est dans le cluster, elle ne teste ni le DNS public,
+                    ni le repartiteur de charge, ni le pare-feu — c'est-a-dire l'essentiel
+                    de ce qui casse.
+                - Un certificat renouvele automatiquement declenche quand meme l'alerte
+                    si le renouvellement echoue silencieusement. C'est le but ; ce
+                    n'est pas un faux positif.
+            restarts:
+                alerts:
+                -   description: Le conteneur {{ $labels.container }} du pod {{ $labels.pod
+                        }} a redemarre plus de 3 fois en une heure.
+                    expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
+                        boutique-dev\"}[1h]\n) > 3"
+                    for: 5m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueRedemarragesEnBoucle
+                    panel_expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
+                        boutique-dev\"}[1h]\n)"
+                    severity: warning
+                    summary: Un conteneur redemarre en boucle
+                    test:
+                        eval_time: 70m
+                        exp_annotations:
+                            description: Le conteneur conteneur-de-test du pod pod-de-test
+                                a redemarre plus de 3 fois en une heure.
+                            summary: Un conteneur redemarre en boucle
+                        exp_labels:
+                            container: conteneur-de-test
+                            env: dev
+                            namespace: boutique-dev
+                            pod: pod-de-test
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 0+1x70
+                            series: kube_pod_container_status_restarts_total{namespace="boutique-dev",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                    threshold: '3'
+                    threshold_field: restarts_per_hour
+                    threshold_unit: redemarrages par heure
+                group: boutique-dev-restarts
+                summary: Un conteneur redemarre en boucle
+                traps:
+                - '`kube_pod_container_status_restarts_total` est remis a zero quand
+                    le pod est recree — ce n''est pas un compteur monotone du point
+                    de vue du service. `increase()` gere la remise a zero d''une serie,
+                    mais pas la disparition d''une serie au profit d''une autre :
+                    un pod remplace fait perdre l''historique.'
+                - Une sonde de vivacite trop stricte produit exactement cette alerte,
+                    alors que l'application va bien. Verifier le reglage de la sonde
+                    avant de chercher dans le code fait gagner des heures.
+                - kube-state-metrics doit tourner **et** etre collecte. Son absence
+                    rend cette famille silencieuse sans qu'aucune erreur n'apparaisse
+                    nulle part.
+            saturation:
+                alerts:
+                -   description: Le conteneur {{ $labels.container }} du pod {{ $labels.pod
+                        }} depasse 90 % de sa limite memoire depuis 10 minutes. Un
+                        depassement effectif provoque un OOMKill, pas un ralentissement.
+                    expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\"\
+                        , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
+                        boutique-dev\", container!=\"\"}\n  > 0.9"
+                    for: 10m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueMemoireProcheDeLaLimite
+                    panel_expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\"\
+                        , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
+                        boutique-dev\", container!=\"\"}"
+                    severity: warning
+                    summary: Un conteneur approche de sa limite memoire
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Le conteneur conteneur-de-test du pod pod-de-test
+                                depasse 90 % de sa limite memoire depuis 10 minutes.
+                                Un depassement effectif provoque un OOMKill, pas un
+                                ralentissement.
+                            summary: Un conteneur approche de sa limite memoire
+                        exp_labels:
+                            container: conteneur-de-test
+                            env: dev
+                            namespace: boutique-dev
+                            pod: pod-de-test
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 950000000+0x20
+                            series: container_memory_working_set_bytes{namespace="boutique-dev",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                        -   points: 1000000000+0x20
+                            series: container_spec_memory_limit_bytes{namespace="boutique-dev",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                    threshold: '0.9'
+                    threshold_field: memory_ratio
+                    threshold_unit: proportion de la limite (0.9 = 90 %)
+                -   description: Le pod {{ $labels.pod }} consomme plus de 1.5 cœur(s)
+                        depuis 10 minutes.
+                    expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
+                        boutique-dev\", container!=\"\"}[5m])\n) > 1.5"
+                    for: 10m
+                    labels:
+                        env: dev
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueCpuEleve
+                    panel_expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
+                        boutique-dev\", container!=\"\"}[5m])\n)"
+                    severity: warning
+                    summary: Un pod consomme durablement beaucoup de CPU
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Le pod pod-de-test consomme plus de 1.5 cœur(s)
+                                depuis 10 minutes.
+                            summary: Un pod consomme durablement beaucoup de CPU
+                        exp_labels:
+                            env: dev
+                            pod: pod-de-test
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 0+150x20
+                            series: container_cpu_usage_seconds_total{namespace="boutique-dev",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                    threshold: '1.5'
+                    threshold_field: cpu_cores
+                    threshold_unit: cœurs
+                group: boutique-dev-saturation
+                summary: Consommation proche des limites (memoire, CPU)
+                traps:
+                - 'Un conteneur **sans limite memoire** n''expose pas `container_spec_memory_limit_bytes`,
+                    ou l''expose a zero : la division ne donne aucun resultat, et
+                    l''alerte reste muette. L''absence d''alerte ne dit donc rien
+                    de la sante du pod.'
+                - '`container_memory_working_set_bytes` est la metrique que le kubelet
+                    compare a la limite pour decider d''un OOMKill — pas `container_memory_usage_bytes`,
+                    qui inclut le cache de fichiers recuperable et surestime largement
+                    la pression reelle.'
+                - 'Le filtre `container!=""` n''est pas cosmetique : cAdvisor expose
+                    aussi des series agregees au niveau du pod, avec un libelle `container`
+                    vide. Les compter deux fois double la consommation apparente.'
+                - 'Le throttling CPU ne se voit pas dans `container_cpu_usage_seconds_total`
+                    : un pod bride consomme moins, donc parait sain. C''est `container_cpu_cfs_throttled_seconds_total`
+                    qui le montre.'
+        targets:
+        - api-dev.example.net:9090
+        thresholds:
+            certificate_days: '21'
+            cpu_cores: '1.5'
+            error_rate: '0.2'
+            latency_p95_seconds: '2'
+            memory_ratio: '0.9'
+            restarts_per_hour: '3'
+    -   domain: example.net
+        family_names:
+        - availability
+        - error_rate
+        - latency
+        - saturation
+        - restarts
+        - probe
+        labels:
+            criticality: high
+            tier: frontend
+        name: prod
+        namespace: boutique-prod
+        probe_urls:
+        - https://boutique.example.net
+        production: true
+        rules:
+            availability:
+                alerts:
+                -   description: L'instance {{ $labels.instance }} du job {{ $labels.job
+                        }} ne repond plus depuis 5 minutes.
+                    expr: up{job="boutique"} == 0
+                    for: 5m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: critical
+                    name: BoutiqueCibleInjoignable
+                    panel_expr: up{job="boutique"}
+                    severity: critical
+                    summary: La cible ne repond plus au collecteur
+                    test:
+                        eval_time: 6m
+                        exp_annotations:
+                            description: L'instance instance-de-test:9090 du job boutique
+                                ne repond plus depuis 5 minutes.
+                            summary: La cible ne repond plus au collecteur
+                        exp_labels:
+                            criticality: high
+                            env: prod
+                            instance: instance-de-test:9090
+                            job: boutique
+                            service: boutique
+                            severity: critical
+                        series:
+                        -   points: 0+0x10
+                            series: up{job="boutique", instance="instance-de-test:9090"}
+                    threshold: ''
+                    threshold_field: ''
+                    threshold_unit: ''
+                group: boutique-prod-availability
+                summary: La cible ne repond plus au collecteur
+                traps:
+                - '`up == 0` ne se declenche que si la cible est **connue** du collecteur.
+                    Une cible jamais declaree ne produit aucune serie, donc aucune
+                    alerte : le silence n''est pas la sante. C''est pourquoi les cibles
+                    sont ecrites dans la configuration plutot que decouvertes.'
+                - Sans clause `for`, un redemarrage de deux minutes reveille quelqu'un.
+                    Avec un `for` trop long, une panne reelle attend. Cinq minutes
+                    est le compromis usuel, pas une verite.
+                - Une alerte qui se declenche pour **toutes** les instances a la fois
+                    designe presque toujours le collecteur ou le reseau, pas le service.
+                    Un recepteur qui ne fait pas la difference noie l'astreinte.
+            error_rate:
+                alerts:
+                -   description: Plus de 2 % des reponses du service sont en erreur
+                        serveur depuis 10 minutes.
+                    expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
+                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
+                        }[5m]))\n  > 0.02"
+                    for: 10m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: critical
+                    name: BoutiqueTauxErreurEleve
+                    panel_expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
+                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
+                        }[5m]))"
+                    severity: critical
+                    summary: Trop de reponses en erreur
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Plus de 2 % des reponses du service sont
+                                en erreur serveur depuis 10 minutes.
+                            summary: Trop de reponses en erreur
+                        exp_labels:
+                            criticality: high
+                            env: prod
+                            service: boutique
+                            severity: critical
+                        series:
+                        -   points: 0+1000x20
+                            series: http_requests_total{job="boutique", status="500"}
+                        -   points: 0+961x20
+                            series: http_requests_total{job="boutique", status="200"}
+                    threshold: '0.02'
+                    threshold_field: error_rate
+                    threshold_unit: proportion (0.05 = 5 %)
+                group: boutique-prod-error_rate
+                summary: Trop de reponses en erreur serveur
+                traps:
+                - 'Un ratio sur un denominateur nul donne `NaN`, et une comparaison
+                    avec `NaN` est fausse : l''alerte ne se declenche pas. Un service
+                    qui ne recoit plus **aucune** requete est donc invisible ici —
+                    c''est la famille `availability` qui le voit.'
+                - '`rate()` sur une fenetre plus courte que deux intervalles de collecte
+                    rend `NaN`. Avec une collecte toutes les 30 s, une fenetre de
+                    5 minutes laisse de la marge ; une fenetre d''une minute n''en
+                    laisse aucune.'
+                - 'Le libelle de statut n''est pas normalise : `status`, `code`, `status_code`
+                    selon la bibliotheque. Se tromper de nom donne une regle valide,
+                    acceptee par promtool, et definitivement muette.'
+                - Compter les 5xx seulement laisse passer les timeouts cote client
+                    et les connexions refusees, qui ne produisent aucune reponse et
+                    donc aucune ligne dans le compteur.
+            latency:
+                alerts:
+                -   description: Le quantile 95 du temps de reponse depasse 0.8 seconde(s)
+                        depuis 10 minutes.
+                    expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
+                        boutique\"}[5m]))\n) > 0.8"
+                    for: 10m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueLatenceElevee
+                    panel_expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
+                        boutique\"}[5m]))\n)"
+                    severity: warning
+                    summary: Le service repond trop lentement
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Le quantile 95 du temps de reponse depasse
+                                0.8 seconde(s) depuis 10 minutes.
+                            summary: Le service repond trop lentement
+                        exp_labels:
+                            criticality: high
+                            env: prod
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 0+10x20
+                            series: http_request_duration_seconds_bucket{job="boutique",
+                                le="0.8"}
+                        -   points: 0+100x20
+                            series: http_request_duration_seconds_bucket{job="boutique",
+                                le="1.6"}
+                        -   points: 0+100x20
+                            series: http_request_duration_seconds_bucket{job="boutique",
+                                le="+Inf"}
+                    threshold: '0.8'
+                    threshold_field: latency_p95_seconds
+                    threshold_unit: secondes
+                group: boutique-prod-latency
+                summary: Le service repond trop lentement
+                traps:
+                - '`histogram_quantile` **interpole lineairement** dans le seau ou
+                    tombe le quantile. La precision du resultat ne depasse donc jamais
+                    celle du decoupage en seaux : avec des seaux 0.5 s / 2 s, aucun
+                    quantile ne peut valoir 1.2 s autrement que par interpolation.'
+                - Si le quantile tombe dans le dernier seau (`+Inf`), la fonction
+                    rend la borne haute du seau precedent — jamais l'infini. Une latence
+                    catastrophique peut donc s'afficher comme egale a la borne du
+                    plus grand seau fini, et ne pas franchir un seuil place au-dessus.
+                - 'L''agregation `sum by (le)` est obligatoire avant `histogram_quantile`
+                    : appliquer la fonction a des seaux non agreges calcule un quantile
+                    par instance, ce qui n''a pas de sens quand on veut celui du service.'
+                - 'Les seaux d''un histogramme sont **cumulatifs** : `le="2"` compte
+                    aussi les observations sous 0.5 s. Ecrire une serie de test avec
+                    des seaux decroissants produit un histogramme invalide que Prometheus
+                    accepte et interprete de travers.'
+            probe:
+                alerts:
+                -   description: 'La sonde externe sur {{ $labels.instance }} echoue
+                        depuis 5 minutes. Le service peut tourner et rester injoignable
+                        : c''est precisement ce que cette sonde voit et que les autres
+                        ne voient pas.'
+                    expr: probe_success{job="blackbox"} == 0
+                    for: 5m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: critical
+                    name: BoutiqueSondeExterneEnEchec
+                    panel_expr: probe_success{job="blackbox"}
+                    severity: critical
+                    summary: Le service n'est plus joignable de l'exterieur
+                    test:
+                        eval_time: 6m
+                        exp_annotations:
+                            description: 'La sonde externe sur https://sonde-de-test.invalid
+                                echoue depuis 5 minutes. Le service peut tourner et
+                                rester injoignable : c''est precisement ce que cette
+                                sonde voit et que les autres ne voient pas.'
+                            summary: Le service n'est plus joignable de l'exterieur
+                        exp_labels:
+                            criticality: high
+                            env: prod
+                            instance: https://sonde-de-test.invalid
+                            job: blackbox
+                            service: boutique
+                            severity: critical
+                        series:
+                        -   points: 0+0x10
+                            series: probe_success{job="blackbox", instance="https://sonde-de-test.invalid"}
+                    threshold: ''
+                    threshold_field: ''
+                    threshold_unit: ''
+                -   description: 'Le certificat servi sur {{ $labels.instance }} expire
+                        dans moins de 30 jours. Un certificat expire ne previent pas
+                        : il casse toutes les connexions d''un coup.'
+                    expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"} -\
+                        \ time()\n) / 86400 < 30"
+                    for: 15m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueCertificatBientotExpire
+                    panel_expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"\
+                        } - time()\n) / 86400"
+                    severity: warning
+                    summary: Un certificat TLS approche de son expiration
+                    test:
+                        eval_time: 20m
+                        exp_annotations:
+                            description: 'Le certificat servi sur https://sonde-de-test.invalid
+                                expire dans moins de 30 jours. Un certificat expire
+                                ne previent pas : il casse toutes les connexions d''un
+                                coup.'
+                            summary: Un certificat TLS approche de son expiration
+                        exp_labels:
+                            criticality: high
+                            env: prod
+                            instance: https://sonde-de-test.invalid
+                            job: blackbox
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 1297200+0x25
+                            series: probe_ssl_earliest_cert_expiry{job="blackbox",
+                                instance="https://sonde-de-test.invalid"}
+                    threshold: '30'
+                    threshold_field: certificate_days
+                    threshold_unit: jours avant expiration
+                group: boutique-prod-probe
+                summary: 'Sonde externe : joignabilite et expiration du certificat'
+                traps:
+                - 'La configuration de sonde du blackbox exporter est un ballet de
+                    `relabel_configs` : l''adresse a sonder passe par `__param_target`,
+                    puis devient `instance`, et `__address__` est finalement remplace
+                    par l''adresse de l''exporter. Sauter une etape fait sonder l''exporter
+                    lui-meme, qui repond toujours.'
+                - '`probe_ssl_earliest_cert_expiry` n''existe que pour les sondes
+                    **HTTPS**. Une URL en `http://` ne produit pas cette serie, et
+                    l''alerte de certificat reste muette sans que rien ne le signale.'
+                - La sonde voit ce qu'un client voit depuis le reseau du collecteur.
+                    Si celui-ci est dans le cluster, elle ne teste ni le DNS public,
+                    ni le repartiteur de charge, ni le pare-feu — c'est-a-dire l'essentiel
+                    de ce qui casse.
+                - Un certificat renouvele automatiquement declenche quand meme l'alerte
+                    si le renouvellement echoue silencieusement. C'est le but ; ce
+                    n'est pas un faux positif.
+            restarts:
+                alerts:
+                -   description: Le conteneur {{ $labels.container }} du pod {{ $labels.pod
+                        }} a redemarre plus de 2 fois en une heure.
+                    expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
+                        boutique-prod\"}[1h]\n) > 2"
+                    for: 5m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueRedemarragesEnBoucle
+                    panel_expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
+                        boutique-prod\"}[1h]\n)"
+                    severity: warning
+                    summary: Un conteneur redemarre en boucle
+                    test:
+                        eval_time: 70m
+                        exp_annotations:
+                            description: Le conteneur conteneur-de-test du pod pod-de-test
+                                a redemarre plus de 2 fois en une heure.
+                            summary: Un conteneur redemarre en boucle
+                        exp_labels:
+                            container: conteneur-de-test
+                            criticality: high
+                            env: prod
+                            namespace: boutique-prod
+                            pod: pod-de-test
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 0+1x70
+                            series: kube_pod_container_status_restarts_total{namespace="boutique-prod",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                    threshold: '2'
+                    threshold_field: restarts_per_hour
+                    threshold_unit: redemarrages par heure
+                group: boutique-prod-restarts
+                summary: Un conteneur redemarre en boucle
+                traps:
+                - '`kube_pod_container_status_restarts_total` est remis a zero quand
+                    le pod est recree — ce n''est pas un compteur monotone du point
+                    de vue du service. `increase()` gere la remise a zero d''une serie,
+                    mais pas la disparition d''une serie au profit d''une autre :
+                    un pod remplace fait perdre l''historique.'
+                - Une sonde de vivacite trop stricte produit exactement cette alerte,
+                    alors que l'application va bien. Verifier le reglage de la sonde
+                    avant de chercher dans le code fait gagner des heures.
+                - kube-state-metrics doit tourner **et** etre collecte. Son absence
+                    rend cette famille silencieuse sans qu'aucune erreur n'apparaisse
+                    nulle part.
+            saturation:
+                alerts:
+                -   description: Le conteneur {{ $labels.container }} du pod {{ $labels.pod
+                        }} depasse 85 % de sa limite memoire depuis 10 minutes. Un
+                        depassement effectif provoque un OOMKill, pas un ralentissement.
+                    expr: "container_memory_working_set_bytes{namespace=\"boutique-prod\"\
+                        , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
+                        boutique-prod\", container!=\"\"}\n  > 0.85"
+                    for: 10m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueMemoireProcheDeLaLimite
+                    panel_expr: "container_memory_working_set_bytes{namespace=\"boutique-prod\"\
+                        , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
+                        boutique-prod\", container!=\"\"}"
+                    severity: warning
+                    summary: Un conteneur approche de sa limite memoire
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Le conteneur conteneur-de-test du pod pod-de-test
+                                depasse 85 % de sa limite memoire depuis 10 minutes.
+                                Un depassement effectif provoque un OOMKill, pas un
+                                ralentissement.
+                            summary: Un conteneur approche de sa limite memoire
+                        exp_labels:
+                            container: conteneur-de-test
+                            criticality: high
+                            env: prod
+                            namespace: boutique-prod
+                            pod: pod-de-test
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 925000000+0x20
+                            series: container_memory_working_set_bytes{namespace="boutique-prod",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                        -   points: 1000000000+0x20
+                            series: container_spec_memory_limit_bytes{namespace="boutique-prod",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                    threshold: '0.85'
+                    threshold_field: memory_ratio
+                    threshold_unit: proportion de la limite (0.9 = 90 %)
+                -   description: Le pod {{ $labels.pod }} consomme plus de 3 cœur(s)
+                        depuis 10 minutes.
+                    expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
+                        boutique-prod\", container!=\"\"}[5m])\n) > 3"
+                    for: 10m
+                    labels:
+                        criticality: high
+                        env: prod
+                        service: boutique
+                        severity: warning
+                    name: BoutiqueCpuEleve
+                    panel_expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
+                        boutique-prod\", container!=\"\"}[5m])\n)"
+                    severity: warning
+                    summary: Un pod consomme durablement beaucoup de CPU
+                    test:
+                        eval_time: 15m
+                        exp_annotations:
+                            description: Le pod pod-de-test consomme plus de 3 cœur(s)
+                                depuis 10 minutes.
+                            summary: Un pod consomme durablement beaucoup de CPU
+                        exp_labels:
+                            criticality: high
+                            env: prod
+                            pod: pod-de-test
+                            service: boutique
+                            severity: warning
+                        series:
+                        -   points: 0+240x20
+                            series: container_cpu_usage_seconds_total{namespace="boutique-prod",
+                                pod="pod-de-test", container="conteneur-de-test"}
+                    threshold: '3'
+                    threshold_field: cpu_cores
+                    threshold_unit: cœurs
+                group: boutique-prod-saturation
+                summary: Consommation proche des limites (memoire, CPU)
+                traps:
+                - 'Un conteneur **sans limite memoire** n''expose pas `container_spec_memory_limit_bytes`,
+                    ou l''expose a zero : la division ne donne aucun resultat, et
+                    l''alerte reste muette. L''absence d''alerte ne dit donc rien
+                    de la sante du pod.'
+                - '`container_memory_working_set_bytes` est la metrique que le kubelet
+                    compare a la limite pour decider d''un OOMKill — pas `container_memory_usage_bytes`,
+                    qui inclut le cache de fichiers recuperable et surestime largement
+                    la pression reelle.'
+                - 'Le filtre `container!=""` n''est pas cosmetique : cAdvisor expose
+                    aussi des series agregees au niveau du pod, avec un libelle `container`
+                    vide. Les compter deux fois double la consommation apparente.'
+                - 'Le throttling CPU ne se voit pas dans `container_cpu_usage_seconds_total`
+                    : un pod bride consomme moins, donc parait sain. C''est `container_cpu_cfs_throttled_seconds_total`
+                    qui le montre.'
+        targets:
+        - api-1.example.net:9090
+        - api-2.example.net:9090
+        thresholds:
+            certificate_days: '30'
+            cpu_cores: '3'
+            error_rate: '0.02'
+            latency_p95_seconds: '0.8'
+            memory_ratio: '0.85'
+            restarts_per_hour: '2'
+    envs:
+    -   name: dev
+    -   name: prod
+    expected_paths:
+    - .copier-answers.yml
+    - .gitignore
+    - Makefile
+    - README.md
+    - grafana/dashboards/boutique.json
+    - prometheus/dev/prometheus.yml
+    - prometheus/prod/prometheus.yml
+    - rules/dev/availability.yml
+    - rules/dev/error_rate.yml
+    - rules/dev/latency.yml
+    - rules/dev/probe.yml
+    - rules/dev/restarts.yml
+    - rules/dev/saturation.yml
+    - rules/prod/availability.yml
+    - rules/prod/error_rate.yml
+    - rules/prod/latency.yml
+    - rules/prod/probe.yml
+    - rules/prod/restarts.yml
+    - rules/prod/saturation.yml
+    - tests/dev/availability.yml
+    - tests/dev/error_rate.yml
+    - tests/dev/latency.yml
+    - tests/dev/probe.yml
+    - tests/dev/restarts.yml
+    - tests/dev/saturation.yml
+    - tests/prod/availability.yml
+    - tests/prod/error_rate.yml
+    - tests/prod/latency.yml
+    - tests/prod/probe.yml
+    - tests/prod/restarts.yml
+    - tests/prod/saturation.yml
+    extras:
+        dashboard: true
+        makefile: true
+    families:
+    -   alert_names:
+        - CibleInjoignable
+        details: 'L''alerte la plus simple, et celle qu''on oublie le plus souvent
+            : `up == 0`. Prometheus fabrique lui-meme la metrique `up` a chaque collecte,
+            sans qu''aucun exporter n''ait a l''exposer.
+
+
+            C''est la seule famille qui ne depend d''aucune convention de nommage
+            : elle fonctionne des la premiere collecte.'
+        exporters: []
+        name: availability
+        needs_namespace: false
+        needs_probe: false
+        summary: La cible ne repond plus au collecteur
+        traps:
+        - '`up == 0` ne se declenche que si la cible est **connue** du collecteur.
+            Une cible jamais declaree ne produit aucune serie, donc aucune alerte
+            : le silence n''est pas la sante. C''est pourquoi les cibles sont ecrites
+            dans la configuration plutot que decouvertes.'
+        - Sans clause `for`, un redemarrage de deux minutes reveille quelqu'un. Avec
+            un `for` trop long, une panne reelle attend. Cinq minutes est le compromis
+            usuel, pas une verite.
+        - Une alerte qui se declenche pour **toutes** les instances a la fois designe
+            presque toujours le collecteur ou le reseau, pas le service. Un recepteur
+            qui ne fait pas la difference noie l'astreinte.
+    -   alert_names:
+        - TauxErreurEleve
+        details: 'Un ratio, jamais un compte : cent erreurs sur un million de requetes
+            n''est pas la meme chose que cent erreurs sur deux cents.
+
+
+            Le nom du compteur et celui du libelle de code de statut sont **configurables**
+            : ils dependent de la bibliotheque cliente employee, et en deviner un
+            produirait une alerte qui ne se declenche jamais.'
+        exporters:
+        - l'application elle-meme (client Prometheus)
+        name: error_rate
+        needs_namespace: false
+        needs_probe: false
+        summary: Trop de reponses en erreur serveur
+        traps:
+        - 'Un ratio sur un denominateur nul donne `NaN`, et une comparaison avec `NaN`
+            est fausse : l''alerte ne se declenche pas. Un service qui ne recoit plus
+            **aucune** requete est donc invisible ici — c''est la famille `availability`
+            qui le voit.'
+        - '`rate()` sur une fenetre plus courte que deux intervalles de collecte rend
+            `NaN`. Avec une collecte toutes les 30 s, une fenetre de 5 minutes laisse
+            de la marge ; une fenetre d''une minute n''en laisse aucune.'
+        - 'Le libelle de statut n''est pas normalise : `status`, `code`, `status_code`
+            selon la bibliotheque. Se tromper de nom donne une regle valide, acceptee
+            par promtool, et definitivement muette.'
+        - Compter les 5xx seulement laisse passer les timeouts cote client et les
+            connexions refusees, qui ne produisent aucune reponse et donc aucune ligne
+            dans le compteur.
+    -   alert_names:
+        - LatenceElevee
+        details: 'Quantile 95 calcule sur un histogramme, pas une moyenne : une moyenne
+            de temps de reponse cache exactement ce qu''on cherche.
+
+
+            Exige un histogramme, pas un summary : `histogram_quantile` travaille
+            sur les seaux `_bucket`, qu''un summary n''expose pas.'
+        exporters:
+        - l'application elle-meme (client Prometheus)
+        name: latency
+        needs_namespace: false
+        needs_probe: false
+        summary: Le service repond trop lentement
+        traps:
+        - '`histogram_quantile` **interpole lineairement** dans le seau ou tombe le
+            quantile. La precision du resultat ne depasse donc jamais celle du decoupage
+            en seaux : avec des seaux 0.5 s / 2 s, aucun quantile ne peut valoir 1.2
+            s autrement que par interpolation.'
+        - Si le quantile tombe dans le dernier seau (`+Inf`), la fonction rend la
+            borne haute du seau precedent — jamais l'infini. Une latence catastrophique
+            peut donc s'afficher comme egale a la borne du plus grand seau fini, et
+            ne pas franchir un seuil place au-dessus.
+        - 'L''agregation `sum by (le)` est obligatoire avant `histogram_quantile`
+            : appliquer la fonction a des seaux non agreges calcule un quantile par
+            instance, ce qui n''a pas de sens quand on veut celui du service.'
+        - 'Les seaux d''un histogramme sont **cumulatifs** : `le="2"` compte aussi
+            les observations sous 0.5 s. Ecrire une serie de test avec des seaux decroissants
+            produit un histogramme invalide que Prometheus accepte et interprete de
+            travers.'
+    -   alert_names:
+        - MemoireProcheDeLaLimite
+        - CpuEleve
+        details: 'Deux alertes de nature differente, et la distinction compte : depasser
+            sa limite memoire fait **tuer** le conteneur (OOMKill), depasser sa limite
+            CPU le fait seulement ralentir (throttling).
+
+
+            La memoire est donc surveillee en proportion de sa limite ; le CPU en
+            valeur absolue, parce qu''un pod sans limite CPU est frequent et legitime.'
+        exporters:
+        - cAdvisor, expose par le kubelet
+        name: saturation
+        needs_namespace: true
+        needs_probe: false
+        summary: Consommation proche des limites (memoire, CPU)
+        traps:
+        - 'Un conteneur **sans limite memoire** n''expose pas `container_spec_memory_limit_bytes`,
+            ou l''expose a zero : la division ne donne aucun resultat, et l''alerte
+            reste muette. L''absence d''alerte ne dit donc rien de la sante du pod.'
+        - '`container_memory_working_set_bytes` est la metrique que le kubelet compare
+            a la limite pour decider d''un OOMKill — pas `container_memory_usage_bytes`,
+            qui inclut le cache de fichiers recuperable et surestime largement la
+            pression reelle.'
+        - 'Le filtre `container!=""` n''est pas cosmetique : cAdvisor expose aussi
+            des series agregees au niveau du pod, avec un libelle `container` vide.
+            Les compter deux fois double la consommation apparente.'
+        - 'Le throttling CPU ne se voit pas dans `container_cpu_usage_seconds_total`
+            : un pod bride consomme moins, donc parait sain. C''est `container_cpu_cfs_throttled_seconds_total`
+            qui le montre.'
+    -   alert_names:
+        - RedemarragesEnBoucle
+        details: 'Un service peut repondre correctement et redemarrer toutes les dix
+            minutes. Aucune des autres familles ne le voit : la disponibilite est
+            bonne entre deux redemarrages, le taux d''erreur aussi.
+
+
+            C''est souvent le premier signe visible d''une fuite memoire ou d''une
+            sonde de vivacite mal reglee.'
+        exporters:
+        - kube-state-metrics
+        name: restarts
+        needs_namespace: true
+        needs_probe: false
+        summary: Un conteneur redemarre en boucle
+        traps:
+        - '`kube_pod_container_status_restarts_total` est remis a zero quand le pod
+            est recree — ce n''est pas un compteur monotone du point de vue du service.
+            `increase()` gere la remise a zero d''une serie, mais pas la disparition
+            d''une serie au profit d''une autre : un pod remplace fait perdre l''historique.'
+        - Une sonde de vivacite trop stricte produit exactement cette alerte, alors
+            que l'application va bien. Verifier le reglage de la sonde avant de chercher
+            dans le code fait gagner des heures.
+        - kube-state-metrics doit tourner **et** etre collecte. Son absence rend cette
+            famille silencieuse sans qu'aucune erreur n'apparaisse nulle part.
+    -   alert_names:
+        - SondeExterneEnEchec
+        - CertificatBientotExpire
+        details: 'La seule famille qui regarde le service **de l''exterieur**, comme
+            un utilisateur. Un service peut tourner parfaitement et rester injoignable
+            : DNS casse, ingress mal configure, certificat expire. Aucune metrique
+            interne ne le montre.
+
+
+            Exige un blackbox exporter joignable par le collecteur, et des URL a sonder
+            declarees par environnement.'
+        exporters:
+        - blackbox exporter
+        name: probe
+        needs_namespace: false
+        needs_probe: true
+        summary: 'Sonde externe : joignabilite et expiration du certificat'
+        traps:
+        - 'La configuration de sonde du blackbox exporter est un ballet de `relabel_configs`
+            : l''adresse a sonder passe par `__param_target`, puis devient `instance`,
+            et `__address__` est finalement remplace par l''adresse de l''exporter.
+            Sauter une etape fait sonder l''exporter lui-meme, qui repond toujours.'
+        - '`probe_ssl_earliest_cert_expiry` n''existe que pour les sondes **HTTPS**.
+            Une URL en `http://` ne produit pas cette serie, et l''alerte de certificat
+            reste muette sans que rien ne le signale.'
+        - La sonde voit ce qu'un client voit depuis le reseau du collecteur. Si celui-ci
+            est dans le cluster, elle ne teste ni le DNS public, ni le repartiteur
+            de charge, ni le pare-feu — c'est-a-dire l'essentiel de ce qui casse.
+        - Un certificat renouvele automatiquement declenche quand meme l'alerte si
+            le renouvellement echoue silencieusement. C'est le but ; ce n'est pas
+            un faux positif.
+    family_names:
+    - availability
+    - error_rate
+    - latency
+    - saturation
+    - restarts
+    - probe
+    fams:
+    -   name: availability
+    -   name: error_rate
+    -   name: latency
+    -   name: saturation
+    -   name: restarts
+    -   name: probe
+    job_name: boutique
+    metrics:
+        request_duration_seconds: http_request_duration_seconds
+        requests_total: http_requests_total
+        status_label: status
+    root_files:
+    -   path: .copier-answers.yml
+        purpose: Reponses du gabarit, relues par `forge update`. Ne pas editer.
+    -   path: .gitignore
+        purpose: Exclut les donnees du collecteur et les rendus locaux.
+    -   path: Makefile
+        purpose: 'Raccourcis : `make check`, `make test`, `make check ENV=prod`.'
+    -   path: README.md
+        purpose: 'Ce fichier : ce qui est surveille, et comment.'
+    scrape:
+        interval: 30s
+        metrics_path: /metrics
+        timeout: 10s
+forge_version: 1
+plugin: monitoring
+service:
+    description: Boutique en ligne, supervision
+    environments:
+    -   domain: dev.example.net
+        name: dev
+        production: false
+    -   domain: example.net
+        name: prod
+        production: true
+    labels:
+        tier: frontend
+    name: boutique
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/monitoring/template
+

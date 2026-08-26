@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
 from forge.errors import PluginError, SpecValidationError
 from forge.plugins_api.hookspecs import hookimpl
-from forge.plugins_api.manager import ForgeManager, default_manager
+from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager, default_manager
 from forge.plugins_api.types import Command, DomainInfo, Issue, Projection
 from forge.spec.assembly import build_spec_model
 from forge.spec.types import ForgeModel
+from tests.conftest import spec_files
 
 
 class _AutreSpec(ForgeModel):
@@ -165,12 +167,23 @@ def test_forge_consistency_est_le_seul_hook_appele_sur_tous():
 
 def test_default_manager_lit_la_variable_d_environnement(monkeypatch):
     monkeypatch.setenv("FORGE_PLUGINS", "forge.plugins.demo.plugin")
-    assert default_manager().domain_names() == ("ansible", "demo", "helm", "terraform")
+    assert default_manager().domain_names() == (
+        "ansible",
+        "demo",
+        "helm",
+        "monitoring",
+        "terraform",
+    )
 
 
 def test_default_manager_enregistre_les_plugins_livres():
     """Les domaines livres sont disponibles sans rien declarer."""
-    assert default_manager().domain_names() == ("ansible", "helm", "terraform")
+    assert default_manager().domain_names() == (
+        "ansible",
+        "helm",
+        "monitoring",
+        "terraform",
+    )
 
 
 def test_le_plugin_demo_declare_ses_hooks(manager, spec):
@@ -262,3 +275,87 @@ def test_un_controle_croise_en_avertissement_laisse_passer(tmp_path, spec_data, 
 
     result = pipeline.generate(spec_data, spec, manager, tmp_path, only=["ronchon"], dry_run=True)
     assert [issue.message for issue in result.warnings] == ["ca sent le roussi"]
+
+
+# ---------------------------------------------------------------------------
+# Garde-fou : une cle de projection ne doit jamais etre lue en notation pointee
+# quand elle porte le nom d'une methode de dict
+# ---------------------------------------------------------------------------
+#
+# En Jinja, `objet.values` resout la **methode** du dict avant la cle : le
+# gabarit ecrit alors `<built-in method values...>` dans le fichier genere, et
+# l'outil de validation s'en plaint tres loin de la cause. C'est arrive une fois
+# sur le domaine monitoring.
+#
+# Renommer les cles n'est pas la reponse : la cle `keys` d'un ConfigMap Helm
+# s'appelle bien `keys`, c'est le vocabulaire du domaine. La reponse est la
+# forme d'acces — `c.config["keys"]`, que les gabarits Helm emploient deja — et
+# ces deux tests l'imposent, l'un sur la source, l'autre sur la sortie.
+
+#: Noms de methode de dict qu'un gabarit ne doit pas lire en notation pointee.
+#: `get` est volontairement absent : `x.get(...)` est un appel legitime.
+NOMS_PIEGES = ("keys", "values", "items")
+
+#: Une expression Jinja du projet, delimiteurs `[[ ]]` ou `[% %]` (decision Q1).
+_EXPRESSION_JINJA = re.compile(r"\[\[.*?\]\]|\[%.*?%\]", re.DOTALL)
+
+#: `.keys`, `.values` ou `.items` non suivi d'une parenthese : une lecture de
+#: cle, pas un appel de methode.
+_LECTURE_POINTEE = re.compile(r"\.(?:" + "|".join(NOMS_PIEGES) + r")(?!\s*\()")
+
+
+def _gabarits() -> list[Path]:
+    """Tous les gabarits Jinja des domaines livres."""
+    racine = Path(__file__).resolve().parents[1] / "src" / "forge" / "plugins"
+    return sorted(racine.rglob("*.jinja"))
+
+
+@pytest.mark.parametrize(
+    "gabarit", _gabarits(), ids=[chemin.name[:40] for chemin in _gabarits()]
+)
+def test_aucun_gabarit_ne_lit_une_cle_en_notation_pointee_piegeuse(gabarit):
+    """La forme sure est `objet["keys"]`, pas `objet.keys`."""
+    contenu = gabarit.read_bytes().decode("utf-8")
+    fautives = [
+        expression.group(0)
+        for expression in _EXPRESSION_JINJA.finditer(contenu)
+        if _LECTURE_POINTEE.search(expression.group(0))
+    ]
+    assert fautives == [], (
+        f"{gabarit.name} lit une cle en notation pointee : {fautives}. "
+        'Employez la forme indicee — objet["keys"] — sans quoi Jinja resout la '
+        "methode du dict et ecrit `<built-in method ...>` dans le fichier genere."
+    )
+
+
+@pytest.mark.parametrize(
+    "spec_path", spec_files(), ids=[chemin.stem for chemin in spec_files()]
+)
+def test_aucun_fichier_genere_ne_porte_de_methode_python(spec_path, tmp_path):
+    """Le meme controle, sur la sortie : exact, et valable pour tout domaine.
+
+    Le controle sur la source peut manquer une forme d'acces detournee ; celui-ci
+    ne peut pas se tromper, puisqu'il lit ce qui a reellement ete ecrit.
+    """
+    from forge import pipeline
+    from forge.spec.assembly import validate_spec
+    from forge.spec.io import load_spec_data
+
+    manager = ForgeManager()
+    for module in BUILTIN_PLUGINS:
+        manager.register_module(module)
+    data = load_spec_data(spec_path)
+    if not (set(data) & set(manager.domain_names())):
+        pytest.skip("aucun domaine livre dans cette specification")
+    pipeline.generate(data, validate_spec(data, manager), manager, tmp_path)
+
+    fautifs = [
+        chemin.name
+        for chemin in tmp_path.rglob("*")
+        if chemin.is_file()
+        and any(
+            motif in chemin.read_bytes().decode("utf-8", errors="replace")
+            for motif in ("<built-in method", "<bound method")
+        )
+    ]
+    assert fautifs == [], f"fichiers portant une methode Python rendue : {fautifs}"

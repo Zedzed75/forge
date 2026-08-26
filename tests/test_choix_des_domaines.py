@@ -62,6 +62,7 @@ SPECS_MONO: dict[str, Path] = {
     "ansible": SPECS_DIR / "ansible-ci.yml",
     "helm": SPECS_DIR / "helm-complet.yml",
     "terraform": SPECS_DIR / "terraform-complet.yml",
+    "monitoring": SPECS_DIR / "monitoring-complet.yml",
 }
 
 

@@ -2,7 +2,7 @@
 
 **Un projet n'a pas besoin de tout.** Il peut n'avoir besoin que d'un chart
 Helm, ou que de rôles et de playbooks Ansible, ou que d'un socle Terraform. Ce
-répertoire montre les quatre cas, et c'est le choix de l'utilisateur qui les
+répertoire montre les cinq cas, et c'est le choix de l'utilisateur qui les
 distingue — rien d'autre.
 
 | Exemple | Produit | Pour qui |
@@ -10,6 +10,7 @@ distingue — rien d'autre.
 | [`ansible-seul.yml`](ansible-seul.yml) | `ansible/` | des machines à configurer, aucun conteneur |
 | [`helm-seul.yml`](helm-seul.yml) | `helm/` | un cluster qui existe déjà, un service à empaqueter |
 | [`terraform-seul.yml`](terraform-seul.yml) | `terraform/` | une équipe plateforme qui prépare le terrain |
+| [`monitoring-seul.yml`](monitoring-seul.yml) | `monitoring/` | un service déjà déployé, dont il manque de savoir quand il va mal |
 | [`socle-et-chart.yml`](socle-et-chart.yml) | `terraform/` **et** `helm/` | le socle et ce qui s'y pose, ensemble |
 
 ```bash

@@ -1,0 +1,54 @@
+[% set env = domain.environments | selectattr("name", "equalto", e.name) | first %]
+[% set famille = domain.families | selectattr("name", "equalto", f.name) | first %]
+[% set groupe = env.rules[f.name] %]
+# =============================================================================
+# [[ famille.name ]] — [[ famille.summary ]]
+# =============================================================================
+# Règles d'alerte de « [[ service.name ]] », environnement [[ env.name ]].
+# Fichier généré par forge.
+#
+[[ famille.details | comment(width=76) ]]
+[% if famille.exporters %]
+#
+# Exige : [[ famille.exporters | join(', ') ]].
+[% endif %]
+#
+# POINTS DE VIGILANCE
+[% for piege in famille.traps %]
+#
+[[ piege | comment(width=76) ]]
+[% endfor %]
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/[[ env.name ]]/[[ famille.name ]].yml
+# =============================================================================
+
+groups:
+  - name: [[ groupe.group | yaml_scalar ]]
+    rules:
+[% for alerte in groupe.alerts %]
+[% if not loop.first %]
+
+[% endif %]
+      # -----------------------------------------------------------------------
+      # [[ alerte.summary ]]
+[% if alerte.threshold_field %]
+      # Seuil : [[ alerte.threshold ]] ([[ alerte.threshold_unit ]]), réglable par
+      # monitoring.environments.[[ env.name ]].thresholds.[[ alerte.threshold_field ]]
+      # dans forge.yml.
+[% endif %]
+      # -----------------------------------------------------------------------
+      - alert: [[ alerte.name ]]
+        expr: |
+          [[ alerte.expr | indent(10) ]]
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: [[ alerte.for ]]
+        labels:
+[% for cle, valeur in alerte.labels | dictsort %]
+          [[ cle ]]: [[ valeur | yaml_scalar ]]
+[% endfor %]
+        annotations:
+          summary: [[ alerte.summary | yaml_scalar ]]
+          description: [[ alerte.description | yaml_scalar ]]
+[% endfor %]

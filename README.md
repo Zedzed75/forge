@@ -1,12 +1,13 @@
 # forge
 
 Generateur deterministe de projets d'infrastructure complets et commentes
-(Ansible, Helm, Terraform, et d'autres domaines ensuite) a partir d'une
-seule specification `forge.yml`.
+(Ansible, Helm, Terraform, monitoring) a partir d'une seule specification
+`forge.yml`.
 
-> **Etat** : en construction. Le coeur et les domaines **Ansible**, **Helm** et
-> **Terraform** sont livres et valides par leurs outils reels. Les domaines
-> **pipeline** et **monitoring** prevus par l'architecture restent a ecrire.
+> **Etat** : en construction. Le coeur et les domaines **Ansible**, **Helm**,
+> **Terraform** et **monitoring** sont livres et valides par leurs outils
+> reels. Le domaine **pipeline** prevu par l'architecture reste a ecrire
+> (travail commence, mis de cote sur la branche `phase-8-pipeline`).
 > La documentation complete — architecture, guide d'ecriture de plugin,
 > exemples — arrive en derniere phase. Voir `PLAN.md` pour l'avancement et
 > `DESIGN.md` pour l'architecture.
@@ -21,15 +22,17 @@ choisissez**, et forge ne produit rien d'autre.
 forge generate -s examples/helm-seul.yml       -o /tmp/boutique    # helm/ seul
 forge generate -s examples/ansible-seul.yml    -o /tmp/passerelle  # ansible/ seul
 forge generate -s examples/terraform-seul.yml  -o /tmp/socle       # terraform/ seul
+forge generate -s examples/monitoring-seul.yml -o /tmp/paiement    # monitoring/ seul
 ```
 
-Ces quatre exemples sont commites et testes : voir [`examples/`](examples/).
+Ces cinq exemples sont commites et testes : voir [`examples/`](examples/).
 
 | Domaine | Section `forge.yml` | Produit | Valide par |
 | --- | --- | --- | --- |
 | Ansible | `ansible:` | `ansible/` — inventaires, playbooks, roles | `ansible-playbook --syntax-check`, `ansible-lint` |
 | Helm | `helm:` | `helm/` — chart complet et values par environnement | `helm lint`, `helm template`, `kubeconform -strict` |
 | Terraform | `terraform:` | `terraform/` — module et racine par environnement | `terraform fmt`, `validate`, `tflint` |
+| Monitoring | `monitoring:` | `monitoring/` — collecte, regles d'alerte et leurs tests | `promtool check config`, `check rules`, **`test rules`** |
 
 Trois facons de choisir :
 

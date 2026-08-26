@@ -1,0 +1,53 @@
+# =============================================================================
+# Tests unitaires des alertes « restarts » — environnement prod
+# =============================================================================
+# Fichier généré par forge, joué par :
+#
+#   promtool test rules tests/prod/restarts.yml
+#
+# Ce que ces tests vérifient, et que rien d'autre ne vérifie : **que les alertes
+# se déclenchent réellement**. `promtool check rules` ne contrôle que la
+# syntaxe — une règle irréprochable peut citer une métrique qui n'existe pas, un
+# libellé mal orthographié, ou comparer du mauvais côté du seuil, et rester
+# muette pour toujours.
+#
+# Les séries ci-dessous sont SYNTHÉTIQUES : promtool les fabrique lui-même, elles
+# n'ont besoin d'exister nulle part. Les noms d'instance, de pod et de conteneur
+# sont donc des noms de test, jamais des noms réels.
+#
+# Les annotations attendues sont calculées à partir des mêmes valeurs que la
+# règle : elles ne peuvent pas diverger de sa formulation.
+# =============================================================================
+
+rule_files:
+  - ../../rules/prod/restarts.yml
+
+# Rythme auquel promtool évalue les règles pendant le test.
+evaluation_interval: 1m
+
+tests:
+  # ---------------------------------------------------------------------------
+  # BoutiqueRedemarragesEnBoucle — Un conteneur redemarre en boucle
+  # ---------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: kube_pod_container_status_restarts_total{namespace="boutique-prod", pod="pod-de-test", container="conteneur-de-test"}
+        values: 0+1x70
+    alert_rule_test:
+        # L'instant d'évaluation dépasse la clause `for` de la règle
+        # (5m) : l'alerte doit donc être passée de « pending » à
+        # « firing ».
+      - eval_time: 70m
+        alertname: BoutiqueRedemarragesEnBoucle
+        exp_alerts:
+          - exp_labels:
+              container: conteneur-de-test
+              criticality: high
+              env: prod
+              namespace: boutique-prod
+              pod: pod-de-test
+              service: boutique
+              severity: warning
+            exp_annotations:
+              summary: Un conteneur redemarre en boucle
+              description: Le conteneur conteneur-de-test du pod pod-de-test a redemarre plus de 2 fois en une heure.

@@ -1,0 +1,54 @@
+# =============================================================================
+# Makefile — opérations courantes sur la supervision de « boutique »
+# =============================================================================
+# Fichier généré par forge.
+#
+# Toutes les cibles acceptent la variable ENV :
+#
+#   make check ENV=dev
+#   make test  ENV=prod
+#   make all
+#
+# Les commandes promtool brutes équivalentes figurent dans le README, pour les
+# environnements dépourvus de make.
+# =============================================================================
+
+ENVIRONMENTS := dev prod
+FAMILIES     := availability error_rate latency saturation restarts probe
+
+# Environnement par défaut. Surchargez-le avec ENV=<nom> sur la ligne de commande.
+ENV          ?= dev
+
+CONFIG       := prometheus/$(ENV)/prometheus.yml
+RULES        := $(foreach f,$(FAMILIES),prometheus/$(ENV)/rules/$(f).yml)
+TESTS        := $(foreach f,$(FAMILIES),tests/$(ENV)/$(f).yml)
+
+.DEFAULT_GOAL := help
+.PHONY: help check-env config rules test check all clean
+
+help: ## Affiche cette aide
+	@echo "Environnements disponibles : $(ENVIRONMENTS)"
+	@echo "Environnement courant       : $(ENV)"
+	@echo "Familles de règles          : $(FAMILIES)"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
+
+check-env: ## Vérifie que ENV désigne un environnement existant
+	@test -d "prometheus/$(ENV)" || { echo "environnement inconnu : $(ENV) (attendu : $(ENVIRONMENTS))"; exit 1; }
+
+config: check-env ## Valide la configuration du collecteur
+	promtool check config $(CONFIG)
+
+rules: check-env ## Valide la syntaxe des règles d'alerte
+	promtool check rules $(RULES)
+
+test: check-env ## Vérifie que les alertes se déclenchent réellement
+	promtool test rules $(TESTS)
+
+check: config rules test ## Enchaîne les trois vérifications sur $(ENV)
+
+all: ## Enchaîne les vérifications sur TOUS les environnements
+	@for e in $(ENVIRONMENTS); do echo "== $$e =="; $(MAKE) --no-print-directory check ENV=$$e; done
+
+clean: ## Supprime les données d'un Prometheus lancé localement
+	rm -rf data prometheus-data

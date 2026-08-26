@@ -86,6 +86,16 @@ jobs:
           terraform version
           tflint --version
 
+      # Domaine monitoring. `promtool test rules` est le seul validateur du
+      # projet qui verifie quelque chose de semantique : que les alertes se
+      # declenchent reellement.
+      - name: Installer les outils du domaine monitoring
+        run: |
+          curl -fsSL -o /tmp/prometheus.tar.gz             https://github.com/prometheus/prometheus/releases/download/v3.6.0/prometheus-3.6.0.linux-amd64.tar.gz
+          tar -xzf /tmp/prometheus.tar.gz -C /tmp --strip-components=1             prometheus-3.6.0.linux-amd64/promtool
+          sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
+          promtool --version
+
       # `uv run` garantit que le pytest execute est celui de l'environnement
       # qu'on vient de creer, et non un pytest quelconque du PATH.
       - name: Verifier l'interpreteur

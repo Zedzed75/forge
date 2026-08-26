@@ -1,0 +1,67 @@
+[# --------------------------------------------------------------------- #]
+[# JSON n'accepte pas de commentaires : ce qui explique ce fichier est    #]
+[# dans le README du domaine, et dans le champ "description" ci-dessous.  #]
+[# --------------------------------------------------------------------- #]
+{
+  "annotations": {
+    "list": []
+  },
+  "description": [[ ("Genere par forge pour le service " ~ service.name ~ ". Un panneau par alerte : ce que l'on surveille est ce que l'on regarde. Les expressions tracent la grandeur elle-meme, pas la condition d'alerte, pour que l'on voie venir le franchissement du seuil. Environnement de reference : " ~ domain.default_env ~ ".") | tojson ]],
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+[% for panneau in domain.dashboard_panels %]
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": [[ ("Famille " ~ panneau.family ~ ". Alerte associee : " ~ panneau.alert ~ ((", seuil " ~ panneau.threshold) if panneau.threshold else "") ~ ".") | tojson ]],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": [[ (loop.index0 % 2) * 12 ]],
+        "y": [[ (loop.index0 // 2) * 8 ]]
+      },
+      "id": [[ loop.index ]],
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": [[ panneau.expr | tojson ]],
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": [[ panneau.title | tojson ]],
+      "type": "timeseries"
+    }[% if not loop.last %],[% endif %]
+
+[% endfor %]
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "forge",
+    [[ service.name | tojson ]]
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": [[ (service.name ~ " — " ~ domain.default_env) | tojson ]],
+  "uid": [[ (service.name ~ "-" ~ domain.default_env) | tojson ]],
+  "version": 1
+}
