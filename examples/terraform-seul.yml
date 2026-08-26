@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# Exemple : un service qui n'a besoin QUE de Terraform.
+# ---------------------------------------------------------------------------
+# Poser le socle — le cloisonnement, son budget, l'identité qui y déploie — sans
+# rien y déployer soi-même. C'est le besoin d'une équipe plateforme qui prépare
+# le terrain pour des équipes produit.
+#
+#   forge generate -s examples/terraform-seul.yml -o /tmp/socle
+#
+# Produit `terraform/` et rien d'autre. Les sections `ansible:` et `helm:` sont
+# absentes, donc ces domaines ne sont pas générés.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: socle
+  description: "Socle d'accueil des services de l'équipe produit"
+  owner: "Equipe Plateforme"
+  owner_email: plateforme@example.net
+  environments:
+    - name: dev
+    - name: prod
+      production: true
+
+terraform:
+  # Contrainte, jamais une version nue : une version figée sur un correctif
+  # précis est presque toujours une erreur de saisie, et le modèle la refuse.
+  terraform_version: "~> 1.9"
+
+  # `per_env` dérive `<service>-<env>` : socle-dev, socle-prod.
+  namespace_strategy: per_env
+
+  # Familles retenues. Le choix vaut aussi À L'INTÉRIEUR d'un domaine : une
+  # famille absente d'ici ne produit aucun fichier.
+  resources:
+    - namespace
+    - quota
+    - service_account
+
+  backend:
+    # local | s3 | gcs | azurerm | http. `forge validate` signale un état local
+    # sur un environnement de production : ni verrou, ni chiffrement.
+    kind: s3
+    config:
+      bucket: etats-terraform-plateforme
+      region: eu-west-3
+      encrypt: "true"
+      # `key` n'est PAS demandée ici : elle est dérivée par environnement, pour
+      # que deux racines n'écrivent jamais le même état.
+
+  kubernetes:
+    auth: kubeconfig
+    # Sans contexte nommé, Terraform applique sur le contexte courant de la
+    # machine. Laissez à `true`.
+    context_per_environment: true
+
+  environments:
+    dev:
+      quota:
+        cpu: "2"
+        memory: 4Gi
+        pods: 20
+    prod:
+      kube_context: plateforme-prod-eu-west-3
+      quota:
+        cpu: "16"
+        memory: 32Gi
+        pods: 120

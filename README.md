@@ -11,10 +11,27 @@ seule specification `forge.yml`.
 > exemples — arrive en derniere phase. Voir `PLAN.md` pour l'avancement et
 > `DESIGN.md` pour l'architecture.
 
-## Les domaines sont un choix, pas un lot
+## Un projet n'a pas besoin de tout
 
-forge ne produit **que** ce que la specification demande. Trois facons de
-choisir :
+Un projet peut n'avoir besoin que d'un chart Helm. Un autre, que de roles et de
+playbooks Ansible. Un troisieme, que d'un socle Terraform. **C'est vous qui
+choisissez**, et forge ne produit rien d'autre.
+
+```bash
+forge generate -s examples/helm-seul.yml       -o /tmp/boutique    # helm/ seul
+forge generate -s examples/ansible-seul.yml    -o /tmp/passerelle  # ansible/ seul
+forge generate -s examples/terraform-seul.yml  -o /tmp/socle       # terraform/ seul
+```
+
+Ces quatre exemples sont commites et testes : voir [`examples/`](examples/).
+
+| Domaine | Section `forge.yml` | Produit | Valide par |
+| --- | --- | --- | --- |
+| Ansible | `ansible:` | `ansible/` — inventaires, playbooks, roles | `ansible-playbook --syntax-check`, `ansible-lint` |
+| Helm | `helm:` | `helm/` — chart complet et values par environnement | `helm lint`, `helm template`, `kubeconform -strict` |
+| Terraform | `terraform:` | `terraform/` — module et racine par environnement | `terraform fmt`, `validate`, `tflint` |
+
+Trois facons de choisir :
 
 | Vous voulez | Vous faites |
 | --- | --- |
@@ -22,9 +39,13 @@ choisir :
 | une execution restreinte | `forge generate --only helm` |
 | decider a la creation | `forge new` demande quels domaines produire |
 
-`forge plugins` dit, pour la specification courante, quels domaines sont
-demandes et lesquels ne le sont pas. `forge generate` annonce ce qu'il va
-produire avant d'ecrire.
+`--only` **restreint** toujours, il n'ajoute jamais : demander un domaine que la
+specification ne declare pas est une erreur nommee, pas une generation vide.
+
+`forge plugins -s forge.yml` dit quels domaines sont demandes et lesquels ne le
+sont pas ; `forge generate --dry-run` annonce ce qu'il produirait sans rien
+ecrire. Une specification qui ne declare aucun domaine ne produit pas un projet
+vide en silence : forge dit lesquels sont disponibles et comment en demander un.
 
 Demander plusieurs domaines a la fois est **un** usage possible — forge verifie
 alors qu'ils restent coherents entre eux — pas l'usage normal. Terraform cree le

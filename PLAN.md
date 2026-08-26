@@ -83,7 +83,17 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] CI : les validateurs des domaines Helm **et** Terraform y sont installes.
         Helm n'y avait jamais ete ajoute (manque de la phase 4) : ses tests
         d'integration s'y ignoraient en silence.
-- [ ] **Phase 8 — Plugin pipeline** (CI/CD)
+- [ ] **Phase 8 — Plugin pipeline** (CI/CD) — *commencee puis mise de cote*
+  - Branche `phase-8-pipeline`, commit `5d5113e`. Arbitrage du 2026-08-26 :
+    consolider d'abord les trois domaines de production et la promesse
+    centrale. **Ne pas reprendre cette branche sans relire son message de
+    commit** : il porte trois defauts trouves et corriges qui ne se redevinent
+    pas (variables d'environnement dependant du poste, ordre de deploiement,
+    chainage stdin sans `pipefail`).
+  - Ce que la branche a etabli et qui vaut quel que soit son sort : un domaine
+    dont la sortie depend des autres n'a **pas** besoin de les connaitre, mais
+    il a besoin que le coeur lui transmette ce qu'ils declarent — d'ou
+    `GenerationContext`, assemble a partir de hooks existants.
   - [ ] Le domaine qui federe les autres : build d'image, appel des validateurs
         de chaque domaine present, deploiement par environnement.
   - [ ] Doit lire ce que les autres domaines declarent **sans les connaitre** :
@@ -103,9 +113,11 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 7 terminees. **319 tests verts** sur un depot propre
-(312 hors integration, 7 marques `integration` dont 1 ignore tant que l'arbre de
-travail est sale).
+**Etat** : phases 0 a 7 terminees, puis **consolidation du choix des domaines**
+(2026-08-26). **342 tests collectes**, tous verts hors integration.
+
+Trois domaines livres et valides par leurs outils reels : **Ansible**, **Helm**,
+**Terraform**. Chacun se genere seul, et c'est le cas d'usage normal.
 
 La promesse du projet : **une seule description du service, et vous choisissez
 ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
@@ -211,7 +223,34 @@ vient d'un outil legacy.
 lot. Le mecanisme existe et fonctionne (section absente de forge.yml, `--only`,
 entretien), mais la documentation et la CLI le mettent mal en avant.
 
-**Prochaine action** : **phase 8 — plugin pipeline**. Le premier domaine dont
+**Consolidation du 2026-08-26** — recadrage demande par l'utilisateur : l'outil
+doit pouvoir produire *a la demande* du Terraform, **ou** un chart Helm, **ou**
+des roles Ansible. Chaque projet n'a pas besoin de tout, et le choix revient a
+l'utilisateur. Le mecanisme existait ; ce qui manquait, c'est qu'il soit
+**structurellement invulnerable a la derive** et **visible**.
+
+Ce qui a ete fait :
+- `tests/test_choix_des_domaines.py` reecrit : **plus aucun nom ni nombre de
+  domaine code en dur**. Tout est lu dans le registre de plugins, et
+  `test_chaque_domaine_livre_a_une_specification_mono_domaine` fait echouer la
+  suite si un domaine est ajoute sans son cas mono-domaine. 11 tests -> 34.
+- Un cas mono-domaine parametre par domaine : generation, contenu reel de la
+  cible, `forge validate`, `forge diff`, `forge plugins`. Terraform y entre, ce
+  qui n'etait pas le cas.
+- `examples/` livre : `ansible-seul.yml`, `helm-seul.yml`,
+  `terraform-seul.yml`, `socle-et-chart.yml`, et un README qui explique les
+  trois facons de choisir. **Chaque exemple est genere par la suite de tests** —
+  un exemple perime est impossible.
+- README recentre : « Un projet n'a pas besoin de tout », tableau des trois
+  domaines et de leurs validateurs, en tete de fichier.
+
+Un comportement a ete **decouvert** en ecrivant ces tests, et verrouille :
+`--only` sur un domaine que la specification ne declare pas leve une erreur
+nommee au lieu de ne rien produire. C'est le bon comportement — un silence
+laisserait croire que le domaine a ete genere — mais il n'etait teste nulle part.
+
+**Prochaine action** : **phase 8 — plugin pipeline**, si elle est reprise
+(branche `phase-8-pipeline`). Sinon phase 9 ou 10. Le premier domaine dont
 la sortie **depend des autres sections** de la specification. Le point a cadrer
 n'est pas technique : c'est de lire ce que les autres domaines declarent sans
 les connaitre, et sans que le coeur devienne un ordonnanceur.
@@ -333,3 +372,7 @@ Rappels pour la phase 5 :
 - Session 6 (2026-08-26) : phase 7 (plugin Terraform ecrit de zero — sept
   familles, 24 gabarits, huit validateurs reels qui passent). Un defaut trouve
   par tflint et corrige ; manque de la CI de la phase 4 comble. 319 tests.
+  Puis phase 8 commencee (domaine pipeline) et **mise de cote sur la branche
+  `phase-8-pipeline`** a la demande de l'utilisateur, pour consolider d'abord
+  le choix des domaines : tests derives du registre, `examples/` livre,
+  README recentre. 342 tests.

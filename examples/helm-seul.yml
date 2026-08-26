@@ -1,0 +1,86 @@
+# ---------------------------------------------------------------------------
+# Exemple : un service qui n'a besoin QUE d'un chart Helm.
+# ---------------------------------------------------------------------------
+# Le cluster existe déjà, le namespace est fourni par l'équipe plateforme, il
+# n'y a aucune machine à configurer. Il reste à empaqueter le service.
+#
+#   forge generate -s examples/helm-seul.yml -o /tmp/boutique
+#
+# Produit `helm/` et rien d'autre. Les sections `ansible:` et `terraform:` sont
+# absentes, donc ces domaines ne sont pas générés.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: boutique
+  description: "Boutique en ligne"
+  owner: "Equipe Produit"
+  owner_email: produit@example.net
+  labels:
+    tier: frontend
+  environments:
+    - name: dev
+      domain: dev.example.net
+    - name: prod
+      domain: example.net
+      production: true
+
+helm:
+  # Version du chart lui-même, à incrémenter à chaque modification du gabarit.
+  chart_version: 1.0.0
+
+  # Version de l'application empaquetée. Sert de tag d'image par défaut avec la
+  # stratégie `appVersion`.
+  app_version: "2026.08.1"
+
+  kubernetes:
+    # Version cible du cluster : détermine les apiVersion employées et la
+    # version contre laquelle kubeconform valide les manifestes rendus.
+    version: "1.34"
+
+  # `per_env` dérive `<service>-<env>` : boutique-dev, boutique-prod.
+  namespace_strategy: per_env
+
+  image:
+    registry: ghcr.io
+    repository: acme/boutique
+    # appVersion | per_env | fixed — d'où vient le tag de l'image.
+    strategy: appVersion
+
+  components:
+    # Charge de travail exposée à l'extérieur.
+    - name: api
+      kind: deployment
+      addons:
+        - service
+        - ingress
+        - configmap
+        - hpa
+        - pdb
+        - serviceaccount
+      container_port: 8080
+      port_name: http
+      ingress:
+        base_domain: example.net
+        tls: true
+      config:
+        keys:
+          - LOG_LEVEL
+          - DATABASE_HOST
+
+    # Traitement de fond : ni Service, ni Ingress.
+    - name: worker
+      kind: deployment
+      addons:
+        - configmap
+      container_port: 9000
+      config:
+        keys:
+          - QUEUE_NAME
+
+  environments:
+    prod:
+      log_level: warn
+      components:
+        api:
+          replicas: 4

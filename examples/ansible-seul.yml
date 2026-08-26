@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Exemple : un service qui n'a besoin QUE d'Ansible.
+# ---------------------------------------------------------------------------
+# Des machines à configurer, aucun conteneur, aucune infrastructure à créer.
+# C'est un besoin complet et fréquent — pas une version dégradée de quoi que ce
+# soit.
+#
+#   forge generate -s examples/ansible-seul.yml -o /tmp/passerelle
+#
+# Produit `ansible/` et rien d'autre : ni chart Helm, ni socle Terraform. Les
+# sections `helm:` et `terraform:` sont absentes, donc ces domaines ne sont pas
+# générés. C'est le seul mécanisme, et il n'a pas d'exception.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: passerelle
+  description: "Passerelle applicative en frontal des services internes"
+  owner: "Equipe Plateforme"
+  owner_email: plateforme@example.net
+  environments:
+    - name: staging
+      domain: staging.example.net
+    - name: prod
+      domain: example.net
+      production: true
+
+ansible:
+  # Famille de système des machines visées : détermine le gestionnaire de
+  # paquets et les chemins employés par les rôles.
+  os_family: debian
+
+  # Compte de connexion SSH. Jamais root : les rôles élèvent les privilèges
+  # tâche par tâche, ce qui rend visible ce qui en a réellement besoin.
+  remote_user: deploy
+  ssh_port: 22
+
+  options:
+    # Aucun secret réel n'est jamais écrit par forge. `use_vault: true` fait
+    # générer la plomberie ansible-vault, pas des valeurs.
+    use_vault: false
+    write_lint_config: true
+    write_ci: false
+
+  groups:
+    - name: gateways
+      description: "Passerelles exposées à l'extérieur"
+      roles:
+        - common
+        - ssh_hardening
+        - nginx
+
+    - name: databases
+      description: "Bases de données PostgreSQL"
+      roles:
+        - common
+        - postgresql
+
+  # Les machines, environnement par environnement. Un environnement déclaré
+  # dans `service:` mais absent ici produit un inventaire vide — `forge
+  # validate` le signale plutôt que de le laisser passer en silence.
+  hosts:
+    staging:
+      gateways:
+        - name: gw-staging-01
+          ansible_host: 10.20.0.11
+      databases:
+        - name: db-staging-01
+          ansible_host: 10.20.0.21
+    prod:
+      gateways:
+        - name: gw-prod-01
+          ansible_host: 10.30.0.11
+        - name: gw-prod-02
+          ansible_host: 10.30.0.12
+      databases:
+        - name: db-prod-01
+          ansible_host: 10.30.0.21
