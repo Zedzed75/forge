@@ -396,3 +396,57 @@ Cinq défauts trouvés **par la complétion elle-même**, corrigés :
 
 *(À compléter au fil des phases 3 et 4 : toute différence volontaire avec
 l'instantané de parité s'inscrit dans ce tableau.)*
+
+
+---
+
+## Cloture du portage (phase 10, 2026-08-26)
+
+**`_legacy/` est supprime**, avec `tests/parity/`, ses deux modules de test et
+son harnais. Ce document est ce qui reste des outils d'origine.
+
+### Les ecarts 12 a 15 sont leves
+
+Ils formaient un seul lot — des mentions perimees de `ansible-forge` et
+`helm-forge` dans les README generes, maintenues par la seule contrainte de
+parite. Ils ont ete corriges **d'un bloc**, et l'instantane golden re-beni dans
+le meme commit, comme prevu :
+
+| Ecart | Etait | Est |
+| --- | --- | --- |
+| 12 | `ansible-forge generate --spec forge.yml [--output . --force]` | `forge generate --only ansible [--force]`, et le renvoi vers `forge update --only ansible` qui ne perd pas les modifications |
+| 13 | `helm-forge generate --spec forge.yml` | `forge generate --only helm`, meme renvoi |
+| 14 | `forge generate --force` presente comme un drapeau inexistant | le drapeau **existe** ; l'ecart etait perime, la commande est desormais `forge generate --only helm --force` |
+| 15 | l'arborescence du README Helm listait `forge.yml` sous `helm/` | l'arborescence ne montre que `helm/`, et une phrase dit ou vit reellement la specification |
+
+**Deux mentions sont conservees, et ce n'est pas un oubli** :
+`ssh_hardening_dropin_file: 99-ansible-forge.conf` et
+`users_sudoers_file: 90-ansible-forge`. Ce ne sont pas des mentions
+documentaires mais des **noms de fichiers deposes sur les machines gerees**. Les
+renommer laisserait l'ancien fichier en place sur tout hote deja gere : deux
+drop-in SSH contradictoires, ou deux fichiers sudoers, sans que rien ne le
+signale. Le gabarit porte desormais cette explication en commentaire, a
+l'endroit ou la question se pose.
+
+### Pourquoi la parite s'arrete
+
+Elle mesurait une ressemblance a des outils qui n'existent plus, et le projet
+genere l'avait depassee des la phase 4 :
+
+- le chart Helm compte **neuf familles de ressources** que l'outil d'origine
+  n'a jamais eues — son modele les declarait, aucun gabarit ne les rendait ;
+- le projet Ansible passe **`ansible-lint` en profil production**, ce que la
+  suite d'origine n'avait jamais verifie : son unique test la-dessus etait
+  ignore.
+
+La non-regression est desormais tenue par `tests/golden/` seul, qui compare
+octet pour octet, et par les validateurs reels de chaque domaine.
+
+### Ce que le portage a laisse au projet
+
+Le patron employe deux fois — **figer un instantane, convertir, boucler jusqu'a
+zero ecart** — n'a pas servi aux deux domaines ecrits de zero, qui n'avaient
+aucun instantane. Ce sont les validateurs reels qui y ont tenu ce role, et ils
+ont trouve ce qu'aucune parite n'aurait vu : `tflint` a signale une variable
+declaree et jamais employee, `promtool` a montre que des series de test figees ne
+prouvaient rien des que le seuil changeait.

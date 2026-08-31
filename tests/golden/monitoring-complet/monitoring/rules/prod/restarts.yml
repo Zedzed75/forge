@@ -1,0 +1,59 @@
+# =============================================================================
+# restarts — Un conteneur redemarre en boucle
+# =============================================================================
+# Règles d'alerte de « boutique », environnement prod.
+# Fichier généré par forge.
+#
+# Un service peut repondre correctement et redemarrer toutes les dix
+# minutes. Aucune des autres familles ne le voit : la disponibilite est
+# bonne entre deux redemarrages, le taux d'erreur aussi.
+#
+# C'est souvent le premier signe visible d'une fuite memoire ou d'une sonde
+# de vivacite mal reglee.
+#
+# Exige : kube-state-metrics.
+#
+# POINTS DE VIGILANCE
+#
+# `kube_pod_container_status_restarts_total` est remis a zero quand le pod
+# est recree — ce n'est pas un compteur monotone du point de vue du service.
+# `increase()` gere la remise a zero d'une serie, mais pas la disparition
+# d'une serie au profit d'une autre : un pod remplace fait perdre
+# l'historique.
+#
+# Une sonde de vivacite trop stricte produit exactement cette alerte, alors
+# que l'application va bien. Verifier le reglage de la sonde avant de
+# chercher dans le code fait gagner des heures.
+#
+# kube-state-metrics doit tourner **et** etre collecte. Son absence rend
+# cette famille silencieuse sans qu'aucune erreur n'apparaisse nulle part.
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/prod/restarts.yml
+# =============================================================================
+
+groups:
+  - name: boutique-prod-restarts
+    rules:
+      # -----------------------------------------------------------------------
+      # Un conteneur redemarre en boucle
+      # Seuil : 2 (redemarrages par heure), réglable par
+      # monitoring.environments.prod.thresholds.restarts_per_hour
+      # dans forge.yml.
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueRedemarragesEnBoucle
+        expr: |
+          increase(
+            kube_pod_container_status_restarts_total{namespace="boutique-prod"}[1h]
+          ) > 2
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 5m
+        labels:
+          criticality: high
+          env: prod
+          service: boutique
+          severity: warning
+        annotations:
+          summary: Un conteneur redemarre en boucle
+          description: Le conteneur {{ $labels.container }} du pod {{ $labels.pod }} a redemarre plus de 2 fois en une heure.

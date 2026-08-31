@@ -1,0 +1,101 @@
+# Supervision — [[ service.name ]]
+
+[[ service.description ]]
+
+Responsable : [[ service.owner ]][% if service.owner_email %] ([[ service.owner_email ]])[% endif %]
+
+> Projet généré par forge. Ne l'éditez pas à la main : modifiez `forge.yml` à la
+> racine, puis `forge generate`. Pour ne recevoir que les évolutions du gabarit
+> sans perdre vos modifications, `forge update --only monitoring`.
+
+## Ce que ce projet surveille
+
+[% for famille in domain.families %]
+- **`[[ famille.name ]]`** — [[ famille.summary ]][% if famille.exporters %] *(exige : [[ famille.exporters | join(', ') ]])*[% endif %]
+
+[% endfor %]
+
+Le catalogue complet, avec les pièges de chaque famille, se consulte par
+`forge catalog monitoring` et `forge catalog monitoring <famille>`.
+
+## Ce qui rend ces alertes vérifiables
+
+Chaque alerte est accompagnée d'un **test unitaire** joué par
+`promtool test rules` : une série temporelle synthétique est fabriquée, la règle
+est évaluée à un instant donné, et le test vérifie que l'alerte apparaît avec
+les bons libellés et les bonnes annotations.
+
+C'est la seule vérification qui porte sur le **sens**. Une règle peut être
+syntaxiquement irréprochable et ne jamais se déclencher : nom de métrique
+inexistant, libellé mal orthographié, comparaison du mauvais côté du seuil. Ni
+`promtool check rules` ni `promtool check config` ne le voient — et personne ne
+s'en aperçoit avant le jour où l'alerte aurait dû partir.
+
+Ce n'est **pas une option** : les tests sont générés dans tous les cas. Les
+rendre facultatifs aurait invité au mauvais choix.
+
+## Environnements
+
+| Environnement | Namespace observé | Cibles collectées | Sondes externes |
+| --- | --- | --- | --- |
+[% for env in domain.environments %]
+| `[[ env.name ]]`[% if env.production %] **(production)**[% endif %] | `[[ env.namespace ]]` | [% if env.targets %][[ env.targets | length ]][% else %]**aucune**[% endif %] | [% if env.probe_urls %][[ env.probe_urls | length ]][% else %]—[% endif %] |
+[% endfor %]
+
+Une configuration par environnement, et non une seule partagée : les seuils
+diffèrent, le namespace observé aussi.
+
+### Seuils appliqués
+
+| Seuil | [% for env in domain.environments %][[ env.name ]] | [% endfor %]
+
+| --- | [% for env in domain.environments %]--- | [% endfor %]
+
+[% for champ in domain.environments[0].thresholds | dictsort %]
+| `[[ champ[0] ]]` | [% for env in domain.environments %][[ env.thresholds[champ[0]] ]] | [% endfor %]
+
+[% endfor %]
+
+Ils se règlent par environnement dans `forge.yml`, sous
+`monitoring.environments.<env>.thresholds`.
+
+## Vérifier
+
+[% if domain.extras.makefile %]
+Avec `make` :
+
+```bash
+make check ENV=[[ domain.default_env ]]   # configuration, règles, tests
+make all                                  # les trois, sur tous les environnements
+```
+
+Sans `make`, ou pour une commande précise :
+[% endif %]
+
+```bash
+promtool check config prometheus/[[ domain.default_env ]]/prometheus.yml
+promtool check rules  prometheus/[[ domain.default_env ]]/rules/*.yml
+promtool test rules   tests/[[ domain.default_env ]]/*.yml
+```
+
+`forge validate` enchaîne exactement ces commandes sur chaque environnement.
+
+## Ce que ce projet ne fait pas
+
+- **Il ne déploie pas Prometheus.** Il produit sa configuration et ses règles ;
+  l'installation du collecteur, de Grafana et des exporters vous appartient.
+- **Il ne route pas les alertes.** Alertmanager n'est pas configuré ici : sa
+  configuration ne peut être validée hors ligne par aucun outil livré avec
+  Prometheus, et forge ne génère que ce qu'il peut faire vérifier. Les libellés
+  `severity`, `service` et `env` portés par chaque alerte sont ce dont un
+  routage a besoin.
+- **Il ne découvre pas les cibles.** Elles sont écrites dans la configuration.
+  Une cible jamais déclarée ne produit aucune série, donc aucune alerte : le
+  silence n'est pas la santé. Si vos cibles changent souvent, remplacez
+  `static_configs` par `file_sd_configs` ou par une découverte Kubernetes.
+[% if domain.extras.dashboard %]
+- **Le tableau de bord n'est pas validé par un outil.** `[[ domain.dashboard_file ]]`
+  est un JSON bien formé dont forge vérifie la structure, mais aucun linter
+  Grafana hors ligne n'existe : la garantie y est plus faible que sur les
+  règles. Importez-le et regardez-le.
+[% endif %]

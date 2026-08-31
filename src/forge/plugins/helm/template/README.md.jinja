@@ -102,7 +102,8 @@ Deux voies, selon la nature du changement :
 
 1. **Changement de structure** (ajouter un composant, un environnement, un type
    de ressource) : modifier `forge.yml` puis relancer
-   `forge generate --force`.
+   `forge generate --only helm --force` — ou `forge update --only helm`, qui
+   applique les évolutions du gabarit **sans** écraser vos modifications.
 2. **Réglage d'exploitation** (répliques, ressources, hôtes) : modifier
    directement `charts/[[ service.name ]]/values-<env>.yaml`.
 
@@ -111,9 +112,12 @@ faites à la main dans `templates/` seront perdues ; portez-les dans `forge.yml`
 
 ## Arborescence
 
+La spécification `forge.yml` vit à la **racine du dépôt**, un cran au-dessus :
+elle décrit le service entier, pas seulement son chart. Ce qui suit est le
+contenu de `helm/`.
+
 ```
 .
-├── forge.yml                       # spécification, source de vérité
 [% if domain.extras.makefile %]
 ├── Makefile                        # raccourcis lint / template / validate / install
 [% endif %]

@@ -1,0 +1,63 @@
+# =============================================================================
+# latency — Le service repond trop lentement
+# =============================================================================
+# Règles d'alerte de « boutique », environnement dev.
+# Fichier généré par forge.
+#
+# Quantile 95 calcule sur un histogramme, pas une moyenne : une moyenne de
+# temps de reponse cache exactement ce qu'on cherche.
+#
+# Exige un histogramme, pas un summary : `histogram_quantile` travaille sur
+# les seaux `_bucket`, qu'un summary n'expose pas.
+#
+# Exige : l'application elle-meme (client Prometheus).
+#
+# POINTS DE VIGILANCE
+#
+# `histogram_quantile` **interpole lineairement** dans le seau ou tombe le
+# quantile. La precision du resultat ne depasse donc jamais celle du
+# decoupage en seaux : avec des seaux 0.5 s / 2 s, aucun quantile ne peut
+# valoir 1.2 s autrement que par interpolation.
+#
+# Si le quantile tombe dans le dernier seau (`+Inf`), la fonction rend la
+# borne haute du seau precedent — jamais l'infini. Une latence
+# catastrophique peut donc s'afficher comme egale a la borne du plus grand
+# seau fini, et ne pas franchir un seuil place au-dessus.
+#
+# L'agregation `sum by (le)` est obligatoire avant `histogram_quantile` :
+# appliquer la fonction a des seaux non agreges calcule un quantile par
+# instance, ce qui n'a pas de sens quand on veut celui du service.
+#
+# Les seaux d'un histogramme sont **cumulatifs** : `le="2"` compte aussi les
+# observations sous 0.5 s. Ecrire une serie de test avec des seaux
+# decroissants produit un histogramme invalide que Prometheus accepte et
+# interprete de travers.
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/dev/latency.yml
+# =============================================================================
+
+groups:
+  - name: boutique-dev-latency
+    rules:
+      # -----------------------------------------------------------------------
+      # Le service repond trop lentement
+      # Seuil : 2 (secondes), réglable par
+      # monitoring.environments.dev.thresholds.latency_p95_seconds
+      # dans forge.yml.
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueLatenceElevee
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="boutique"}[5m]))
+          ) > 2
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 10m
+        labels:
+          env: dev
+          service: boutique
+          severity: warning
+        annotations:
+          summary: Le service repond trop lentement
+          description: Le quantile 95 du temps de reponse depasse 2 seconde(s) depuis 10 minutes.

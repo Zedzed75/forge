@@ -30,17 +30,13 @@ class RenderError(ForgeError):
     """Le rendu copier a echoue."""
 
 
-class ToolMissingError(ForgeError):
-    """Un outil externe requis par un validateur est absent du PATH."""
-
-    def __init__(self, tool: str, install_hint: str = "") -> None:
-        message = f"outil introuvable : {tool}"
-        if install_hint:
-            message = f"{message}\n  installation : {install_hint}"
-        super().__init__(message)
-        self.tool = tool
-        self.install_hint = install_hint
-
-
-class ValidationFailed(ForgeError):
-    """Au moins un validateur ou controle inter-domaines a echoue."""
+# Deux classes ont ete retirees en phase 10, apres verification qu'aucun chemin
+# ne les levait :
+#
+# * `ToolMissingError` — `forge.validate.tools.missing_message()` compose le
+#   meme message, et le coeur signale un outil absent par un rapport de
+#   validation, jamais par une exception : une commande sautee n'interrompt pas
+#   les autres.
+# * `ValidationFailed` — `ValidationResult.ok` porte le verdict, et la CLI en
+#   deduit son code de sortie. Lever une exception aurait fait perdre le
+#   rapport, qui est justement ce que l'utilisateur veut lire.

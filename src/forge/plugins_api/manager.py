@@ -40,6 +40,7 @@ BUILTIN_PLUGINS: tuple[str, ...] = (
     "forge.plugins.ansible.plugin",
     "forge.plugins.helm.plugin",
     "forge.plugins.terraform.plugin",
+    "forge.plugins.monitoring.plugin",
     "forge.plugins.pipeline.plugin",
 )
 

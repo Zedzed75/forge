@@ -2,8 +2,9 @@
 
 Boutique en ligne, deployee sur Kubernetes et administree par Ansible
 
-> Chart généré par forge. Pour le régénérer après modification de la
-> spécification : `helm-forge generate --spec forge.yml`.
+> Chart généré par forge à partir de `forge.yml`, à la racine du dépôt. Pour
+> le régénérer : `forge generate --only helm`. Pour ne recevoir que les
+> évolutions du gabarit sans perdre vos modifications : `forge update --only helm`.
 
 | | |
 |---|---|

@@ -7,7 +7,9 @@
        "filtres Jinja dans plusieurs tâches et dans le template sudoers.",
      ]) ]]
 [[ var_doc(
-     "Nom du fichier déposé dans /etc/sudoers.d.",
+     "Nom du fichier déposé dans /etc/sudoers.d. Le nom porte celui de l'outil "
+     "d'origine, et c'est délibéré : le changer laisserait l'ancien fichier "
+     "sudoers en place sur les machines déjà gérées.",
      "Nom de fichier sans point ni tilde, contrainte de sudo.") ]]
 users_sudoers_file: 90-ansible-forge
 

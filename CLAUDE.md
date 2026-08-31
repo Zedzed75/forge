@@ -4,6 +4,10 @@ single service spec. Built by porting the legacy standalone tools in _legacy/
 (read-only reference; never import from it).
 
 ## Target architecture (from the original brief — five plugins, not two)
+**Status**: four domains shipped — ansible, helm, terraform, monitoring. The fifth
+(`pipeline`, CI/CD) was started then parked on the branch `phase-8-pipeline`, at
+the user's request, to consolidate the four first. Its commit message carries the
+three defects found before it was set aside.
 ```
 forge/
 ├── core/          # shared: spec model, Jinja2 engine (custom delimiters),
@@ -36,8 +40,9 @@ Helm chart together is one possible use, not the normal one.
 - ALL plugin templates use copier custom delimiters [[ ]] / [% %] / [# #] (decision Q1,
   DESIGN.md §8): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
   copier.yml, so one set of delimiters. Never write {{ }} meaning "generator variable".
-- MIGRATION.md is the single source of truth about legacy code: consult it instead of
-  re-reading _legacy/. _legacy/ is deleted in the final phase.
+- `_legacy/` **is gone** (deleted in phase 10, with the parity snapshots and their
+  tests). MIGRATION.md is what remains of it: the merged duplicates, the
+  arbitrations, the assumed divergences. There is nothing left to re-read.
 
 ## Token economy (important)
 - Read PLAN.md (and MIGRATION.md when porting) at session start; work on exactly one

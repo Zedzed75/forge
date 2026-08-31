@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Exemple : un service qui n'a besoin QUE de supervision.
+# ---------------------------------------------------------------------------
+# Le service existe deja, il est deploye par d'autres moyens, et ce qui manque
+# c'est de savoir quand il va mal. Le domaine monitoring ne lit aucune autre
+# section : ce qu'il surveille est declare ici, et nulle part ailleurs.
+#
+#   forge generate -s examples/monitoring-seul.yml -o /tmp/paiement
+#
+# Produit `monitoring/` et rien d'autre.
+#
+# Chaque regle d'alerte est accompagnee d'un test unitaire joue par
+# `promtool test rules` : c'est la seule verification qui prouve qu'une alerte
+# se declenche reellement. Une regle irreprochable peut citer une metrique qui
+# n'existe pas et rester muette pour toujours.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: paiement
+  description: "Service de paiement"
+  owner: "Equipe Transactions"
+  owner_email: transactions@example.net
+  environments:
+    - name: staging
+      domain: staging.example.net
+    - name: prod
+      domain: example.net
+      production: true
+
+monitoring:
+  scrape:
+    # Le delai doit rester sous l'intervalle, sans quoi les collectes se
+    # chevauchent. Le modele le refuse.
+    interval: 15s
+    timeout: 10s
+    metrics_path: /metrics
+
+  metrics:
+    # Ces noms dependent de la bibliotheque cliente de l'application. Se
+    # tromper produit une regle valide et definitivement muette.
+    requests_total: http_requests_total
+    request_duration_seconds: http_request_duration_seconds
+    status_label: status
+
+  # Familles retenues. Le choix vaut aussi A L'INTERIEUR d'un domaine : une
+  # famille absente d'ici ne produit ni regle, ni test.
+  rules:
+    - availability
+    - error_rate
+    - latency
+    - probe
+
+  environments:
+    staging:
+      targets:
+        - paiement-staging.example.net:9090
+      probe_urls:
+        - https://paiement.staging.example.net
+      thresholds:
+        # Plus permissif hors production : on veut savoir, pas etre reveille.
+        error_rate: 0.15
+        latency_p95_seconds: 3
+
+    prod:
+      targets:
+        - paiement-1.example.net:9090
+        - paiement-2.example.net:9090
+      probe_urls:
+        - https://paiement.example.net
+      thresholds:
+        error_rate: 0.01
+        latency_p95_seconds: 0.5
+        certificate_days: 30
+
+  extras:
+    makefile: true
+    dashboard: true

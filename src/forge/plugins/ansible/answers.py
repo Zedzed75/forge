@@ -26,6 +26,7 @@ from typing import Any
 
 from forge.plugins.ansible import derive, tree
 from forge.plugins.ansible.names import ENV_NAME_RE
+from forge.plugins_api import checks
 from forge.plugins_api.types import Issue
 
 
@@ -90,36 +91,13 @@ def cross_check(spec: Any) -> list[Issue]:
     if ansible is None:
         return []
 
-    connus = {env.name for env in spec.service.environments}
-    declares = ", ".join(env.name for env in spec.service.environments)
-
-    # Un environnement peut etre cite par les deux sections : on ne signale
-    # qu'une fois, en nommant les sections fautives.
-    sections: dict[str, list[str]] = {}
-    for section, table in (("hosts", ansible.hosts), ("group_vars", ansible.group_vars)):
-        for nom in table:
-            if nom not in connus:
-                sections.setdefault(nom, []).append(section)
-
-    issues: list[Issue] = []
-    for nom in sorted(sections):
-        citantes = [f"ansible.{section}" for section in sections[nom]]
-        sujet = " et ".join(citantes)
-        verbe = "citent" if len(citantes) > 1 else "cite"
-        issues.append(
-            Issue(
-                level="error",
-                message=(
-                    f"{sujet} {verbe} l'environnement '{nom}', absent de "
-                    f"service.environments (declares : {declares})."
-                ),
-                hint=(
-                    f"Ajoutez un environnement '{nom}' a service.environments, ou "
-                    f"corrigez la cle '{nom}' dans {sujet}."
-                ),
-                domains=("ansible",),
-            )
-        )
+    # Un environnement peut etre cite par les deux sections : le controle
+    # partage ne le signale qu'une fois, en nommant les sections fautives.
+    issues = checks.unknown_environments(
+        spec,
+        "ansible",
+        {"ansible.hosts": ansible.hosts, "ansible.group_vars": ansible.group_vars},
+    )
     issues.extend(_check_env_names(spec))
     return issues
 

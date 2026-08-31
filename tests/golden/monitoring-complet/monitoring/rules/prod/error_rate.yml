@@ -1,0 +1,64 @@
+# =============================================================================
+# error_rate — Trop de reponses en erreur serveur
+# =============================================================================
+# Règles d'alerte de « boutique », environnement prod.
+# Fichier généré par forge.
+#
+# Un ratio, jamais un compte : cent erreurs sur un million de requetes n'est
+# pas la meme chose que cent erreurs sur deux cents.
+#
+# Le nom du compteur et celui du libelle de code de statut sont
+# **configurables** : ils dependent de la bibliotheque cliente employee, et
+# en deviner un produirait une alerte qui ne se declenche jamais.
+#
+# Exige : l'application elle-meme (client Prometheus).
+#
+# POINTS DE VIGILANCE
+#
+# Un ratio sur un denominateur nul donne `NaN`, et une comparaison avec
+# `NaN` est fausse : l'alerte ne se declenche pas. Un service qui ne recoit
+# plus **aucune** requete est donc invisible ici — c'est la famille
+# `availability` qui le voit.
+#
+# `rate()` sur une fenetre plus courte que deux intervalles de collecte rend
+# `NaN`. Avec une collecte toutes les 30 s, une fenetre de 5 minutes laisse
+# de la marge ; une fenetre d'une minute n'en laisse aucune.
+#
+# Le libelle de statut n'est pas normalise : `status`, `code`, `status_code`
+# selon la bibliotheque. Se tromper de nom donne une regle valide, acceptee
+# par promtool, et definitivement muette.
+#
+# Compter les 5xx seulement laisse passer les timeouts cote client et les
+# connexions refusees, qui ne produisent aucune reponse et donc aucune ligne
+# dans le compteur.
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/prod/error_rate.yml
+# =============================================================================
+
+groups:
+  - name: boutique-prod-error_rate
+    rules:
+      # -----------------------------------------------------------------------
+      # Trop de reponses en erreur
+      # Seuil : 0.02 (proportion (0.05 = 5 %)), réglable par
+      # monitoring.environments.prod.thresholds.error_rate
+      # dans forge.yml.
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueTauxErreurEleve
+        expr: |
+          sum(rate(http_requests_total{job="boutique", status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total{job="boutique"}[5m]))
+            > 0.02
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 10m
+        labels:
+          criticality: high
+          env: prod
+          service: boutique
+          severity: critical
+        annotations:
+          summary: Trop de reponses en erreur
+          description: Plus de 2 % des reponses du service sont en erreur serveur depuis 10 minutes.

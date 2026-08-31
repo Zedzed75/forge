@@ -33,6 +33,7 @@ from forge.plugins.helm.constants import (
 from forge.plugins.helm.enums import NamespaceStrategy
 from forge.plugins.helm.names import is_valid_email
 from forge.plugins.helm.profiles import is_production_name
+from forge.plugins_api import checks
 from forge.plugins_api.types import Issue
 
 
@@ -106,32 +107,15 @@ def cross_check(spec: Any) -> list[Issue]:
         return []
 
     issues: list[Issue] = []
-    issues.extend(_check_environment_keys(spec, helm))
+    issues.extend(
+        checks.unknown_environments(
+            spec, "helm", {"helm.environments": helm.environments}
+        )
+    )
     issues.extend(_check_limits(spec))
     issues.extend(_check_custom_namespaces(spec, helm))
     issues.extend(_check_production_divergence(spec))
     return issues
-
-
-def _check_environment_keys(spec: Any, helm: Any) -> list[Issue]:
-    """Refuse une cle de `helm.environments` absente de `service.environments` (H4)."""
-    connus = {env.name for env in spec.service.environments}
-    declares = ", ".join(env.name for env in spec.service.environments)
-    return [
-        Issue(
-            level="error",
-            message=(
-                f"helm.environments cite l'environnement '{nom}', absent de "
-                f"service.environments (declares : {declares})."
-            ),
-            hint=(
-                f"Ajoutez un environnement '{nom}' a service.environments, ou "
-                f"corrigez la cle '{nom}' dans helm.environments."
-            ),
-            domains=("helm",),
-        )
-        for nom in sorted(set(helm.environments) - connus)
-    ]
 
 
 def _check_limits(spec: Any) -> list[Issue]:

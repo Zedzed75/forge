@@ -1,0 +1,29 @@
+# =============================================================================
+# .gitignore — artefacts à ne jamais versionner
+# =============================================================================
+# Fichier généré par forge.
+# =============================================================================
+
+# Base de séries temporelles d'un Prometheus lancé localement
+data/
+prometheus-data/
+
+# Rendus et exports locaux
+*.rendered.yml
+rendered/
+
+# Tableaux de bord exportés depuis une instance Grafana : ils portent des UID
+# et des identifiants de source de données propres à cette instance, et
+# écraseraient ceux que forge engendre.
+grafana/dashboards/*.exported.json
+
+# Fichiers de secrets du collecteur (mots de passe de scrape, jetons)
+web-config.yml
+*.secret.yml
+
+# Éditeurs et systèmes de fichiers
+.idea/
+.vscode/
+.DS_Store
+*~
+*.swp

@@ -1,0 +1,75 @@
+# =============================================================================
+# Tests unitaires des alertes « probe » — environnement dev
+# =============================================================================
+# Fichier généré par forge, joué par :
+#
+#   promtool test rules tests/dev/probe.yml
+#
+# Ce que ces tests vérifient, et que rien d'autre ne vérifie : **que les alertes
+# se déclenchent réellement**. `promtool check rules` ne contrôle que la
+# syntaxe — une règle irréprochable peut citer une métrique qui n'existe pas, un
+# libellé mal orthographié, ou comparer du mauvais côté du seuil, et rester
+# muette pour toujours.
+#
+# Les séries ci-dessous sont SYNTHÉTIQUES : promtool les fabrique lui-même, elles
+# n'ont besoin d'exister nulle part. Les noms d'instance, de pod et de conteneur
+# sont donc des noms de test, jamais des noms réels.
+#
+# Les annotations attendues sont calculées à partir des mêmes valeurs que la
+# règle : elles ne peuvent pas diverger de sa formulation.
+# =============================================================================
+
+rule_files:
+  - ../../rules/dev/probe.yml
+
+# Rythme auquel promtool évalue les règles pendant le test.
+evaluation_interval: 1m
+
+tests:
+  # ---------------------------------------------------------------------------
+  # BoutiqueSondeExterneEnEchec — Le service n'est plus joignable de l'exterieur
+  # ---------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: probe_success{job="blackbox", instance="https://sonde-de-test.invalid"}
+        values: 0+0x10
+    alert_rule_test:
+        # L'instant d'évaluation dépasse la clause `for` de la règle
+        # (5m) : l'alerte doit donc être passée de « pending » à
+        # « firing ».
+      - eval_time: 6m
+        alertname: BoutiqueSondeExterneEnEchec
+        exp_alerts:
+          - exp_labels:
+              env: dev
+              instance: https://sonde-de-test.invalid
+              job: blackbox
+              service: boutique
+              severity: critical
+            exp_annotations:
+              summary: Le service n'est plus joignable de l'exterieur
+              description: 'La sonde externe sur https://sonde-de-test.invalid echoue depuis 5 minutes. Le service peut tourner et rester injoignable : c''est precisement ce que cette sonde voit et que les autres ne voient pas.'
+
+  # ---------------------------------------------------------------------------
+  # BoutiqueCertificatBientotExpire — Un certificat TLS approche de son expiration
+  # ---------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: probe_ssl_earliest_cert_expiry{job="blackbox", instance="https://sonde-de-test.invalid"}
+        values: 908400+0x25
+    alert_rule_test:
+        # L'instant d'évaluation dépasse la clause `for` de la règle
+        # (15m) : l'alerte doit donc être passée de « pending » à
+        # « firing ».
+      - eval_time: 20m
+        alertname: BoutiqueCertificatBientotExpire
+        exp_alerts:
+          - exp_labels:
+              env: dev
+              instance: https://sonde-de-test.invalid
+              job: blackbox
+              service: boutique
+              severity: warning
+            exp_annotations:
+              summary: Un certificat TLS approche de son expiration
+              description: 'Le certificat servi sur https://sonde-de-test.invalid expire dans moins de 21 jours. Un certificat expire ne previent pas : il casse toutes les connexions d''un coup.'

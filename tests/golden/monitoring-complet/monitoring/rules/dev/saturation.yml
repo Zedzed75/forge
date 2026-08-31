@@ -1,0 +1,86 @@
+# =============================================================================
+# saturation — Consommation proche des limites (memoire, CPU)
+# =============================================================================
+# Règles d'alerte de « boutique », environnement dev.
+# Fichier généré par forge.
+#
+# Deux alertes de nature differente, et la distinction compte : depasser sa
+# limite memoire fait **tuer** le conteneur (OOMKill), depasser sa limite
+# CPU le fait seulement ralentir (throttling).
+#
+# La memoire est donc surveillee en proportion de sa limite ; le CPU en
+# valeur absolue, parce qu'un pod sans limite CPU est frequent et legitime.
+#
+# Exige : cAdvisor, expose par le kubelet.
+#
+# POINTS DE VIGILANCE
+#
+# Un conteneur **sans limite memoire** n'expose pas
+# `container_spec_memory_limit_bytes`, ou l'expose a zero : la division ne
+# donne aucun resultat, et l'alerte reste muette. L'absence d'alerte ne dit
+# donc rien de la sante du pod.
+#
+# `container_memory_working_set_bytes` est la metrique que le kubelet
+# compare a la limite pour decider d'un OOMKill — pas
+# `container_memory_usage_bytes`, qui inclut le cache de fichiers
+# recuperable et surestime largement la pression reelle.
+#
+# Le filtre `container!=""` n'est pas cosmetique : cAdvisor expose aussi des
+# series agregees au niveau du pod, avec un libelle `container` vide. Les
+# compter deux fois double la consommation apparente.
+#
+# Le throttling CPU ne se voit pas dans `container_cpu_usage_seconds_total`
+# : un pod bride consomme moins, donc parait sain. C'est
+# `container_cpu_cfs_throttled_seconds_total` qui le montre.
+#
+# Chaque alerte de ce fichier est mise à l'épreuve par un test unitaire :
+#   promtool test rules tests/dev/saturation.yml
+# =============================================================================
+
+groups:
+  - name: boutique-dev-saturation
+    rules:
+      # -----------------------------------------------------------------------
+      # Un conteneur approche de sa limite memoire
+      # Seuil : 0.9 (proportion de la limite (0.9 = 90 %)), réglable par
+      # monitoring.environments.dev.thresholds.memory_ratio
+      # dans forge.yml.
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueMemoireProcheDeLaLimite
+        expr: |
+          container_memory_working_set_bytes{namespace="boutique-dev", container!=""}
+            /
+          container_spec_memory_limit_bytes{namespace="boutique-dev", container!=""}
+            > 0.9
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 10m
+        labels:
+          env: dev
+          service: boutique
+          severity: warning
+        annotations:
+          summary: Un conteneur approche de sa limite memoire
+          description: Le conteneur {{ $labels.container }} du pod {{ $labels.pod }} depasse 90 % de sa limite memoire depuis 10 minutes. Un depassement effectif provoque un OOMKill, pas un ralentissement.
+
+      # -----------------------------------------------------------------------
+      # Un pod consomme durablement beaucoup de CPU
+      # Seuil : 1.5 (cœurs), réglable par
+      # monitoring.environments.dev.thresholds.cpu_cores
+      # dans forge.yml.
+      # -----------------------------------------------------------------------
+      - alert: BoutiqueCpuEleve
+        expr: |
+          sum by (pod) (
+            rate(container_cpu_usage_seconds_total{namespace="boutique-dev", container!=""}[5m])
+          ) > 1.5
+        # La condition doit tenir pendant cette durée avant de déclencher :
+        # sans elle, la moindre oscillation réveille quelqu'un.
+        for: 10m
+        labels:
+          env: dev
+          service: boutique
+          severity: warning
+        annotations:
+          summary: Un pod consomme durablement beaucoup de CPU
+          description: Le pod {{ $labels.pod }} consomme plus de 1.5 cœur(s) depuis 10 minutes.

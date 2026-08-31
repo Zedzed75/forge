@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Cas de reference du domaine monitoring : toutes les familles retenues.
+# ---------------------------------------------------------------------------
+# Sert de reference golden et de cas d'integration : ce projet est genere puis
+# soumis a promtool — check config, check rules, et surtout test rules, qui
+# verifie que chaque alerte se declenche reellement.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: boutique
+  description: Boutique en ligne, supervision
+  owner: Equipe Plateforme
+  owner_email: plateforme@example.net
+  labels:
+    tier: frontend
+  environments:
+    - name: dev
+      domain: dev.example.net
+    - name: prod
+      domain: example.net
+      production: true
+
+monitoring:
+  scrape:
+    interval: 30s
+    timeout: 10s
+    metrics_path: /metrics
+
+  metrics:
+    requests_total: http_requests_total
+    request_duration_seconds: http_request_duration_seconds
+    status_label: status
+
+  rules:
+    - availability
+    - error_rate
+    - latency
+    - saturation
+    - restarts
+    - probe
+
+  blackbox_address: blackbox-exporter:9115
+
+  environments:
+    dev:
+      namespace: boutique-dev
+      targets:
+        - api-dev.example.net:9090
+      probe_urls:
+        - https://boutique.dev.example.net
+      thresholds:
+        error_rate: 0.2
+        latency_p95_seconds: 2
+    prod:
+      namespace: boutique-prod
+      targets:
+        - api-1.example.net:9090
+        - api-2.example.net:9090
+      probe_urls:
+        - https://boutique.example.net
+      thresholds:
+        error_rate: 0.02
+        latency_p95_seconds: 0.8
+        memory_ratio: 0.85
+        cpu_cores: 3
+        restarts_per_hour: 2
+        certificate_days: 30
+      labels:
+        criticality: high
+
+  extras:
+    makefile: true
+    dashboard: true

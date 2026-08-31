@@ -83,29 +83,67 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] CI : les validateurs des domaines Helm **et** Terraform y sont installes.
         Helm n'y avait jamais ete ajoute (manque de la phase 4) : ses tests
         d'integration s'y ignoraient en silence.
-- [ ] **Phase 8 — Plugin pipeline** (CI/CD)
+- [ ] **Phase 8 — Plugin pipeline** (CI/CD) — *commencee puis mise de cote*
+  - Branche `phase-8-pipeline`, commit `5d5113e`. Arbitrage du 2026-08-26 :
+    consolider d'abord les trois domaines de production et la promesse
+    centrale. **Ne pas reprendre cette branche sans relire son message de
+    commit** : il porte trois defauts trouves et corriges qui ne se redevinent
+    pas (variables d'environnement dependant du poste, ordre de deploiement,
+    chainage stdin sans `pipefail`).
+  - Ce que la branche a etabli et qui vaut quel que soit son sort : un domaine
+    dont la sortie depend des autres n'a **pas** besoin de les connaitre, mais
+    il a besoin que le coeur lui transmette ce qu'ils declarent — d'ou
+    `GenerationContext`, assemble a partir de hooks existants.
   - [ ] Le domaine qui federe les autres : build d'image, appel des validateurs
         de chaque domaine present, deploiement par environnement.
   - [ ] Doit lire ce que les autres domaines declarent **sans les connaitre** :
         c'est le premier plugin dont la sortie depend des autres sections. A
         cadrer avec soin — le coeur ne doit pas devenir un ordonnanceur.
   - [ ] Validateurs : `actionlint` (GitHub) ou le linter GitLab.
-- [ ] **Phase 9 — Plugin monitoring**
-  - [ ] Sondes, tableaux de bord, regles d'alerte, adosses aux environnements et
-        aux composants deja declares.
-  - [ ] Validateurs : `promtool check rules`, validation des tableaux de bord.
-- [ ] **Phase 10 — Finition**
-  - [ ] Revue critique : code mort, duplication, cas d'erreur.
-  - [ ] README (architecture, guide d'ecriture de plugin, exemples) + section migration.
-  - [ ] `examples/` : plusieurs specs commitees, dont des cas **mono-domaine**.
-  - [ ] Suppression de `_legacy/`.
-  - [ ] Recapitulatif des changements, commit final.
+- [x] **Phase 9 — Plugin monitoring** (2026-08-26)
+  - [x] Six familles de regles (`availability`, `error_rate`, `latency`,
+        `saturation`, `restarts`, `probe`), huit alertes, une configuration de
+        collecte **par environnement** — les seuils et le namespace observe
+        different d'un environnement a l'autre.
+  - [x] Validateurs : `promtool check config`, `check rules`, et surtout
+        **`promtool test rules`** : chaque alerte est livree avec un test
+        unitaire qui prouve qu'elle se declenche, avec les bons libelles et les
+        bonnes annotations. Trois commandes par environnement.
+  - [x] Domaine **autonome** : il ne lit aucune autre section. Sa rencontre avec
+        les autres domaines passe par les facettes (`namespaces`,
+        `ingress_hosts`), comme prevu depuis la phase 5.
+  - [x] Golden + test d'integration lancant promtool. 66 tests ajoutes.
+- [x] **Phase 10 — Finition** (2026-08-26)
+  - [x] Revue critique. Six elements de code mort supprimes apres verification
+        qu'aucun chemin ne les atteignait, dont deux classes d'erreur jamais
+        levees (`ToolMissingError`, `ValidationFailed`) : le coeur signale un
+        outil absent par un **rapport**, pas par une exception, et lever aurait
+        fait perdre le rapport.
+  - [x] Duplication : le controle « environnement inconnu » etait reecrit a
+        l'identique dans quatre domaines. Il vit desormais dans
+        `plugins_api/checks.py`, qui ne parle que de `service.environments` —
+        donc sans ajouter la moindre connaissance de domaine au coeur.
+  - [x] README complet : architecture, guide d'ecriture de plugin (les dix
+        hooks, la marche a suivre, les trois pieges qui ont mordu), provenance.
+  - [x] `examples/` : cinq specifications commitees, dont **quatre cas
+        mono-domaine**, toutes generees par la suite de tests.
+  - [x] Ecarts de parite 12 a 15 leves **d'un bloc**, instantane re-beni dans le
+        meme commit. Deux mentions conservees et expliquees : ce sont des noms de
+        fichiers deposes sur les machines gerees, les renommer laisserait
+        l'ancien en place.
+  - [x] Suppression de `_legacy/`, de `tests/parity/`, de ses deux modules de
+        test et de son harnais.
 
 ## Etat courant / prochaine action
 
-**Etat** : phases 0 a 7 terminees. **319 tests verts** sur un depot propre
-(312 hors integration, 7 marques `integration` dont 1 ignore tant que l'arbre de
-travail est sale).
+**Etat** : **projet livre**. Phases 0 a 7, 9 et 10 terminees ; phase 8 mise de
+cote sur la branche `phase-8-pipeline`. **515 tests collectes**, tous verts,
+integration comprise.
+
+Quatre domaines livres et valides par leurs outils reels : **Ansible**, **Helm**,
+**Terraform**, **monitoring**. Chacun se genere seul, et c'est le cas d'usage
+normal. Les cinq specifications de reference declenchent **31 commandes
+externes** sur de vrais projets rendus.
 
 La promesse du projet : **une seule description du service, et vous choisissez
 ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
@@ -211,7 +249,75 @@ vient d'un outil legacy.
 lot. Le mecanisme existe et fonctionne (section absente de forge.yml, `--only`,
 entretien), mais la documentation et la CLI le mettent mal en avant.
 
-**Prochaine action** : **phase 8 — plugin pipeline**. Le premier domaine dont
+**Consolidation du 2026-08-26** — recadrage demande par l'utilisateur : l'outil
+doit pouvoir produire *a la demande* du Terraform, **ou** un chart Helm, **ou**
+des roles Ansible. Chaque projet n'a pas besoin de tout, et le choix revient a
+l'utilisateur. Le mecanisme existait ; ce qui manquait, c'est qu'il soit
+**structurellement invulnerable a la derive** et **visible**.
+
+Ce qui a ete fait :
+- `tests/test_choix_des_domaines.py` reecrit : **plus aucun nom ni nombre de
+  domaine code en dur**. Tout est lu dans le registre de plugins, et
+  `test_chaque_domaine_livre_a_une_specification_mono_domaine` fait echouer la
+  suite si un domaine est ajoute sans son cas mono-domaine. 11 tests -> 34.
+- Un cas mono-domaine parametre par domaine : generation, contenu reel de la
+  cible, `forge validate`, `forge diff`, `forge plugins`. Terraform y entre, ce
+  qui n'etait pas le cas.
+- `examples/` livre : `ansible-seul.yml`, `helm-seul.yml`,
+  `terraform-seul.yml`, `socle-et-chart.yml`, et un README qui explique les
+  trois facons de choisir. **Chaque exemple est genere par la suite de tests** —
+  un exemple perime est impossible.
+- README recentre : « Un projet n'a pas besoin de tout », tableau des trois
+  domaines et de leurs validateurs, en tete de fichier.
+
+Un comportement a ete **decouvert** en ecrivant ces tests, et verrouille :
+`--only` sur un domaine que la specification ne declare pas leve une erreur
+nommee au lieu de ne rien produire. C'est le bon comportement — un silence
+laisserait croire que le domaine a ete genere — mais il n'etait teste nulle part.
+
+Ce que la phase 9 a etabli :
+- **Un domaine peut se passer de connaitre les autres.** Le monitoring ne lit
+  aucune section voisine : ce qu'il surveille est declare chez lui, et la
+  coherence passe par les facettes. C'est le contre-exemple utile a la phase 8,
+  ou le pipeline avait besoin d'un contexte fourni par le coeur.
+- **`promtool test rules` verifie ce qu'aucun autre validateur du projet ne
+  verifie : le sens.** Une regle d'alerte peut etre syntaxiquement irreprochable
+  et rester muette pour toujours — metrique inexistante, libelle mal
+  orthographie, comparaison du mauvais cote du seuil. Les tests unitaires
+  d'alerte sont donc **inconditionnels** : les rendre facultatifs invitait au
+  mauvais choix.
+- **Les series de test doivent suivre les seuils.** promtool a trouve le defaut
+  seul : un quantile de test a 1.9 s validait un seuil a 1 s et echouait sur un
+  seuil a 2 s. Les fixtures sont desormais calculees a partir du seuil, avec une
+  marge franche, et un test verifie cette propriete.
+- **Un piege de Jinja est devenu une regle testee.** Une cle nommee `values`
+  faisait ecrire `<built-in method values...>` dans un fichier genere : en
+  Jinja, `objet.values` resout la methode du dict avant la cle. Deux garde-fous
+  couvrent desormais **tous** les domaines — l'un sur la source des gabarits,
+  l'autre sur la sortie rendue. Les gabarits Helm employaient deja la forme sure
+  `c.config["keys"]` sans que ce soit ecrit nulle part.
+
+Ce que la phase 10 a etabli :
+- **La parite avait cesse de mesurer ce qui compte.** Elle comparait la sortie a
+  des outils qui n'existent plus, alors que le projet genere les avait depasses
+  des la phase 4 — neuf familles Helm inedites, `ansible-lint` en profil
+  production. La retirer etait la seule facon de ne pas mentir sur ce que la
+  suite verifie.
+- **La revue de code mort a trouve une intention, pas seulement des lignes.**
+  `ToolMissingError` et `ValidationFailed` decrivaient une conception qui n'a pas
+  ete retenue : signaler par exception plutot que par rapport. Les garder aurait
+  laisse croire qu'elles servaient.
+- **Une duplication a quatre exemplaires est une specification implicite.** Le
+  controle « environnement inconnu » etait identique partout parce qu'il ne
+  releve d'aucun domaine : il porte sur `service.environments`, qui est du coeur.
+
+**Prochaine action** : aucune. Le projet est livre, tag `v1.0.0`.
+
+La phase 8 (domaine `pipeline`) reste disponible sur sa branche. Reprendre son
+message de commit avant toute chose : il porte trois defauts trouves puis mis de
+cote, qui ne se redevinent pas.
+
+La phase 8 (pipeline) reste sur sa branche ; elle peut etre reprise apres. Le premier domaine dont
 la sortie **depend des autres sections** de la specification. Le point a cadrer
 n'est pas technique : c'est de lire ce que les autres domaines declarent sans
 les connaitre, et sans que le coeur devienne un ordonnanceur.
@@ -244,7 +350,7 @@ Ce que la phase 7 a etabli, et qui sert a la phase 8 :
   helm » n'existe dans le coeur.
 
 Rappels pour la phase 8 :
-- Poser le tag `v0.7.0` a la fin de la phase 8 (`v0.6.0` marque la phase 7).
+- Poser le tag `v1.0.0` a la fin de la phase 10 (`v0.8.0` marque la phase 9).
   **Correction de numerotation** : le rappel de la phase 6 reservait `v1.0.0`
   a cette phase, a une epoque ou elle etait la derniere. La cible corrigee en
   compte dix : `v1.0.0` revient a la phase 10, et les phases 6 et 7 portent
@@ -333,3 +439,13 @@ Rappels pour la phase 5 :
 - Session 6 (2026-08-26) : phase 7 (plugin Terraform ecrit de zero — sept
   familles, 24 gabarits, huit validateurs reels qui passent). Un defaut trouve
   par tflint et corrige ; manque de la CI de la phase 4 comble. 319 tests.
+  Puis phase 8 commencee (domaine pipeline) et **mise de cote sur la branche
+  `phase-8-pipeline`** a la demande de l'utilisateur, pour consolider d'abord
+  le choix des domaines : tests derives du registre, `examples/` livre,
+  README recentre. 342 tests.
+  Puis phase 9 (plugin monitoring : six familles, huit alertes, chacune livree
+  avec le test unitaire qui prouve qu'elle se declenche). Deux defauts trouves
+  par promtool et par le garde-fou generique. 531 tests.
+  Puis phase 10 (finition) : revue critique, duplication a quatre exemplaires
+  factorisee, ecarts de parite leves d'un bloc, `_legacy/` et la parite
+  supprimes, README complet. 515 tests. **Projet livre, `v1.0.0`.**
