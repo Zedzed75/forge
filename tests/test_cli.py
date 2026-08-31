@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 from forge import pipeline
 from forge.cli import app, run_new
 from forge.plugins_api.manager import ForgeManager
-from tests.conftest import DEMO_PLUGIN, SPECS_DIR
+from tests.conftest import DEMO_PLUGIN, REPO_ROOT, SPECS_DIR
 from tests.scripted_prompter import ScriptedPrompter
 
 runner = CliRunner()
@@ -278,3 +278,29 @@ def test_le_chemin_de_gabarit_du_plugin_est_celui_declare(tmp_path):
     manager.register_module(DEMO_PLUGIN)
     hooks = manager.domain("demo")
     assert (Path(pipeline.copier_runner.template_root()) / hooks.template_subdir()).is_dir()
+
+
+def test_la_version_annoncee_est_celle_du_projet():
+    """`forge --version` doit dire la verite.
+
+    La version etait ecrite dans `pyproject.toml` **et** dans `forge/__init__.py`
+    ; les deux avaient diverge, et la CLI annoncait `0.1.0` sur un depot tague
+    `v1.1.0`. `pyproject.toml` la lit desormais du module, et ce test verifie
+    que le lien tient.
+    """
+    import tomllib
+
+    from forge import __version__
+
+    projet = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_bytes().decode("utf-8")
+    )["project"]
+    assert "version" not in projet, (
+        "la version ne doit pas etre ecrite en dur dans pyproject.toml : "
+        "elle y serait une seconde source, et les deux divergeraient"
+    )
+    assert projet["dynamic"] == ["version"]
+
+    resultat = runner.invoke(app, ["--version"])
+    assert resultat.exit_code == 0
+    assert __version__ in resultat.stdout
