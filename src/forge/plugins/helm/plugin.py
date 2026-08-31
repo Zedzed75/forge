@@ -52,6 +52,12 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 
 @hookimpl
+def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Comment ce domaine se deploie. Le coeur ne l'execute jamais."""
+    return validators_module.deploy_commands(spec, outdir, environment)
+
+
+@hookimpl
 def forge_check_spec(spec: Any) -> list[Issue]:
     """Controles que le sous-modele ne peut pas faire : il ne voit pas `service:`."""
     if getattr(spec, "helm", None) is None:

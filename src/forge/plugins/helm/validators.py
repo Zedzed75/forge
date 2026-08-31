@@ -145,3 +145,51 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
             )
         )
     return liste
+
+
+#: Delai laisse a `helm upgrade --wait` avant de considerer le deploiement en
+#: echec. Helm attend que chaque ressource soit prete ; sans borne, un pipeline
+#: reste bloque sur un pod qui ne demarrera jamais.
+DEPLOY_TIMEOUT = "10m"
+
+
+def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Commandes deployant le chart dans `environment` (hook `forge_deploy`).
+
+    Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+
+    `--atomic` implique `--wait` et **defait** la release si le deploiement
+    echoue : sans lui, un `upgrade` rate laisse la release dans un etat
+    intermediaire, et le deploiement suivant echoue pour une raison sans rapport.
+    """
+    helm = spec.helm
+    chart = f"charts/{spec.service.name}"
+    namespace = _namespaces(spec).get(environment, spec.service.name)
+    argv = [
+        "upgrade",
+        "--install",
+        spec.service.name,
+        chart,
+        "--namespace",
+        namespace,
+    ]
+    if helm.create_namespace:
+        argv.append("--create-namespace")
+    argv += [
+        *_values(chart, environment),
+        "--atomic",
+        "--timeout",
+        DEPLOY_TIMEOUT,
+    ]
+    return [
+        Command(
+            label=f"helm upgrade --install ({environment})",
+            tool="helm",
+            argv=tuple(argv),
+            cwd=outdir,
+            timeout=TIMEOUT,
+            env=_environnement(),
+            install_hint=INSTALL_HINT,
+            requires_linux=True,
+        )
+    ]

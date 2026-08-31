@@ -128,3 +128,42 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
         )
     )
     return liste
+
+
+def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Commandes appliquant le socle sur `environment` (hook `forge_deploy`).
+
+    Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+
+    Deux commandes, et la premiere n'est pas la meme qu'a la validation : ici
+    `init` **joint** le stockage d'etat, puisqu'il s'agit d'appliquer. C'est la
+    seule difference, et c'est celle qui compte.
+
+    `-auto-approve` est la parce qu'un pipeline n'a personne pour confirmer. La
+    confirmation appartient donc au pipeline lui-meme — approbation manuelle
+    avant le job de production, ce que le domaine `pipeline` engendre.
+    """
+    racine = outdir / tree.environment_dir(environment)
+    env_commun = _environnement()
+    return [
+        Command(
+            label=f"terraform init ({environment})",
+            tool="terraform",
+            argv=("init", "-input=false", "-no-color"),
+            cwd=racine,
+            timeout=TIMEOUT,
+            env=env_commun,
+            install_hint=INSTALL_HINT,
+            requires_linux=True,
+        ),
+        Command(
+            label=f"terraform apply ({environment})",
+            tool="terraform",
+            argv=("apply", "-auto-approve", "-input=false", "-no-color"),
+            cwd=racine,
+            timeout=TIMEOUT,
+            env=env_commun,
+            install_hint=INSTALL_HINT,
+            requires_linux=True,
+        ),
+    ]

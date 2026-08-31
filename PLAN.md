@@ -83,17 +83,20 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] CI : les validateurs des domaines Helm **et** Terraform y sont installes.
         Helm n'y avait jamais ete ajoute (manque de la phase 4) : ses tests
         d'integration s'y ignoraient en silence.
-- [ ] **Phase 8 — Plugin pipeline** (CI/CD) — *commencee puis mise de cote*
-  - Branche `phase-8-pipeline`, commit `5d5113e`. Arbitrage du 2026-08-26 :
-    consolider d'abord les trois domaines de production et la promesse
-    centrale. **Ne pas reprendre cette branche sans relire son message de
-    commit** : il porte trois defauts trouves et corriges qui ne se redevinent
-    pas (variables d'environnement dependant du poste, ordre de deploiement,
-    chainage stdin sans `pipefail`).
-  - Ce que la branche a etabli et qui vaut quel que soit son sort : un domaine
-    dont la sortie depend des autres n'a **pas** besoin de les connaitre, mais
-    il a besoin que le coeur lui transmette ce qu'ils declarent — d'ou
-    `GenerationContext`, assemble a partir de hooks existants.
+- [x] **Phase 8 — Plugin pipeline** (CI/CD) — *mise de cote, puis terminee*
+  - [x] Commencee, puis parquee sur `phase-8-pipeline` le 2026-08-26 pour
+        consolider d'abord les domaines de production. Reprise ensuite, rebasee
+        sur `master`, testee et terminee.
+  - [x] Le domaine qui federe les autres **sans les connaitre** : il engendre un
+        job de validation par domaine declare, avec les commandes que chacun
+        annonce lui-meme. Le coeur assemble un `GenerationContext` a partir de
+        hooks existants et n'en tire aucune conclusion.
+  - [x] Deux dialectes — GitHub Actions et GitLab CI — pour les memes jobs.
+  - [x] Validateurs : `actionlint` (GitHub), `yamllint` (GitLab). La
+        dissymetrie est assumee et documentee : il n'existe pas de linter
+        GitLab hors ligne.
+  - [x] Golden sur les deux dialectes, 36 tests, dont le temoin decisif — un
+        **domaine factice que le plugin n'a jamais vu** obtient son job.
   - [ ] Le domaine qui federe les autres : build d'image, appel des validateurs
         de chaque domaine present, deploiement par environnement.
   - [ ] Doit lire ce que les autres domaines declarent **sans les connaitre** :
@@ -136,14 +139,12 @@ mettre a jour la section « Etat courant », committer, s'arreter.
 
 ## Etat courant / prochaine action
 
-**Etat** : **projet livre**. Phases 0 a 7, 9 et 10 terminees ; phase 8 mise de
-cote sur la branche `phase-8-pipeline`. **515 tests collectes**, tous verts,
-integration comprise.
+**Etat** : **projet livre, cible complete**. Les dix phases sont terminees.
+**568 tests collectes**, tous verts, integration comprise.
 
-Quatre domaines livres et valides par leurs outils reels : **Ansible**, **Helm**,
-**Terraform**, **monitoring**. Chacun se genere seul, et c'est le cas d'usage
-normal. Les cinq specifications de reference declenchent **31 commandes
-externes** sur de vrais projets rendus.
+Les **cinq** domaines du brief d'origine sont livres et valides par leurs outils
+reels : **Ansible**, **Helm**, **Terraform**, **monitoring**, **pipeline**.
+Chacun se genere seul, et c'est le cas d'usage normal.
 
 La promesse du projet : **une seule description du service, et vous choisissez
 ce que vous en tirez.** Un domaine absent de `forge.yml` n'est jamais genere ;
@@ -311,11 +312,19 @@ Ce que la phase 10 a etabli :
   controle « environnement inconnu » etait identique partout parce qu'il ne
   releve d'aucun domaine : il porte sur `service.environments`, qui est du coeur.
 
-**Prochaine action** : aucune. Le projet est livre, tag `v1.0.0`.
+Ce que la reprise de la phase 8 a etabli :
+- **Les garde-fous de la phase 10 ont fait leur travail.** Rebaser la branche a
+  fait echouer trois tests, et les trois avaient raison : un domaine livre sans
+  sa specification mono-domaine, sans son exemple, et un decompte de domaines
+  perime. Aucun n'aurait ete remarque sans eux.
+- **Un temoin vaut mieux qu'une inspection.** La promesse « le pipeline ne
+  connait aucun domaine » ne se prouve pas en relisant le code : elle se prouve
+  avec un domaine factice que le plugin n'a jamais vu, et qui obtient son job.
+- **Les trois defauts corriges avant la mise de cote portent chacun leur test.**
+  Variables d'environnement du poste, ordre de deploiement, chainage stdin : ils
+  ne peuvent plus revenir en silence.
 
-La phase 8 (domaine `pipeline`) reste disponible sur sa branche. Reprendre son
-message de commit avant toute chose : il porte trois defauts trouves puis mis de
-cote, qui ne se redevinent pas.
+**Prochaine action** : aucune. Le projet est livre, cible complete.
 
 La phase 8 (pipeline) reste sur sa branche ; elle peut etre reprise apres. Le premier domaine dont
 la sortie **depend des autres sections** de la specification. Le point a cadrer
@@ -448,4 +457,8 @@ Rappels pour la phase 5 :
   par promtool et par le garde-fou generique. 531 tests.
   Puis phase 10 (finition) : revue critique, duplication a quatre exemplaires
   factorisee, ecarts de parite leves d'un bloc, `_legacy/` et la parite
-  supprimes, README complet. 515 tests. **Projet livre, `v1.0.0`.**
+  supprimes, README complet. 515 tests. Projet livre, `v1.0.0`.
+  Puis reprise de la phase 8 : branche rebasee sur master, domaine pipeline
+  termine et teste (deux dialectes, temoin par domaine factice, les trois
+  defauts verrouilles). 568 tests. **Cible complete : les cinq domaines du
+  brief sont livres.**

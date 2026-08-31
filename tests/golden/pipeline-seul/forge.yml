@@ -1,0 +1,35 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Specification du service
+# ---------------------------------------------------------------------------
+# Ce fichier decrit entierement ce qui doit etre genere. Il est rejouable :
+#   forge generate --spec forge.yml
+# produit exactement la meme arborescence, octet pour octet.
+#
+# Editez-le a la main puis relancez la generation ; ne modifiez pas
+# 'forge_version' manuellement.
+#
+# Domaines generes par cette specification :
+#   - pipeline
+# ---------------------------------------------------------------------------
+forge_version: 1
+service:
+  name: passerelle
+  description: Passerelle applicative, chaine d'integration seule
+  owner: Equipe Plateforme
+  owner_email: plateforme@example.net
+  environments:
+    - name: prod
+      domain: example.net
+      production: true
+pipeline:
+  provider: gitlab
+  trigger:
+    branches:
+      - main
+    on_pull_request: true
+  build:
+    context: .
+    dockerfile: Dockerfile
+    registry: $CI_REGISTRY
+    image: plateforme/passerelle

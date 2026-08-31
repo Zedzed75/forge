@@ -4,10 +4,10 @@ single service spec. Built by porting the legacy standalone tools in _legacy/
 (read-only reference; never import from it).
 
 ## Target architecture (from the original brief — five plugins, not two)
-**Status**: four domains shipped — ansible, helm, terraform, monitoring. The fifth
-(`pipeline`, CI/CD) was started then parked on the branch `phase-8-pipeline`, at
-the user's request, to consolidate the four first. Its commit message carries the
-three defects found before it was set aside.
+**Status**: all five domains shipped. `pipeline` was parked on a branch during the
+consolidation of the first four, then finished and merged back — it is the only
+domain whose output depends on the other sections, and the only one whose output
+is the repository root.
 ```
 forge/
 ├── core/          # shared: spec model, Jinja2 engine (custom delimiters),

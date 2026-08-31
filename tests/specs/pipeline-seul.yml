@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# Cas de reference du domaine pipeline, seul et en dialecte GitLab.
+# ---------------------------------------------------------------------------
+# Deux raisons a ce cas :
+#
+# 1. **Mono-domaine.** Un depot peut n'avoir besoin que d'une chaine
+#    d'integration. Le pipeline engendre alors le seul job qu'il puisse
+#    engendrer : celui qui valide sa propre sortie. C'est peu, et c'est juste —
+#    il n'invente pas des jobs pour des domaines absents.
+#
+# 2. **GitLab.** `pipeline-github.yml` couvre l'autre gabarit ; sans ce cas, le
+#    dialecte GitLab ne serait rendu par aucun test golden.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: passerelle
+  description: Passerelle applicative, chaine d'integration seule
+  owner: Equipe Plateforme
+  owner_email: plateforme@example.net
+  environments:
+    - name: prod
+      domain: example.net
+      production: true
+
+pipeline:
+  provider: gitlab
+
+  trigger:
+    branches: [main]
+    on_pull_request: true
+
+  build:
+    context: .
+    dockerfile: Dockerfile
+    # Sur GitLab, seul le registre du projet est ouvert par le jeton fourni
+    # d'office : toute autre valeur declenche un avertissement de forge.
+    registry: $CI_REGISTRY
+    image: plateforme/passerelle

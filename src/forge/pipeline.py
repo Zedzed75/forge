@@ -247,6 +247,34 @@ def update(
 ROOT_LABEL = "(racine)"
 
 
+def foreign_paths(
+    spec_data: dict[str, Any],
+    spec: ForgeSpecBase,
+    manager: ForgeManager,
+    name: str,
+) -> frozenset[str]:
+    """Ce qu'un domaine ecrivant a la racine du depot ne doit pas comparer.
+
+    Un domaine dont `DomainInfo.outdir` vaut `.` — le domaine `pipeline`, dont
+    les fichiers n'ont de sens que la ou l'outil de CI les lit — partage sa
+    racine avec les autres domaines et avec les fichiers de niveau depot.
+    Comparer sa cible a un rendu neuf sans les ecarter les declarerait tous
+    supprimes.
+
+    Retourne un ensemble vide pour tout domaine ecrivant dans son propre
+    sous-repertoire : le cas normal ne paie rien.
+    """
+    info = manager.domain(name).info
+    if info.outdir not in (".", ""):
+        return frozenset()
+    autres = {
+        autre.outdir
+        for autre in indexed_domains(spec, manager)
+        if autre.name != name and autre.outdir not in (".", "")
+    }
+    return frozenset(autres | set(scaffold.repo_files_content(spec_data, [])))
+
+
 def diff_repo_files(
     spec_data: dict[str, Any],
     spec: ForgeSpecBase,
@@ -320,7 +348,14 @@ def diff(
                 force=True,
                 plugin_jinja=plugin_jinja_module(hooks),
             )
-            diffs.append(diff_trees(name, target / hooks.info.outdir, fresh))
+            diffs.append(
+                diff_trees(
+                    name,
+                    target / hooks.info.outdir,
+                    fresh,
+                    ignore=foreign_paths(spec_data, spec, manager, name),
+                )
+            )
     return diffs
 
 

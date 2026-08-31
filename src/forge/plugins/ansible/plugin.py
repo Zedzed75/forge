@@ -27,6 +27,9 @@ def forge_domain() -> DomainInfo:
         name="ansible",
         title="Ansible",
         summary="Projet Ansible complet : inventaires, playbooks et roles commentes",
+        # Apres le socle, avant la charge applicative : configurer les machines
+        # qui accueilleront le service, pas le service lui-meme.
+        deploy_order=30,
     )
 
 
@@ -89,6 +92,12 @@ def forge_projection(spec: Any) -> Projection:
 @hookimpl
 def forge_validators(spec: Any, outdir: Path) -> list[Command]:
     return validators_module.commands(spec, outdir)
+
+
+@hookimpl
+def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
+    """Comment ce domaine se deploie. Le coeur ne l'execute jamais."""
+    return validators_module.deploy_commands(spec, outdir, environment)
 
 
 @hookimpl
