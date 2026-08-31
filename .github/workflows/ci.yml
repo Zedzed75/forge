@@ -96,6 +96,17 @@ jobs:
           sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
           promtool --version
 
+      # Domaine pipeline. actionlint connait le schema des workflows GitHub ;
+      # cote GitLab il n'existe pas d'equivalent hors ligne, et yamllint ne
+      # verifie que la forme du document. La dissymetrie est documentee.
+      - name: Installer les outils du domaine pipeline
+        run: |
+          curl -fsSL -o /tmp/actionlint.tar.gz             https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+          uv pip install yamllint
+          actionlint --version
+
       # `uv run` garantit que le pytest execute est celui de l'environnement
       # qu'on vient de creer, et non un pytest quelconque du PATH.
       - name: Verifier l'interpreteur

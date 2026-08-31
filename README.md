@@ -1,8 +1,8 @@
 # forge
 
 Generateur deterministe de projets d'infrastructure complets et commentes
-(Ansible, Helm, Terraform, monitoring) a partir d'une seule specification
-`forge.yml`.
+(Ansible, Helm, Terraform, monitoring, CI/CD) a partir d'une seule
+specification `forge.yml`.
 
 Ce que forge produit n'est pas un squelette a completer : chaque fichier porte un
 en-tete disant a quoi il sert, chaque variable exposee est commentee avec ses
@@ -20,9 +20,10 @@ forge generate -s examples/helm-seul.yml       -o /tmp/boutique    # helm/ seul
 forge generate -s examples/ansible-seul.yml    -o /tmp/passerelle  # ansible/ seul
 forge generate -s examples/terraform-seul.yml  -o /tmp/socle       # terraform/ seul
 forge generate -s examples/monitoring-seul.yml -o /tmp/paiement    # monitoring/ seul
+forge generate -s examples/pipeline-seul.yml   -o /tmp/ci          # une chaine de CI seule
 ```
 
-Ces cinq exemples sont commites et testes : voir [`examples/`](examples/).
+Ces six exemples sont commites et testes : voir [`examples/`](examples/).
 
 | Domaine | Section | Produit | Valide par |
 | --- | --- | --- | --- |
@@ -30,6 +31,7 @@ Ces cinq exemples sont commites et testes : voir [`examples/`](examples/).
 | Helm | `helm:` | chart complet, values par environnement | `helm lint`, `helm template`, `kubeconform -strict` |
 | Terraform | `terraform:` | un module, une racine par environnement | `terraform fmt`, `init`, `validate`, `tflint` |
 | Monitoring | `monitoring:` | collecte, regles d'alerte, **tests d'alerte** | `promtool check config`, `check rules`, `test rules` |
+| Pipeline | `pipeline:` | chaine GitHub Actions ou GitLab CI, a la racine | `actionlint` (GitHub), `yamllint` (GitLab) |
 
 Trois facons de choisir :
 
@@ -135,6 +137,36 @@ figurent. Une facette hors vocabulaire est sans danger, mais sans effet. La
 regle vient d'un vrai faux positif : Ansible et Helm declaraient tous deux
 `hosts`, pour des choses sans rapport.
 
+### Le domaine qui federe les autres sans les connaitre
+
+Le domaine `pipeline` est le seul dont la sortie **depend des autres sections**.
+Il engendre un job de validation par domaine declare, avec les commandes que
+chaque domaine annonce lui-meme et l'installation des outils qu'elles exigent.
+Ajouter une section a `forge.yml` ajoute un job, sans qu'une ligne de gabarit
+change.
+
+Le coeur ne devient pas un ordonnanceur pour autant : il assemble un
+`GenerationContext` a partir de hooks qu'il appelait deja — `DomainInfo`,
+`Command`, `Projection` — et n'en tire aucune conclusion. Le plugin `pipeline`
+ne contient aucun nom de domaine ; un domaine factice qu'il n'a jamais vu obtient
+son job, et c'est un test qui le prouve.
+
+Trois traductions y demandent du soin, et chacune est verrouillee par un test :
+
+- **le chainage par stdin** devient une redirection par fichier, jamais un tube :
+  `pipefail` n'existe pas dans le `/bin/sh` d'une image Debian, et un tube y
+  masquerait l'echec de la commande source ;
+- **l'ordre de deploiement** suit `DomainInfo.deploy_order`, pas l'alphabet —
+  sans quoi le chart partirait avant le Terraform qui cree son namespace ;
+- **les variables d'environnement locales** sont ecartees : un chemin de cache
+  calcule sur le poste n'a aucun sens sur un runner, et le graver rendrait la
+  sortie dependante de la machine qui l'a engendree.
+
+Un domaine qui ne declare pas comment se deployer est **nomme** dans le fichier
+engendre, jamais devine. De meme pour un outil que la table d'installation ne
+connait pas : l'etape echoue en le nommant, plutot que de laisser le job tomber
+plus loin sur un « command not found ».
+
 ## Ecrire un plugin de domaine
 
 Un plugin est un module Python exposant des `@hookimpl`. Un seul hook est
@@ -145,9 +177,10 @@ obligatoire.
 | `forge_domain()` | **oui** | identite du domaine : nom, titre, resume, repertoire de sortie |
 | `forge_spec_model()` | oui en pratique | sous-modele pydantic validant la section `<domaine>:` |
 | `forge_template_subdir()` | oui en pratique | chemin du gabarit copier |
-| `forge_answers(spec)` | oui en pratique | projette la spec vers le dict `domain` que les gabarits lisent |
+| `forge_answers(spec, context)` | oui en pratique | projette la spec vers le dict `domain` que les gabarits lisent ; `context` decrit les autres domaines demandes, et un plugin qui n'en a pas besoin ne declare pas le parametre |
 | `forge_check_spec(spec)` | non | controles que le sous-modele ne peut pas faire — il ne voit pas `service:` |
 | `forge_validators(spec, outdir)` | non | commandes externes validant le projet genere |
+| `forge_deploy(spec, outdir, env)` | non | comment ce domaine se deploie. Le coeur ne l'execute **jamais** : ces commandes n'existent que pour etre ecrites dans un pipeline |
 | `forge_projection(spec)` | non | ce que le domaine affirme produire, pour la comparaison de facettes |
 | `forge_interview(prompter, service)` | non | questionnaire de `forge new` |
 | `forge_catalog()` | non | catalogue consultable par `forge catalog` |

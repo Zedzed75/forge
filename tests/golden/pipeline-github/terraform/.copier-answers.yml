@@ -1,0 +1,482 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « terraform ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only terraform
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    backend:
+        config: {}
+        is_local: true
+        kind: local
+        state_file: terraform.tfstate
+    creates_namespace: true
+    default_env: dev
+    env_names:
+    - dev
+    - prod
+    environment_files:
+    -   path: versions.tf
+        purpose: Version de Terraform et providers exiges par cette racine.
+    -   path: backend.tf
+        purpose: Ou l'etat de cet environnement est conserve.
+    -   path: providers.tf
+        purpose: 'Configuration des providers : cluster vise, contexte.'
+    -   path: variables.tf
+        purpose: Entrees de la racine, reprises de celles du module.
+    -   path: main.tf
+        purpose: Appel du module, avec les valeurs de cet environnement.
+    -   path: outputs.tf
+        purpose: Sorties remontees depuis le module.
+    -   path: terraform.tfvars
+        purpose: Valeurs de cet environnement. Aucune valeur secrete.
+    environments:
+    -   backend_config:
+        -   name: path
+            value: '"terraform.tfstate"'
+        domain: dev.example.net
+        kube_context: dev
+        module_arguments: &id001
+        -   name: service_name
+            value: var.service_name
+        -   name: environment
+            value: var.environment
+        -   name: namespace
+            value: var.namespace
+        -   name: labels
+            value: var.labels
+        -   name: annotations
+            value: var.annotations
+        -   name: quota_cpu
+            value: var.quota_cpu
+        -   name: quota_memory
+            value: var.quota_memory
+        -   name: quota_pods
+            value: var.quota_pods
+        -   name: limit_range_default_cpu
+            value: var.limit_range_default_cpu
+        -   name: limit_range_default_memory
+            value: var.limit_range_default_memory
+        name: dev
+        namespace: boutique-dev
+        production: false
+        tfvars:
+        -   name: service_name
+            value: '"boutique"'
+        -   name: environment
+            value: '"dev"'
+        -   name: namespace
+            value: '"boutique-dev"'
+        -   name: labels
+            value: '{ tier = "frontend" }'
+        -   name: kube_context
+            value: '"dev"'
+        -   name: quota_cpu
+            value: '"4"'
+        -   name: quota_memory
+            value: '"8Gi"'
+        -   name: quota_pods
+            value: '30'
+        variable_names:
+        - kube_config_path
+        - kube_context
+        - service_name
+        - environment
+        - namespace
+        - labels
+        - annotations
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+    -   backend_config:
+        -   name: path
+            value: '"terraform.tfstate"'
+        domain: example.net
+        kube_context: plateforme-prod
+        module_arguments: *id001
+        name: prod
+        namespace: boutique-prod
+        production: true
+        tfvars:
+        -   name: service_name
+            value: '"boutique"'
+        -   name: environment
+            value: '"prod"'
+        -   name: namespace
+            value: '"boutique-prod"'
+        -   name: labels
+            value: '{ tier = "frontend" }'
+        -   name: kube_context
+            value: '"plateforme-prod"'
+        -   name: quota_cpu
+            value: '"4"'
+        -   name: quota_memory
+            value: '"8Gi"'
+        -   name: quota_pods
+            value: '30'
+        variable_names:
+        - kube_config_path
+        - kube_context
+        - service_name
+        - environment
+        - namespace
+        - labels
+        - annotations
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+    expected_paths:
+    - .copier-answers.yml
+    - .gitignore
+    - .tflint.hcl
+    - Makefile
+    - README.md
+    - environments/dev/backend.tf
+    - environments/dev/main.tf
+    - environments/dev/outputs.tf
+    - environments/dev/providers.tf
+    - environments/dev/terraform.tfvars
+    - environments/dev/variables.tf
+    - environments/dev/versions.tf
+    - environments/prod/backend.tf
+    - environments/prod/main.tf
+    - environments/prod/outputs.tf
+    - environments/prod/providers.tf
+    - environments/prod/terraform.tfvars
+    - environments/prod/variables.tf
+    - environments/prod/versions.tf
+    - modules/boutique/README.md
+    - modules/boutique/locals.tf
+    - modules/boutique/namespace.tf
+    - modules/boutique/outputs.tf
+    - modules/boutique/quota.tf
+    - modules/boutique/variables.tf
+    - modules/boutique/versions.tf
+    extras:
+        makefile: true
+        tflint_config: true
+    families:
+    -   details: 'Pose le cloisonnement lui-meme, avec les labels app.kubernetes.io
+            du service. C''est la famille pivot : les autres s''y rattachent par reference,
+            ce qui donne a Terraform l''ordre de creation sans aucun depends_on explicite.
+
+
+            Absente, le module suppose le namespace deja cree par l''equipe plateforme
+            et se contente de s''y rattacher par son nom.'
+        name: namespace
+        outputs:
+        - namespace
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_namespace
+        summary: Cree le namespace dans lequel le service est deploye
+        traps:
+        - '`terraform destroy` supprime le namespace, donc **tout** ce qu''il contient
+            — y compris ce qu''un chart Helm y a deploye et que Terraform ne connait
+            pas. La destruction deborde du perimetre.'
+        - 'Changer le nom du namespace le detruit et le recree (comportement ForceNew)
+            : le contenu est perdu, sans avertissement autre que la ligne de plan.'
+        - Un namespace en cours de suppression reste en phase Terminating tant qu'un
+            finalizer n'a pas rendu la main ; Terraform attend, et l'attente ressemble
+            a un blocage.
+        variables: []
+    -   details: 'Plafonne ce que le namespace peut consommer et donne une taille
+            par defaut aux conteneurs qui n''en declarent pas.
+
+
+            C''est la famille qui a le plus d''effet sur les autres domaines : des
+            qu''un ResourceQuota porte sur cpu ou memory, l''API refuse tout pod dont
+            un conteneur n''a pas de `resources.requests`.'
+        name: quota
+        outputs:
+        - resource_quota_name
+        providers:
+        - kubernetes
+        resources:
+        - kubernetes_resource_quota
+        - kubernetes_limit_range
+        summary: 'ResourceQuota et LimitRange : le budget du namespace'
+        traps:
+        - Des qu'un quota porte sur `requests.cpu` ou `requests.memory`, **tout**
+            pod sans `resources.requests` est refuse a l'admission. Le chart Helm
+            du meme service doit donc declarer ses requests, sinon le deploiement
+            casse le jour ou le quota est pose.
+        - 'Le LimitRange ne s''applique qu''aux pods **crees apres** lui : les pods
+            deja en place gardent leur configuration, et l''ecart ne se voit qu''au
+            redemarrage suivant.'
+        - 'Un quota reduit sous la consommation courante n''expulse rien : il bloque
+            seulement les creations suivantes. Le namespace parait sain jusqu''au
+            prochain deploiement.'
+        variables:
+        - quota_cpu
+        - quota_memory
+        - quota_pods
+        - limit_range_default_cpu
+        - limit_range_default_memory
+    kubernetes:
+        auth: kubeconfig
+        config_path: ~/.kube/config
+        context_per_environment: true
+        uses_kubeconfig: true
+    labels:
+        tier: frontend
+    module_dir: modules/boutique
+    module_files:
+    -   path: versions.tf
+        purpose: Version de Terraform et providers exiges par le module.
+    -   path: variables.tf
+        purpose: Toutes les entrees du module, chacune commentee.
+    -   path: locals.tf
+        purpose: 'Valeurs calculees : namespace effectif, labels communs.'
+    -   path: outputs.tf
+        purpose: Ce que le module rend a son appelant.
+    -   path: README.md
+        purpose: Role du module, entrees, sorties et pieges de chaque famille.
+    -   path: namespace.tf
+        purpose: Cree le namespace dans lequel le service est deploye (kubernetes_namespace).
+    -   path: quota.tf
+        purpose: 'ResourceQuota et LimitRange : le budget du namespace (kubernetes_resource_quota,
+            kubernetes_limit_range).'
+    module_name: boutique
+    namespace_strategy: per_env
+    outputs:
+    -   description: Namespace dans lequel le service est deploye.
+        name: namespace
+        value: local.namespace
+    -   description: Nom du ResourceQuota pose sur le namespace.
+        name: resource_quota_name
+        value: kubernetes_resource_quota.this.metadata[0].name
+    providers:
+    -   name: kubernetes
+        reason: pose les objets Kubernetes qui accueillent le service
+        source: hashicorp/kubernetes
+        version: ~> 2.32
+    resource_slots:
+        namespace:
+        -   name: namespace
+            summary: Cree le namespace dans lequel le service est deploye
+        network_policy: []
+        quota:
+        -   name: quota
+            summary: 'ResourceQuota et LimitRange : le budget du namespace'
+        random_secret: []
+        registry_secret: []
+        service_account: []
+        tls_certificate: []
+    resources:
+    - namespace
+    - quota
+    root_files:
+    -   path: .copier-answers.yml
+        purpose: Reponses du gabarit, relues par `forge update`. Ne pas editer.
+    -   path: .gitignore
+        purpose: 'Exclut l''etat, les plans et le cache de providers. L''etat porte
+            des valeurs en clair : il ne doit jamais etre committe.'
+    -   path: .tflint.hcl
+        purpose: Jeu de regles tflint applique au projet.
+    -   path: Makefile
+        purpose: 'Raccourcis : `make init ENV=prod`, `make plan ENV=prod`.'
+    -   path: README.md
+        purpose: 'Ce fichier : comment employer le projet.'
+    root_variables:
+    -   default: '"~/.kube/config"'
+        description: 'Chemin du fichier kubeconfig employe pour joindre le cluster.
+            Propre a la machine : laissez la valeur par defaut et surchargez-la par
+            TF_VAR_kube_config_path si besoin.'
+        has_default: true
+        name: kube_config_path
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '""'
+        description: 'Contexte kubeconfig vise. Ne le laissez jamais vide : sans contexte
+            explicite, Terraform applique sur le contexte courant de la machine, quel
+            qu''il soit.'
+        has_default: true
+        name: kube_context
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Nom du service. Prefixe toutes les ressources creees et alimente
+            le label app.kubernetes.io/name.
+        has_default: false
+        name: service_name
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Nom de l'environnement (dev, staging, prod). Sert de suffixe
+            de ressource et de valeur du label app.kubernetes.io/instance.
+        has_default: false
+        name: environment
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Namespace Kubernetes vise. Cree par ce module si la famille 'namespace'
+            est retenue, suppose exister sinon.
+        has_default: false
+        name: namespace
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '{}'
+        description: Labels apposes sur toutes les ressources, en plus des labels
+            app.kubernetes.io calcules par le module.
+        has_default: true
+        name: labels
+        per_environment: true
+        sensitive: false
+        type: map(string)
+    -   default: '{}'
+        description: Annotations apposees sur toutes les ressources. Laissez vide
+            si aucun controleur du cluster n'en attend.
+        has_default: true
+        name: annotations
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '"4"'
+        description: Plafond de CPU demandable dans le namespace, en unites Kubernetes
+            (ex. '4' pour 4 coeurs, '500m' pour un demi).
+        has_default: true
+        name: quota_cpu
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '"8Gi"'
+        description: Plafond de memoire demandable, suffixe Kubernetes obligatoire
+            (Mi, Gi). Un nombre nu serait compris en octets.
+        has_default: true
+        name: quota_memory
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '30'
+        description: Nombre maximal de pods simultanes dans le namespace.
+        has_default: true
+        name: quota_pods
+        per_environment: true
+        sensitive: false
+        type: number
+    -   default: '"500m"'
+        description: CPU attribue a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_cpu
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '"512Mi"'
+        description: Memoire attribuee a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_memory
+        per_environment: false
+        sensitive: false
+        type: string
+    terraform_version: ~> 1.9
+    variables:
+    -   default: ''
+        description: Nom du service. Prefixe toutes les ressources creees et alimente
+            le label app.kubernetes.io/name.
+        has_default: false
+        name: service_name
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Nom de l'environnement (dev, staging, prod). Sert de suffixe
+            de ressource et de valeur du label app.kubernetes.io/instance.
+        has_default: false
+        name: environment
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: ''
+        description: Namespace Kubernetes vise. Cree par ce module si la famille 'namespace'
+            est retenue, suppose exister sinon.
+        has_default: false
+        name: namespace
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '{}'
+        description: Labels apposes sur toutes les ressources, en plus des labels
+            app.kubernetes.io calcules par le module.
+        has_default: true
+        name: labels
+        per_environment: true
+        sensitive: false
+        type: map(string)
+    -   default: '{}'
+        description: Annotations apposees sur toutes les ressources. Laissez vide
+            si aucun controleur du cluster n'en attend.
+        has_default: true
+        name: annotations
+        per_environment: false
+        sensitive: false
+        type: map(string)
+    -   default: '"4"'
+        description: Plafond de CPU demandable dans le namespace, en unites Kubernetes
+            (ex. '4' pour 4 coeurs, '500m' pour un demi).
+        has_default: true
+        name: quota_cpu
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '"8Gi"'
+        description: Plafond de memoire demandable, suffixe Kubernetes obligatoire
+            (Mi, Gi). Un nombre nu serait compris en octets.
+        has_default: true
+        name: quota_memory
+        per_environment: true
+        sensitive: false
+        type: string
+    -   default: '30'
+        description: Nombre maximal de pods simultanes dans le namespace.
+        has_default: true
+        name: quota_pods
+        per_environment: true
+        sensitive: false
+        type: number
+    -   default: '"500m"'
+        description: CPU attribue a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_cpu
+        per_environment: false
+        sensitive: false
+        type: string
+    -   default: '"512Mi"'
+        description: Memoire attribuee a un conteneur qui n'en demande pas.
+        has_default: true
+        name: limit_range_default_memory
+        per_environment: false
+        sensitive: false
+        type: string
+forge_version: 1
+plugin: terraform
+service:
+    description: Boutique en ligne, chaine complete
+    environments:
+    -   domain: dev.example.net
+        name: dev
+        production: false
+    -   domain: example.net
+        name: prod
+        production: true
+    labels:
+        tier: frontend
+    name: boutique
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/terraform/template
+

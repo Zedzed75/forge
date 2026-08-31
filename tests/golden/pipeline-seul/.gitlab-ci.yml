@@ -1,0 +1,60 @@
+# =============================================================================
+# .gitlab-ci.yml — chaîne d'intégration de « passerelle »
+# =============================================================================
+# Fichier généré par forge. Ne l'éditez pas à la main : modifiez `forge.yml` à la
+# racine du dépôt, puis relancez `forge generate` — ou `forge update --only
+# pipeline` pour ne recevoir que les évolutions du gabarit.
+#
+# Ce fichier n'a pas été écrit domaine par domaine : chaque domaine déclaré dans
+# `forge.yml` a dit lui-même quels outils il fallait lancer et dans quel
+# répertoire. Ajouter une section à `forge.yml` ajoute donc un job ici, sans que
+# ce gabarit change.
+#
+# Domaines pris en compte :
+#   - Pipeline (pipeline) — 1 commande(s) de validation
+#
+# Aucun identifiant n'est écrit ici : employez des variables protégées et
+# masquées, définies dans les réglages du projet.
+# =============================================================================
+
+# Une image de base minimale : chaque job installe ce dont il a besoin, et rien
+# d'autre. Une image « à tout faire » cacherait quel job dépend de quel outil.
+image: debian:trixie-slim
+
+stages:
+  - valider
+  - construire
+
+# Une exécution par branche : un push qui en remplace un autre annule le
+# précédent plutôt que de faire la queue derrière lui.
+default:
+  interruptible: true
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - when: never
+
+valider-pipeline:
+  stage: valider
+  script:
+    # Installer les outils
+    - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq --no-install-recommends python3-pip; fi
+    - python3 -m pip install --quiet yamllint
+    # yamllint
+    - 'NO_COLOR=1 yamllint --format parsable -d ''{extends: default, rules: {line-length: disable, comments-indentation: disable, document-start: disable, truthy: {check-keys: false}}}'' .gitlab-ci.yml'
+
+construire:
+  stage: construire
+  needs:
+    - valider-pipeline
+  rules:
+    # Ne part que depuis la branche par défaut : une demande de fusion ne
+    # publie rien et ne déploie rien.
+    - if: $CI_COMMIT_BRANCH == "main"
+    - when: never
+  script:
+    # docker buildx build ($CI_REGISTRY/plateforme/passerelle)
+    - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder 2>/dev/null || docker buildx use forge-builder
+    - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64 --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG --push .

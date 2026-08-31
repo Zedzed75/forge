@@ -63,6 +63,7 @@ SPECS_MONO: dict[str, Path] = {
     "helm": SPECS_DIR / "helm-complet.yml",
     "terraform": SPECS_DIR / "terraform-complet.yml",
     "monitoring": SPECS_DIR / "monitoring-complet.yml",
+    "pipeline": SPECS_DIR / "pipeline-seul.yml",
 }
 
 
@@ -73,16 +74,41 @@ def _generer(spec_path: Path, cible: Path, **kwargs) -> pipeline.GenerationResul
 
 
 def _domaines_produits(cible: Path) -> set[str]:
-    """Domaines dont le repertoire de sortie existe reellement dans la cible.
+    """Domaines dont la sortie existe reellement dans la cible.
 
     Derive du registre, jamais d'une liste ecrite ici : un domaine ajoute est
     surveille sans qu'on y pense.
+
+    Un domaine dont la sortie **est** la racine du depot — le domaine
+    `pipeline`, dont le fichier n'a de sens que la ou l'outil de CI le lit — n'a
+    pas de sous-repertoire a chercher : on constate alors la presence d'au moins
+    un des chemins qu'il annonce.
     """
-    return {
+    produits = {
         nom
         for nom, outdir in OUTDIRS.items()
         if outdir not in (".", "") and (cible / outdir).is_dir()
     }
+    for nom, outdir in OUTDIRS.items():
+        if outdir in (".", "") and _ecrit_a_la_racine(cible, nom):
+            produits.add(nom)
+    return produits
+
+
+def _ecrit_a_la_racine(cible: Path, domaine: str) -> bool:
+    """Vrai si le domaine racine a ecrit au moins un de ses fichiers.
+
+    Les chemins sont ceux que le plugin annonce lui-meme, moins le fichier de
+    reponses copier : celui-ci existe dans toute cible generee, quel que soit le
+    domaine.
+    """
+    from forge.plugins.pipeline import tree as pipeline_tree
+
+    if domaine != "pipeline":  # pragma: no cover - un seul domaine racine
+        return False
+    return (cible / pipeline_tree.GITHUB_WORKFLOW).is_file() or (
+        cible / pipeline_tree.GITLAB_CONFIG
+    ).is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +160,10 @@ def test_un_domaine_seul_produit_bien_des_fichiers(domaine, tmp_path):
     _generer(SPECS_MONO[domaine], tmp_path)
     racine = tmp_path / OUTDIRS[domaine]
     fichiers = [chemin for chemin in racine.rglob("*") if chemin.is_file()]
-    assert len(fichiers) > 5, f"{domaine} : {len(fichiers)} fichier(s) seulement"
+    # Un domaine ecrivant a la racine partage celle-ci avec les fichiers de
+    # niveau depot : on compte alors ce qu'il annonce, pas ce qui s'y trouve.
+    attendu = 1 if OUTDIRS[domaine] in (".", "") else 5
+    assert len(fichiers) > attendu, f"{domaine} : {len(fichiers)} fichier(s) seulement"
 
 
 def test_une_specification_sans_aucun_domaine_le_dit_clairement(tmp_path):

@@ -1,0 +1,173 @@
+# ---------------------------------------------------------------------------
+# Réponses copier du domaine « pipeline ».
+# ---------------------------------------------------------------------------
+# Généré par forge. Ce fichier permet de rejouer la génération et d'appliquer
+# les évolutions de gabarit avec :
+#   forge update --only pipeline
+# Ne le modifiez pas à la main : éditez forge.yml à la racine du projet.
+#
+# Il contient les jobs dérivés des AUTRES sections de forge.yml : ajouter une
+# section à forge.yml change donc ce fichier, sans qu'aucune réponse propre au
+# pipeline ait changé.
+# ---------------------------------------------------------------------------
+_commit: <commit>
+_src_path: <src>
+domain:
+    build_job:
+        default_branch_only: true
+        environment: ''
+        key: construire
+        kind: build
+        manual: false
+        name: Construire l'image
+        needs: &id001
+        - valider-pipeline
+        steps:
+        -   env: &id002
+                FORGE_IMAGE_TAG: $CI_COMMIT_SHA
+            name: docker buildx build ($CI_REGISTRY/plateforme/passerelle)
+            run: &id003
+            - docker buildx create --use --name forge-builder 2>/dev/null || docker
+                buildx use forge-builder
+            - docker buildx build --platform linux/amd64 --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG
+                --push .
+            script:
+            - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder
+                2>/dev/null || docker buildx use forge-builder
+            - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64
+                --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG
+                --push .
+            workdir: ''
+        tools: &id004 []
+        unknown_tools: &id005 []
+    default_branch: main
+    deploy_environments: []
+    deploy_jobs: []
+    domains:
+    -   deploys: []
+        name: pipeline
+        outdir: .
+        summary: 'Chaine d''integration : un job par domaine, construction, deploiement'
+        title: Pipeline
+        validator_count: 1
+    env_names:
+    - prod
+    expected_paths:
+    - .copier-answers.yml
+    - .gitlab-ci.yml
+    is_github: false
+    is_gitlab: true
+    jobs:
+    -   default_branch_only: false
+        environment: ''
+        key: valider-pipeline
+        kind: validate
+        manual: false
+        name: Valider Pipeline
+        needs: &id006 []
+        steps:
+        -   env: &id007 {}
+            name: Installer les outils
+            run: &id008
+            - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get
+                install -y -qq --no-install-recommends python3-pip; fi
+            - python3 -m pip install --quiet yamllint
+            script:
+            - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get
+                install -y -qq --no-install-recommends python3-pip; fi
+            - python3 -m pip install --quiet yamllint
+            workdir: ''
+        -   env: &id009
+                NO_COLOR: '1'
+            name: yamllint
+            run: &id010
+            - 'yamllint --format parsable -d ''{extends: default, rules: {line-length:
+                disable, comments-indentation: disable, document-start: disable, truthy:
+                {check-keys: false}}}'' .gitlab-ci.yml'
+            script:
+            - 'NO_COLOR=1 yamllint --format parsable -d ''{extends: default, rules:
+                {line-length: disable, comments-indentation: disable, document-start:
+                disable, truthy: {check-keys: false}}}'' .gitlab-ci.yml'
+            workdir: ''
+        tools: &id011
+        - yamllint
+        unknown_tools: &id012 []
+    -   default_branch_only: true
+        environment: ''
+        key: construire
+        kind: build
+        manual: false
+        name: Construire l'image
+        needs: *id001
+        steps:
+        -   env: *id002
+            name: docker buildx build ($CI_REGISTRY/plateforme/passerelle)
+            run: *id003
+            script:
+            - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder
+                2>/dev/null || docker buildx use forge-builder
+            - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64
+                --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG
+                --push .
+            workdir: ''
+        tools: *id004
+        unknown_tools: *id005
+    production: prod
+    provider: gitlab
+    provider_slots:
+        github: []
+        gitlab:
+        -   name: gitlab
+    runner: debian:trixie-slim
+    tools:
+    - yamllint
+    trigger:
+        branches:
+        - main
+        on_pull_request: true
+        on_tag: false
+    undeployed: []
+    unknown_tools: []
+    validate_jobs:
+    -   default_branch_only: false
+        environment: ''
+        key: valider-pipeline
+        kind: validate
+        manual: false
+        name: Valider Pipeline
+        needs: *id006
+        steps:
+        -   env: *id007
+            name: Installer les outils
+            run: *id008
+            script:
+            - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get
+                install -y -qq --no-install-recommends python3-pip; fi
+            - python3 -m pip install --quiet yamllint
+            workdir: ''
+        -   env: *id009
+            name: yamllint
+            run: *id010
+            script:
+            - 'NO_COLOR=1 yamllint --format parsable -d ''{extends: default, rules:
+                {line-length: disable, comments-indentation: disable, document-start:
+                disable, truthy: {check-keys: false}}}'' .gitlab-ci.yml'
+            workdir: ''
+        tools: *id011
+        unknown_tools: *id012
+    workflow_name: passerelle
+    workflow_path: .gitlab-ci.yml
+forge_version: 1
+plugin: pipeline
+service:
+    description: Passerelle applicative, chaine d'integration seule
+    environments:
+    -   domain: example.net
+        name: prod
+        production: true
+    labels: {}
+    name: passerelle
+    owner: Equipe Plateforme
+    owner_email: plateforme@example.net
+template_subdir: src/forge/plugins/pipeline/template
+

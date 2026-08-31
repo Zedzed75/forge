@@ -2,7 +2,7 @@
 
 **Un projet n'a pas besoin de tout.** Il peut n'avoir besoin que d'un chart
 Helm, ou que de rôles et de playbooks Ansible, ou que d'un socle Terraform. Ce
-répertoire montre les cinq cas, et c'est le choix de l'utilisateur qui les
+répertoire montre les six cas, et c'est le choix de l'utilisateur qui les
 distingue — rien d'autre.
 
 | Exemple | Produit | Pour qui |
@@ -11,6 +11,7 @@ distingue — rien d'autre.
 | [`helm-seul.yml`](helm-seul.yml) | `helm/` | un cluster qui existe déjà, un service à empaqueter |
 | [`terraform-seul.yml`](terraform-seul.yml) | `terraform/` | une équipe plateforme qui prépare le terrain |
 | [`monitoring-seul.yml`](monitoring-seul.yml) | `monitoring/` | un service déjà déployé, dont il manque de savoir quand il va mal |
+| [`pipeline-seul.yml`](pipeline-seul.yml) | `.github/workflows/` | un dépôt qui n'a besoin que d'une chaîne d'intégration |
 | [`socle-et-chart.yml`](socle-et-chart.yml) | `terraform/` **et** `helm/` | le socle et ce qui s'y pose, ensemble |
 
 ```bash
@@ -54,6 +55,20 @@ sont pas. Et `forge generate --dry-run` annonce ce qu'il produirait sans rien
 
 Si une spécification ne déclare aucun domaine, forge ne produit pas un projet
 vide en silence : il dit lesquels sont disponibles et comment en demander un.
+
+## Le pipeline est le domaine qui les fédère
+
+Le domaine `pipeline` est le seul dont la sortie **dépend des autres sections**.
+Il engendre un job de validation par domaine déclaré, avec les commandes que
+chaque domaine annonce lui-même et l'installation des outils qu'elles exigent.
+
+Ajoutez une section `helm:` à [`pipeline-seul.yml`](pipeline-seul.yml) et un job
+« Valider Helm » apparaît, sans qu'une ligne de gabarit change. Il n'invente rien
+pour autant : un domaine qui ne dit pas comment se déployer est **nommé** dans le
+fichier engendré, pas deviné.
+
+C'est aussi le seul domaine dont la sortie est la racine du dépôt — un fichier de
+CI n'existe que là où son outil le lit.
 
 ## Ajouter un domaine à un projet existant
 

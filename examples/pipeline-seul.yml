@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------------------
+# Exemple : un depot qui n'a besoin QUE d'une chaine d'integration.
+# ---------------------------------------------------------------------------
+# Le service est deploye autrement, mais il faut une CI qui construise l'image
+# et valide ce qui est commite.
+#
+#   forge generate -s examples/pipeline-seul.yml -o /tmp/passerelle
+#
+# Produit `.github/workflows/ci.yml` a la racine — un fichier de CI n'existe que
+# la ou son outil le lit — et rien d'autre.
+#
+# Le pipeline est le seul domaine dont la sortie **depend des autres sections**.
+# Ici il n'y en a aucune : il engendre donc le seul job qu'il puisse engendrer,
+# celui qui valide sa propre sortie, plus la construction d'image demandee. Il
+# n'invente pas de jobs pour des domaines absents.
+#
+# Ajoutez une section `helm:` a ce fichier, et un job « Valider Helm » apparait,
+# avec les commandes que le domaine Helm declare lui-meme et l'installation des
+# outils qu'elles exigent. Sans qu'une ligne du gabarit change.
+# ---------------------------------------------------------------------------
+forge_version: 1
+
+service:
+  name: passerelle
+  description: "Passerelle applicative"
+  owner: "Equipe Plateforme"
+  owner_email: plateforme@example.net
+  environments:
+    - name: prod
+      domain: example.net
+      production: true
+
+pipeline:
+  # github | gitlab. Le choix change le format du fichier, jamais son contenu :
+  # les memes jobs s'ecrivent dans les deux dialectes.
+  provider: github
+
+  trigger:
+    branches: [main]
+    # Une validation n'empeche vraiment quelque chose qu'avant la fusion.
+    on_pull_request: true
+
+  build:
+    context: .
+    dockerfile: Dockerfile
+    # Le jeton fourni d'office par GitHub n'ouvre que ghcr.io ; publier
+    # ailleurs demande un secret, et forge signale le cas plutot que de
+    # l'ecrire.
+    registry: ghcr.io
+    image: plateforme/passerelle
+    push: true
+
+  # Aucune section `deploy:` : ce pipeline valide et construit, il ne deploie
+  # pas. C'est un choix legitime, et le plus sur tant que la chaine n'est pas
+  # eprouvee.

@@ -1,0 +1,26 @@
+# =============================================================================
+# namespace.tf — le cloisonnement dans lequel « boutique » est déployé
+# =============================================================================
+# Fichier généré par forge.
+#
+# Famille pivot du module : toutes les autres ressources s'y rattachent par
+# local.namespace, ce qui suffit à donner à Terraform l'ordre de création.
+#
+# ATTENTION — « terraform destroy » supprime ce namespace, donc tout ce qu'il
+# contient, y compris ce qu'un chart Helm y a déployé et que Terraform ne
+# connaît pas. La destruction déborde du périmètre de ce module.
+#
+# ATTENTION — changer le nom du namespace le détruit et le recrée : Kubernetes
+# n'autorise pas le renommage. Le plan l'annonce en une ligne, sans avertir de
+# ce que la recréation emporte avec elle.
+# =============================================================================
+
+resource "kubernetes_namespace" "this" {
+  # « metadata » est un bloc, pas un attribut : c'est pourquoi les références
+  # s'écrivent metadata[0].name et non metadata.name.
+  metadata {
+    name        = var.namespace
+    labels      = local.labels
+    annotations = var.annotations
+  }
+}

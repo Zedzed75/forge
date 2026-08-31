@@ -172,6 +172,7 @@ def test_default_manager_lit_la_variable_d_environnement(monkeypatch):
         "demo",
         "helm",
         "monitoring",
+        "pipeline",
         "terraform",
     )
 
@@ -182,6 +183,7 @@ def test_default_manager_enregistre_les_plugins_livres():
         "ansible",
         "helm",
         "monitoring",
+        "pipeline",
         "terraform",
     )
 

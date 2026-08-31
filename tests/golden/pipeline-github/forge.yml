@@ -1,0 +1,68 @@
+---
+# ---------------------------------------------------------------------------
+# forge.yml - Specification du service
+# ---------------------------------------------------------------------------
+# Ce fichier decrit entierement ce qui doit etre genere. Il est rejouable :
+#   forge generate --spec forge.yml
+# produit exactement la meme arborescence, octet pour octet.
+#
+# Editez-le a la main puis relancez la generation ; ne modifiez pas
+# 'forge_version' manuellement.
+#
+# Domaines generes par cette specification :
+#   - helm
+#   - pipeline
+#   - terraform
+# ---------------------------------------------------------------------------
+forge_version: 1
+service:
+  name: boutique
+  description: Boutique en ligne, chaine complete
+  owner: Equipe Plateforme
+  owner_email: plateforme@example.net
+  labels:
+    tier: frontend
+  environments:
+    - name: dev
+      domain: dev.example.net
+    - name: prod
+      domain: example.net
+      production: true
+terraform:
+  namespace_strategy: per_env
+  resources:
+    - namespace
+    - quota
+  environments:
+    prod:
+      kube_context: plateforme-prod
+helm:
+  kubernetes:
+    version: '1.34'
+  chart_version: 0.1.0
+  app_version: 1.0.0
+  namespace_strategy: per_env
+  image:
+    registry: ghcr.io
+    repository: acme/boutique
+    strategy: appVersion
+  components:
+    - name: api
+      kind: deployment
+      addons:
+        - service
+      container_port: 8080
+pipeline:
+  provider: github
+  trigger:
+    branches:
+      - main
+    on_pull_request: true
+  build:
+    context: .
+    dockerfile: Dockerfile
+    registry: ghcr.io
+    image: acme/boutique
+  deploy:
+    manual_for_production: true
+    sequential: true

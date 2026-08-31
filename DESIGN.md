@@ -357,6 +357,35 @@ Une configuration de collecte et un jeu de règles **par environnement** : les
 seuils diffèrent, le namespace observé aussi. Chaque règle d'alerte est livrée
 avec le test unitaire qui prouve qu'elle se déclenche — ce n'est pas une option.
 
+```yaml
+# ---------------------------------------------------------------------------
+# Domaine pipeline (phase 8)
+# ---------------------------------------------------------------------------
+# Le seul domaine dont la sortie dépend des AUTRES sections, et le seul dont la
+# sortie est la racine du dépôt : un fichier de CI n'existe que là où son outil
+# le lit.
+pipeline:
+  provider: github              # github | gitlab
+  runner: ""                    # vide : défaut propre à l'outil choisi
+  trigger:
+    branches: [main]
+    on_pull_request: true
+  build:                        # absent : aucun job de construction
+    context: .
+    dockerfile: Dockerfile
+    registry: ghcr.io
+    image: acme/boutique
+  deploy:                       # absent : le pipeline se limite à valider
+    environments: [dev, prod]   # vide : tous
+    manual_for_production: true
+    sequential: true
+```
+
+Rien ici ne dit **quels domaines valider** ni **quelles commandes lancer** :
+ceux-là sont ceux que la spécification demande, et chaque domaine déclare ses
+propres commandes (`forge_validators`, `forge_deploy`). Le cœur transmet ces
+faits par un `GenerationContext` ; il n'ordonnance rien.
+
 La clé d'état (`key`, `prefix`) n'est **pas** demandée à la spécification : elle
 est dérivée par environnement, pour que deux racines n'écrivent jamais le même
 état. Le domaine Terraform déclare la facette `namespaces`, la même que Helm :
@@ -684,7 +713,8 @@ forge/
 │       ├── ansible/     plugin.py  spec.py  catalog/  interview.py  validators.py  template/
 │       ├── helm/        plugin.py  spec.py  catalog/  interview.py  validators.py  template/
 │       ├── terraform/   plugin.py  spec.py  catalog/  interview.py  validators.py  template/  hcl.py
-│       └── monitoring/  plugin.py  spec.py  catalog/  interview.py  validators.py  template/  render.py
+│       ├── monitoring/  plugin.py  spec.py  catalog/  interview.py  validators.py  template/  render.py
+│       └── pipeline/    plugin.py  spec.py  jobs.py  tools.py  interview.py  validators.py  template/
 └── tests/
     ├── specs/  golden/
     ├── conftest.py  scripted_prompter.py  domaine_isole.py  domaines_factices/
@@ -700,6 +730,7 @@ forge/
 | `plugins_api/checks.py` | quatre domaines réécrivaient le même contrôle « environnement inconnu » ; il ne parle que de `service.environments`, donc il reste agnostique |
 | `plugins/terraform/hcl.py` | `terraform fmt` aligne le `=` de lignes consécutives : un gabarit ne peut pas aligner des clés dont il ignore la longueur, la projection si |
 | `plugins/monitoring/render.py` | une annotation d'alerte et l'annotation attendue par son test unitaire sont calculées ensemble, sans quoi elles divergent |
+| `plugins/pipeline/jobs.py`, `tools.py` | dériver des jobs d'un `GenerationContext`, et savoir installer les outils que les commandes citent — la seule table du projet qui nomme des binaires |
 | `partials/` à la racine | macros partagées entre gabarits, résolues par le chargeur Jinja de copier |
 
 `tests/parity/` a existé pendant tout le portage puis a été retiré en phase 10,
