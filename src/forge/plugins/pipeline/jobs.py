@@ -285,7 +285,12 @@ def build_job(build: Any, service_name: str, provider: str) -> Job:
                 "docker buildx build",
                 f"--platform {plateformes}",
                 f"--file {shlex.quote(build.dockerfile)}",
-                f"--tag {shlex.quote(reference)}:$FORGE_IMAGE_TAG",
+                # Guillemets obligatoires autour de l'expansion : sans eux,
+                # shellcheck signale SC2086 (« double quote to prevent globbing
+                # and word splitting ») et actionlint fait echouer le job. Ce
+                # n'est pas du zele : un tag contenant un blanc ou un caractere
+                # generique serait coupe en plusieurs arguments.
+                f'--tag "{reference}:$FORGE_IMAGE_TAG"',
                 "--push" if build.push else "--load",
                 shlex.quote(build.context),
             ]

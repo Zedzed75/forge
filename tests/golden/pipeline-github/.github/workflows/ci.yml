@@ -208,7 +208,7 @@ jobs:
           FORGE_IMAGE_TAG: ${{ github.sha }}
         run: |
           docker buildx create --use --name forge-builder 2>/dev/null || docker buildx use forge-builder
-          docker buildx build --platform linux/amd64 --file Dockerfile --tag ghcr.io/acme/boutique:$FORGE_IMAGE_TAG --push .
+          docker buildx build --platform linux/amd64 --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG" --push .
 
   deployer-dev:
     name: Déployer dev

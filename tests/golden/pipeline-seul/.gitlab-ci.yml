@@ -57,4 +57,4 @@ construire:
   script:
     # docker buildx build ($CI_REGISTRY/plateforme/passerelle)
     - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder 2>/dev/null || docker buildx use forge-builder
-    - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64 --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG --push .
+    - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64 --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG" --push .

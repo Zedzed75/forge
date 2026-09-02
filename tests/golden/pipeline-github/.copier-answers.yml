@@ -31,13 +31,13 @@ domain:
             run: &id003
             - docker buildx create --use --name forge-builder 2>/dev/null || docker
                 buildx use forge-builder
-            - docker buildx build --platform linux/amd64 --file Dockerfile --tag ghcr.io/acme/boutique:$FORGE_IMAGE_TAG
+            - docker buildx build --platform linux/amd64 --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG"
                 --push .
             script:
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx create --use --name
                 forge-builder 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag ghcr.io/acme/boutique:$FORGE_IMAGE_TAG --push
+                --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG" --push
                 .
             workdir: ''
         tools: &id004 []
@@ -461,7 +461,7 @@ domain:
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx create --use --name
                 forge-builder 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag ghcr.io/acme/boutique:$FORGE_IMAGE_TAG --push
+                --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG" --push
                 .
             workdir: ''
         tools: *id004

@@ -29,13 +29,13 @@ domain:
             run: &id003
             - docker buildx create --use --name forge-builder 2>/dev/null || docker
                 buildx use forge-builder
-            - docker buildx build --platform linux/amd64 --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG
+            - docker buildx build --platform linux/amd64 --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG"
                 --push .
             script:
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder
                 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG
+                --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG"
                 --push .
             workdir: ''
         tools: &id004 []
@@ -107,7 +107,7 @@ domain:
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder
                 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag '$CI_REGISTRY/plateforme/passerelle':$FORGE_IMAGE_TAG
+                --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG"
                 --push .
             workdir: ''
         tools: *id004

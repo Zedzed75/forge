@@ -465,3 +465,36 @@ def test_le_pipeline_genere_passe_son_validateur(chemin, outil, tmp_path):
         f"validateurs en echec : {', '.join(c.label for c in echecs)}\n"
         + "\n".join(c.detail for c in echecs)[:2000]
     )
+
+
+def test_toute_expansion_de_variable_est_protegee_par_des_guillemets():
+    """shellcheck (SC2086) fait echouer actionlint sur une expansion nue.
+
+    Trouve par la CI : shellcheck n'etait pas installe sur le poste, donc
+    actionlint ne le lancait pas et l'etape passait. Ce n'est pas du zele — un
+    tag contenant un blanc ou un caractere generique serait coupe en plusieurs
+    arguments par le shell.
+    """
+    import re
+
+    donnees = _base(provider="github", build={"registry": "ghcr.io", "image": "acme/x"})
+    projection = _projection(donnees)
+    nue = re.compile(r'(?<!")\$[A-Za-z_][A-Za-z0-9_]*')
+    for job in projection["jobs"]:
+        for etape in job["steps"]:
+            for ligne in etape["run"]:
+                # `2>/dev/null` et les expansions deja entre guillemets sont sures ;
+                # on ne cherche que les `$VAR` que rien n'entoure.
+                fautives = [
+                    trouve.group(0)
+                    for trouve in nue.finditer(ligne)
+                    if f'"{trouve.group(0)}"' not in ligne
+                    and f'"{trouve.group(0)}\\"' not in ligne
+                    and not _dans_des_guillemets(ligne, trouve.start())
+                ]
+                assert not fautives, f"{job['key']} / {etape['name']} : {fautives}\n{ligne}"
+
+
+def _dans_des_guillemets(ligne: str, position: int) -> bool:
+    """Vrai si le caractere a `position` est a l'interieur d'une paire de `"`."""
+    return ligne[:position].count('"') % 2 == 1

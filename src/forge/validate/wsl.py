@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from forge.errors import ForgeError
 
@@ -55,17 +55,28 @@ def to_wsl_path(path: Path) -> str:
     un chemin plausible mais faux ferait echouer la copie plus loin, sur un
     `cp: cannot stat` incomprehensible. Mieux vaut le dire tout de suite.
     """
-    resolved = Path(path).resolve()
-    drive = resolved.drive
+    # `PureWindowsPath` et non `Path` : la traduction doit lire un chemin
+    # **Windows**, quelle que soit la plateforme hote. Avec `Path`, un Linux
+    # comprend `C:/projets` comme un nom de repertoire ordinaire et rend
+    # `/repertoire/courant/C:/projets` — un chemin plausible et faux, que rien
+    # ne signale. La fonction etait de ce fait intestable ailleurs que sous
+    # Windows, et c'est la CI qui l'a montre.
+    fenetre = PureWindowsPath(path)
+    if not fenetre.drive and not fenetre.is_absolute():
+        # Chemin relatif : le resoudre contre le repertoire courant, ce qui
+        # depend legitimement de la plateforme.
+        fenetre = PureWindowsPath(Path(path).resolve())
+
+    drive = fenetre.drive
     if drive.startswith("\\\\") or drive.startswith("//"):
         raise ForgeError(
-            f"chemin UNC non supporte par le pont WSL : {resolved}\n"
+            f"chemin UNC non supporte par le pont WSL : {fenetre}\n"
             "  generez le projet sur un lecteur local, ou montez le partage dans "
             f"la distribution « {WSL_DISTRO} »."
         )
     letter = drive.rstrip(":").lower()
-    rest = resolved.as_posix()[len(drive) :].lstrip("/")
-    return f"/mnt/{letter}/{rest}" if letter else resolved.as_posix()
+    rest = fenetre.as_posix()[len(drive) :].lstrip("/")
+    return f"/mnt/{letter}/{rest}" if letter else fenetre.as_posix()
 
 
 def is_windows() -> bool:
