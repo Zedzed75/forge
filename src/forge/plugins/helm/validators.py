@@ -96,7 +96,13 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
             Command(
                 label=f"helm lint ({env.name})",
                 tool="helm",
-                argv=("lint", chart, *valeurs),
+                # `--kube-version` n'est pas un detail : sans lui, helm evalue le
+                # chart contre la version de Kubernetes que **son binaire** a par
+                # defaut, qui change a chaque version de helm. Un chart declarant
+                # `kubeVersion: >=1.34.0-0` passait sur un poste et echouait en CI
+                # pour cette seule raison — et, plus grave, `.Capabilities` etait
+                # renseigne avec la mauvaise version.
+                argv=("lint", chart, "--kube-version", version, *valeurs),
                 cwd=outdir,
                 timeout=TIMEOUT,
                 env=env_commun,
@@ -114,6 +120,11 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                     chart,
                     "--namespace",
                     namespaces.get(env.name, spec.service.name),
+                    # Meme raison que pour `helm lint`, et consequence plus
+                    # directe : c'est cette version qui alimente
+                    # `.Capabilities.KubeVersion` dans les gabarits rendus.
+                    "--kube-version",
+                    version,
                     *valeurs,
                 ),
                 cwd=outdir,

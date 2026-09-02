@@ -61,14 +61,14 @@ jobs:
         env:
           NO_COLOR: '1'
         run: |
-          helm lint charts/boutique --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml
+          helm lint charts/boutique --kube-version 1.34.0 --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml
 
       - name: helm template (dev)
         working-directory: helm
         env:
           NO_COLOR: '1'
         run: |
-          helm template boutique charts/boutique --namespace boutique-dev --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml > /tmp/forge-helm-template-dev.out
+          helm template boutique charts/boutique --namespace boutique-dev --kube-version 1.34.0 --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml > /tmp/forge-helm-template-dev.out
 
       - name: kubeconform -strict (dev)
         working-directory: helm
@@ -82,14 +82,14 @@ jobs:
         env:
           NO_COLOR: '1'
         run: |
-          helm lint charts/boutique --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml
+          helm lint charts/boutique --kube-version 1.34.0 --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml
 
       - name: helm template (prod)
         working-directory: helm
         env:
           NO_COLOR: '1'
         run: |
-          helm template boutique charts/boutique --namespace boutique-prod --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml > /tmp/forge-helm-template-prod.out
+          helm template boutique charts/boutique --namespace boutique-prod --kube-version 1.34.0 --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml > /tmp/forge-helm-template-prod.out
 
       - name: kubeconform -strict (prod)
         working-directory: helm

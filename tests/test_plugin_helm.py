@@ -355,3 +355,33 @@ def test_l_arborescence_annoncee_correspond_aux_fichiers_generes(tmp_path):
     # vit desormais a la racine du depot cible (ecart de parite 3).
     assert produits - annonces <= {".copier-answers.yml"}
     assert annonces - produits <= {"forge.yml"}
+
+
+def test_helm_est_toujours_appele_avec_la_version_de_kubernetes_visee(tmp_path):
+    """Sans `--kube-version`, helm evalue le chart contre le defaut de son binaire.
+
+    Ce defaut change a chaque version de helm : un chart declarant
+    `kubeVersion: >=1.34.0-0` passait sur un poste dont le helm etait recent et
+    echouait en CI, ou il etait epingle. Plus grave que l'echec lui-meme :
+    `.Capabilities.KubeVersion` etait renseigne avec une version qui n'est pas
+    celle que la specification vise.
+
+    Trouve par la premiere execution reelle de la CI.
+    """
+    from forge.plugins.helm import validators
+
+    manager = _manager()
+    data = load_spec_data(SPEC_COMPLETE)
+    spec = validate_spec(data, manager)
+    attendue = spec.helm.kubernetes.full_version
+
+    concernees = [
+        commande
+        for commande in validators.commands(spec, tmp_path)
+        if commande.tool == "helm"
+    ]
+    assert concernees, "le domaine doit declarer des commandes helm"
+    for commande in concernees:
+        assert "--kube-version" in commande.argv, commande.label
+        position = commande.argv.index("--kube-version")
+        assert commande.argv[position + 1] == attendue, commande.label
