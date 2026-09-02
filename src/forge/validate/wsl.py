@@ -47,7 +47,7 @@ def quote(value: str) -> str:
     return "'" + str(value).replace("'", "'\\''") + "'"
 
 
-def to_wsl_path(path: Path) -> str:
+def to_wsl_path(path: str | Path) -> str:
     """Traduit un chemin Windows (`Z:\\a\\b`) en chemin WSL (`/mnt/z/a/b`).
 
     Un chemin UNC (`\\\\serveur\\partage\\...`) n'a pas d'equivalent sous `/mnt`
@@ -55,19 +55,37 @@ def to_wsl_path(path: Path) -> str:
     un chemin plausible mais faux ferait echouer la copie plus loin, sur un
     `cp: cannot stat` incomprehensible. Mieux vaut le dire tout de suite.
     """
-    # `PureWindowsPath` et non `Path` : la traduction doit lire un chemin
-    # **Windows**, quelle que soit la plateforme hote. Avec `Path`, un Linux
-    # comprend `C:/projets` comme un nom de repertoire ordinaire et rend
+    # Deux separateurs en tete : chemin UNC. Le controle se fait sur la
+    # **chaine**, avant toute interpretation par pathlib. Ce n'est pas de la
+    # prudence excessive : jusqu'a Python 3.11, `PureWindowsPath(PosixPath(...))`
+    # reutilise les composants deja decoupes selon les regles POSIX au lieu de
+    # relire la chaine avec celles de Windows, et le prefixe UNC disparait.
+    # Python 3.12 a reecrit pathlib et reparse toujours — la CI a trouve l'ecart
+    # entre les deux.
+    brut = str(path).replace("\\", "/")
+    if brut.startswith("//"):
+        raise ForgeError(
+            f"chemin UNC non supporte par le pont WSL : {path}\n"
+            "  generez le projet sur un lecteur local, ou montez le partage dans "
+            f"la distribution « {WSL_DISTRO} »."
+        )
+
+    # `PureWindowsPath(str(...))` et non `Path` : la traduction doit lire un
+    # chemin **Windows**, quelle que soit la plateforme hote. Avec `Path`, un
+    # Linux comprend `C:/projets` comme un nom de repertoire ordinaire et rend
     # `/repertoire/courant/C:/projets` — un chemin plausible et faux, que rien
-    # ne signale. La fonction etait de ce fait intestable ailleurs que sous
-    # Windows, et c'est la CI qui l'a montre.
-    fenetre = PureWindowsPath(path)
+    # ne signale. Le passage par `str` force la relecture aux regles Windows sur
+    # toutes les versions de Python.
+    fenetre = PureWindowsPath(str(path))
     if not fenetre.drive and not fenetre.is_absolute():
         # Chemin relatif : le resoudre contre le repertoire courant, ce qui
         # depend legitimement de la plateforme.
         fenetre = PureWindowsPath(Path(path).resolve())
 
     drive = fenetre.drive
+    # Second passage, et il n'est pas redondant : la resolution d'un chemin
+    # relatif ci-dessus peut aboutir sur un partage reseau que la chaine de
+    # depart ne montrait pas.
     if drive.startswith("\\\\") or drive.startswith("//"):
         raise ForgeError(
             f"chemin UNC non supporte par le pont WSL : {fenetre}\n"

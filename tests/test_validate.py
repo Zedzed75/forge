@@ -314,10 +314,21 @@ def test_to_wsl_path_traduit_une_lettre_de_lecteur():
     assert wsl.to_wsl_path(Path("C:/projets/demo")) == "/mnt/c/projets/demo"
 
 
-def test_to_wsl_path_refuse_un_chemin_unc():
-    """Fabriquer un chemin plausible mais faux ferait echouer la copie plus loin."""
+@pytest.mark.parametrize(
+    "chemin",
+    ["//nas/share/projet", Path("//nas/share/projet"), r"\\nas\share\projet"],
+    ids=["chaine", "objet-path", "separateurs-windows"],
+)
+def test_to_wsl_path_refuse_un_chemin_unc(chemin):
+    """Fabriquer un chemin plausible mais faux ferait echouer la copie plus loin.
+
+    Les trois formes sont eprouvees parce que la detection a dependu de la
+    version de Python : jusqu'a la 3.11, construire un `PureWindowsPath` a partir
+    d'un `PosixPath` reutilise le decoupage POSIX et perd le prefixe UNC. La
+    detection se fait donc sur la chaine, avant pathlib.
+    """
     with pytest.raises(ForgeError, match="UNC"):
-        wsl.to_wsl_path(Path("//nas/share/projet"))
+        wsl.to_wsl_path(chemin)
 
 
 def test_build_command_nettoie_le_repertoire_temporaire_par_un_trap():
