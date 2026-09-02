@@ -43,10 +43,18 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
+          # Sans cette cle, l'action cherche un uv.lock ou un requirements.txt,
+          # n'en trouve aucun, et pose un cache qui ne s'invalide jamais : les
+          # dependances resteraient figees a leur premiere resolution.
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Installer forge
         run: |
-          uv venv
+          # `--clear` et non `uv venv` seul : setup-uv cree desormais
+          # l'environnement lui-meme et pose VIRTUAL_ENV, si bien qu'un
+          # `uv venv` nu echoue sur « a virtual environment already exists ».
+          # `--clear` marche que l'action l'ait cree ou non.
+          uv venv --clear
           uv pip install -e ".[dev]"
 
       # La CI fait autorite pour la validation Ansible : ansible-core ne
