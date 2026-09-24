@@ -105,12 +105,29 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Reecrit les references golden au lieu de les comparer.",
     )
+    # Deliberately a separate flag from --regen-golden. Re-blessing the golden
+    # trees is routine after an intended template change; re-blessing a
+    # structural fingerprint means claiming the structure was *meant* to move,
+    # which is exactly the claim a reviewer is supposed to examine.
+    parser.addoption(
+        "--regen-fingerprints",
+        action="store_true",
+        default=False,
+        help="Rewrites the stored structural fingerprints instead of comparing them.",
+    )
 
 
 @pytest.fixture
 def regen_golden(request: pytest.FixtureRequest) -> bool:
     """Vrai si la campagne demande la re-benediction des references."""
     return bool(request.config.getoption("--regen-golden"))
+
+
+@pytest.fixture
+def regen_fingerprints(request: pytest.FixtureRequest) -> bool:
+    """True when the run is asked to rewrite the stored fingerprints."""
+    return bool(request.config.getoption("--regen-fingerprints"))
+
 
 @pytest.fixture
 def manager() -> ForgeManager:
@@ -228,6 +245,24 @@ def template_is_dirty() -> bool:
     except (OSError, subprocess.SubprocessError):  # pragma: no cover
         return True
     return bool(result.stdout.strip())
+
+
+def render_all_plugins(spec_path: Path, target: Path) -> Path:
+    """Render one reference spec with the demo plugin and every shipped domain.
+
+    Shared by the golden harness and the fingerprint harness so both observe the
+    exact same rendering. A spec that does not declare a section simply does not
+    generate that domain, so registering every plugin is harmless.
+    """
+    from forge import pipeline
+    from forge.plugins_api.manager import BUILTIN_PLUGINS
+
+    manager = ForgeManager()
+    for module in (DEMO_PLUGIN, *BUILTIN_PLUGINS):
+        manager.register_module(module)
+    data, model = load_case(spec_path, manager)
+    pipeline.generate(data, model, manager, target)
+    return target
 
 
 def build_project(target: Path, spec_name: str = "demo-complet") -> tuple[Any, ForgeManager]:
