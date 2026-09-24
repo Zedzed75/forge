@@ -32,7 +32,10 @@ Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargé
 
 ## Collections requises
 
-- `community.general`
+- `community.general` — versions acceptées : `>=13.4.0,<14.0.0`
+
+Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
+c'est ce fichier qui fait foi à l'installation.
 
 ## Exemple d'utilisation
 

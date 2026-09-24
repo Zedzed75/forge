@@ -15,7 +15,11 @@ domain:
         community.general:
         - common
     collections:
-    - community.general
+    -   name: community.general
+        reason: 'timezone et ufw existent depuis la 1.0.0, mais aucune version antérieure
+            à celle validée en CI n''a été vérifiée : le plancher reste haut.'
+        validated: 13.4.0
+        version: '>=13.4.0,<14.0.0'
     default_env: prod
     env_names:
     - prod
@@ -40,7 +44,8 @@ domain:
             - &id001
                 author: Equipe Plateforme
                 collections:
-                - community.general
+                -   name: community.general
+                    version: '>=13.4.0,<14.0.0'
                 example_group: gateways
                 handlers:
                 - Redémarrer le service de synchronisation horaire

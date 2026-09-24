@@ -35,8 +35,11 @@ Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargé
 ## Collections requises
 
 [% for collection in role.collections %]
-- `[[ collection ]]`
+- `[[ collection.name ]]` — versions acceptées : `[[ collection.version ]]`
 [% endfor %]
+
+Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
+c'est ce fichier qui fait foi à l'installation.
 
 [% endif %]
 ## Exemple d'utilisation

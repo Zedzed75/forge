@@ -6,12 +6,19 @@
        "Installez-les avant la première exécution :",
        "  ansible-galaxy collection install -r requirements.yml",
        "Les rôles du projet sont livrés dans roles/ et ne sont donc pas listés ici.",
+       "",
+       "Chaque dépendance porte un intervalle de versions, plancher et plafond.",
+       "Sans plafond, cette commande installerait ce que Galaxy sert le jour où vous la lancez. Une majeure publiée après la génération de ce projet peut avoir supprimé un module que les rôles ci-dessous utilisent, et le projet casserait alors sans qu'une seule de ses lignes ait bougé.",
+       "Élargir un intervalle reste votre droit ; la conséquence est alors pour vous.",
      ]) ]]
 [% if domain.collections %]
 collections:
-[% for name in domain.collections %]
-  # Requise par le rôle : [[ domain.collection_users[name] | join(', ') ]]
-  - name: [[ name ]]
+[% for collection in domain.collections %]
+  # Requise par le rôle : [[ domain.collection_users[collection.name] | join(', ') ]]
+[[ ("Plancher : " ~ collection.reason) | comment(2) ]]
+[[ ("Plafond : la majeure suivant la " ~ collection.validated ~ ", version contre laquelle forge valide les projets générés.") | comment(2) ]]
+  - name: [[ collection.name ]]
+    version: "[[ collection.version ]]"
 [% endfor %]
 [% else %]
 # Aucun rôle sélectionné ne nécessite de collection externe :

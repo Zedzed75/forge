@@ -19,7 +19,9 @@ import pytest
 from forge import pipeline
 from forge.errors import SpecValidationError
 from forge.plugins.ansible import answers as answers_module
-from forge.plugins.ansible import tree, validators
+from forge.plugins.ansible import derive, tree, validators
+from forge.plugins.ansible.catalog import collections as catalog_collections
+from forge.plugins.ansible.catalog import registry
 from forge.plugins.ansible.spec import AnsibleSpec
 from forge.plugins_api.manager import ForgeManager
 from forge.spec.assembly import validate_spec
@@ -201,6 +203,72 @@ def test_les_commandes_transmettent_le_chemin_des_collections(monkeypatch):
     commande = validators.commands(spec, Path("ansible"))[0]
     assert dict(commande.env)["ANSIBLE_COLLECTIONS_PATH"] == "/ailleurs/collections"
     assert dict(commande.env)["ANSIBLE_FORCE_COLOR"] == "0"
+
+
+# ---------------------------------------------------------------------------
+# Contraintes de version des collections Galaxy
+# ---------------------------------------------------------------------------
+
+
+def _bornes(contrainte: str) -> tuple[tuple[int, ...], int]:
+    """Decoupe une contrainte `>=x.y.z,<M.0.0` en plancher et majeure plafond."""
+    plancher, plafond = contrainte.split(",")
+    assert plancher.startswith(">="), contrainte
+    assert plafond.startswith("<") and plafond.endswith(".0.0"), contrainte
+    return (
+        tuple(int(part) for part in plancher[2:].split(".")),
+        int(plafond[1:].removesuffix(".0.0")),
+    )
+
+
+def test_toute_collection_du_catalogue_porte_une_contrainte_de_version():
+    """Un role qui nomme une collection absente de la table casse l'import du plugin.
+
+    C'est le garde-fou de ZED-7 : sans lui, ajouter un role suffirait a
+    reintroduire une dependance Galaxy sans version, et la derive ne se verrait
+    que chez l'utilisateur, des mois apres la generation.
+    """
+    nommees = {
+        nom for role in registry.all_roles() for nom in role.collections
+    }
+    assert nommees <= set(catalog_collections.COLLECTION_REQUIREMENTS)
+
+
+def test_une_collection_hors_table_est_refusee():
+    """Le refus est une erreur de specification, pas un KeyError nu."""
+    with pytest.raises(SpecValidationError, match="sans contrainte de version"):
+        catalog_collections.requirement_for("community.inventee")
+
+
+def test_chaque_contrainte_a_un_plancher_et_un_plafond():
+    """Un plancher seul n'aurait pas empeche la casse de community.postgresql 5.0.0.
+
+    Decision ZED-7 : les deux bornes, toujours. Ce test interdit d'ecrire une
+    entree sans plafond de majeure, qui redonnerait a Galaxy le dernier mot.
+    """
+    for besoin in catalog_collections.COLLECTION_REQUIREMENTS.values():
+        plancher, plafond = _bornes(besoin.version)
+        validee = tuple(int(part) for part in besoin.validated.split("."))
+        assert plancher <= validee, besoin.name
+        assert validee[0] < plafond, besoin.name
+
+
+def test_la_contrainte_de_community_postgresql_couvre_alter_system():
+    """Le role postgresql utilise `postgresql_alter_system`, apparu en 3.13.0.
+
+    Un plancher plus bas laisserait installer une version ou le module n'existe
+    pas ; le projet genere echouerait a l'execution, pas a l'installation.
+    """
+    besoin = catalog_collections.requirement_for("community.postgresql")
+    assert _bornes(besoin.version)[0] >= (3, 13, 0)
+
+
+def test_les_collections_derivees_portent_toutes_une_version():
+    """Ce que lit le gabarit `requirements.yml` : jamais un nom sans intervalle."""
+    spec = validate_spec(_spec_data(), _manager())
+    derivees = derive.collections(spec.ansible)
+    assert derivees, "le cas de reference applique des roles a collections"
+    assert all(besoin["version"] for besoin in derivees)
 
 
 # ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ from dataclasses import replace
 from typing import Any
 
 from forge.errors import SpecValidationError
+from forge.plugins.ansible.catalog.collections import CollectionRequirement, requirements_for
 from forge.plugins.ansible.catalog.definition import OptionKind, RoleDefinition, RoleOption
 from forge.plugins.ansible.catalog.roles import (
     common,
@@ -38,6 +39,11 @@ _ORDERED_ROLES: tuple[RoleDefinition, ...] = (
 )
 
 ROLE_CATALOG: dict[str, RoleDefinition] = {role.name: role for role in _ORDERED_ROLES}
+
+# Un rôle ne peut pas nommer une collection absente de la table des versions :
+# l'oubli casse l'import du plugin ici, et non le projet de l'utilisateur six
+# mois plus tard. C'est le seul endroit où les deux tables se rencontrent.
+requirements_for(name for role in _ORDERED_ROLES for name in role.collections)
 
 
 def role_names() -> list[str]:
@@ -81,6 +87,17 @@ def collections_for(names: list[str] | tuple[str, ...]) -> list[str]:
     for name in names:
         required.update(get_role(name).collections)
     return sorted(required)
+
+
+def collection_requirements_for(
+    names: list[str] | tuple[str, ...],
+) -> list[CollectionRequirement]:
+    """Idem `collections_for`, mais avec la contrainte de version de chaque collection.
+
+    C'est cette forme que lisent les gabarits : une dépendance Galaxy n'est
+    jamais écrite sans l'intervalle de versions qui la rend reproductible.
+    """
+    return requirements_for(collections_for(names))
 
 
 def validate_options(role_name: str, options: dict[str, Any]) -> dict[str, Any]:

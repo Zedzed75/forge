@@ -23,7 +23,10 @@ Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargé
 
 ## Collections requises
 
-- `ansible.posix`
+- `ansible.posix` — versions acceptées : `>=2.2.2,<3.0.0`
+
+Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
+c'est ce fichier qui fait foi à l'installation.
 
 ## Exemple d'utilisation
 
