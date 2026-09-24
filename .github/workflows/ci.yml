@@ -60,13 +60,37 @@ jobs:
       # La CI fait autorite pour la validation Ansible : ansible-core ne
       # supporte pas Windows comme noeud de controle, le poste de
       # developpement passe donc par WSL (decision DESIGN.md §8 Q7).
+      #
+      # Tout est epingle, comme les binaires des quatre autres domaines. Ces
+      # deux installations etaient les seules a ne pas l'etre, et ca s'est vu :
+      # community.postgresql 5.0.0 a supprime postgresql_set, et la CI est
+      # passee au rouge sur un commit vieux de trois semaines, sans qu'une
+      # ligne du depot ait bouge. Un validateur qui change tout seul ne valide
+      # plus rien de reproductible.
+      #
+      # Procedure de montee de version : changer le numero ici, lancer la CI,
+      # corriger les gabarits si le validateur a durci ses regles, et livrer la
+      # montee dans son propre commit. Jamais en passager d'un autre.
+      #
+      # ansible-core reste en 2.19 : c'est la derniere branche qui accepte
+      # Python 3.11 comme noeud de controle, et 3.11 est dans la matrice.
+      # Passer en 2.20 ou 2.21 demande d'abord de retirer 3.11 de la matrice.
+      # Les trois collections declarent requires_ansible <= 2.18, et
+      # ansible-lint 26 exige ansible-core >= 2.16.19 : l'ensemble est coherent.
       - name: Installer les outils du domaine Ansible
         run: |
-          uv pip install ansible-core ansible-lint
+          uv pip install 'ansible-core==2.19.13' 'ansible-lint==26.9.0'
           uv run ansible-galaxy collection install \
-            community.general ansible.posix community.postgresql \
+            community.general:13.4.0 \
+            ansible.posix:2.2.2 \
+            community.postgresql:5.0.0 \
             -p "$HOME/.ansible/collections"
           echo "FORGE_ANSIBLE_COLLECTIONS=$HOME/.ansible/collections" >> "$GITHUB_ENV"
+          # Les quatre autres domaines affichent la version de leurs outils :
+          # le journal dit alors contre quoi le projet genere a ete valide.
+          uv run ansible --version
+          uv run ansible-lint --version
+          uv run ansible-galaxy collection list -p "$HOME/.ansible/collections"
 
       # Domaine Helm. Les tests marques `integration` s'ignorent si ces outils
       # manquent : les installer est ce qui rend la CI concluante.
@@ -112,8 +136,9 @@ jobs:
           curl -fsSL -o /tmp/actionlint.tar.gz             https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
-          uv pip install yamllint
+          uv pip install 'yamllint==1.38.0'
           actionlint --version
+          yamllint --version
 
       # `uv run` garantit que le pytest execute est celui de l'environnement
       # qu'on vient de creer, et non un pytest quelconque du PATH.
