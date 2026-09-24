@@ -78,11 +78,25 @@ jobs:
       - name: Installer les outils du domaine Ansible
         run: |
           uv pip install 'ansible-core==2.19.13' 'ansible-lint==26.9.0'
-          uv run ansible-galaxy collection install \
-            community.general:13.4.0 \
-            ansible.posix:2.2.2 \
-            community.postgresql:5.0.0 \
-            -p "$HOME/.ansible/collections"
+          # galaxy.ansible.com coupe parfois la connexion quand les trois jobs
+          # de la matrice l'interrogent en meme temps (« Connection reset by
+          # peer »). L'etape tombait alors en rouge sans qu'une ligne du depot
+          # soit en cause, ce qui est exactement le bruit que cette CI doit
+          # cesser de produire. Trois essais, puis on echoue pour de bon.
+          ok=
+          for attempt in 1 2 3; do
+            if uv run ansible-galaxy collection install \
+                 community.general:13.4.0 \
+                 ansible.posix:2.2.2 \
+                 community.postgresql:5.0.0 \
+                 -p "$HOME/.ansible/collections"; then
+              ok=1
+              break
+            fi
+            echo "ansible-galaxy a echoue (essai ${attempt}/3), nouvel essai dans 15 s"
+            sleep 15
+          done
+          test -n "$ok"
           echo "FORGE_ANSIBLE_COLLECTIONS=$HOME/.ansible/collections" >> "$GITHUB_ENV"
           # Les quatre autres domaines affichent la version de leurs outils :
           # le journal dit alors contre quoi le projet genere a ete valide.
