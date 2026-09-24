@@ -106,10 +106,18 @@ jobs:
 
       # Domaine Helm. Les tests marques `integration` s'ignorent si ces outils
       # manquent : les installer est ce qui rend la CI concluante.
+      #
+      # Tous les `curl` de ce workflow portent `--retry 5 --retry-delay 5
+      # --retry-all-errors`. Sans ces options, un 500 passager de
+      # github.com/releases ou un reset de connexion suffit a faire tomber un
+      # job en rouge alors que rien du depot n'est en cause, et on ne distingue
+      # plus une vraie regression d'un hoquet de reseau. `--retry-all-errors`
+      # est necessaire : `--retry` seul ignore les erreurs HTTP non transitoires
+      # renvoyees a tort par les CDN.
       - name: Installer les outils du domaine Helm
         run: |
-          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3             | bash -s -- --version v3.16.3
-          curl -fsSL -o /tmp/kubeconform.tar.gz             https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3             | bash -s -- --version v3.16.3
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/kubeconform.tar.gz             https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
           tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
           sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
           helm version --short
@@ -119,10 +127,10 @@ jobs:
       # evite de recommencer pour chaque racine d'environnement.
       - name: Installer les outils du domaine Terraform
         run: |
-          curl -fsSL -o /tmp/terraform.zip             https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/terraform.zip             https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
           unzip -qo /tmp/terraform.zip -d /tmp
           sudo install -m 0755 /tmp/terraform /usr/local/bin/terraform
-          curl -fsSL -o /tmp/tflint.zip             https://github.com/terraform-linters/tflint/releases/download/v0.59.1/tflint_linux_amd64.zip
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/tflint.zip             https://github.com/terraform-linters/tflint/releases/download/v0.59.1/tflint_linux_amd64.zip
           unzip -qo /tmp/tflint.zip -d /tmp
           sudo install -m 0755 /tmp/tflint /usr/local/bin/tflint
           mkdir -p "$HOME/.terraform.d/plugin-cache"
@@ -135,7 +143,7 @@ jobs:
       # declenchent reellement.
       - name: Installer les outils du domaine monitoring
         run: |
-          curl -fsSL -o /tmp/prometheus.tar.gz             https://github.com/prometheus/prometheus/releases/download/v3.6.0/prometheus-3.6.0.linux-amd64.tar.gz
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/prometheus.tar.gz             https://github.com/prometheus/prometheus/releases/download/v3.6.0/prometheus-3.6.0.linux-amd64.tar.gz
           tar -xzf /tmp/prometheus.tar.gz -C /tmp --strip-components=1             prometheus-3.6.0.linux-amd64/promtool
           sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
           promtool --version
@@ -145,7 +153,7 @@ jobs:
       # verifie que la forme du document. La dissymetrie est documentee.
       - name: Installer les outils du domaine pipeline
         run: |
-          curl -fsSL -o /tmp/actionlint.tar.gz             https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/actionlint.tar.gz             https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
           uv pip install 'yamllint==1.38.0'
