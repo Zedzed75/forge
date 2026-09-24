@@ -1,0 +1,106 @@
+# Contributing to forge
+
+Thanks for your interest in forge. This document covers how to get a working
+development environment, how to run the test suite, and the rules a change has
+to follow to be merged.
+
+## Development environment
+
+forge targets Python 3.11, 3.12 and 3.13. The project uses
+[uv](https://docs.astral.sh/uv/) for environment and dependency management.
+
+```bash
+git clone https://github.com/Zedzed75/forge.git
+cd forge
+uv venv
+uv pip install -e ".[dev]"
+```
+
+`uv venv` creates `.venv/` in the repository root. Activate it
+(`source .venv/bin/activate`, or `.venv\Scripts\activate` on Windows), or
+prefix every command with `uv run`.
+
+### Optional: domain validators
+
+forge's promise is that a generated project passes the *real* validators of its
+domain, not an internal check. The tests that exercise those validators are
+marked `integration` and are **skipped silently when the tool is missing** — so
+a green suite on a bare machine does not prove much. The full set is:
+
+| Domain | Tools |
+| --- | --- |
+| Ansible | `ansible-core`, `ansible-lint` |
+| Helm | `helm`, `kubeconform` |
+| Terraform | `terraform`, `tflint` |
+| Monitoring | `promtool` (from Prometheus) |
+| Pipeline | `actionlint`, `yamllint` |
+
+Installing all of them locally is optional. CI installs every one of them on
+Linux and is the authority on whether generated output is valid — see
+`.github/workflows/ci.yml`. Note that `ansible-core` does not support Windows as
+a control node; on Windows the Ansible validators run through WSL.
+
+## Running the tests
+
+```bash
+uv run pytest            # the whole suite
+uv run pytest -m "not integration"   # skip anything needing an external tool
+uv run pytest tests/test_cli.py      # one file
+```
+
+Determinism is a hard guarantee: the same spec must always produce the same
+output, and golden tests under `tests/golden/` enforce it. If your change
+legitimately alters generated output, update the goldens in the same commit and
+explain in the PR *why* the output changed.
+
+## Making a change
+
+- **Never commit to `master`.** Branch off it, push the branch, open a pull
+  request. `master` is only updated through merged PRs.
+- Keep commits logical: one concern per commit, no unrelated reformatting mixed
+  into a functional change.
+- Write the commit subject as a statement of what was wrong or what the change
+  achieves, in the style of the existing history (`git log --oneline`).
+- CI must be green before a PR is merged. It runs the suite on all three
+  supported Python versions with every validator installed.
+
+## Architecture rules
+
+These are load-bearing. A change that breaks one of them will be sent back:
+
+- **Core is domain-agnostic.** Everything under `src/forge/core/` must work
+  without knowing that Ansible or Helm exist. Domain knowledge lives only in
+  `src/forge/plugins/<domain>/`.
+- **Adding a domain must not require touching core.** Plugins register through
+  pluggy hooks; that contract is what makes a new domain a drop-in.
+- **Rendering goes through copier** (library mode). Never hand-roll template
+  rendering.
+- **Templates use copier's custom delimiters** `[[ ]]`, `[% %]` and `[# #]`.
+  This is deliberate: Helm and Ansible both use `{{ }}` in *their* output, and
+  those braces must pass through untouched. Never write `{{ }}` meaning "a
+  generator variable".
+- **Every generated file is commented**: a header saying what the file is for,
+  explicit names on tasks and resources, and a comment on every user-facing
+  variable describing its purpose and allowed values. A generated project is
+  meant to be read, not just run.
+- Use FQCN for Ansible modules. Follow Helm best practices (helpers,
+  `app.kubernetes.io` labels, no hardcoded values). Never invent a module or a
+  resource kind that does not exist.
+
+For naming and language conventions in code and comments, follow what the
+surrounding files already do and see `CLAUDE.md`. `DESIGN.md` records the
+architectural decisions and the reasoning behind them; read it before proposing
+a structural change.
+
+## Reporting bugs and requesting features
+
+Use the issue templates under `.github/ISSUE_TEMPLATE/`. For a bug, the single
+most useful thing you can include is the `forge.yml` spec that reproduces it,
+reduced to the smallest version that still fails.
+
+Security issues do **not** go in a public issue — see [SECURITY.md](SECURITY.md).
+
+## Licence
+
+By contributing, you agree that your contributions are licensed under the MIT
+Licence, as covered by the [LICENSE](LICENSE) file.

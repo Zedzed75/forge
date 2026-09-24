@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# Plancher explicite : `license-files` et l'expression SPDX de PEP 639 ne sont
+# comprises qu'a partir de hatchling 1.27. Sans ce minimum, une version plus
+# ancienne tiree d'un cache produirait des metadonnees muettes sur la licence.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -11,7 +14,11 @@ dynamic = ["version"]
 description = "Generateur deterministe de projets IaC complets et commentes, a base de plugins"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+# Forme PEP 639 : une expression SPDX, plus le fichier de licence declare a
+# part. La table `{ text = "MIT" }` est obsolete et n'embarquait aucun fichier
+# dans la distribution — le depot annoncait MIT sans en livrer le texte.
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "copier>=9.7",
     "pluggy>=1.5",
