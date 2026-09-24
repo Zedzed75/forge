@@ -172,7 +172,14 @@ jobs:
       # would skip and the build would still go green, asserting nothing about
       # the generated projects. With it, a green check positively proves that
       # all five domains' real validators ran.
+      #
+      # `-rs` and no `-q`: `pyproject.toml` already puts `-q` in `addopts`, so
+      # `pytest -q` was really `-qq`, which suppresses the count line. The CI log
+      # therefore never said how many tests ran or how many skipped -- on a
+      # workflow whose whole job is to assert what actually ran. `-rs` lists the
+      # skips by reason, so "no validator was missing" is readable instead of
+      # inferred.
       - name: Lancer la suite de tests
         env:
           FORGE_REQUIRE_TOOLS: "1"
-        run: uv run pytest -q
+        run: uv run pytest -rs
