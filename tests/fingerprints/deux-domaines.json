@@ -59,7 +59,7 @@
     "ansible/roles/postgresql/defaults/main.yml": "- structured d7e9677d02909e89",
     "ansible/roles/postgresql/handlers/main.yml": "- structured 1448eee44a25e768",
     "ansible/roles/postgresql/meta/main.yml": "- structured dd50286433fe03c2",
-    "ansible/roles/postgresql/tasks/main.yml": "- structured dfdabdd6f2c87214",
+    "ansible/roles/postgresql/tasks/main.yml": "- structured ad349493fe9b73f4",
     "ansible/roles/postgresql/vars/main.yml": "- structured 8daa1ac6eaf6e6cd",
     "ansible/roles/ssh_hardening/README.md": "- prose 80aa8856549f472a",
     "ansible/roles/ssh_hardening/defaults/main.yml": "- structured 9b86d086d7768334",
