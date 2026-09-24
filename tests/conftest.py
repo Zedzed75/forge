@@ -7,6 +7,7 @@ mecanismes reels (yield imbriques, filtres de plugin, filtrage de fichier).
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 from pathlib import Path
@@ -36,6 +37,67 @@ _VOLATILE_ANSWERS = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Fail-closed validators
+# ---------------------------------------------------------------------------
+# Comments in this module are in English: test infrastructure, no French
+# precedent, and no effect on generated output.
+#
+# The project's central claim is "the generated project passes its own real
+# validators". Seven integration tests assert it, and each of them used to skip
+# when its tool was missing. That is right on a Windows workstation, where
+# ansible-core and promtool cannot run natively -- and wrong in CI, where a
+# degraded install step (a moved release URL, a renamed tarball member) turned
+# those tests into no-ops while the build stayed green. `FORGE_REQUIRE_TOOLS=1`
+# closes that hole: the skip becomes a failure, and a green CI check positively
+# proves every domain's validators actually ran.
+# ---------------------------------------------------------------------------
+
+#: Environment variable that forbids skipping on a missing validator.
+REQUIRE_TOOLS_ENV = "FORGE_REQUIRE_TOOLS"
+
+#: Values of `FORGE_REQUIRE_TOOLS` read as "required". Anything else is off, so
+#: `FORGE_REQUIRE_TOOLS=0` disables the flag rather than enabling it by mere
+#: presence.
+_REQUIRE_TOOLS_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def tools_are_required() -> bool:
+    """True when a missing validator must fail the run instead of skipping it."""
+    return os.environ.get(REQUIRE_TOOLS_ENV, "").strip().lower() in _REQUIRE_TOOLS_TRUTHY
+
+
+def require_tools(domain: str, *names: str, requires_linux: bool = True) -> None:
+    """Check that every validator of `domain` is available, or stop the test.
+
+    Unset flag: skips, exactly as the seven call sites did before -- the local
+    development loop is unchanged. Flag set: fails, naming the domain and every
+    missing tool.
+
+    One shared helper on purpose. A fail-closed switch that seven call sites can
+    each opt out of is not a switch, and the drift would be invisible: a site
+    left behind keeps skipping and the build stays green.
+    """
+    from forge.validate import tools
+
+    missing = [name for name in names if not tools.probe(name, requires_linux).available]
+    if not missing:
+        return
+
+    reason = f"domain {domain}: validator(s) missing, natively and in WSL: {', '.join(missing)}"
+    if tools_are_required():
+        pytest.fail(
+            f"{reason}\n"
+            f"{REQUIRE_TOOLS_ENV} is set: skipping is forbidden here. This run is "
+            "supposed to prove that the generated project passes its real "
+            "validators; without the tool it proves nothing, so it fails instead "
+            "of reporting a reduced success. Install the tool, or unset "
+            f"{REQUIRE_TOOLS_ENV} to get the development behaviour back.",
+            pytrace=False,
+        )
+    pytest.skip(reason)
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--regen-golden",
@@ -49,7 +111,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def regen_golden(request: pytest.FixtureRequest) -> bool:
     """Vrai si la campagne demande la re-benediction des references."""
     return bool(request.config.getoption("--regen-golden"))
-
 
 @pytest.fixture
 def manager() -> ForgeManager:

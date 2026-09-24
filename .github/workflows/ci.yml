@@ -165,5 +165,14 @@ jobs:
       - name: Verifier l'interpreteur
         run: uv run python -c "import sys; print(sys.version)"
 
+      # FORGE_REQUIRE_TOOLS=1 turns "validator binary missing" from a skip into a
+      # failure (tests/conftest.py::require_tools). Every install step above can
+      # degrade silently -- a moved release URL, a renamed tarball member, a
+      # changed archive layout -- and without this flag the integration tests
+      # would skip and the build would still go green, asserting nothing about
+      # the generated projects. With it, a green check positively proves that
+      # all five domains' real validators ran.
       - name: Lancer la suite de tests
+        env:
+          FORGE_REQUIRE_TOOLS: "1"
         run: uv run pytest -q

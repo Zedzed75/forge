@@ -451,10 +451,9 @@ def test_le_projet_genere_passe_ses_propres_validateurs(tmp_path):
     `promtool test rules` est le seul validateur du projet qui verifie quelque
     chose de **semantique** : que les alertes se declenchent reellement.
     """
-    from forge.validate import tools
+    from tests.conftest import require_tools
 
-    if not tools.probe("promtool", True).available:
-        pytest.skip("promtool introuvable, nativement comme dans WSL")
+    require_tools("monitoring", "promtool")
 
     spec, manager = _genere(tmp_path)
     resultat = pipeline.validate(spec, manager, tmp_path)

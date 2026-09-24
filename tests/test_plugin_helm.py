@@ -308,11 +308,9 @@ def test_le_chart_genere_passe_ses_propres_validateurs(tmp_path):
     `helm lint`, `helm template` sur chaque environnement, puis
     `kubeconform -strict` sur le rendu — nativement, ou via le pont WSL.
     """
-    from forge.validate import tools
+    from tests.conftest import require_tools
 
-    for outil in ("helm", "kubeconform"):
-        if not tools.probe(outil, True).available:
-            pytest.skip(f"{outil} introuvable, nativement comme dans WSL")
+    require_tools("helm", "helm", "kubeconform")
 
     manager = _manager()
     data = load_spec_data(SPEC_COMPLETE)
