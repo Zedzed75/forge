@@ -30,9 +30,15 @@
     state: started
     enabled: true
 
+# Requiert community.postgresql >= 3.13.0 : `postgresql_alter_system` y est
+# apparu, et a remplacé `postgresql_set` supprimé en 5.0.0. Le module écrit
+# dans postgresql.auto.conf puis recharge la configuration ; les paramètres
+# qui exigent un redémarrage passent par le handler ci-dessous.
+# `value` est obligatoire et typé chaîne, d'où le `| string` appliqué aux
+# valeurs numériques dans vars/main.yml.
 - name: Appliquer les réglages du serveur
-  community.postgresql.postgresql_set:
-    name: "{{ item.name }}"
+  community.postgresql.postgresql_alter_system:
+    param: "{{ item.name }}"
     value: "{{ item.value }}"
   become: true
   become_user: "{{ postgresql_system_user }}"
