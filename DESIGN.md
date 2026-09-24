@@ -607,7 +607,8 @@ sur un domaine inconnu), `--dry-run` n'écrit rien, sortie non colorée si
 > Les huit questions ont ete tranchees. Q1, Q5, Q6 et Q7 par reponse explicite ;
 > Q2, Q3, Q4 et Q8 retenues telles que recommandees, sans objection. Cette
 > section est desormais un releve de decisions : ne pas la rouvrir sans raison
-> nouvelle.
+> nouvelle. Q9 en est une, apparue en production le 2026-09-24 et arbitree le
+> jour meme : elle s'ajoute a la suite, elle ne rouvre aucune des huit.
 
 **Q1. Délimiteurs des gabarits Ansible.** Le legacy utilise `{{ }}` plus des
 helpers `j()`/`jstr()` et 6 blocs `{% raw %}` pour émettre du Jinja destiné à
@@ -686,6 +687,48 @@ inclut les gabarits non committés (vérifié).
 → **DECISION : `--ref HEAD` par défaut** (le rendu suit l'arbre de travail,
 les tests golden aussi), tags `vX.Y.Z` posés à chaque phase pour offrir des points
 d'update stables aux projets générés.
+
+**Q9. Versions des collections Galaxy du projet généré** — *question ouverte
+après coup, arbitrée le 2026-09-24.* `requirements.yml` nommait les collections
+sans aucune contrainte : `ansible-galaxy collection install -r requirements.yml`
+installait ce que Galaxy servait ce jour-là. La CI de forge a pris la panne en
+premier — `community.postgresql` 5.0.0 a supprimé `postgresql_set`, et un commit
+vieux de trois semaines est passé au rouge — mais la même exposition était livrée
+à chaque projet généré. « Même spécification, même sortie » ne dit rien tant que
+la sortie nomme des dépendances sans version.
+→ **DECISION : plancher *et* plafond de majeure**, autorisés une seule fois par
+collection dans `plugins/ansible/catalog/collections.py`.
+- **Par collection, jamais par rôle.** Deux rôles qui dépendent de la même
+  collection ne doivent pas pouvoir se contredire ; un `RoleDefinition` ne nomme
+  donc qu'un nom de collection. Un rôle qui nomme une collection absente de la
+  table casse l'import du plugin, pas le projet de l'utilisateur.
+- **Le plafond, et pas seulement le plancher.** Un plancher documente ce dont les
+  gabarits ont besoin, mais ne protège de rien : la casse vient toujours d'une
+  majeure publiée *après* la génération. *(Alternative écartée : plancher seul,
+  moins d'entretien pour forge, mais l'incident se reproduit tel quel chez
+  l'utilisateur, ce qui est précisément ce qu'on refuse de livrer.)*
+- **Conséquence assumée : forge doit suivre les majeures.** Sans montée de
+  version régulière, les projets générés vieillissent. La procédure est celle des
+  outils épinglés dans `.github/workflows/ci.yml` : monter la version validée en
+  CI, monter `max_major`, corriger les gabarits si la majeure a retiré quelque
+  chose, livrer la montée dans son propre commit. Un intervalle reste **élargi
+  par l'utilisateur à sa main** : `requirements.yml` est un fichier de son
+  projet, et l'en-tête généré le dit.
+- **Le plancher n'est jamais deviné.** Quand on sait ce qu'exigent les gabarits,
+  il le dit (`community.postgresql >= 3.13.0` pour `postgresql_alter_system`).
+  Sinon c'est la version validée en CI, avec la raison écrite dans le fichier
+  généré : forge ne prétend pas savoir ce qu'il n'a pas testé, et le plancher se
+  descend le jour où quelqu'un vérifie.
+
+> **Reste exposé, hors de cette décision** — cette décision ne porte que sur les
+> **collections** nommées par `requirements.yml`. Deux installations d'outils
+> restent sans version dans ce que forge génère : `pip install --upgrade
+> ansible-core ansible-lint` dans le workflow `.github/workflows/ansible-lint.yml`
+> du projet Ansible, et la table `plugins/pipeline/tools.py`, où `ansible-core`,
+> `ansible-lint` **et les trois collections** sont encore libres et où la liste
+> des collections est recopiée. La première se pin en trois lignes ; la seconde
+> demande que `pipeline` apprenne les versions du domaine
+> `ansible` sans l'importer — donc une projection, donc une décision à part.
 
 ---
 

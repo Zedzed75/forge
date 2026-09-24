@@ -21,9 +21,22 @@ domain:
         community.postgresql:
         - postgresql
     collections:
-    - ansible.posix
-    - community.general
-    - community.postgresql
+    -   name: ansible.posix
+        reason: 'authorized_key et firewalld existent depuis la 1.0.0, mais aucune
+            version antérieure à celle validée en CI n''a été vérifiée : le plancher
+            reste haut.'
+        validated: 2.2.2
+        version: '>=2.2.2,<3.0.0'
+    -   name: community.general
+        reason: 'timezone et ufw existent depuis la 1.0.0, mais aucune version antérieure
+            à celle validée en CI n''a été vérifiée : le plancher reste haut.'
+        validated: 13.4.0
+        version: '>=13.4.0,<14.0.0'
+    -   name: community.postgresql
+        reason: postgresql_alter_system, utilisé par le rôle postgresql, est apparu
+            en 3.13.0 ; il a remplacé postgresql_set, supprimé en 5.0.0.
+        validated: 5.0.0
+        version: '>=3.13.0,<6.0.0'
     default_env: dev
     env_names:
     - dev
@@ -52,7 +65,8 @@ domain:
             - &id001
                 author: Equipe Plateforme
                 collections:
-                - community.general
+                -   name: community.general
+                    version: '>=13.4.0,<14.0.0'
                 example_group: dbservers
                 handlers:
                 - Redémarrer le service de synchronisation horaire
@@ -111,7 +125,8 @@ domain:
             - &id002
                 author: Equipe Plateforme
                 collections:
-                - ansible.posix
+                -   name: ansible.posix
+                    version: '>=2.2.2,<3.0.0'
                 example_group: dbservers
                 handlers: []
                 internal_vars:
@@ -213,8 +228,10 @@ domain:
             - &id004
                 author: Equipe Plateforme
                 collections:
-                - community.general
-                - ansible.posix
+                -   name: ansible.posix
+                    version: '>=2.2.2,<3.0.0'
+                -   name: community.general
+                    version: '>=13.4.0,<14.0.0'
                 example_group: dbservers
                 handlers:
                 - Recharger le pare-feu
@@ -281,7 +298,8 @@ domain:
             - &id005
                 author: Equipe Plateforme
                 collections:
-                - community.postgresql
+                -   name: community.postgresql
+                    version: '>=3.13.0,<6.0.0'
                 example_group: dbservers
                 handlers:
                 - Recharger PostgreSQL

@@ -18,7 +18,12 @@ from __future__ import annotations
 from typing import Any
 
 from forge.plugins.ansible.catalog.definition import RoleDefinition
-from forge.plugins.ansible.catalog.registry import collections_for, get_role, role_names
+from forge.plugins.ansible.catalog.collections import requirements_for
+from forge.plugins.ansible.catalog.registry import (
+    collection_requirements_for,
+    get_role,
+    role_names,
+)
 
 #: Commentaire pose sur les variables libres saisies par l'utilisateur.
 #: Texte repris **mot pour mot** du legacy (`planner.UNDOCUMENTED`) : il apparait
@@ -187,7 +192,7 @@ def role_context(
         "summary": role.summary,
         "tags": list(role.tags),
         "handlers": list(role.handlers),
-        "collections": list(role.collections),
+        "collections": _role_collections(role.collections),
         "os_families": list(role.os_families),
         "options": option_context(role),
         "platforms": list(PLATFORMS[os_family]),
@@ -257,9 +262,35 @@ def collection_users(ansible: Any) -> dict[str, list[str]]:
     return {nom: sorted(roles) for nom, roles in sorted(utilisateurs.items())}
 
 
-def collections(ansible: Any) -> list[str]:
-    """Collections Galaxy requises par les roles appliques, triees et dedoublonnees."""
-    return collections_for(ansible.ordered_used_roles())
+def collections(ansible: Any) -> list[dict[str, str]]:
+    """Collections Galaxy requises par les roles appliques, avec leur contrainte de version.
+
+    Triees par nom et dedoublonnees. Chaque entree porte de quoi ecrire une
+    dependance complete : le nom, l'intervalle accepte, la version contre
+    laquelle forge valide, et la raison du plancher reprise en commentaire.
+    """
+    return [
+        {
+            "name": besoin.name,
+            "version": besoin.version,
+            "validated": besoin.validated,
+            "reason": besoin.reason,
+        }
+        for besoin in collection_requirements_for(ansible.ordered_used_roles())
+    ]
+
+
+def _role_collections(names: tuple[str, ...]) -> list[dict[str, str]]:
+    """Collections d'un role : le nom et l'intervalle, rien de plus.
+
+    La justification du plancher n'est portee qu'une fois, par `collections` :
+    la repeter par role la recopierait dans `.copier-answers.yml` autant de fois
+    qu'il y a de roles, pour un fichier cense rester relisible.
+    """
+    return [
+        {"name": besoin.name, "version": besoin.version}
+        for besoin in requirements_for(names)
+    ]
 
 
 def role_overrides(ansible: Any) -> list[dict[str, Any]]:

@@ -6,14 +6,36 @@
 #   ansible-galaxy collection install -r requirements.yml
 # Les rôles du projet sont livrés dans roles/ et ne sont donc pas listés ici.
 #
+# Chaque dépendance porte un intervalle de versions, plancher et plafond.
+# Sans plafond, cette commande installerait ce que Galaxy sert le jour où vous la
+# lancez. Une majeure publiée après la génération de ce projet peut avoir supprimé un
+# module que les rôles ci-dessous utilisent, et le projet casserait alors sans qu'une
+# seule de ses lignes ait bougé.
+# Élargir un intervalle reste votre droit ; la conséquence est alors pour vous.
+#
 # Fichier généré par forge à partir de forge.yml.
 # Régénérez le projet plutôt que de modifier ce fichier à la main.
 # ---------------------------------------------------------------------------
 
 collections:
   # Requise par le rôle : firewall, users
+  # Plancher : authorized_key et firewalld existent depuis la 1.0.0, mais aucune version
+  # antérieure à celle validée en CI n'a été vérifiée : le plancher reste haut.
+  # Plafond : la majeure suivant la 2.2.2, version contre laquelle forge valide les
+  # projets générés.
   - name: ansible.posix
+    version: ">=2.2.2,<3.0.0"
   # Requise par le rôle : common, firewall
+  # Plancher : timezone et ufw existent depuis la 1.0.0, mais aucune version antérieure
+  # à celle validée en CI n'a été vérifiée : le plancher reste haut.
+  # Plafond : la majeure suivant la 13.4.0, version contre laquelle forge valide les
+  # projets générés.
   - name: community.general
+    version: ">=13.4.0,<14.0.0"
   # Requise par le rôle : postgresql
+  # Plancher : postgresql_alter_system, utilisé par le rôle postgresql, est apparu en
+  # 3.13.0 ; il a remplacé postgresql_set, supprimé en 5.0.0.
+  # Plafond : la majeure suivant la 5.0.0, version contre laquelle forge valide les
+  # projets générés.
   - name: community.postgresql
+    version: ">=3.13.0,<6.0.0"
