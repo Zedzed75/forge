@@ -453,10 +453,9 @@ def test_le_pipeline_genere_passe_son_validateur(chemin, outil, tmp_path):
     """`actionlint` connait le schema des workflows GitHub, leurs expressions et
     leurs actions. Cote GitLab, il n'existe pas d'equivalent hors ligne : la
     garantie y est plus faible, et le README du domaine le dit."""
-    from forge.validate import tools as detection
+    from tests.conftest import require_tools
 
-    if not detection.probe(outil, True).available:
-        pytest.skip(f"{outil} introuvable, nativement comme dans WSL")
+    require_tools("pipeline", outil)
 
     spec, manager = _genere(tmp_path, chemin)
     resultat = pipeline_module.validate(spec, manager, tmp_path, only=["pipeline"])

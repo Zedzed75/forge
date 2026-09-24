@@ -1,0 +1,14 @@
+{
+  "ansible_handler_links": [],
+  "files": {
+    ".gitattributes": "- text f70d755466b10164",
+    "README.md": "- prose c7eef1a1508e85e3",
+    "demo/.copier-answers.yml": "- structured 2fd4a06d8f42cb37",
+    "demo/README.md": "- prose e29b24fca5be5f47",
+    "demo/environments/prod/sante.yml": "- structured d9ab25c546f10225",
+    "demo/fins-de-ligne.txt": "- prose e3b0c44298fc1c14",
+    "forge.yml": "- structured 42112c895a26fbfe"
+  },
+  "fingerprint_version": 1,
+  "helm_helper_links": []
+}

@@ -231,11 +231,11 @@ def test_les_deux_projets_passent_leurs_validateurs_reels(tmp_path, donnees):
     et `kubeconform -strict` par environnement de l'autre. Neuf commandes
     externes, aucune connaissance de domaine dans le coeur.
     """
-    from forge.validate import tools
+    from tests.conftest import require_tools
 
-    for outil in ("ansible-playbook", "ansible-lint", "helm", "kubeconform"):
-        if not tools.probe(outil, True).available:
-            pytest.skip(f"{outil} introuvable, nativement comme dans WSL")
+    require_tools(
+        "ansible+helm", "ansible-playbook", "ansible-lint", "helm", "kubeconform"
+    )
 
     manager = _manager()
     spec = validate_spec(donnees, manager)

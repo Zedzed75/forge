@@ -19,14 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from forge import pipeline
-from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager
 from tests.conftest import (
-    DEMO_PLUGIN,
     GOLDEN_DIR,
     REPO_ROOT,
     bless,
-    load_case,
+    render_all_plugins,
     spec_files,
     stable_text,
     tree_files,
@@ -43,14 +40,10 @@ TEMOIN_CRLF = "fins-de-ligne.txt"
 
 
 def _render(spec_path: Path, target: Path) -> Path:
-    manager = ForgeManager()
     # Le plugin de demonstration ET les domaines livres : une specification qui
-    # ne declare pas une section ne genere simplement pas ce domaine.
-    for module in (DEMO_PLUGIN, *BUILTIN_PLUGINS):
-        manager.register_module(module)
-    data, model = load_case(spec_path, manager)
-    pipeline.generate(data, model, manager, target)
-    return target
+    # ne declare pas une section ne genere simplement pas ce domaine. Le rendu
+    # vit dans conftest : le harnais d'empreinte doit observer exactement le meme.
+    return render_all_plugins(spec_path, target)
 
 
 @pytest.mark.parametrize("spec_path", CASES, ids=[path.stem for path in CASES])

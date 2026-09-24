@@ -308,12 +308,9 @@ def test_le_projet_genere_passe_ses_propres_validateurs(tmp_path):
     vrai (nativement, ou via le pont WSL sous Windows) sur le cas le plus riche
     du catalogue.
     """
-    from forge.validate import tools
+    from tests.conftest import require_tools
 
-    if not tools.probe("ansible-playbook", True).available:
-        pytest.skip("ansible-playbook introuvable, nativement comme dans WSL")
-    if not tools.probe("ansible-lint", True).available:
-        pytest.skip("ansible-lint introuvable, nativement comme dans WSL")
+    require_tools("ansible", "ansible-playbook", "ansible-lint")
 
     manager = _manager()
     data = _spec_data()

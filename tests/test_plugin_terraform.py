@@ -567,11 +567,9 @@ def test_le_projet_genere_passe_ses_propres_validateurs(tmp_path):
     `terraform init` telecharge des providers au premier passage — la variable
     FORGE_TF_PLUGIN_CACHE evite de recommencer a chaque environnement.
     """
-    from forge.validate import tools
+    from tests.conftest import require_tools
 
-    for outil in ("terraform", "tflint"):
-        if not tools.probe(outil, True).available:
-            pytest.skip(f"{outil} introuvable, nativement comme dans WSL")
+    require_tools("terraform", "terraform", "tflint")
 
     spec, manager = _genere(tmp_path)
     resultat = pipeline.validate(spec, manager, tmp_path)
