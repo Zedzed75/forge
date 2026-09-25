@@ -216,7 +216,7 @@ def install_step(
     if not lignes:
         return None, [recette.name for recette in connus], inconnus
     return (
-        Step(name="Installer les outils", run=lignes),
+        Step(name="Install the tools", run=lignes),
         [recette.name for recette in connus],
         inconnus,
     )
