@@ -6,7 +6,7 @@ from typing import Any
 
 from forge.plugins_api.hookspecs import hookimpl
 from forge.plugins_api.types import DomainInfo, Projection
-from tests.domaines_factices import TrivialSection, standard_projection
+from tests.fake_domains import TrivialSection, standard_projection
 
 
 @hookimpl

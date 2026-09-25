@@ -760,7 +760,7 @@ forge/
 │       └── pipeline/    plugin.py  spec.py  jobs.py  tools.py  interview.py  validators.py  template/
 └── tests/
     ├── specs/  golden/
-    ├── conftest.py  scripted_prompter.py  domaine_isole.py  domaines_factices/
+    ├── conftest.py  scripted_prompter.py  isolated_domain.py  fake_domains/
     └── test_*.py
 ```
 
