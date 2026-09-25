@@ -1,26 +1,26 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     ".yamllint — règles de style YAML du projet",
+     ".yamllint — YAML style rules of the project",
      [
-       "Règles alignées sur celles qu'applique ansible-lint, afin que les deux outils",
-       "ne se contredisent jamais. Vérification : yamllint .",
+       "Rules aligned with the ones ansible-lint applies, so that the two tools",
+       "never contradict each other. Check with: yamllint .",
      ]) ]]
 extends: default
 
 rules:
-  # Les fichiers générés restent lisibles bien au-delà de 80 colonnes.
+  # Generated files stay readable well beyond 80 columns.
   line-length:
     max: 160
     level: warning
-  # Ansible n'accepte que true/false comme booléens canoniques.
+  # Ansible only accepts true/false as canonical booleans.
   truthy:
     allowed-values: ['true', 'false']
     check-keys: false
-  # Un seul espace suffit entre le contenu et un commentaire de fin de ligne.
+  # A single space is enough between the content and a trailing comment.
   comments:
     min-spaces-from-content: 1
-  # Les modes de fichiers doivent être écrits en chaîne ('0644'), jamais en octal.
+  # File modes must be written as strings ('0644'), never in octal.
   octal-values:
     forbid-implicit-octal: true
     forbid-explicit-octal: true

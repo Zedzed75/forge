@@ -1,19 +1,19 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/users/tasks/main.yml — comptes locaux, sudo et clés SSH",
+     "roles/users/tasks/main.yml — local accounts, sudo and SSH keys",
      [
-       "Ordre d'exécution : groupes secondaires, comptes, clés autorisées, puis",
-       "règles sudo. Une liste users_accounts vide rend le rôle inopérant :",
-       "toutes les tâches bouclent alors sur zéro élément.",
+       "Order of execution: secondary groups, accounts, authorised keys, then",
+       "sudo rules. An empty users_accounts list makes the role a no-op: every",
+       "task then loops over zero items.",
      ]) ]]
-- name: Créer les groupes secondaires déclarés
+- name: Create the declared secondary groups
   ansible.builtin.group:
     name: "{{ item }}"
     state: present
   loop: "{{ users_secondary_groups }}"
 
-- name: Gérer les comptes locaux
+- name: Manage the local accounts
   ansible.builtin.user:
     name: "{{ item.name }}"
     groups: "{{ item.groups }}"
@@ -26,7 +26,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Installer les clés publiques SSH autorisées
+- name: Install the authorised SSH public keys
   ansible.posix.authorized_key:
     user: "{{ item.name }}"
     key: "{{ item.ssh_public_key }}"
@@ -36,7 +36,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Déployer les règles sudo des comptes autorisés
+- name: Deploy the sudo rules of the authorised accounts
   ansible.builtin.template:
     src: sudoers.j2
     dest: "{{ '/etc/sudoers.d/' ~ users_sudoers_file }}"
@@ -48,7 +48,7 @@
     - users_manage_sudoers | bool
     - users_sudo_accounts | length > 0
 
-- name: Retirer le fichier sudoers lorsqu'aucun compte n'en a besoin
+- name: Remove the sudoers file when no account needs it
   ansible.builtin.file:
     path: "{{ '/etc/sudoers.d/' ~ users_sudoers_file }}"
     state: absent

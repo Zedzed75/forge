@@ -1,18 +1,18 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/nginx/handlers/main.yml — handlers du rôle nginx",
+     "roles/nginx/handlers/main.yml — handlers of the nginx role",
      [
-       "« Recharger nginx » suffit pour un changement de configuration : la",
-       "connexion des clients en cours n'est pas interrompue. Le redémarrage",
-       "complet est réservé aux changements de binaire ou de module.",
+       "\"Reload nginx\" is enough for a configuration change: the connection of",
+       "the clients in flight is not interrupted. The full restart is reserved",
+       "for a change of binary or of module.",
      ]) ]]
-- name: Recharger nginx
+- name: Reload nginx
   ansible.builtin.service:
     name: nginx
     state: reloaded
 
-- name: Redémarrer nginx
+- name: Restart nginx
   ansible.builtin.service:
     name: nginx
     state: restarted

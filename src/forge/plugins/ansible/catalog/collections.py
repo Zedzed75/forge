@@ -69,8 +69,8 @@ _REQUIREMENTS: tuple[CollectionRequirement, ...] = (
         max_major=3,
         validated="2.2.2",
         reason=(
-            "authorized_key et firewalld existent depuis la 1.0.0, mais aucune version "
-            "antérieure à celle validée en CI n'a été vérifiée : le plancher reste haut."
+            "authorized_key and firewalld have existed since 1.0.0, but no version older "
+            "than the one validated in CI has been checked: the floor stays high."
         ),
     ),
     CollectionRequirement(
@@ -79,8 +79,8 @@ _REQUIREMENTS: tuple[CollectionRequirement, ...] = (
         max_major=14,
         validated="13.4.0",
         reason=(
-            "timezone et ufw existent depuis la 1.0.0, mais aucune version antérieure "
-            "à celle validée en CI n'a été vérifiée : le plancher reste haut."
+            "timezone and ufw have existed since 1.0.0, but no version older than the "
+            "one validated in CI has been checked: the floor stays high."
         ),
     ),
     CollectionRequirement(
@@ -89,8 +89,8 @@ _REQUIREMENTS: tuple[CollectionRequirement, ...] = (
         max_major=6,
         validated="5.0.0",
         reason=(
-            "postgresql_alter_system, utilisé par le rôle postgresql, est apparu en 3.13.0 ; "
-            "il a remplacé postgresql_set, supprimé en 5.0.0."
+            "postgresql_alter_system, used by the postgresql role, appeared in 3.13.0; "
+            "it replaced postgresql_set, removed in 5.0.0."
         ),
     ),
 )

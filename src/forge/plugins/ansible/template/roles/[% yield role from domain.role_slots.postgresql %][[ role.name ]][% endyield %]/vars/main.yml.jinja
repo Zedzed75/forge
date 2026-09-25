@@ -1,15 +1,14 @@
 [% from "partials/header.jinja" import file_header, var_doc %]
 ---
 [[ file_header(
-     "roles/postgresql/vars/main.yml — variables internes du rôle postgresql",
+     "roles/postgresql/vars/main.yml — internal variables of the postgresql role",
      [
-       "Emplacements et noms de paquets diffèrent fortement entre Debian et",
-       "RedHat. Les listes dérivées évitent de répéter les mêmes filtres Jinja",
-       "dans plusieurs tâches.",
+       "Locations and package names differ a lot between Debian and RedHat. The",
+       "derived lists avoid repeating the same Jinja filters in several tasks.",
      ]) ]]
 [[ var_doc(
-     "Paquets à installer selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Packages to install, per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 postgresql_packages_map:
   Debian:
     - "{{ 'postgresql-' ~ postgresql_version }}"
@@ -21,42 +20,42 @@ postgresql_packages_map:
     - python3-psycopg2
 
 [[ var_doc(
-     "Nom du service selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Name of the service, per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 postgresql_service_map:
   Debian: postgresql
   RedHat: postgresql
 
 [[ var_doc(
-     "Répertoire contenant postgresql.conf et pg_hba.conf, selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Directory holding postgresql.conf and pg_hba.conf, per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 postgresql_config_dir_map:
   Debian: "{{ '/etc/postgresql/' ~ postgresql_version ~ '/main' }}"
   RedHat: /var/lib/pgsql/data
 
 [[ var_doc(
-     "Compte système propriétaire du cluster, utilisé pour les commandes d'administration.",
-     "Compte POSIX créé par le paquet PostgreSQL.") ]]
+     "System account owning the cluster, used for the administration commands.",
+     "POSIX account created by the PostgreSQL package.") ]]
 postgresql_system_user: postgres
 
 [[ var_doc(
-     "Paquets résolus pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "Packages resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 postgresql_packages: "{{ postgresql_packages_map[ansible_facts['os_family']] }}"
 
 [[ var_doc(
-     "Service résolu pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "Service resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 postgresql_service: "{{ postgresql_service_map[ansible_facts['os_family']] }}"
 
 [[ var_doc(
-     "Répertoire de configuration résolu pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "Configuration directory resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 postgresql_config_dir: "{{ postgresql_config_dir_map[ansible_facts['os_family']] }}"
 
 [[ var_doc(
-     "Paramètres appliqués au serveur, construits depuis les options du rôle.",
-     "Calculée automatiquement ; ne pas surcharger.") ]]
+     "Parameters applied to the server, built from the options of the role.",
+     "Computed automatically; do not override.") ]]
 postgresql_settings:
   - name: listen_addresses
     value: "{{ postgresql_listen_addresses }}"
@@ -66,11 +65,11 @@ postgresql_settings:
     value: "{{ postgresql_max_connections | string }}"
 
 [[ var_doc(
-     "Rôles disposant d'une variable de mot de passe renseignée.",
-     "Calculée automatiquement ; ne pas surcharger.") ]]
+     "Roles that have a password variable filled in.",
+     "Computed automatically; do not override.") ]]
 postgresql_users_with_password: "{{ postgresql_db_users | selectattr('password_var') | list }}"
 
 [[ var_doc(
-     "Rôles pour lesquels des privilèges explicites sont demandés.",
-     "Calculée automatiquement ; ne pas surcharger.") ]]
+     "Roles for which explicit privileges are requested.",
+     "Computed automatically; do not override.") ]]
 postgresql_users_with_privileges: "{{ postgresql_db_users | selectattr('privileges') | list }}"

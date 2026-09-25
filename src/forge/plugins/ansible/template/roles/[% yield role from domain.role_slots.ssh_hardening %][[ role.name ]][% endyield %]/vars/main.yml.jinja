@@ -1,49 +1,50 @@
 [% from "partials/header.jinja" import file_header, var_doc %]
 ---
 [[ file_header(
-     "roles/ssh_hardening/vars/main.yml — variables internes du rôle ssh_hardening",
+     "roles/ssh_hardening/vars/main.yml — internal variables of the ssh_hardening role",
      [
-       "Le paquet et le service OpenSSH ne portent pas le même nom selon la",
-       "famille de système.",
+       "The OpenSSH package and service do not carry the same name from one",
+       "system family to the other.",
      ]) ]]
 [[ var_doc(
-     "Nom du paquet fournissant le serveur OpenSSH, selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Name of the package providing the OpenSSH server, per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 ssh_hardening_package_map:
   Debian: openssh-server
   RedHat: openssh-server
 
 [[ var_doc(
-     "Nom du service SSH, selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Name of the SSH service, per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 ssh_hardening_service_map:
   Debian: ssh
   RedHat: sshd
 
 [[ var_doc(
-     "Fichier de configuration principal de sshd.",
-     "Identique sur toutes les distributions supportées.") ]]
+     "Main configuration file of sshd.",
+     "The same on every supported distribution.") ]]
 ssh_hardening_config_file: /etc/ssh/sshd_config
 
 [[ var_doc(
-     "Répertoire des fichiers de configuration additionnels de sshd.",
-     "Identique sur toutes les distributions supportées.") ]]
+     "Directory of the additional configuration files of sshd.",
+     "The same on every supported distribution.") ]]
 ssh_hardening_dropin_dir: /etc/ssh/sshd_config.d
 
 [[ var_doc(
-     "Nom du fichier déposé par ce rôle. Le préfixe numérique fixe l'ordre de "
-     "lecture. Le nom porte celui de l'outil d'origine, et c'est délibéré : le "
-     "changer laisserait l'ancien fichier en place sur les machines déjà gérées, "
-     "et deux drop-in contradictoires cohabiteraient sans que rien ne le signale.",
-     "Nom de fichier se terminant par .conf.") ]]
+     "Name of the file this role writes. The numeric prefix fixes the reading "
+     "order. The name carries the one of the original tool, and that is "
+     "deliberate: changing it would leave the old file in place on the machines "
+     "already managed, and two contradictory drop-ins would coexist without "
+     "anything signalling it.",
+     "File name ending in .conf.") ]]
 ssh_hardening_dropin_file: 99-ansible-forge.conf
 
 [[ var_doc(
-     "Paquet OpenSSH résolu pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "OpenSSH package resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 ssh_hardening_package: "{{ ssh_hardening_package_map[ansible_facts['os_family']] }}"
 
 [[ var_doc(
-     "Service SSH résolu pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "SSH service resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 ssh_hardening_service: "{{ ssh_hardening_service_map[ansible_facts['os_family']] }}"

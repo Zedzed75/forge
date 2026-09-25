@@ -1,12 +1,12 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     ".github/workflows/ansible-lint.yml — contrôle qualité du projet",
+     ".github/workflows/ansible-lint.yml — quality gate of the project",
      [
-       "Rejoue à chaque poussée les deux vérifications exigées par le projet :",
-       "la syntaxe de chaque environnement et ansible-lint.",
-       "ansible-core ne supporte pas Windows comme nœud de contrôle : c'est ce",
-       "workflow qui fait autorité si vous développez sous Windows.",
+       "Replays on every push the two checks the project requires:",
+       "the syntax of each environment, and ansible-lint.",
+       "ansible-core does not support Windows as a control node: this workflow",
+       "is the authority if you develop on Windows.",
      ]) ]]
 name: ansible-lint
 
@@ -19,24 +19,24 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Récupérer le dépôt
+      - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Installer Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Installer ansible-core et ansible-lint
+      - name: Install ansible-core and ansible-lint
         run: python -m pip install --upgrade ansible-core ansible-lint
 
-      - name: Installer les collections Galaxy
+      - name: Install the Galaxy collections
         run: ansible-galaxy collection install -r requirements.yml
 
 [% for env in domain.env_names %]
-      - name: Vérifier la syntaxe de l'environnement [[ env ]]
+      - name: Check the syntax of the [[ env ]] environment
         run: ansible-playbook -i inventories/[[ env ]] playbooks/site.yml --syntax-check
 
 [% endfor %]
-      - name: Lancer ansible-lint
+      - name: Run ansible-lint
         run: ansible-lint

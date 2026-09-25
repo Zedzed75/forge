@@ -1,28 +1,28 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/docker/tasks/main.yml — moteur Docker CE",
+     "roles/docker/tasks/main.yml — Docker CE engine",
      [
-       "Le dépôt officiel Docker est déclaré selon la famille de système, puis",
-       "les paquets sont installés, le démon configuré et le service activé.",
-       "Les comptes listés dans docker_users_in_docker_group obtiennent l'accès",
-       "au démon sans sudo : c'est un privilège équivalent à root, à n'accorder",
-       "qu'aux comptes de confiance.",
+       "The official Docker repository is declared according to the system",
+       "family, then the packages are installed, the daemon configured and the",
+       "service enabled. The accounts listed in docker_users_in_docker_group get",
+       "access to the daemon without sudo: that is a privilege equivalent to",
+       "root, to be granted to trusted accounts only.",
      ]) ]]
-- name: Déclarer le dépôt Docker (Debian et dérivés)
+- name: Declare the Docker repository (Debian and derivatives)
   ansible.builtin.include_tasks: repository_debian.yml
   when: ansible_facts['os_family'] == 'Debian'
 
-- name: Déclarer le dépôt Docker (RedHat et dérivés)
+- name: Declare the Docker repository (RedHat and derivatives)
   ansible.builtin.include_tasks: repository_redhat.yml
   when: ansible_facts['os_family'] == 'RedHat'
 
-- name: Installer le moteur Docker
+- name: Install the Docker engine
   ansible.builtin.package:
     name: "{{ docker_packages }}"
     state: present
 
-- name: Créer le répertoire de configuration du démon
+- name: Create the configuration directory of the daemon
   ansible.builtin.file:
     path: "{{ docker_config_dir }}"
     state: directory
@@ -30,22 +30,22 @@
     group: root
     mode: "0755"
 
-- name: Configurer le démon Docker
+- name: Configure the Docker daemon
   ansible.builtin.template:
     src: daemon.json.j2
     dest: "{{ docker_config_dir ~ '/daemon.json' }}"
     owner: root
     group: root
     mode: "0644"
-  notify: Redémarrer Docker
+  notify: Restart Docker
 
-- name: Activer et démarrer le service Docker
+- name: Enable and start the Docker service
   ansible.builtin.service:
     name: docker
     state: "{{ 'started' if docker_service_enabled else 'stopped' }}"
     enabled: "{{ docker_service_enabled }}"
 
-- name: Autoriser les comptes déclarés à piloter Docker sans sudo
+- name: Allow the declared accounts to drive Docker without sudo
   ansible.builtin.user:
     name: "{{ item }}"
     groups: docker

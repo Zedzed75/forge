@@ -2,25 +2,25 @@
 
 Boutique en ligne, deployee sur Kubernetes et administree par Ansible
 
-**Responsable :** Equipe Plateforme
+**Maintainer:** Equipe Plateforme
 
-> Ce projet a été généré à partir de `forge.yml`, à la racine du dépôt. Pour
-> le régénérer à l'identique : `forge generate --only ansible`.
+> This project was generated from `forge.yml`, at the root of the repository. To
+> regenerate it identically: `forge generate --only ansible`.
 
-## Prérequis
+## Requirements
 
-- Un nœud de contrôle Linux ou macOS avec `ansible-core` >= 2.15
-- Un accès SSH par clé publique aux machines cibles, avec le compte
-  `deploy` sur le port 22
-- Un accès `sudo` sur les machines cibles
+- A Linux or macOS control node with `ansible-core` >= 2.15
+- Public-key SSH access to the target machines, with the `deploy`
+  account on port 22
+- `sudo` access on the target machines
 
-Installation des dépendances :
+Installing the dependencies:
 
 ```bash
 ansible-galaxy collection install -r requirements.yml
 ```
 
-## Arborescence
+## Layout
 
 ```text
 boutique/
@@ -126,57 +126,57 @@ boutique/
 └── requirements.yml
 ```
 
-## Environnements
+## Environments
 
-| Environnement | Inventaire | Machines |
+| Environment | Inventory | Machines |
 |---|---|---|
 | `dev` | `inventories/dev` | 1 |
 | `prod` | `inventories/prod` | 1 |
 
-L'environnement `dev` est celui déclaré par défaut dans
-`ansible.cfg` ; les autres se ciblent avec `-i`.
+The `dev` environment is the one declared as the default in
+`ansible.cfg`; the others are targeted with `-i`.
 
-## Groupes et rôles
+## Groups and roles
 
-| Groupe | Description | Rôles appliqués |
+| Group | Description | Roles applied |
 |---|---|---|
 | `dbservers` | Serveurs de base de donnees, hors cluster | common, users, ssh_hardening, firewall, postgresql |
 
-| Rôle | Objet |
+| Role | Purpose |
 |---|---|
-| [`common`](roles/common/README.md) | Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière MOTD. |
-| [`users`](roles/users/README.md) | Comptes locaux : création, groupes secondaires, sudo et clés SSH autorisées. |
-| [`ssh_hardening`](roles/ssh_hardening/README.md) | Durcissement OpenSSH : connexion root, authentification par mot de passe, limites. |
-| [`firewall`](roles/firewall/README.md) | Pare-feu local : ufw (Debian) ou firewalld (RedHat), politique par défaut et ports ouverts. |
-| [`postgresql`](roles/postgresql/README.md) | Serveur PostgreSQL : installation, écoute réseau, bases, rôles et règles pg_hba. |
+| [`common`](roles/common/README.md) | System baseline: base packages, time zone, NTP synchronisation, MOTD banner. |
+| [`users`](roles/users/README.md) | Local accounts: creation, secondary groups, sudo and authorised SSH keys. |
+| [`ssh_hardening`](roles/ssh_hardening/README.md) | OpenSSH hardening: root login, password authentication, limits. |
+| [`firewall`](roles/firewall/README.md) | Local firewall: ufw (Debian) or firewalld (RedHat), default policy and open ports. |
+| [`postgresql`](roles/postgresql/README.md) | PostgreSQL server: installation, network listening, databases, roles and pg_hba rules. |
 
-## Commandes courantes
+## Common commands
 
-Vérifier la connectivité avant tout :
+Check connectivity before anything else:
 
 ```bash
 ansible-playbook -i inventories/dev playbooks/ping.yml
 ```
 
-Voir ce qui serait modifié, sans rien appliquer :
+See what would change, without applying anything:
 
 ```bash
 ansible-playbook -i inventories/dev playbooks/site.yml --check --diff
 ```
 
-Appliquer la configuration complète :
+Apply the full configuration:
 
 ```bash
 ansible-playbook -i inventories/dev playbooks/site.yml
 ```
 
-Ne traiter qu'un seul groupe :
+Handle a single group only:
 
 ```bash
 ansible-playbook -i inventories/dev playbooks/dbservers.yml
 ```
 
-Contrôler la qualité du projet :
+Check the quality of the project:
 
 ```bash
 ansible-playbook -i inventories/dev playbooks/site.yml --syntax-check
@@ -184,54 +184,53 @@ ansible-lint
 yamllint .
 ```
 
-## Précédence des variables
+## Variable precedence
 
-De la précédence la plus faible à la plus forte :
+From the weakest precedence to the strongest:
 
-1. `roles/<rôle>/defaults/main.yml` — valeurs par défaut du rôle
-2. `group_vars/all.yml` — valeurs communes au projet
-3. `group_vars/<groupe>.yml` — valeurs communes au groupe
-4. `inventories/<env>/group_vars/all/main.yml` — valeurs de l'environnement
-5. `inventories/<env>/group_vars/<groupe>.yml` — groupe dans cet environnement
-6. `inventories/<env>/host_vars/<machine>.yml` — machine précise
-7. `roles/<rôle>/vars/main.yml` — variables internes du rôle, non surchargeables
+1. `roles/<role>/defaults/main.yml` — role defaults
+2. `group_vars/all.yml` — values shared by the project
+3. `group_vars/<group>.yml` — values shared by the group
+4. `inventories/<env>/group_vars/all/main.yml` — values of the environment
+5. `inventories/<env>/group_vars/<group>.yml` — the group in that environment
+6. `inventories/<env>/host_vars/<machine>.yml` — one precise machine
+7. `roles/<role>/vars/main.yml` — internal role variables, not overridable
 
-Placez chaque valeur au niveau le plus général qui convienne : une valeur
-définie dans `host_vars` est invisible depuis le reste du projet.
+Put every value at the most general level that fits: a value defined in
+`host_vars` is invisible from the rest of the project.
 
 ## Secrets
 
-Les secrets vivent dans `inventories/<env>/group_vars/all/vault.yml`, chiffré
-avec `ansible-vault`. Un modèle en clair est fourni :
+Secrets live in `inventories/<env>/group_vars/all/vault.yml`, encrypted with
+`ansible-vault`. A cleartext template is provided:
 
 ```bash
 cd inventories/dev/group_vars/all
 cp vault.yml.example vault.yml
-# remplacez les valeurs factices, puis :
+# replace the placeholder values, then:
 ansible-vault encrypt vault.yml
 ```
 
-Exécutez ensuite les playbooks avec `--ask-vault-pass` ou
-`--vault-password-file`. Le fichier chiffré peut être versionné ; le mot de
-passe, jamais.
+Then run the playbooks with `--ask-vault-pass` or `--vault-password-file`. The
+encrypted file may be committed; the password, never.
 
-Le répertoire `group_vars/all/` est volontairement un répertoire et non un
-fichier `all.yml` : c'est la seule forme qui permet à `vault.yml` d'être chargé
-pour toutes les machines de l'environnement.
+The `group_vars/all/` directory is deliberately a directory rather than an
+`all.yml` file: it is the only form that lets `vault.yml` be loaded for every
+machine of the environment.
 
-## Régénérer le projet
+## Regenerating the project
 
-`forge.yml` décrit entièrement ce projet. Modifiez-le puis relancez :
+`forge.yml` describes this project entirely. Edit it, then run again:
 
 ```bash
 forge generate --only ansible --force
 ```
 
-Les fichiers générés portent tous un en-tête le rappelant : vos modifications
-manuelles y seraient perdues.
+Every generated file carries a header saying so: your manual edits would be
+lost there.
 
-Pour ne recevoir que les évolutions du gabarit **sans** perdre vos
-modifications, préférez :
+To receive only the evolutions of the template **without** losing your changes,
+prefer:
 
 ```bash
 forge update --only ansible

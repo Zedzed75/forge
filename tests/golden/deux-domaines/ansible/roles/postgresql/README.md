@@ -1,53 +1,53 @@
-# Rôle `postgresql`
+# Role `postgresql`
 
-Serveur PostgreSQL : installation, écoute réseau, bases, rôles et règles pg_hba.
+PostgreSQL server: installation, network listening, databases, roles and pg_hba rules.
 
 ## Variables
 
-Toutes les variables sont définies dans `defaults/main.yml` et peuvent être
-surchargées depuis `group_vars/` ou `host_vars/`.
+Every variable is defined in `defaults/main.yml` and can be overridden from
+`group_vars/` or `host_vars/`.
 
-| Variable | Rôle | Valeurs admises | Défaut |
+| Variable | Purpose | Allowed values | Default |
 |---|---|---|---|
-| `postgresql_version` | Version majeure installée depuis les dépôts de la distribution. | Numéro de version majeure, par exemple '15' ou '16'. | `'16'` |
-| `postgresql_listen_addresses` | Valeur de listen_addresses dans postgresql.conf. | 'localhost', '*' ou une liste d'adresses séparées par des virgules. | `localhost` |
-| `postgresql_port` | Port TCP du serveur PostgreSQL. | Entier de 1 à 65535. | `5432` |
-| `postgresql_databases` | Bases créées et maintenues par le rôle. | Liste de dictionnaires (name, owner, encoding). | `[]` |
-| `postgresql_db_users` | Rôles de connexion créés et maintenus par le rôle. | Liste de dictionnaires (name, password_var, privileges). | `[]` |
-| `postgresql_hba_entries` | Lignes ajoutées à pg_hba.conf en plus des règles locales par défaut. | Liste de chaînes à cinq champs « type base utilisateur adresse méthode », par exemple 'host all all 10.0.0.0/8 scram-sha-256'. | `[]` |
-| `postgresql_max_connections` | Valeur de max_connections dans postgresql.conf. | Entier positif. | `100` |
+| `postgresql_version` | Major version installed from the repositories of the distribution. | Major version number, for instance '15' or '16'. | `'16'` |
+| `postgresql_listen_addresses` | Value of listen_addresses in postgresql.conf. | 'localhost', '*' or a comma-separated list of addresses. | `localhost` |
+| `postgresql_port` | TCP port of the PostgreSQL server. | Integer from 1 to 65535. | `5432` |
+| `postgresql_databases` | Databases created and maintained by the role. | List of dictionaries (name, owner, encoding). | `[]` |
+| `postgresql_db_users` | Login roles created and maintained by the role. | List of dictionaries (name, password_var, privileges). | `[]` |
+| `postgresql_hba_entries` | Lines added to pg_hba.conf on top of the default local rules. | List of five-field strings "type database user address method", for instance 'host all all 10.0.0.0/8 scram-sha-256'. | `[]` |
+| `postgresql_max_connections` | Value of max_connections in postgresql.conf. | Positive integer. | `100` |
 
-## Variables internes
+## Internal variables
 
-Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargées.
+Defined in `vars/main.yml`, they are not meant to be overridden.
 
-- `postgresql_config_dir` : répertoire de postgresql.conf et pg_hba.conf, selon la famille d'OS
-- `postgresql_settings` : paramètres appliqués au serveur, construits depuis les options
-- `postgresql_users_with_password` : rôles disposant d'une variable de mot de passe renseignée
+- `postgresql_config_dir`: directory of postgresql.conf and pg_hba.conf, per OS family
+- `postgresql_settings`: parameters applied to the server, built from the options
+- `postgresql_users_with_password`: roles that have a password variable filled in
 
 ## Handlers
 
-- `Recharger PostgreSQL`
-- `Redémarrer PostgreSQL`
+- `Reload PostgreSQL`
+- `Restart PostgreSQL`
 
-## Collections requises
+## Required collections
 
-- `community.postgresql` — versions acceptées : `>=3.13.0,<6.0.0`
+- `community.postgresql` — accepted versions: `>=3.13.0,<6.0.0`
 
-Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
-c'est ce fichier qui fait foi à l'installation.
+These ranges are the ones of `requirements.yml`, at the root of the Ansible
+project; that file is the one that counts at install time.
 
-## Exemple d'utilisation
+## Usage example
 
 ```yaml
-- name: Appliquer le rôle postgresql
+- name: Apply the postgresql role
   hosts: dbservers
   become: true
   roles:
     - role: postgresql
 ```
 
-## Systèmes supportés
+## Supported systems
 
 - Debian
 - Ubuntu

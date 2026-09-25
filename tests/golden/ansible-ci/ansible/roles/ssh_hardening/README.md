@@ -1,44 +1,44 @@
-# Rôle `ssh_hardening`
+# Role `ssh_hardening`
 
-Durcissement OpenSSH : connexion root, authentification par mot de passe, limites.
+OpenSSH hardening: root login, password authentication, limits.
 
 ## Variables
 
-Toutes les variables sont définies dans `defaults/main.yml` et peuvent être
-surchargées depuis `group_vars/` ou `host_vars/`.
+Every variable is defined in `defaults/main.yml` and can be overridden from
+`group_vars/` or `host_vars/`.
 
-| Variable | Rôle | Valeurs admises | Défaut |
+| Variable | Purpose | Allowed values | Default |
 |---|---|---|---|
-| `ssh_hardening_port` | Port TCP sur lequel sshd écoute. | Entier de 1 à 65535. | `22` |
-| `ssh_hardening_permit_root_login` | Valeur de la directive PermitRootLogin. | yes, no, prohibit-password ou forced-commands-only. | `prohibit-password` |
-| `ssh_hardening_password_authentication` | Valeur de la directive PasswordAuthentication. | true ou false. | `false` |
-| `ssh_hardening_pubkey_authentication` | Valeur de la directive PubkeyAuthentication. | true ou false. | `true` |
-| `ssh_hardening_x11_forwarding` | Valeur de la directive X11Forwarding. | true ou false. | `false` |
-| `ssh_hardening_max_auth_tries` | Valeur de la directive MaxAuthTries. | Entier de 1 à 10. | `3` |
-| `ssh_hardening_allow_groups` | Valeur de la directive AllowGroups ; vide désactive la directive. | Liste de noms de groupes système. | `[]` |
+| `ssh_hardening_port` | TCP port sshd listens on. | Integer from 1 to 65535. | `22` |
+| `ssh_hardening_permit_root_login` | Value of the PermitRootLogin directive. | yes, no, prohibit-password or forced-commands-only. | `prohibit-password` |
+| `ssh_hardening_password_authentication` | Value of the PasswordAuthentication directive. | true or false. | `false` |
+| `ssh_hardening_pubkey_authentication` | Value of the PubkeyAuthentication directive. | true or false. | `true` |
+| `ssh_hardening_x11_forwarding` | Value of the X11Forwarding directive. | true or false. | `false` |
+| `ssh_hardening_max_auth_tries` | Value of the MaxAuthTries directive. | Integer from 1 to 10. | `3` |
+| `ssh_hardening_allow_groups` | Value of the AllowGroups directive; empty disables the directive. | List of system group names. | `[]` |
 
-## Variables internes
+## Internal variables
 
-Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargées.
+Defined in `vars/main.yml`, they are not meant to be overridden.
 
-- `ssh_hardening_dropin_dir` : répertoire des fichiers de configuration additionnels de sshd
-- `ssh_hardening_service` : nom du service SSH, résolu selon la famille d'OS
+- `ssh_hardening_dropin_dir`: directory of the additional configuration files of sshd
+- `ssh_hardening_service`: name of the SSH service, resolved per OS family
 
 ## Handlers
 
-- `Redémarrer le service SSH`
+- `Restart the SSH service`
 
-## Exemple d'utilisation
+## Usage example
 
 ```yaml
-- name: Appliquer le rôle ssh_hardening
+- name: Apply the ssh_hardening role
   hosts: gateways
   become: true
   roles:
     - role: ssh_hardening
 ```
 
-## Systèmes supportés
+## Supported systems
 
 - Debian
 - Ubuntu

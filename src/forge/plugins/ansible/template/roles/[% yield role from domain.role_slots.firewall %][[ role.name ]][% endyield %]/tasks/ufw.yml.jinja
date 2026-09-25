@@ -1,49 +1,49 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/firewall/tasks/ufw.yml — pare-feu ufw (Debian et dérivés)",
+     "roles/firewall/tasks/ufw.yml — ufw firewall (Debian and derivatives)",
      [
-       "Les politiques par défaut sont posées avant l'ouverture des ports, et",
-       "le pare-feu n'est activé qu'en dernier : la règle autorisant SSH est",
-       "donc toujours en place avant que le filtrage ne démarre.",
+       "The default policies are set before the ports are opened, and the",
+       "firewall is only enabled last: the rule allowing SSH is therefore",
+       "always in place before filtering starts.",
      ]) ]]
-- name: Installer ufw
+- name: Install ufw
   ansible.builtin.package:
     name: ufw
     state: present
 
-- name: Définir la politique par défaut du trafic entrant
+- name: Set the default policy for incoming traffic
   community.general.ufw:
     direction: incoming
     policy: "{{ firewall_default_incoming_policy }}"
-  notify: Recharger le pare-feu
+  notify: Reload the firewall
 
-- name: Définir la politique par défaut du trafic sortant
+- name: Set the default policy for outgoing traffic
   community.general.ufw:
     direction: outgoing
     policy: "{{ firewall_default_outgoing_policy }}"
-  notify: Recharger le pare-feu
+  notify: Reload the firewall
 
-- name: Ouvrir les ports TCP autorisés
+- name: Open the allowed TCP ports
   community.general.ufw:
     rule: allow
     port: "{{ item | string }}"
     proto: tcp
   loop: "{{ firewall_allowed_tcp_ports }}"
-  notify: Recharger le pare-feu
+  notify: Reload the firewall
 
-- name: Ouvrir les ports UDP autorisés
+- name: Open the allowed UDP ports
   community.general.ufw:
     rule: allow
     port: "{{ item | string }}"
     proto: udp
   loop: "{{ firewall_allowed_udp_ports }}"
-  notify: Recharger le pare-feu
+  notify: Reload the firewall
 
-- name: Régler le niveau de journalisation
+- name: Set the logging level
   community.general.ufw:
     logging: "{{ firewall_log_level }}"
 
-- name: Activer ou désactiver le pare-feu
+- name: Enable or disable the firewall
   community.general.ufw:
     state: "{{ 'enabled' if firewall_enabled else 'disabled' }}"

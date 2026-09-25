@@ -1,4 +1,4 @@
-"""Définition du rôle ``common`` : socle appliqué à toutes les machines."""
+"""Definition of the ``common`` role: baseline applied to every machine."""
 
 from __future__ import annotations
 
@@ -6,48 +6,48 @@ from forge.plugins.ansible.catalog.definition import OptionKind, RoleDefinition,
 
 ROLE = RoleDefinition(
     name="common",
-    summary="Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière MOTD.",
+    summary="System baseline: base packages, time zone, NTP synchronisation, MOTD banner.",
     collections=("community.general",),
-    handlers=("Redémarrer le service de synchronisation horaire",),
+    handlers=("Restart the time synchronisation service",),
     tags=("common", "base"),
     options=(
         RoleOption(
             name="timezone",
-            question="Fuseau horaire des machines",
-            description="Fuseau horaire appliqué à toutes les machines du groupe.",
-            allowed="Identifiant de la base tz, par exemple 'Europe/Paris' ou 'UTC'.",
+            question="Time zone of the machines",
+            description="Time zone applied to every machine of the group.",
+            allowed="Identifier from the tz database, for instance 'Europe/Paris' or 'UTC'.",
             default="Europe/Paris",
             kind=OptionKind.TEXT,
         ),
         RoleOption(
             name="packages",
-            question="Paquets de base à installer (séparés par des virgules)",
-            description="Paquets installés sur toutes les machines du groupe.",
-            allowed="Liste de noms de paquets valides pour la famille d'OS ciblée.",
+            question="Base packages to install (comma-separated)",
+            description="Packages installed on every machine of the group.",
+            allowed="List of package names valid for the targeted OS family.",
             default=["ca-certificates", "curl", "htop", "vim"],
             kind=OptionKind.LIST,
         ),
         RoleOption(
             name="manage_timezone",
-            question="Gérer le fuseau horaire ?",
-            description="Active la configuration du fuseau horaire par le rôle.",
-            allowed="true ou false.",
+            question="Manage the time zone?",
+            description="Enables the configuration of the time zone by the role.",
+            allowed="true or false.",
             default=True,
             kind=OptionKind.BOOL,
         ),
         RoleOption(
             name="enable_ntp",
-            question="Activer la synchronisation NTP ?",
-            description="Installe et active la synchronisation horaire (systemd-timesyncd).",
-            allowed="true ou false.",
+            question="Enable NTP synchronisation?",
+            description="Installs and enables time synchronisation (systemd-timesyncd).",
+            allowed="true or false.",
             default=True,
             kind=OptionKind.BOOL,
         ),
         RoleOption(
             name="manage_motd",
-            question="Générer une bannière MOTD ?",
-            description="Déploie un fichier /etc/motd décrivant le rôle de la machine.",
-            allowed="true ou false.",
+            question="Generate a MOTD banner?",
+            description="Deploys an /etc/motd file describing the purpose of the machine.",
+            allowed="true or false.",
             default=True,
             kind=OptionKind.BOOL,
         ),

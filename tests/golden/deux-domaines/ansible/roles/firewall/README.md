@@ -1,56 +1,56 @@
-# Rôle `firewall`
+# Role `firewall`
 
-Pare-feu local : ufw (Debian) ou firewalld (RedHat), politique par défaut et ports ouverts.
+Local firewall: ufw (Debian) or firewalld (RedHat), default policy and open ports.
 
 ## Variables
 
-Toutes les variables sont définies dans `defaults/main.yml` et peuvent être
-surchargées depuis `group_vars/` ou `host_vars/`.
+Every variable is defined in `defaults/main.yml` and can be overridden from
+`group_vars/` or `host_vars/`.
 
-| Variable | Rôle | Valeurs admises | Défaut |
+| Variable | Purpose | Allowed values | Default |
 |---|---|---|---|
-| `firewall_backend` | Backend utilisé ; 'auto' choisit ufw sur Debian et firewalld sur RedHat. | auto, ufw ou firewalld. | `auto` |
-| `firewall_default_incoming_policy` | Action appliquée au trafic entrant non explicitement autorisé. | deny, reject ou allow. | `deny` |
-| `firewall_default_outgoing_policy` | Action appliquée au trafic sortant non explicitement autorisé. | allow, deny ou reject. | `allow` |
-| `firewall_allowed_tcp_ports` | Ports TCP ouverts en entrée. | Liste d'entiers de 1 à 65535. | `_:
+| `firewall_backend` | Backend used; 'auto' picks ufw on Debian and firewalld on RedHat. | auto, ufw or firewalld. | `auto` |
+| `firewall_default_incoming_policy` | Action applied to incoming traffic that is not explicitly allowed. | deny, reject or allow. | `deny` |
+| `firewall_default_outgoing_policy` | Action applied to outgoing traffic that is not explicitly allowed. | allow, deny or reject. | `allow` |
+| `firewall_allowed_tcp_ports` | TCP ports opened for inbound traffic. | List of integers from 1 to 65535. | `_:
   - 22
   - 80
   - 443` |
-| `firewall_allowed_udp_ports` | Ports UDP ouverts en entrée. | Liste d'entiers de 1 à 65535. | `[]` |
-| `firewall_enabled` | Active et démarre le service de pare-feu. | true ou false. | `true` |
-| `firewall_log_level` | Verbosité des journaux du pare-feu. | off, low, medium, high ou full. | `low` |
+| `firewall_allowed_udp_ports` | UDP ports opened for inbound traffic. | List of integers from 1 to 65535. | `[]` |
+| `firewall_enabled` | Enables and starts the firewall service. | true or false. | `true` |
+| `firewall_log_level` | Verbosity of the firewall logs. | off, low, medium, high or full. | `low` |
 
-## Variables internes
+## Internal variables
 
-Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargées.
+Defined in `vars/main.yml`, they are not meant to be overridden.
 
-- `firewall_effective_backend` : backend réellement utilisé, une fois « auto » résolu
-- `firewall_zone` : zone firewalld dans laquelle les règles sont posées
-- `firewall_zone_target` : cible de zone firewalld déduite de la politique par défaut
+- `firewall_effective_backend`: backend actually used, once "auto" is resolved
+- `firewall_zone`: firewalld zone the rules are set in
+- `firewall_zone_target`: firewalld zone target derived from the default policy
 
 ## Handlers
 
-- `Recharger le pare-feu`
+- `Reload the firewall`
 
-## Collections requises
+## Required collections
 
-- `ansible.posix` — versions acceptées : `>=2.2.2,<3.0.0`
-- `community.general` — versions acceptées : `>=13.4.0,<14.0.0`
+- `ansible.posix` — accepted versions: `>=2.2.2,<3.0.0`
+- `community.general` — accepted versions: `>=13.4.0,<14.0.0`
 
-Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
-c'est ce fichier qui fait foi à l'installation.
+These ranges are the ones of `requirements.yml`, at the root of the Ansible
+project; that file is the one that counts at install time.
 
-## Exemple d'utilisation
+## Usage example
 
 ```yaml
-- name: Appliquer le rôle firewall
+- name: Apply the firewall role
   hosts: dbservers
   become: true
   roles:
     - role: firewall
 ```
 
-## Systèmes supportés
+## Supported systems
 
 - Debian
 - Ubuntu

@@ -1,11 +1,11 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/" ~ role.name ~ "/meta/main.yml — métadonnées du rôle",
+     "roles/" ~ role.name ~ "/meta/main.yml — metadata of the role",
      [
-       "Décrit le rôle pour Ansible Galaxy et déclare ses dépendances.",
-       "Une liste dependencies vide signifie que le rôle est autonome :",
-       "c'est le playbook qui décide de l'ordre d'application des rôles.",
+       "Describes the role for Ansible Galaxy and declares its dependencies.",
+       "An empty dependencies list means the role stands on its own:",
+       "the playbook is what decides in which order the roles are applied.",
      ]) ]]
 galaxy_info:
   role_name: [[ role.name ]]
@@ -24,5 +24,5 @@ galaxy_info:
     - [[ tag ]]
 [% endfor %]
 
-# Aucune dépendance : l'ordre d'application est défini dans les playbooks.
+# No dependency: the order of application is defined in the playbooks.
 dependencies: []

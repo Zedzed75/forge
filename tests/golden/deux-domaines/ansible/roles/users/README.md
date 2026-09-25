@@ -1,44 +1,44 @@
-# Rôle `users`
+# Role `users`
 
-Comptes locaux : création, groupes secondaires, sudo et clés SSH autorisées.
+Local accounts: creation, secondary groups, sudo and authorised SSH keys.
 
 ## Variables
 
-Toutes les variables sont définies dans `defaults/main.yml` et peuvent être
-surchargées depuis `group_vars/` ou `host_vars/`.
+Every variable is defined in `defaults/main.yml` and can be overridden from
+`group_vars/` or `host_vars/`.
 
-| Variable | Rôle | Valeurs admises | Défaut |
+| Variable | Purpose | Allowed values | Default |
 |---|---|---|---|
-| `users_accounts` | Liste des comptes locaux gérés par le rôle. | Liste de dictionnaires (name, groups, sudo, shell, ssh_public_key, state). | `[]` |
-| `users_manage_sudoers` | Écrit un fichier dans /etc/sudoers.d pour les comptes marqués sudo. | true ou false. | `true` |
-| `users_remove_absent_home` | Supprime /home/<user> lorsque le compte passe à l'état absent. | true ou false. | `false` |
+| `users_accounts` | List of the local accounts managed by the role. | List of dictionaries (name, groups, sudo, shell, ssh_public_key, state). | `[]` |
+| `users_manage_sudoers` | Writes a file in /etc/sudoers.d for the accounts marked sudo. | true or false. | `true` |
+| `users_remove_absent_home` | Removes /home/<user> when the account moves to the absent state. | true or false. | `false` |
 
-## Variables internes
+## Internal variables
 
-Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargées.
+Defined in `vars/main.yml`, they are not meant to be overridden.
 
-- `users_sudoers_file` : nom du fichier déposé dans /etc/sudoers.d
-- `users_secondary_groups` : groupes secondaires déduits de users_accounts
-- `users_sudo_accounts` : comptes présents disposant d'un accès sudo
+- `users_sudoers_file`: name of the file written to /etc/sudoers.d
+- `users_secondary_groups`: secondary groups derived from users_accounts
+- `users_sudo_accounts`: present accounts that have sudo access
 
-## Collections requises
+## Required collections
 
-- `ansible.posix` — versions acceptées : `>=2.2.2,<3.0.0`
+- `ansible.posix` — accepted versions: `>=2.2.2,<3.0.0`
 
-Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
-c'est ce fichier qui fait foi à l'installation.
+These ranges are the ones of `requirements.yml`, at the root of the Ansible
+project; that file is the one that counts at install time.
 
-## Exemple d'utilisation
+## Usage example
 
 ```yaml
-- name: Appliquer le rôle users
+- name: Apply the users role
   hosts: dbservers
   become: true
   roles:
     - role: users
 ```
 
-## Systèmes supportés
+## Supported systems
 
 - Debian
 - Ubuntu

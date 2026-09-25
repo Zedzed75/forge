@@ -1,34 +1,34 @@
-# Fichier géré par Ansible (rôle ssh_hardening) - modification manuelle écrasée.
+# File managed by Ansible (ssh_hardening role) - manual changes overwritten.
 #
-# Ces directives sont lues après /etc/ssh/sshd_config. Sur OpenSSH, c'est la
-# PREMIÈRE valeur rencontrée qui gagne : la ligne « Include » placée en tête du
-# fichier principal garantit donc que ce fichier a la priorité.
+# These directives are read after /etc/ssh/sshd_config. On OpenSSH, it is the
+# FIRST value encountered that wins: the "Include" line placed at the top of
+# the main file therefore guarantees that this file takes precedence.
 
-# Port d'écoute du serveur.
+# Listening port of the server.
 Port {{ ssh_hardening_port }}
 
-# Connexion directe du compte root.
+# Direct login of the root account.
 PermitRootLogin {{ ssh_hardening_permit_root_login }}
 
-# Authentification par mot de passe.
+# Password authentication.
 PasswordAuthentication {{ 'yes' if ssh_hardening_password_authentication else 'no' }}
 KbdInteractiveAuthentication {{ 'yes' if ssh_hardening_password_authentication else 'no' }}
 
-# Authentification par clé publique.
+# Public key authentication.
 PubkeyAuthentication {{ 'yes' if ssh_hardening_pubkey_authentication else 'no' }}
 
-# Transfert graphique X11.
+# X11 graphical forwarding.
 X11Forwarding {{ 'yes' if ssh_hardening_x11_forwarding else 'no' }}
 
-# Nombre de tentatives d'authentification par connexion.
+# Number of authentication attempts per connection.
 MaxAuthTries {{ ssh_hardening_max_auth_tries }}
 
 {% if ssh_hardening_allow_groups | length > 0 %}
-# Seuls les membres de ces groupes peuvent se connecter.
+# Only the members of these groups may log in.
 AllowGroups {{ ssh_hardening_allow_groups | join(' ') }}
 
 {% endif %}
-# Réglages complémentaires de durcissement.
+# Additional hardening settings.
 PermitEmptyPasswords no
 IgnoreRhosts yes
 LoginGraceTime 30

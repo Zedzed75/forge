@@ -1,25 +1,25 @@
-# Rôle `[[ role.name ]]`
+# Role `[[ role.name ]]`
 
 [[ role.summary ]]
 
 ## Variables
 
-Toutes les variables sont définies dans `defaults/main.yml` et peuvent être
-surchargées depuis `group_vars/` ou `host_vars/`.
+Every variable is defined in `defaults/main.yml` and can be overridden from
+`group_vars/` or `host_vars/`.
 
-| Variable | Rôle | Valeurs admises | Défaut |
+| Variable | Purpose | Allowed values | Default |
 |---|---|---|---|
 [% for option in role.options %]
 | `[[ option.var_name ]]` | [[ option.description ]] | [[ option.allowed ]] | `[[ option.default | yaml_scalar ]]` |
 [% endfor %]
 
 [% if role.internal_vars %]
-## Variables internes
+## Internal variables
 
-Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargées.
+Defined in `vars/main.yml`, they are not meant to be overridden.
 
 [% for item in role.internal_vars %]
-- `[[ item.name ]]` : [[ item.description ]]
+- `[[ item.name ]]`: [[ item.description ]]
 [% endfor %]
 
 [% endif %]
@@ -32,27 +32,27 @@ Définies dans `vars/main.yml`, elles ne sont pas destinées à être surchargé
 
 [% endif %]
 [% if role.collections %]
-## Collections requises
+## Required collections
 
 [% for collection in role.collections %]
-- `[[ collection.name ]]` — versions acceptées : `[[ collection.version ]]`
+- `[[ collection.name ]]` — accepted versions: `[[ collection.version ]]`
 [% endfor %]
 
-Ces intervalles sont ceux de `requirements.yml`, à la racine du projet Ansible ;
-c'est ce fichier qui fait foi à l'installation.
+These ranges are the ones of `requirements.yml`, at the root of the Ansible
+project; that file is the one that counts at install time.
 
 [% endif %]
-## Exemple d'utilisation
+## Usage example
 
 ```yaml
-- name: Appliquer le rôle [[ role.name ]]
+- name: Apply the [[ role.name ]] role
   hosts: [[ role.example_group ]]
   become: true
   roles:
     - role: [[ role.name ]]
 ```
 
-## Systèmes supportés
+## Supported systems
 
 [% for platform in role.platforms %]
 - [[ platform ]]

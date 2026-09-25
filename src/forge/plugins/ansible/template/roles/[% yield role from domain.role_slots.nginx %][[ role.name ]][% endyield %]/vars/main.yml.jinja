@@ -1,36 +1,36 @@
 [% from "partials/header.jinja" import file_header, var_doc %]
 ---
 [[ file_header(
-     "roles/nginx/vars/main.yml — variables internes du rôle nginx",
+     "roles/nginx/vars/main.yml — internal variables of the nginx role",
      [
-       "Différences entre familles de systèmes : compte de service et",
-       "emplacement du site par défaut de la distribution.",
+       "Differences between system families: service account and location of",
+       "the default site of the distribution.",
      ]) ]]
 [[ var_doc(
-     "Compte système sous lequel tournent les workers nginx, selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "System account the nginx workers run under, per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 nginx_user_map:
   Debian: www-data
   RedHat: nginx
 
 [[ var_doc(
-     "Chemin du site par défaut livré par la distribution ; vide si absent.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Path of the default site shipped by the distribution; empty if there is none.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 nginx_default_site_map:
   Debian: /etc/nginx/sites-enabled/default
   RedHat: ''
 
 [[ var_doc(
-     "Répertoire de configuration de nginx.",
-     "Identique sur toutes les distributions supportées.") ]]
+     "Configuration directory of nginx.",
+     "The same on every supported distribution.") ]]
 nginx_config_dir: /etc/nginx
 
 [[ var_doc(
-     "Compte de service résolu pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "Service account resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 nginx_user: "{{ nginx_user_map[ansible_facts['os_family']] }}"
 
 [[ var_doc(
-     "Chemin du site par défaut résolu pour la machine courante.",
-     "Calculée automatiquement à partir des faits ; ne pas surcharger.") ]]
+     "Path of the default site resolved for the current machine.",
+     "Computed automatically from the facts; do not override.") ]]
 nginx_default_site_path: "{{ nginx_default_site_map[ansible_facts['os_family']] }}"
