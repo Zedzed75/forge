@@ -42,6 +42,13 @@ CASES = [path.stem for path in spec_files()]
 #: Ansible project (handlers and `notify:`) and a Helm chart (helpers).
 MIXED_CASE = "deux-domaines"
 
+#: Tree used by the GitHub Actions tests: the reference case whose repository
+#: root is a workflow, with several jobs and a step label in each.
+WORKFLOW_CASE = "pipeline-github"
+
+#: The workflow of `WORKFLOW_CASE`, which carries all three kinds of `name:`.
+WORKFLOW = ".github/workflows/ci.yml"
+
 #: Files of `MIXED_CASE` the sensitivity tests edit.
 HANDLERS = "ansible/roles/postgresql/handlers/main.yml"
 TASKS = "ansible/roles/postgresql/tasks/main.yml"
@@ -129,6 +136,14 @@ def tree(tmp_path: Path) -> Path:
     """Writable copy of a golden tree, for the sensitivity tests to deface."""
     target = tmp_path / MIXED_CASE
     shutil.copytree(GOLDEN_DIR / MIXED_CASE, target)
+    return target
+
+
+@pytest.fixture
+def workflow_tree(tmp_path: Path) -> Path:
+    """Writable copy of the tree whose root is a GitHub Actions workflow."""
+    target = tmp_path / WORKFLOW_CASE
+    shutil.copytree(GOLDEN_DIR / WORKFLOW_CASE, target)
     return target
 
 
@@ -226,6 +241,21 @@ def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
     _unchanged(tree, reference)
 
 
+def test_a_github_actions_step_label_edit_leaves_the_fingerprint_untouched(workflow_tree):
+    """`jobs.<id>.steps[].name` is display text, and only display text.
+
+    Nothing in a workflow can reference a step by its label -- `steps.<id>` and
+    `needs:` go through the step `id:` and the job key -- so rewording one
+    cannot change what the workflow runs. Six such labels tripped the
+    fingerprint in the Ansible translation for zero signal, which is what this
+    rule exists to stop.
+    """
+    reference = fp.fingerprint(workflow_tree)
+    _edit(workflow_tree, WORKFLOW, "- name: Récupérer le dépôt", "- name: Check out the repository")
+    _edit(workflow_tree, WORKFLOW, "- name: Installer les outils", "- name: Install the tools")
+    _unchanged(workflow_tree, reference)
+
+
 def test_a_handler_and_its_notify_translated_together_keep_the_fingerprint(tree):
     """The whole point of recording positions instead of names.
 
@@ -296,6 +326,30 @@ def test_a_load_bearing_name_is_not_normalised(tree):
     reference = fp.fingerprint(tree)
     _edit(tree, HANDLERS, 'name: "{{ postgresql_service }}"', 'name: "postgres-elsewhere"')
     _changed(tree, reference)
+
+
+def test_a_job_name_is_not_normalised(workflow_tree):
+    """The negative half of the step-label rule, and the half that matters.
+
+    `jobs.<id>.name` sits one level above a step label and looks exactly like
+    it. It is not prose: it is the check name GitHub displays, and a branch
+    protection rule names required status checks by that string. Renaming it can
+    make a merge gate stop matching, so the fingerprint has to show it.
+    """
+    reference = fp.fingerprint(workflow_tree)
+    _edit(workflow_tree, WORKFLOW, "name: Valider Helm", "name: Validate Helm")
+    _changed(workflow_tree, reference)
+
+
+def test_a_workflow_name_is_not_normalised(workflow_tree):
+    """The other neighbour: the workflow-level `name:` is an identifier too.
+
+    `github.workflow` reads it, a `workflow_run` trigger matches on it, and a
+    README badge URL is built from it.
+    """
+    reference = fp.fingerprint(workflow_tree)
+    _edit(workflow_tree, WORKFLOW, "\nname: boutique\n", "\nname: shop\n")
+    _changed(workflow_tree, reference)
 
 
 def test_a_kubernetes_annotation_value_is_not_normalised(tree):
@@ -498,3 +552,60 @@ def test_an_ansible_task_name_is_normalised_but_a_manifest_name_is_not(tmp_path)
     )
     _, canonical = fp.canonical_text(tree, Path("elsewhere.yml"))
     assert yaml.safe_load(canonical)[0][0]["name"] == "Install the package"
+
+
+#: A workflow carrying all four `name:` keys the positional rule has to tell
+#: apart: the workflow's own, a job's, a step's, and an action argument's.
+_WORKFLOW = """---
+name: Integration
+on: [push]
+jobs:
+  check:
+    name: Check the repository
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Publish the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: report
+"""
+
+
+def _workflow_structure(tree: Path, relative: str) -> dict:
+    path = tree / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_WORKFLOW, encoding="utf-8", newline="\n")
+    _, canonical = fp.canonical_text(tree, Path(relative))
+    return yaml.safe_load(canonical)[0]
+
+
+def test_a_github_actions_step_name_is_normalised_but_its_neighbours_are_not(tmp_path):
+    """Unit check on the positional rule, away from any generated tree.
+
+    One document, four `name:` keys, one of them prose. The rule is positional
+    and not "a key called `name` under `.github/`" precisely so the other three
+    survive: a file elsewhere in `.github/` -- `dependabot.yml`, an issue
+    template -- would otherwise be normalised too, and there a `name` is an
+    identifier again.
+    """
+    tree = tmp_path / "tree"
+    tree.mkdir()
+
+    structure = _workflow_structure(tree, ".github/workflows/ci.yml")
+    job = structure["jobs"]["check"]
+    assert job["steps"][0]["name"] == fp.PROSE
+    assert job["steps"][1]["name"] == fp.PROSE
+    # The three neighbours, all identifiers, all compared verbatim.
+    assert structure["name"] == "Integration"
+    assert job["name"] == "Check the repository"
+    assert job["steps"][1]["with"]["name"] == "report"
+
+    # Same bytes, one directory away: nothing is normalised at all.
+    elsewhere = _workflow_structure(tree, ".github/dependabot.yml")
+    assert elsewhere["jobs"]["check"]["steps"][0]["name"] == "Check out the repository"
+
+    # And a workflow-shaped file in a subdirectory of `.github/workflows/`,
+    # which GitHub does not read either.
+    nested = _workflow_structure(tree, ".github/workflows/parked/ci.yml")
+    assert nested["jobs"]["check"]["steps"][0]["name"] == "Check out the repository"
