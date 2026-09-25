@@ -1,23 +1,23 @@
-"""Les domaines sont un **choix**, jamais un lot.
+"""The domains are a **choice**, never a bundle.
 
-C'est la promesse centrale de l'outil : une seule description du service, et
-l'utilisateur decide ce qu'il en tire. Un projet peut n'avoir besoin que d'un
-chart Helm ; un autre, que de roles et de playbooks Ansible ; un troisieme, que
-d'un socle Terraform. Produire plusieurs domaines a la fois est **un** usage
-possible, pas l'usage normal.
+That is the central promise of the tool: one single description of the service,
+and the user decides what to get out of it. One project may need nothing but a
+Helm chart; another, nothing but Ansible roles and playbooks; a third, nothing
+but a Terraform foundation. Producing several domains at once is **one**
+possible use, not the normal use.
 
-Trois facons de choisir, toutes couvertes ici :
+Three ways of choosing, all covered here:
 
-* une section absente de `forge.yml` ne genere rien ;
-* `--only` restreint une execution a certains domaines ;
-* l'entretien de `forge new` demande lesquels produire.
+* a section absent from `forge.yml` generates nothing;
+* `--only` restricts a run to certain domains;
+* the `forge new` interview asks which ones to produce.
 
-**Ce module est ecrit pour ne pas pouvoir deriver.** Rien n'y code en dur ni le
-nombre de domaines ni leurs noms : tout est lu dans le registre de plugins. Un
-domaine ajoute sans sa specification mono-domaine fait echouer
-`test_chaque_domaine_livre_a_une_specification_mono_domaine`, et la promesse
-reste donc verifiee sur *tous* les domaines livres, pas sur ceux dont on s'est
-souvenu le jour ou on a ecrit le test.
+**This module is written so that it cannot drift.** Nothing in it hardcodes the
+number of domains or their names: everything is read from the plugin registry. A
+domain added without its single-domain specification makes
+`test_every_shipped_domain_has_a_single_domain_specification` fail, so the
+promise stays checked on *every* shipped domain, not on the ones we happened to
+remember the day the test was written.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from tests.scripted_prompter import ScriptedPrompter
 
 runner = CliRunner()
 
-SPEC_DEUX = SPECS_DIR / "deux-domaines.yml"
+SPEC_BOTH = SPECS_DIR / "deux-domaines.yml"
 
 
 def _manager() -> ForgeManager:
@@ -48,17 +48,17 @@ def _manager() -> ForgeManager:
     return instance
 
 
-#: Domaines livres, lus dans le registre. Aucun nom n'est ecrit en dur ici :
-#: c'est ce qui rend ce module solidaire de la realite du produit.
-DOMAINES: tuple[str, ...] = _manager().domain_names()
+#: Shipped domains, read from the registry. No name is hardcoded here: that is
+#: what keeps this module tied to the reality of the product.
+DOMAINS: tuple[str, ...] = _manager().domain_names()
 
-#: Sous-repertoire de sortie de chaque domaine, lu dans son `DomainInfo`.
-OUTDIRS: dict[str, str] = {nom: _manager().domain(nom).info.outdir for nom in DOMAINES}
+#: Output subdirectory of each domain, read from its `DomainInfo`.
+OUTDIRS: dict[str, str] = {name: _manager().domain(name).info.outdir for name in DOMAINS}
 
-#: Une specification **mono-domaine** par domaine livre : le cas ou un projet
-#: n'a besoin que de celui-la. Le test de completude ci-dessous interdit
-#: d'ajouter un domaine sans ajouter le sien.
-SPECS_MONO: dict[str, Path] = {
+#: One **single-domain** specification per shipped domain: the case where a
+#: project needs only that one. The completeness test below forbids adding a
+#: domain without adding its own.
+SINGLE_DOMAIN_SPECS: dict[str, Path] = {
     "ansible": SPECS_DIR / "ansible-ci.yml",
     "helm": SPECS_DIR / "helm-complet.yml",
     "terraform": SPECS_DIR / "terraform-complet.yml",
@@ -67,107 +67,112 @@ SPECS_MONO: dict[str, Path] = {
 }
 
 
-def _generer(spec_path: Path, cible: Path, **kwargs) -> pipeline.GenerationResult:
+def _generate(spec_path: Path, target: Path, **kwargs) -> pipeline.GenerationResult:
     manager = _manager()
     data = load_spec_data(spec_path)
-    return pipeline.generate(data, validate_spec(data, manager), manager, cible, **kwargs)
+    return pipeline.generate(data, validate_spec(data, manager), manager, target, **kwargs)
 
 
-def _domaines_produits(cible: Path) -> set[str]:
-    """Domaines dont la sortie existe reellement dans la cible.
+def _produced_domains(target: Path) -> set[str]:
+    """Domains whose output really exists in the target.
 
-    Derive du registre, jamais d'une liste ecrite ici : un domaine ajoute est
-    surveille sans qu'on y pense.
+    Derived from the registry, never from a list written here: a domain added is
+    watched without anyone thinking about it.
 
-    Un domaine dont la sortie **est** la racine du depot — le domaine
-    `pipeline`, dont le fichier n'a de sens que la ou l'outil de CI le lit — n'a
-    pas de sous-repertoire a chercher : on constate alors la presence d'au moins
-    un des chemins qu'il annonce.
+    A domain whose output **is** the repository root — the `pipeline` domain,
+    whose file only makes sense where the CI tool reads it — has no subdirectory
+    to look for: we then check the presence of at least one of the paths it
+    announces.
     """
-    produits = {
-        nom
-        for nom, outdir in OUTDIRS.items()
-        if outdir not in (".", "") and (cible / outdir).is_dir()
+    produced = {
+        name
+        for name, outdir in OUTDIRS.items()
+        if outdir not in (".", "") and (target / outdir).is_dir()
     }
-    for nom, outdir in OUTDIRS.items():
-        if outdir in (".", "") and _ecrit_a_la_racine(cible, nom):
-            produits.add(nom)
-    return produits
+    for name, outdir in OUTDIRS.items():
+        if outdir in (".", "") and _writes_at_the_root(target, name):
+            produced.add(name)
+    return produced
 
 
-def _ecrit_a_la_racine(cible: Path, domaine: str) -> bool:
-    """Vrai si le domaine racine a ecrit au moins un de ses fichiers.
+def _writes_at_the_root(target: Path, domain: str) -> bool:
+    """True if the root domain wrote at least one of its files.
 
-    Les chemins sont ceux que le plugin annonce lui-meme, moins le fichier de
-    reponses copier : celui-ci existe dans toute cible generee, quel que soit le
-    domaine.
+    The paths are the ones the plugin announces itself, minus the copier answers
+    file: that one exists in any generated target, whatever the domain.
     """
     from forge.plugins.pipeline import tree as pipeline_tree
 
-    if domaine != "pipeline":  # pragma: no cover - un seul domaine racine
+    if domain != "pipeline":  # pragma: no cover - only one root domain
         return False
-    return (cible / pipeline_tree.GITHUB_WORKFLOW).is_file() or (
-        cible / pipeline_tree.GITLAB_CONFIG
+    return (target / pipeline_tree.GITHUB_WORKFLOW).is_file() or (
+        target / pipeline_tree.GITLAB_CONFIG
     ).is_file()
 
 
 # ---------------------------------------------------------------------------
-# Le catalogue de cas ne peut pas deriver
+# The catalogue of cases cannot drift
 # ---------------------------------------------------------------------------
 
 
-def test_chaque_domaine_livre_a_une_specification_mono_domaine():
-    """Un domaine ajoute sans son cas mono-domaine fait echouer ce test.
+def test_every_shipped_domain_has_a_single_domain_specification():
+    """A domain added without its single-domain case makes this test fail.
 
-    C'est le verrou qui rend tous les autres tests de ce module exhaustifs :
-    ils sont parametres sur `SPECS_MONO`, et `SPECS_MONO` doit couvrir le
-    registre.
+    It is the lock that makes every other test in this module exhaustive: they
+    are parametrised on `SINGLE_DOMAIN_SPECS`, and `SINGLE_DOMAIN_SPECS` must
+    cover the registry.
     """
-    manquants = sorted(set(DOMAINES) - set(SPECS_MONO))
-    en_trop = sorted(set(SPECS_MONO) - set(DOMAINES))
-    assert not manquants, (
-        f"domaines livres sans specification mono-domaine : {manquants}. "
-        "Ajoutez-en une a tests/specs/ et referencez-la dans SPECS_MONO : la "
-        "promesse « les domaines sont un choix » doit etre verifiee sur chacun."
+    missing = sorted(set(DOMAINS) - set(SINGLE_DOMAIN_SPECS))
+    extra = sorted(set(SINGLE_DOMAIN_SPECS) - set(DOMAINS))
+    assert not missing, (
+        f"shipped domains without a single-domain specification: {missing}. "
+        "Add one to tests/specs/ and reference it in SINGLE_DOMAIN_SPECS: the "
+        "promise \"the domains are a choice\" must be checked on each of them."
     )
-    assert not en_trop, f"SPECS_MONO cite des domaines inconnus : {en_trop}"
+    assert not extra, f"SINGLE_DOMAIN_SPECS names unknown domains: {extra}"
 
 
-@pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
-def test_la_specification_de_reference_ne_declare_bien_qu_un_domaine(domaine):
-    """Garde-fou sur les donnees de test elles-memes."""
-    data = load_spec_data(SPECS_MONO[domaine])
-    declares = sorted(set(data) & set(DOMAINES))
-    assert declares == [domaine], f"{SPECS_MONO[domaine].name} declare {declares}"
+@pytest.mark.parametrize(
+    "domain", sorted(SINGLE_DOMAIN_SPECS), ids=sorted(SINGLE_DOMAIN_SPECS)
+)
+def test_the_reference_specification_really_declares_a_single_domain(domain):
+    """Guard on the test data itself."""
+    data = load_spec_data(SINGLE_DOMAIN_SPECS[domain])
+    declared = sorted(set(data) & set(DOMAINS))
+    assert declared == [domain], f"{SINGLE_DOMAIN_SPECS[domain].name} declares {declared}"
 
 
 # ---------------------------------------------------------------------------
-# 1. Une section absente ne genere rien
+# 1. An absent section generates nothing
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
-def test_un_domaine_seul_ne_produit_que_lui(domaine, tmp_path):
-    """Le cas d'usage le plus courant : un projet n'a besoin que d'un domaine."""
-    resultat = _generer(SPECS_MONO[domaine], tmp_path)
-    assert resultat.domains == [domaine]
-    assert _domaines_produits(tmp_path) == {domaine}
+@pytest.mark.parametrize(
+    "domain", sorted(SINGLE_DOMAIN_SPECS), ids=sorted(SINGLE_DOMAIN_SPECS)
+)
+def test_a_single_domain_produces_only_itself(domain, tmp_path):
+    """The most common use case: a project needs only one domain."""
+    result = _generate(SINGLE_DOMAIN_SPECS[domain], tmp_path)
+    assert result.domains == [domain]
+    assert _produced_domains(tmp_path) == {domain}
 
 
-@pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
-def test_un_domaine_seul_produit_bien_des_fichiers(domaine, tmp_path):
-    """« Ne produire que lui » ne doit pas vouloir dire « ne rien produire »."""
-    _generer(SPECS_MONO[domaine], tmp_path)
-    racine = tmp_path / OUTDIRS[domaine]
-    fichiers = [chemin for chemin in racine.rglob("*") if chemin.is_file()]
-    # Un domaine ecrivant a la racine partage celle-ci avec les fichiers de
-    # niveau depot : on compte alors ce qu'il annonce, pas ce qui s'y trouve.
-    attendu = 1 if OUTDIRS[domaine] in (".", "") else 5
-    assert len(fichiers) > attendu, f"{domaine} : {len(fichiers)} fichier(s) seulement"
+@pytest.mark.parametrize(
+    "domain", sorted(SINGLE_DOMAIN_SPECS), ids=sorted(SINGLE_DOMAIN_SPECS)
+)
+def test_a_single_domain_really_produces_files(domain, tmp_path):
+    """"Producing only itself" must not come to mean "producing nothing"."""
+    _generate(SINGLE_DOMAIN_SPECS[domain], tmp_path)
+    root = tmp_path / OUTDIRS[domain]
+    files = [path for path in root.rglob("*") if path.is_file()]
+    # A domain writing at the root shares it with the repository-level files: we
+    # then count what it announces, not what is found there.
+    expected = 1 if OUTDIRS[domain] in (".", "") else 5
+    assert len(files) > expected, f"{domain}: only {len(files)} file(s)"
 
 
-def test_une_specification_sans_aucun_domaine_le_dit_clairement(tmp_path):
-    """Un projet vide sans explication n'est pas une reponse acceptable."""
+def test_a_specification_with_no_domain_says_so_plainly(tmp_path):
+    """An empty project with no explanation is not an acceptable answer."""
     spec = tmp_path / "forge.yml"
     save_spec(
         {
@@ -182,211 +187,215 @@ def test_une_specification_sans_aucun_domaine_le_dit_clairement(tmp_path):
         spec,
         sections=[],
     )
-    cible = tmp_path / "projet"
-    resultat = runner.invoke(app, ["generate", "-s", str(spec), "-o", str(cible)])
+    target = tmp_path / "project"
+    result = runner.invoke(app, ["generate", "-s", str(spec), "-o", str(target)])
 
-    assert resultat.exit_code == 0
-    assert "no domain" in resultat.stdout
-    assert "available domains" in resultat.stdout
-    # Tous les domaines livres sont proposes, pas seulement ceux d'alors.
-    for nom in DOMAINES:
-        assert nom in resultat.stdout
-    assert _domaines_produits(cible) == set()
+    assert result.exit_code == 0
+    assert "no domain" in result.stdout
+    assert "available domains" in result.stdout
+    # Every shipped domain is offered, not only the ones of the day.
+    for name in DOMAINS:
+        assert name in result.stdout
+    assert _produced_domains(target) == set()
 
 
 # ---------------------------------------------------------------------------
-# 2. `--only` restreint une execution
+# 2. `--only` restricts a run
 # ---------------------------------------------------------------------------
 
 
-def test_only_restreint_la_generation_a_un_domaine(tmp_path):
-    resultat = _generer(SPEC_DEUX, tmp_path, only=["helm"])
-    assert resultat.domains == ["helm"]
-    assert _domaines_produits(tmp_path) == {"helm"}
+def test_only_restricts_the_generation_to_one_domain(tmp_path):
+    result = _generate(SPEC_BOTH, tmp_path, only=["helm"])
+    assert result.domains == ["helm"]
+    assert _produced_domains(tmp_path) == {"helm"}
 
 
-def test_only_accepte_plusieurs_domaines(tmp_path):
-    resultat = _generer(SPEC_DEUX, tmp_path, only=["ansible", "helm"])
-    assert resultat.domains == ["ansible", "helm"]
+def test_only_accepts_several_domains(tmp_path):
+    result = _generate(SPEC_BOTH, tmp_path, only=["ansible", "helm"])
+    assert result.domains == ["ansible", "helm"]
 
 
-@pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
-def test_only_ne_peut_pas_ajouter_un_domaine_absent_de_la_specification(
-    domaine, tmp_path
-):
-    """`--only` restreint ; il n'ajoute jamais un domaine que la spec ne demande pas.
+@pytest.mark.parametrize(
+    "domain", sorted(SINGLE_DOMAIN_SPECS), ids=sorted(SINGLE_DOMAIN_SPECS)
+)
+def test_only_cannot_add_a_domain_absent_from_the_specification(domain, tmp_path):
+    """`--only` restricts; it never adds a domain the spec does not ask for.
 
-    Et il le dit : demander un domaine absent est une erreur nommee, pas une
-    generation vide. Un silence laisserait croire que le domaine a ete produit.
+    And it says so: asking for an absent domain is a named error, not an empty
+    generation. Silence would let the user believe the domain was produced.
     """
-    autres = [nom for nom in DOMAINES if nom != domaine]
-    with pytest.raises(SpecValidationError) as leve:
-        _generer(SPECS_MONO[domaine], tmp_path, only=autres)
+    others = [name for name in DOMAINS if name != domain]
+    with pytest.raises(SpecValidationError) as raised:
+        _generate(SINGLE_DOMAIN_SPECS[domain], tmp_path, only=others)
 
-    message = str(leve.value)
-    for absent in autres:
+    message = str(raised.value)
+    for absent in others:
         assert absent in message
-    assert domaine in message, "le message doit rappeler ce que la spec declare"
-    assert _domaines_produits(tmp_path) == set()
+    assert domain in message, "the message must recall what the spec declares"
+    assert _produced_domains(tmp_path) == set()
 
 
 # ---------------------------------------------------------------------------
-# 3. L'entretien demande lesquels produire
+# 3. The interview asks which ones to produce
 # ---------------------------------------------------------------------------
 
 
-#: Reponses du tronc commun de `forge new`, communes a tous les entretiens.
-SERVICE_COMMUN: list = [
-    "boutique",              # nom du service
+#: Answers to the common trunk of `forge new`, shared by every interview.
+COMMON_SERVICE: list = [
+    "boutique",              # service name
     "Boutique en ligne",     # description
-    "Equipe Plateforme",     # responsable
+    "Equipe Plateforme",     # owner
     "",                      # contact
-    "prod",                  # environnements
-    True,                    # un environnement de production ?
-    "prod",                  # lequel
-    "",                      # domaine DNS de prod
+    "prod",                  # environments
+    True,                    # is one of them production?
+    "prod",                  # which one
+    "",                      # DNS domain of prod
 ]
 
 
-def test_l_entretien_permet_de_ne_retenir_que_helm(tmp_path):
-    """L'utilisateur coche `helm` seul : aucun autre domaine ne doit sortir."""
+def test_the_interview_allows_keeping_helm_alone(tmp_path):
+    """The user ticks `helm` alone: no other domain must come out."""
     manager = _manager()
     prompter = ScriptedPrompter(
-        SERVICE_COMMUN
+        COMMON_SERVICE
         + [
-            ["helm"],                # <- LE CHOIX : helm seul
+            ["helm"],                # <- THE CHOICE: helm alone
             "1.36", "0.1.0", "1.0.0",
             "docker.io", "boutique", "appVersion",
             "per_env",
             "api", "deployment", ["service"], "8080",
-            False,                   # ajouter un autre composant ?
-            True, True,              # makefile, tests helm
+            False,                   # add another component?
+            True, True,              # makefile, helm tests
         ]
     )
-    resultat = run_new(tmp_path, manager, prompter, spec_out=tmp_path / "forge.yml")
+    result = run_new(tmp_path, manager, prompter, spec_out=tmp_path / "forge.yml")
 
-    assert prompter.exhausted, f"reponses non consommees : {prompter.answers}"
-    assert resultat.domains == ["helm"]
-    assert _domaines_produits(tmp_path) == {"helm"}
-    ecrite = load_spec_data(tmp_path / "forge.yml")
-    assert set(ecrite) & set(DOMAINES) == {"helm"}
+    assert prompter.exhausted, f"answers not consumed: {prompter.answers}"
+    assert result.domains == ["helm"]
+    assert _produced_domains(tmp_path) == {"helm"}
+    written = load_spec_data(tmp_path / "forge.yml")
+    assert set(written) & set(DOMAINS) == {"helm"}
 
 
-def test_l_entretien_permet_de_ne_retenir_que_terraform(tmp_path):
-    """Meme promesse, sur un domaine qui n'a aucun ancetre legacy."""
+def test_the_interview_allows_keeping_terraform_alone(tmp_path):
+    """The same promise, on a domain with no legacy ancestor at all."""
     manager = _manager()
     prompter = ScriptedPrompter(
-        SERVICE_COMMUN
+        COMMON_SERVICE
         + [
-            ["terraform"],           # <- LE CHOIX : terraform seul
-            ["namespace", "quota"],  # familles de ressources
-            "~> 1.9",                # contrainte de version
-            "per_env",               # strategie de namespace
-            "local",                 # backend d'etat
-            "kubeconfig",            # authentification
-            "~/.kube/config",        # chemin du kubeconfig
-            True,                    # un contexte par environnement
+            ["terraform"],           # <- THE CHOICE: terraform alone
+            ["namespace", "quota"],  # resource families
+            "~> 1.9",                # version constraint
+            "per_env",               # namespace strategy
+            "local",                 # state backend
+            "kubeconfig",            # authentication
+            "~/.kube/config",        # kubeconfig path
+            True,                    # one context per environment
             True,                    # makefile
             True,                    # .tflint.hcl
         ]
     )
-    resultat = run_new(tmp_path, manager, prompter, spec_out=tmp_path / "forge.yml")
+    result = run_new(tmp_path, manager, prompter, spec_out=tmp_path / "forge.yml")
 
-    assert prompter.exhausted, f"reponses non consommees : {prompter.answers}"
-    assert resultat.domains == ["terraform"]
-    assert _domaines_produits(tmp_path) == {"terraform"}
-    ecrite = load_spec_data(tmp_path / "forge.yml")
-    assert set(ecrite) & set(DOMAINES) == {"terraform"}
+    assert prompter.exhausted, f"answers not consumed: {prompter.answers}"
+    assert result.domains == ["terraform"]
+    assert _produced_domains(tmp_path) == {"terraform"}
+    written = load_spec_data(tmp_path / "forge.yml")
+    assert set(written) & set(DOMAINS) == {"terraform"}
 
 
 # ---------------------------------------------------------------------------
-# La CLI doit dire ce qu'elle fait
+# The CLI must say what it does
 # ---------------------------------------------------------------------------
 
 
-def test_generate_annonce_ce_qu_il_va_produire(tmp_path):
-    resultat = runner.invoke(
+def test_generate_announces_what_it_is_going_to_produce(tmp_path):
+    result = runner.invoke(
         app,
-        ["generate", "-s", str(SPEC_DEUX), "-o", str(tmp_path), "--only", "helm", "--dry-run"],
+        ["generate", "-s", str(SPEC_BOTH), "-o", str(tmp_path), "--only", "helm", "--dry-run"],
     )
-    assert resultat.exit_code == 0, resultat.stdout
-    assert "helm/" in resultat.stdout
-    assert "ansible/" not in resultat.stdout
+    assert result.exit_code == 0, result.stdout
+    assert "helm/" in result.stdout
+    assert "ansible/" not in result.stdout
 
 
-@pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
-def test_plugins_distingue_les_domaines_demandes_des_autres(domaine):
-    """Le decompte est lu dans le registre : il ne peut pas se perimer."""
-    resultat = runner.invoke(app, ["plugins", "-s", str(SPECS_MONO[domaine])])
-    assert resultat.exit_code == 0, resultat.stdout
-    lignes = resultat.stdout.splitlines()
+@pytest.mark.parametrize(
+    "domain", sorted(SINGLE_DOMAIN_SPECS), ids=sorted(SINGLE_DOMAIN_SPECS)
+)
+def test_plugins_tells_the_requested_domains_from_the_others(domain):
+    """The count is read from the registry: it cannot go stale."""
+    result = runner.invoke(app, ["plugins", "-s", str(SINGLE_DOMAIN_SPECS[domain])])
+    assert result.exit_code == 0, result.stdout
+    lines = result.stdout.splitlines()
 
-    ligne_demande = next(ligne for ligne in lignes if ligne.startswith(domaine))
-    assert "requested by the specification" in ligne_demande
+    requested_line = next(line for line in lines if line.startswith(domain))
+    assert "requested by the specification" in requested_line
 
-    for autre in DOMAINES:
-        if autre == domaine:
+    for other in DOMAINS:
+        if other == domain:
             continue
-        ligne = next(ligne for ligne in lignes if ligne.startswith(autre))
-        assert "not requested" in ligne, f"{autre} : {ligne}"
+        line = next(line for line in lines if line.startswith(other))
+        assert "not requested" in line, f"{other}: {line}"
 
-    assert f"1 domain(s) requested out of {len(DOMAINES)}" in resultat.stdout
+    assert f"1 domain(s) requested out of {len(DOMAINS)}" in result.stdout
 
 
 @pytest.mark.parametrize(
     "spec",
-    sorted(SPECS_MONO.values()) + [SPEC_DEUX],
-    ids=sorted(SPECS_MONO) + ["deux"],
+    sorted(SINGLE_DOMAIN_SPECS.values()) + [SPEC_BOTH],
+    ids=sorted(SINGLE_DOMAIN_SPECS) + ["both"],
 )
-def test_validate_accepte_un_projet_mono_comme_multi_domaine(spec, tmp_path):
-    """Aucun controle inter-domaines ne doit penaliser un projet a un domaine."""
-    _generer(spec, tmp_path)
-    resultat = runner.invoke(app, ["validate", "-o", str(tmp_path), "--skip-missing"])
-    assert resultat.exit_code == 0, resultat.stdout
-    assert "no difference" in resultat.stdout
+def test_validate_accepts_a_single_domain_project_as_well_as_a_multi_domain_one(spec, tmp_path):
+    """No cross-domain check must penalise a project with a single domain."""
+    _generate(spec, tmp_path)
+    result = runner.invoke(app, ["validate", "-o", str(tmp_path), "--skip-missing"])
+    assert result.exit_code == 0, result.stdout
+    assert "no difference" in result.stdout
 
 
-@pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
-def test_diff_ne_voit_aucun_ecart_sur_un_projet_mono_domaine(domaine, tmp_path):
-    """Un projet mono-domaine fraichement genere est a jour, par definition."""
-    _generer(SPECS_MONO[domaine], tmp_path)
-    resultat = runner.invoke(
-        app, ["diff", "-o", str(tmp_path), "-s", str(SPECS_MONO[domaine])]
+@pytest.mark.parametrize(
+    "domain", sorted(SINGLE_DOMAIN_SPECS), ids=sorted(SINGLE_DOMAIN_SPECS)
+)
+def test_diff_sees_no_difference_on_a_single_domain_project(domain, tmp_path):
+    """A freshly generated single-domain project is up to date, by definition."""
+    _generate(SINGLE_DOMAIN_SPECS[domain], tmp_path)
+    result = runner.invoke(
+        app, ["diff", "-o", str(tmp_path), "-s", str(SINGLE_DOMAIN_SPECS[domain])]
     )
-    assert resultat.exit_code == 0, resultat.stdout
-    assert "up to date" in resultat.stdout
+    assert result.exit_code == 0, result.stdout
+    assert "up to date" in result.stdout
 
 
 # ---------------------------------------------------------------------------
-# Les exemples livres sont des specifications valides
+# The shipped examples are valid specifications
 # ---------------------------------------------------------------------------
 
 EXAMPLES_DIR = REPO_ROOT / "examples"
 
 
-def _exemples() -> list[Path]:
+def _examples() -> list[Path]:
     return sorted(EXAMPLES_DIR.glob("*.yml"))
 
 
-def test_des_exemples_mono_domaine_sont_livres():
-    """Un utilisateur doit trouver, dans le depot, un cas par domaine."""
-    couverts = {
-        nom
-        for chemin in _exemples()
-        for nom in set(load_spec_data(chemin)) & set(DOMAINES)
-        if len(set(load_spec_data(chemin)) & set(DOMAINES)) == 1
+def test_single_domain_examples_are_shipped():
+    """A user must find, in the repository, one case per domain."""
+    covered = {
+        name
+        for path in _examples()
+        for name in set(load_spec_data(path)) & set(DOMAINS)
+        if len(set(load_spec_data(path)) & set(DOMAINS)) == 1
     }
-    assert couverts == set(DOMAINES), (
-        f"exemples mono-domaine manquants pour : {sorted(set(DOMAINES) - couverts)}"
+    assert covered == set(DOMAINS), (
+        f"missing single-domain examples for: {sorted(set(DOMAINS) - covered)}"
     )
 
 
 @pytest.mark.parametrize(
-    "exemple", _exemples(), ids=[chemin.stem for chemin in _exemples()]
+    "example", _examples(), ids=[path.stem for path in _examples()]
 )
-def test_chaque_exemple_est_valide_et_se_genere(exemple, tmp_path):
-    """Un exemple qui ne se genere pas est pire qu'aucun exemple."""
-    resultat = _generer(exemple, tmp_path)
-    demandes = sorted(set(load_spec_data(exemple)) & set(DOMAINES))
-    assert resultat.domains == demandes
-    assert _domaines_produits(tmp_path) == set(demandes)
+def test_every_example_is_valid_and_generates(example, tmp_path):
+    """An example that does not generate is worse than no example at all."""
+    result = _generate(example, tmp_path)
+    requested = sorted(set(load_spec_data(example)) & set(DOMAINS))
+    assert result.domains == requested
+    assert _produced_domains(tmp_path) == set(requested)

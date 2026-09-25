@@ -1,9 +1,9 @@
-"""Prompter scripte : rejoue un entretien complet sans terminal.
+"""Scripted prompter: replays a complete interview without a terminal.
 
-Portage de `tests/scripted_prompter.py` d'ansible-forge (MIGRATION.md §3). Les
-reponses sont consommees dans l'ordre ; une reponse manquante ou d'un type
-inattendu leve, ce qui transforme une derive du questionnaire en echec de test
-explicite plutot qu'en blocage.
+Port of ansible-forge's `tests/scripted_prompter.py` (MIGRATION.md §3). The
+answers are consumed in order; a missing answer, or one of an unexpected type,
+raises — which turns a drift in the questionnaire into an explicit test failure
+rather than a hang.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from forge.interview.prompter import Validator
 
 
 class ScriptedPrompter:
-    """Implementation de `Prompter` alimentee par une liste de reponses."""
+    """Implementation of `Prompter` fed from a list of answers."""
 
     def __init__(self, answers: list[Any]) -> None:
         self.answers = list(answers)
@@ -24,12 +24,12 @@ class ScriptedPrompter:
     def _next(self, message: str, expected: type | tuple[type, ...]) -> Any:
         self.asked.append(message)
         if not self.answers:
-            raise AssertionError(f"reponse manquante pour la question : {message!r}")
+            raise AssertionError(f"missing answer for question: {message!r}")
         answer = self.answers.pop(0)
         if not isinstance(answer, expected):
             raise AssertionError(
-                f"reponse de type {type(answer).__name__} pour {message!r}, "
-                f"attendu {expected}"
+                f"answer of type {type(answer).__name__} for {message!r}, "
+                f"expected {expected}"
             )
         return answer
 
@@ -38,7 +38,7 @@ class ScriptedPrompter:
         if validate is not None:
             error = validate(answer)
             if error is not None:
-                raise AssertionError(f"reponse refusee pour {message!r} : {error}")
+                raise AssertionError(f"answer refused for {message!r}: {error}")
         return answer
 
     def confirm(self, message: str, default: bool = True) -> bool:
@@ -48,7 +48,7 @@ class ScriptedPrompter:
         answer = self._next(message, str)
         values = [value for value, _ in choices]
         if answer not in values:
-            raise AssertionError(f"{answer!r} ne fait pas partie de {values}")
+            raise AssertionError(f"{answer!r} is not one of {values}")
         return answer
 
     def checkbox(
@@ -58,7 +58,7 @@ class ScriptedPrompter:
         values = [value for value, _ in choices]
         unknown = [item for item in answer if item not in values]
         if unknown:
-            raise AssertionError(f"choix inconnus {unknown} parmi {values}")
+            raise AssertionError(f"unknown choices {unknown} among {values}")
         return answer
 
     def note(self, message: str) -> None:
@@ -66,5 +66,5 @@ class ScriptedPrompter:
 
     @property
     def exhausted(self) -> bool:
-        """Vrai si toutes les reponses scriptees ont ete consommees."""
+        """True when every scripted answer has been consumed."""
         return not self.answers

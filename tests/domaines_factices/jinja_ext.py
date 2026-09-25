@@ -1,8 +1,8 @@
-"""Filtres des domaines factices.
+"""Filters of the fake domains.
 
-Ils reutilisent le gabarit du plugin `demo`, donc ses filtres. Ce module existe
-parce que la convention du coeur est **par paquet de plugin** :
-`forge.pipeline.plugin_jinja_module` cherche `<paquet-du-plugin>.jinja_ext`.
+They reuse the `demo` plugin's template, hence its filters. This module exists
+because the core's convention is **per plugin package**:
+`forge.pipeline.plugin_jinja_module` looks for `<plugin-package>.jinja_ext`.
 """
 
 from __future__ import annotations

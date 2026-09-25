@@ -1,4 +1,4 @@
-"""Domaine factice conforme : sert de reference aux controles inter-domaines."""
+"""Conforming fake domain: the reference for the cross-domain checks."""
 
 from __future__ import annotations
 
@@ -6,17 +6,17 @@ from typing import Any
 
 from forge.plugins_api.hookspecs import hookimpl
 from forge.plugins_api.types import DomainInfo, Projection
-from tests.domaines_factices import SectionTriviale, projection_standard
+from tests.domaines_factices import TrivialSection, standard_projection
 
 
 @hookimpl
 def forge_domain() -> DomainInfo:
-    return DomainInfo(name="normal", title="Normal", summary="Domaine factice conforme")
+    return DomainInfo(name="normal", title="Normal", summary="Conforming fake domain")
 
 
 @hookimpl
-def forge_spec_model() -> type[SectionTriviale]:
-    return SectionTriviale
+def forge_spec_model() -> type[TrivialSection]:
+    return TrivialSection
 
 
 @hookimpl
@@ -31,4 +31,4 @@ def forge_answers(spec: Any) -> dict[str, Any]:
 
 @hookimpl
 def forge_projection(spec: Any) -> Projection:
-    return projection_standard(spec)
+    return standard_projection(spec)

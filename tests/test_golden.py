@@ -1,16 +1,16 @@
-"""Tests golden : meme specification, meme sortie, octet pour octet.
+"""Golden tests: same specification, same output, byte for byte.
 
-Harnais repris d'ansible-forge (MIGRATION.md §3) et adapte a une sortie ecrite
-par copier. Chaque fichier de `tests/specs/` est rendu puis compare a
-`tests/golden/<nom-de-spec>/`.
+Harness taken from ansible-forge (MIGRATION.md §3) and adapted to output written
+by copier. Every file under `tests/specs/` is rendered then compared against
+`tests/golden/<spec-name>/`.
 
-Re-benediction apres un changement **voulu** de gabarit :
+Re-blessing after an **intended** template change:
 
     uv run pytest tests/test_golden.py --regen-golden
 
-Les deux lignes volatiles du fichier de reponses copier (`_commit`, `_src_path`)
-sont neutralisees avant comparaison : elles dependent du poste et du clone
-temporaire, pas du gabarit.
+The two volatile lines of the copier answers file (`_commit`, `_src_path`) are
+neutralised before comparison: they depend on the machine and on the temporary
+clone, not on the template.
 """
 
 from __future__ import annotations
@@ -29,76 +29,76 @@ from tests.conftest import (
     tree_files,
 )
 
-#: Cas de test : un par specification de reference.
+#: Test cases: one per reference specification.
 CASES = spec_files()
 
-#: Cas de reference du domaine de demonstration, vise par les tests cibles.
-CAS_DEMO = next(path for path in CASES if path.stem == "demo-complet")
+#: Reference case of the demonstration domain, targeted by the focused tests.
+DEMO_CASE = next(path for path in CASES if path.stem == "demo-complet")
 
-#: Fichier du gabarit demo volontairement stocke en CRLF (cf. .gitattributes).
-TEMOIN_CRLF = "fins-de-ligne.txt"
+#: File of the demo template deliberately stored with CRLF (cf. .gitattributes).
+CRLF_WITNESS = "fins-de-ligne.txt"
 
 
 def _render(spec_path: Path, target: Path) -> Path:
-    # Le plugin de demonstration ET les domaines livres : une specification qui
-    # ne declare pas une section ne genere simplement pas ce domaine. Le rendu
-    # vit dans conftest : le harnais d'empreinte doit observer exactement le meme.
+    # The demonstration plugin AND the shipped domains: a specification that does
+    # not declare a section simply does not generate that domain. The render
+    # lives in conftest: the fingerprint harness must observe exactly the same.
     return render_all_plugins(spec_path, target)
 
 
 @pytest.mark.parametrize("spec_path", CASES, ids=[path.stem for path in CASES])
-def test_la_sortie_correspond_a_la_reference(spec_path, tmp_path, regen_golden):
-    rendu = _render(spec_path, tmp_path / "rendu")
+def test_the_output_matches_the_reference(spec_path, tmp_path, regen_golden):
+    rendered = _render(spec_path, tmp_path / "rendered")
     reference = GOLDEN_DIR / spec_path.stem
 
     if regen_golden:
-        bless(rendu, reference)
-        pytest.skip(f"reference re-benie : {reference.name}")
+        bless(rendered, reference)
+        pytest.skip(f"reference re-blessed: {reference.name}")
 
     assert reference.is_dir(), (
-        f"reference absente : {reference}. Lancez pytest --regen-golden apres "
-        "avoir verifie que la sortie est correcte."
+        f"missing reference: {reference}. Run pytest --regen-golden after "
+        "checking that the output is correct."
     )
 
-    attendus = tree_files(reference)
-    obtenus = tree_files(rendu)
-    assert obtenus == attendus, (
-        f"arborescence differente : en trop {sorted(set(obtenus) - set(attendus))}, "
-        f"manquants {sorted(set(attendus) - set(obtenus))}"
+    expected = tree_files(reference)
+    obtained = tree_files(rendered)
+    assert obtained == expected, (
+        f"different tree: extra {sorted(set(obtained) - set(expected))}, "
+        f"missing {sorted(set(expected) - set(obtained))}"
     )
 
-    # Comparaison sur les octets : `read_text` traduirait les CRLF a la lecture
-    # et rendrait le harnais aveugle a une regression de fins de ligne.
-    differents = [
-        nom
-        for nom in attendus
-        if stable_text(rendu / nom).encode("utf-8") != (reference / nom).read_bytes()
+    # Compare on bytes: `read_text` would translate CRLF while reading and blind
+    # the harness to a line-ending regression.
+    different = [
+        name
+        for name in expected
+        if stable_text(rendered / name).encode("utf-8") != (reference / name).read_bytes()
     ]
-    assert not differents, f"contenu different : {', '.join(differents)}"
+    assert not different, f"different content: {', '.join(different)}"
 
 
 @pytest.mark.parametrize("spec_path", CASES, ids=[path.stem for path in CASES])
-def test_deux_rendus_successifs_sont_identiques(spec_path, tmp_path):
-    """Le determinisme ne depend ni de l'ordre des dictionnaires ni de l'horloge."""
-    premier = tree_files(_render(spec_path, tmp_path / "un"))
-    second = tree_files(_render(spec_path, tmp_path / "deux"))
-    assert premier == second
-    for nom in premier:
-        assert stable_text(tmp_path / "un" / nom) == stable_text(tmp_path / "deux" / nom)
+def test_two_successive_renders_are_identical(spec_path, tmp_path):
+    """Determinism depends neither on dict ordering nor on the clock."""
+    first = tree_files(_render(spec_path, tmp_path / "one"))
+    second = tree_files(_render(spec_path, tmp_path / "two"))
+    assert first == second
+    for name in first:
+        assert stable_text(tmp_path / "one" / name) == stable_text(tmp_path / "two" / name)
 
 
-def test_le_filtrage_de_fichier_par_if_supprime_bien_le_fichier(tmp_path):
-    """Un segment de chemin rendu vide fait disparaitre le fichier (MIGRATION §2.1)."""
-    rendu = _render(CAS_DEMO, tmp_path)
-    assert (rendu / "demo" / "widgets" / "cpu" / "detail.yml").is_file()
-    assert not (rendu / "demo" / "widgets" / "requetes").exists()
+def test_filtering_a_file_with_if_really_removes_the_file(tmp_path):
+    """A path segment rendered empty makes the file disappear (MIGRATION §2.1)."""
+    rendered = _render(DEMO_CASE, tmp_path)
+    assert (rendered / "demo" / "widgets" / "cpu" / "detail.yml").is_file()
+    assert not (rendered / "demo" / "widgets" / "requetes").exists()
 
 
-def test_les_yields_imbriques_produisent_le_produit_cartesien(tmp_path):
-    """Un yield par segment : environnements x widgets, la variable parente restant lue."""
-    rendu = _render(CAS_DEMO, tmp_path)
-    fichiers = tree_files(rendu / "demo" / "environments")
-    assert fichiers == [
+def test_nested_yields_produce_the_cartesian_product(tmp_path):
+    """One yield per segment: environments x widgets, the parent variable still read."""
+    rendered = _render(DEMO_CASE, tmp_path)
+    files = tree_files(rendered / "demo" / "environments")
+    assert files == [
         "dev/cpu.yml",
         "dev/requetes.yml",
         "prod/cpu.yml",
@@ -106,30 +106,30 @@ def test_les_yields_imbriques_produisent_le_produit_cartesien(tmp_path):
     ]
 
 
-def test_la_normalisation_s_applique_a_un_rendu_copier_reel(tmp_path):
-    """Preuve de bout en bout : un gabarit en CRLF ressort en LF.
+def test_the_normalisation_applies_to_a_real_copier_render(tmp_path):
+    """End-to-end proof: a template stored in CRLF comes out in LF.
 
-    Le fichier temoin porte une exception dans le `.gitattributes` du depot ;
-    sans elle, git le normaliserait au checkout et le test s'auto-annulerait en
-    silence. On verifie donc d'abord qu'il a bien conserve ses CRLF.
+    The witness file carries an exception in the repository's `.gitattributes`;
+    without it git would normalise it at checkout and the test would silently
+    cancel itself. So we first check that it really kept its CRLF.
     """
-    source = REPO_ROOT / "src" / "forge" / "plugins" / "demo" / "template" / TEMOIN_CRLF
-    assert source.is_file(), f"fichier temoin absent : {source}"
+    source = REPO_ROOT / "src" / "forge" / "plugins" / "demo" / "template" / CRLF_WITNESS
+    assert source.is_file(), f"missing witness file: {source}"
     if b"\r\n" not in source.read_bytes():
         pytest.fail(
-            f"{source} a perdu ses CRLF : l'exception du .gitattributes a saute, "
-            "le test ne prouve plus rien."
+            f"{source} lost its CRLF: the .gitattributes exception has gone, "
+            "the test no longer proves anything."
         )
 
-    rendu = _render(CAS_DEMO, tmp_path)
-    livre = rendu / "demo" / TEMOIN_CRLF
-    assert livre.is_file()
-    assert b"\r" not in livre.read_bytes()
+    rendered = _render(DEMO_CASE, tmp_path)
+    delivered = rendered / "demo" / CRLF_WITNESS
+    assert delivered.is_file()
+    assert b"\r" not in delivered.read_bytes()
 
 
-def test_un_filtre_de_plugin_est_bien_applique(tmp_path):
-    """Preuve que `FORGE_PLUGIN_JINJA` charge bien les filtres du domaine."""
-    rendu = _render(CAS_DEMO, tmp_path)
-    readme = (rendu / "demo" / "README.md").read_text(encoding="utf-8")
-    assert "BOUTIQUE" in readme          # filtre shout
-    assert "== boutique ==" in readme    # global demo_banner
+def test_a_plugin_filter_is_really_applied(tmp_path):
+    """Proof that `FORGE_PLUGIN_JINJA` really loads the domain's filters."""
+    rendered = _render(DEMO_CASE, tmp_path)
+    readme = (rendered / "demo" / "README.md").read_text(encoding="utf-8")
+    assert "BOUTIQUE" in readme          # shout filter
+    assert "== boutique ==" in readme    # demo_banner global

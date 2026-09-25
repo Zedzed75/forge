@@ -1,17 +1,19 @@
-"""Domaine pipeline — celui dont la sortie depend des autres sections.
+"""The pipeline domain — the one whose output depends on the other sections.
 
-Le seul domaine du projet qui lit ce que les autres declarent. Toute la question
-est de savoir **comment** : il ne doit connaitre aucun domaine par son nom, et
-recevoir du coeur des faits dans le vocabulaire du contrat — `DomainInfo`,
-`Command`, `Projection`.
+The only domain of the project that reads what the others declare. The whole
+question is **how**: it must know no domain by name, and receive from the core
+facts in the vocabulary of the contract — `DomainInfo`, `Command`, `Projection`.
 
-Le temoin de cette promesse est `tests/domaines_factices/inconnu.py` : un domaine
-que le plugin n'a jamais vu, avec un outil que sa table d'installation ne
-connait pas. S'il en engendre un job correct sans qu'une ligne change, la
-promesse tient ; sinon elle tenait par accident.
+The witness of that promise is `tests/domaines_factices/inconnu.py`: a domain the
+plugin has never seen, with a tool its installation table does not know. If it
+emits a correct job for it without a line changing, the promise holds; otherwise
+it held by accident.
 
-Ce module verrouille aussi les trois defauts trouves avant la mise de cote de la
-phase 8, chacun par un test qui echouerait s'ils revenaient.
+This module also locks down the three defects found before phase 8 was parked,
+each by a test that would fail if they came back.
+
+The plugin's own messages are still French: the domains are translated with
+their templates, so the assertions below quote them as they are.
 """
 
 from __future__ import annotations
@@ -29,13 +31,13 @@ from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager
 from forge.spec.assembly import validate_spec
 from forge.spec.io import load_spec_data
 from tests.conftest import SPECS_DIR
-from tests.domaines_factices.inconnu import OUTIL_INCONNU
+from tests.domaines_factices.inconnu import UNKNOWN_TOOL
 
 SPEC_GITHUB = SPECS_DIR / "pipeline-github.yml"
 SPEC_GITLAB = SPECS_DIR / "pipeline-seul.yml"
 
-#: Domaine factice que le plugin pipeline n'a jamais vu.
-PLUGIN_INCONNU = "tests.domaines_factices.inconnu"
+#: Fake domain the pipeline plugin has never seen.
+UNKNOWN_PLUGIN = "tests.domaines_factices.inconnu"
 
 
 def _manager(*extras: str) -> ForgeManager:
@@ -45,9 +47,9 @@ def _manager(*extras: str) -> ForgeManager:
     return instance
 
 
-def _spec(chemin: Path = SPEC_GITHUB, *extras: str):
+def _spec(path: Path = SPEC_GITHUB, *extras: str):
     manager = _manager(*extras)
-    data = load_spec_data(chemin)
+    data = load_spec_data(path)
     return data, validate_spec(data, manager), manager
 
 
@@ -64,372 +66,373 @@ def _base(**pipeline) -> dict:
     }
 
 
-def _genere(tmp_path: Path, chemin: Path = SPEC_GITHUB, *extras: str):
-    data, spec, manager = _spec(chemin, *extras)
+def _generate(tmp_path: Path, path: Path = SPEC_GITHUB, *extras: str):
+    data, spec, manager = _spec(path, *extras)
     pipeline_module.generate(data, spec, manager, tmp_path)
     return spec, manager
 
 
-def _projection(donnees: dict, *extras: str) -> dict:
+def _projection(given: dict, *extras: str) -> dict:
     manager = _manager(*extras)
-    spec = validate_spec(donnees, manager)
+    spec = validate_spec(given, manager)
     return manager.domain("pipeline").answers(spec)
 
 
-def _issues(donnees: dict, level: str) -> list[str]:
-    spec = validate_spec(donnees, _manager())
+def _issues(given: dict, level: str) -> list[str]:
+    spec = validate_spec(given, _manager())
     return [issue.message for issue in answers.cross_check(spec) if issue.level == level]
 
 
 # ---------------------------------------------------------------------------
-# La promesse : federer sans connaitre
+# The promise: federate without knowing
 # ---------------------------------------------------------------------------
 
 
-def test_un_domaine_jamais_vu_obtient_son_job_de_validation():
-    """Le temoin de la phase 8, et le seul test qui prouve vraiment la promesse.
+def test_a_domain_never_seen_gets_its_validation_job():
+    """The witness of phase 8, and the only test that really proves the promise.
 
-    `inconnu` n'existait pas quand le plugin pipeline a ete ecrit. S'il obtient
-    un job correct sans qu'une ligne change, c'est que le pipeline lit le
-    contexte et non une liste de domaines connus.
+    `inconnu` did not exist when the pipeline plugin was written. If it gets a
+    correct job without a line changing, then the pipeline reads the context and
+    not a list of known domains.
     """
-    donnees = _base(provider="github")
-    donnees["inconnu"] = {"enabled": True}
-    projection = _projection(donnees, PLUGIN_INCONNU)
+    given = _base(provider="github")
+    given["inconnu"] = {"enabled": True}
+    projection = _projection(given, UNKNOWN_PLUGIN)
 
-    cles = [job["key"] for job in projection["validate_jobs"]]
-    assert "valider-inconnu" in cles
+    keys = [job["key"] for job in projection["validate_jobs"]]
+    assert "valider-inconnu" in keys
 
     job = next(j for j in projection["jobs"] if j["key"] == "valider-inconnu")
-    assert job["name"] == "Valider Domaine Inconnu"
-    libelles = [etape["name"] for etape in job["steps"]]
-    assert "rendu inconnu" in libelles and "controle inconnu" in libelles
+    assert job["name"] == "Valider Unknown Domain"
+    labels = [step["name"] for step in job["steps"]]
+    assert "unknown render" in labels and "unknown check" in labels
 
 
-def test_un_outil_inconnu_n_est_jamais_devine():
-    """Le pipeline nomme ce qu'il ne sait pas installer, et fait echouer l'etape.
+def test_an_unknown_tool_is_never_guessed():
+    """The pipeline names what it cannot install, and makes the step fail.
 
-    Une etape muette laisserait le job tomber plus loin sur un « command not
-    found », a l'endroit ou la cause n'est plus visible.
+    A silent step would let the job fall over further on with a "command not
+    found", where the cause is no longer visible.
     """
-    donnees = _base(provider="github")
-    donnees["inconnu"] = {"enabled": True}
-    projection = _projection(donnees, PLUGIN_INCONNU)
+    given = _base(provider="github")
+    given["inconnu"] = {"enabled": True}
+    projection = _projection(given, UNKNOWN_PLUGIN)
 
-    assert OUTIL_INCONNU in projection["unknown_tools"]
+    assert UNKNOWN_TOOL in projection["unknown_tools"]
     job = next(j for j in projection["jobs"] if j["key"] == "valider-inconnu")
     installation = job["steps"][0]
-    assert OUTIL_INCONNU in " ".join(installation["run"])
+    assert UNKNOWN_TOOL in " ".join(installation["run"])
     assert "exit 1" in installation["run"]
 
 
-def test_un_domaine_muet_sur_le_deploiement_est_nomme_et_non_devine():
-    """forge n'invente pas une commande de deploiement : il dit qui se tait."""
+def test_a_domain_silent_about_deployment_is_named_not_guessed():
+    """forge does not invent a deployment command: it says who stays silent."""
     _, spec, manager = _spec(SPEC_GITHUB)
     projection = manager.domain("pipeline").answers(spec)
-    # Le cas de reference declare helm et terraform, qui savent se deployer.
+    # The reference case declares helm and terraform, which know how to deploy.
     assert projection["undeployed"] == []
-    assert projection["deploy_jobs"], "les domaines qui savent se deployer doivent l'avoir fait"
+    assert projection["deploy_jobs"], "the domains that know how to deploy must have done so"
 
 
-def test_le_pipeline_ne_se_declare_jamais_lui_meme_non_deploye():
-    """Un pipeline ne se deploie pas : il est le deploiement."""
-    donnees = _base(provider="github", deploy={"environments": ["dev"]})
-    projection = _projection(donnees)
+def test_the_pipeline_never_declares_itself_undeployed():
+    """A pipeline does not deploy itself: it is the deployment."""
+    given = _base(provider="github", deploy={"environments": ["dev"]})
+    projection = _projection(given)
     assert "pipeline" not in projection["undeployed"]
 
 
 # ---------------------------------------------------------------------------
-# Les trois defauts trouves avant la mise de cote
+# The three defects found before the domain was parked
 # ---------------------------------------------------------------------------
 
 
-def test_aucun_chemin_du_poste_n_entre_dans_le_pipeline(monkeypatch):
-    """Defaut 1 : `Command.env` porte des chemins calcules sur la machine.
+def test_no_workstation_path_enters_the_pipeline(monkeypatch):
+    """Defect 1: `Command.env` carries paths computed on the machine.
 
-    Les recopier graverait le chemin d'un poste de developpement dans un fichier
-    de CI, et rendrait la sortie **dependante de la machine qui l'a engendree** —
-    un fichier golden ne pourrait plus etre compare.
+    Copying them over would carve a developer workstation's path into a CI file,
+    and make the output **depend on the machine that produced it** — a golden
+    file could no longer be compared.
     """
-    monkeypatch.setenv("FORGE_ANSIBLE_COLLECTIONS", "/chemin/du/poste/collections")
-    donnees = _base(provider="github")
-    donnees["inconnu"] = {"enabled": True}
-    projection = _projection(donnees, PLUGIN_INCONNU)
+    monkeypatch.setenv("FORGE_ANSIBLE_COLLECTIONS", "/workstation/path/collections")
+    given = _base(provider="github")
+    given["inconnu"] = {"enabled": True}
+    projection = _projection(given, UNKNOWN_PLUGIN)
 
-    rendu = json.dumps(projection)
-    assert "/chemin/du/poste" not in rendu
-    assert "/opt/quelque-part" not in rendu, "le chemin declare par `inconnu` doit tomber"
-    # Ce qui reste est du reglage de comportement, valable partout.
+    rendered = json.dumps(projection)
+    assert "/workstation/path" not in rendered
+    assert "/opt/somewhere" not in rendered, "the path declared by `inconnu` must be dropped"
+    # What remains is behaviour configuration, valid anywhere.
     job = next(j for j in projection["jobs"] if j["key"] == "valider-inconnu")
     assert job["steps"][1]["env"] == {"NO_COLOR": "1"}
 
 
-def test_la_projection_ne_depend_pas_de_l_environnement_du_processus(monkeypatch):
-    """Corollaire du defaut 1, verifie sur la sortie complete."""
-    donnees = _base(provider="github")
-    donnees["inconnu"] = {"enabled": True}
+def test_the_projection_does_not_depend_on_the_process_environment(monkeypatch):
+    """Corollary of defect 1, checked on the complete output."""
+    given = _base(provider="github")
+    given["inconnu"] = {"enabled": True}
 
     monkeypatch.delenv("FORGE_ANSIBLE_COLLECTIONS", raising=False)
-    sans = json.dumps(_projection(donnees, PLUGIN_INCONNU), sort_keys=True)
-    monkeypatch.setenv("FORGE_ANSIBLE_COLLECTIONS", "/ailleurs")
-    monkeypatch.setenv("FORGE_TF_PLUGIN_CACHE", "/ailleurs/encore")
-    avec = json.dumps(_projection(donnees, PLUGIN_INCONNU), sort_keys=True)
-    assert sans == avec
+    without = json.dumps(_projection(given, UNKNOWN_PLUGIN), sort_keys=True)
+    monkeypatch.setenv("FORGE_ANSIBLE_COLLECTIONS", "/elsewhere")
+    monkeypatch.setenv("FORGE_TF_PLUGIN_CACHE", "/elsewhere/again")
+    with_them = json.dumps(_projection(given, UNKNOWN_PLUGIN), sort_keys=True)
+    assert without == with_them
 
 
-def test_le_deploiement_suit_le_rang_declare_et_non_l_alphabet():
-    """Defaut 2 : le chart partait avant le Terraform qui cree son namespace.
+def test_the_deployment_follows_the_declared_rank_and_not_the_alphabet():
+    """Defect 2: the chart went before the Terraform creating its namespace.
 
-    Aucun tri generique ne pouvait le deviner : c'est une propriete du domaine,
-    et `DomainInfo.deploy_order` la porte.
+    No generic ordering could have guessed it: it is a property of the domain,
+    and `DomainInfo.deploy_order` carries it.
     """
     _, spec, manager = _spec(SPEC_GITHUB)
     projection = manager.domain("pipeline").answers(spec)
     job = projection["deploy_jobs"][0]
-    repertoires = [etape["workdir"] for etape in job["steps"] if etape["workdir"]]
-    premier_terraform = next(i for i, d in enumerate(repertoires) if d.startswith("terraform"))
-    premier_helm = next(i for i, d in enumerate(repertoires) if d.startswith("helm"))
-    assert premier_terraform < premier_helm, (
-        "le socle doit partir avant ce qui s'y pose ; l'ordre alphabetique donnerait "
-        "l'inverse"
+    workdirs = [step["workdir"] for step in job["steps"] if step["workdir"]]
+    first_terraform = next(i for i, d in enumerate(workdirs) if d.startswith("terraform"))
+    first_helm = next(i for i, d in enumerate(workdirs) if d.startswith("helm"))
+    assert first_terraform < first_helm, (
+        "the foundation must go before what sits on it; alphabetical order would give "
+        "the opposite"
     )
 
 
-def test_le_chainage_stdin_devient_une_redirection_par_fichier():
-    """Defaut 3 : un tube masquerait l'echec de la source.
+def test_the_stdin_chaining_becomes_a_file_redirection():
+    """Defect 3: a pipe would hide the failure of the source.
 
-    `pipefail` n'existe pas dans le `/bin/sh` d'une image Debian : la source
-    ecrit dans un fichier, le consommateur le relit, et chaque etape porte son
-    propre code de sortie.
+    `pipefail` does not exist in the `/bin/sh` of a Debian image: the source
+    writes to a file, the consumer reads it back, and every step carries its own
+    exit code.
     """
-    donnees = _base(provider="gitlab")
-    donnees["inconnu"] = {"enabled": True}
-    projection = _projection(donnees, PLUGIN_INCONNU)
+    given = _base(provider="gitlab")
+    given["inconnu"] = {"enabled": True}
+    projection = _projection(given, UNKNOWN_PLUGIN)
 
     job = next(j for j in projection["jobs"] if j["key"] == "valider-inconnu")
-    lignes = [ligne for etape in job["steps"] for ligne in etape["run"]]
-    source = next(ligne for ligne in lignes if "render" in ligne)
-    consommateur = next(ligne for ligne in lignes if "check" in ligne)
+    lines = [line for step in job["steps"] for line in step["run"]]
+    source = next(line for line in lines if "render" in line)
+    consumer = next(line for line in lines if "check" in line)
 
-    assert "|" not in source and "|" not in consommateur
-    fichier = source.split("> ", 1)[1]
-    assert consommateur.endswith(f"< {fichier}")
+    assert "|" not in source and "|" not in consumer
+    path = source.split("> ", 1)[1]
+    assert consumer.endswith(f"< {path}")
 
 
 # ---------------------------------------------------------------------------
-# Ce que le sous-modele refuse, et ce que le controle croise signale
+# What the sub-model refuses, and what the cross-check reports
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     ("provider", "runner"), [("github", "ubuntu-latest"), ("gitlab", "debian:trixie-slim")]
 )
-def test_le_runner_par_defaut_depend_de_l_outil(provider, runner):
-    """GitHub nomme une machine, GitLab une image : pas le meme defaut."""
+def test_the_default_runner_depends_on_the_tool(provider, runner):
+    """GitHub names a machine, GitLab an image: not the same default."""
     assert PipelineSpec(provider=provider).runner == runner
 
 
-def test_une_branche_repetee_est_refusee():
+def test_a_repeated_branch_is_refused():
     with pytest.raises(ValueError, match="branches"):
         PipelineSpec(trigger={"branches": ["main", "main"]})
 
 
-def test_une_cle_inconnue_est_refusee():
+def test_an_unknown_key_is_refused():
     with pytest.raises(ValueError):
         PipelineSpec(providr="github")
 
 
-def test_l_ordre_de_deploiement_vient_du_bloc_partage():
-    """La promotion dev -> prod est une propriete du service, pas du pipeline."""
+def test_the_deployment_order_comes_from_the_shared_block():
+    """The dev -> prod promotion is a property of the service, not of the pipeline."""
     spec = PipelineSpec(deploy={"environments": ["prod", "dev"]})
     assert spec.deployed_environments(("dev", "staging", "prod")) == ("dev", "prod")
 
 
-def test_un_environnement_de_deploiement_inconnu_est_une_erreur():
-    donnees = _base(provider="github", deploy={"environments": ["recette"]})
-    assert any("recette" in message for message in _issues(donnees, "error"))
+def test_an_unknown_deployment_environment_is_an_error():
+    given = _base(provider="github", deploy={"environments": ["recette"]})
+    assert any("recette" in message for message in _issues(given, "error"))
 
 
-def test_une_production_deployee_sans_garde_est_signalee():
-    donnees = _base(
+def test_a_production_deployed_without_a_guard_is_reported():
+    given = _base(
         provider="github",
         deploy={"environments": ["prod"], "manual_for_production": False},
     )
-    assert any("sans approbation humaine" in m for m in _issues(donnees, "warning"))
+    assert any("sans approbation humaine" in m for m in _issues(given, "warning"))
 
 
-def test_un_registre_que_le_jeton_n_ouvre_pas_est_signale():
-    """forge ne peut ni deviner ni ecrire un secret de registre."""
-    donnees = _base(provider="github", build={"registry": "registry.example.net"})
-    assert any("n'ouvre pas" in message for message in _issues(donnees, "warning"))
+def test_a_registry_the_token_does_not_open_is_reported():
+    """forge can neither guess nor write a registry secret."""
+    given = _base(provider="github", build={"registry": "registry.example.net"})
+    assert any("n'ouvre pas" in message for message in _issues(given, "warning"))
 
 
-def test_le_registre_par_defaut_ne_declenche_rien():
-    donnees = _base(provider="github", build={"registry": "ghcr.io"})
-    assert not any("n'ouvre pas" in message for message in _issues(donnees, "warning"))
+def test_the_default_registry_triggers_nothing():
+    given = _base(provider="github", build={"registry": "ghcr.io"})
+    assert not any("n'ouvre pas" in message for message in _issues(given, "warning"))
 
 
-def test_le_controle_croise_est_muet_sans_section_pipeline():
-    class Sans:
+def test_the_cross_check_is_silent_without_a_pipeline_section():
+    class Without:
         pass
 
-    assert answers.cross_check(Sans()) == []
+    assert answers.cross_check(Without()) == []
 
 
 # ---------------------------------------------------------------------------
-# Rendu
+# Render
 # ---------------------------------------------------------------------------
 
 
-def test_l_arborescence_annoncee_correspond_aux_fichiers_generes(tmp_path):
-    """Arbitrage R3, applique au seul domaine dont la sortie est la racine."""
-    spec, _ = _genere(tmp_path)
-    produits = {
-        chemin.relative_to(tmp_path).as_posix()
-        for chemin in tmp_path.rglob("*")
-        if chemin.is_file()
+def test_the_announced_tree_matches_the_generated_files(tmp_path):
+    """Arbitration R3, applied to the only domain whose output is the root."""
+    spec, _ = _generate(tmp_path)
+    produced = {
+        path.relative_to(tmp_path).as_posix()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
     }
-    assert set(tree.expected_paths(spec)) <= produits
+    assert set(tree.expected_paths(spec)) <= produced
 
 
-def test_le_domaine_racine_n_ecrit_aucun_fichier_de_niveau_depot(tmp_path):
-    """Il partage sa racine avec `README.md`, `forge.yml` et `.gitattributes`.
+def test_the_root_domain_writes_no_repository_level_file(tmp_path):
+    """It shares its root with `README.md`, `forge.yml` and `.gitattributes`.
 
-    En ecrire un les ecraserait, ou ferait echouer la generation sans `--force`.
+    Writing one of them would overwrite them, or make the generation fail without
+    `--force`.
     """
-    spec, _ = _genere(tmp_path)
-    annonces = set(tree.expected_paths(spec))
-    assert not (annonces & tree.REPO_LEVEL_FILES)
+    spec, _ = _generate(tmp_path)
+    announced = set(tree.expected_paths(spec))
+    assert not (announced & tree.REPO_LEVEL_FILES)
 
 
 @pytest.mark.parametrize(
-    ("chemin", "attendu", "absent"),
+    ("path", "expected", "absent"),
     [
         (SPEC_GITHUB, tree.GITHUB_WORKFLOW, tree.GITLAB_CONFIG),
         (SPEC_GITLAB, tree.GITLAB_CONFIG, tree.GITHUB_WORKFLOW),
     ],
     ids=["github", "gitlab"],
 )
-def test_seul_le_dialecte_demande_est_ecrit(chemin, attendu, absent, tmp_path):
-    _genere(tmp_path, chemin)
-    assert (tmp_path / attendu).is_file()
+def test_only_the_requested_dialect_is_written(path, expected, absent, tmp_path):
+    _generate(tmp_path, path)
+    assert (tmp_path / expected).is_file()
     assert not (tmp_path / absent).exists()
 
 
-@pytest.mark.parametrize("chemin", [SPEC_GITHUB, SPEC_GITLAB], ids=["github", "gitlab"])
-def test_le_fichier_engendre_est_un_yaml_valide(chemin, tmp_path):
-    spec, _ = _genere(tmp_path, chemin)
-    contenu = (tmp_path / tree.workflow_path(spec)).read_bytes().decode("utf-8")
-    document = yaml.safe_load(contenu)
+@pytest.mark.parametrize("path", [SPEC_GITHUB, SPEC_GITLAB], ids=["github", "gitlab"])
+def test_the_emitted_file_is_valid_yaml(path, tmp_path):
+    spec, _ = _generate(tmp_path, path)
+    content = (tmp_path / tree.workflow_path(spec)).read_bytes().decode("utf-8")
+    document = yaml.safe_load(content)
     assert isinstance(document, dict) and document
 
 
-def test_les_dependances_entre_jobs_designent_des_jobs_existants(tmp_path):
-    """Un `needs` pendant est accepte par le fichier et refuse par l'outil."""
+def test_the_dependencies_between_jobs_name_existing_jobs(tmp_path):
+    """A dangling `needs` is accepted by the file and refused by the tool."""
     _, spec, manager = _spec(SPEC_GITHUB)
     projection = manager.domain("pipeline").answers(spec)
-    cles = {job["key"] for job in projection["jobs"]}
+    keys = {job["key"] for job in projection["jobs"]}
     for job in projection["jobs"]:
-        assert set(job["needs"]) <= cles, job["key"]
+        assert set(job["needs"]) <= keys, job["key"]
 
 
-def test_le_tag_d_image_est_l_empreinte_du_commit(tmp_path):
-    """Jamais `latest` : deux constructions du meme `latest` sont deux images."""
+def test_the_image_tag_is_the_commit_fingerprint(tmp_path):
+    """Never `latest`: two builds of the same `latest` are two images."""
     _, spec, manager = _spec(SPEC_GITHUB)
     projection = manager.domain("pipeline").answers(spec)
-    etape = projection["build_job"]["steps"][0]
-    assert etape["env"]["FORGE_IMAGE_TAG"] == "${{ github.sha }}"
-    assert ":latest" not in " ".join(etape["run"])
+    step = projection["build_job"]["steps"][0]
+    assert step["env"]["FORGE_IMAGE_TAG"] == "${{ github.sha }}"
+    assert ":latest" not in " ".join(step["run"])
 
 
-def test_aucun_identifiant_n_est_ecrit_dans_le_fichier_engendre(tmp_path):
-    spec, _ = _genere(tmp_path)
-    contenu = (tmp_path / tree.workflow_path(spec)).read_bytes().decode("utf-8")
-    for motif in ("password:", "token:", "secret_key", "BEGIN "):
-        assert motif not in contenu
+def test_no_credential_is_written_into_the_emitted_file(tmp_path):
+    spec, _ = _generate(tmp_path)
+    content = (tmp_path / tree.workflow_path(spec)).read_bytes().decode("utf-8")
+    for pattern in ("password:", "token:", "secret_key", "BEGIN "):
+        assert pattern not in content
 
 
-def test_diff_ne_voit_aucun_ecart_juste_apres_generation(tmp_path):
-    """Exerce `foreign_paths` : un domaine racine ne compare pas ce qui n'est pas a lui."""
+def test_diff_sees_no_difference_right_after_generation(tmp_path):
+    """Exercises `foreign_paths`: a root domain does not compare what is not its own."""
     data, spec, manager = _spec(SPEC_GITHUB)
     pipeline_module.generate(data, spec, manager, tmp_path)
-    ecarts = pipeline_module.diff(
+    differences = pipeline_module.diff(
         data, spec, manager, tmp_path, only=["pipeline"], spec_path=tmp_path / "forge.yml"
     )
-    for ecart in ecarts:
-        assert ecart.empty, ecart.summary()
+    for difference in differences:
+        assert difference.empty, difference.summary()
 
 
 # ---------------------------------------------------------------------------
-# Table d'installation et validateurs
+# Installation table and validators
 # ---------------------------------------------------------------------------
 
 
-def test_chaque_outil_declare_par_un_domaine_livre_est_installable():
-    """Un outil que le pipeline ne sait pas installer rend son job inutilisable."""
+def test_every_tool_declared_by_a_shipped_domain_is_installable():
+    """A tool the pipeline cannot install makes its job unusable."""
     manager = _manager()
-    manquants: set[str] = set()
-    for chemin in sorted(SPECS_DIR.glob("*.yml")):
-        data = load_spec_data(chemin)
+    missing: set[str] = set()
+    for path in sorted(SPECS_DIR.glob("*.yml")):
+        data = load_spec_data(path)
         if not (set(data) & set(manager.domain_names())):
             continue
         spec = validate_spec(data, manager)
-        for nom in manager.domain_names():
-            if getattr(spec, nom, None) is None:
+        for name in manager.domain_names():
+            if getattr(spec, name, None) is None:
                 continue
-            for commande in manager.domain(nom).validators(spec, Path(nom)):
-                if not tools.known(commande.tool):
-                    manquants.add(f"{nom}:{commande.tool}")
-    assert manquants == set(), f"outils sans recette d'installation : {sorted(manquants)}"
+            for command in manager.domain(name).validators(spec, Path(name)):
+                if not tools.known(command.tool):
+                    missing.add(f"{name}:{command.tool}")
+    assert missing == set(), f"tools with no installation recipe: {sorted(missing)}"
 
 
-def test_les_versions_des_outils_sont_figees():
-    """« La derniere version » change de comportement un matin sans commit."""
-    for recette in tools.INSTALLS:
-        for ligne in recette.steps:
-            assert "latest/download" not in ligne, recette.name
+def test_the_tool_versions_are_pinned():
+    """"The latest version" changes behaviour one morning with no commit."""
+    for recipe in tools.INSTALLS:
+        for line in recipe.steps:
+            assert "latest/download" not in line, recipe.name
 
 
 @pytest.mark.parametrize(
-    ("chemin", "outil"), [(SPEC_GITHUB, "actionlint"), (SPEC_GITLAB, "yamllint")], ids=["github", "gitlab"]
+    ("path", "tool"), [(SPEC_GITHUB, "actionlint"), (SPEC_GITLAB, "yamllint")], ids=["github", "gitlab"]
 )
-def test_le_validateur_depend_du_dialecte(chemin, outil, tmp_path):
-    _, spec, _ = _spec(chemin)
-    commandes = validators.commands(spec, tmp_path)
-    assert [commande.tool for commande in commandes] == [outil]
-    assert tree.workflow_path(spec) in commandes[0].argv
+def test_the_validator_depends_on_the_dialect(path, tool, tmp_path):
+    _, spec, _ = _spec(path)
+    commands = validators.commands(spec, tmp_path)
+    assert [command.tool for command in commands] == [tool]
+    assert tree.workflow_path(spec) in commands[0].argv
 
 
 # ---------------------------------------------------------------------------
-# Entretien
+# Interview
 # ---------------------------------------------------------------------------
 
 
-def test_l_entretien_produit_une_section_valide():
+def test_the_interview_produces_a_valid_section():
     from forge.plugins.pipeline import interview
     from tests.scripted_prompter import ScriptedPrompter
 
     service = validate_spec(_base(provider="github"), _manager()).service
     prompter = ScriptedPrompter(
         [
-            "github",       # outil de CI
-            "main",         # branche principale
-            True,           # declencher sur les propositions de fusion
-            True,           # construire une image
-            "ghcr.io",      # registre
-            "boutique",     # depot de l'image
-            True,           # deployer
-            ["dev"],        # environnements deployes
+            "github",       # CI tool
+            "main",         # main branch
+            True,           # trigger on pull requests
+            True,           # build an image
+            "ghcr.io",      # registry
+            "boutique",     # image repository
+            True,           # deploy
+            ["dev"],        # deployed environments
         ]
     )
     section = interview.run(prompter, service)
-    assert prompter.exhausted, f"reponses non consommees : {prompter.answers}"
-    modele = PipelineSpec.model_validate(section)
-    assert modele.is_github
-    assert modele.deployed_environments(("dev", "prod")) == ("dev",)
+    assert prompter.exhausted, f"answers not consumed: {prompter.answers}"
+    model = PipelineSpec.model_validate(section)
+    assert model.is_github
+    assert model.deployed_environments(("dev", "prod")) == ("dev",)
 
 
-def test_l_entretien_se_limite_a_valider_si_aucun_environnement_n_est_retenu():
+def test_the_interview_stops_at_validating_when_no_environment_is_selected():
     from forge.plugins.pipeline import interview
     from tests.scripted_prompter import ScriptedPrompter
 
@@ -441,59 +444,58 @@ def test_l_entretien_se_limite_a_valider_si_aucun_environnement_n_est_retenu():
 
 
 # ---------------------------------------------------------------------------
-# Validation reelle du fichier engendre
+# Real validation of the emitted file
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("chemin", "outil"), [(SPEC_GITHUB, "actionlint"), (SPEC_GITLAB, "yamllint")], ids=["github", "gitlab"]
+    ("path", "tool"), [(SPEC_GITHUB, "actionlint"), (SPEC_GITLAB, "yamllint")], ids=["github", "gitlab"]
 )
-def test_le_pipeline_genere_passe_son_validateur(chemin, outil, tmp_path):
-    """`actionlint` connait le schema des workflows GitHub, leurs expressions et
-    leurs actions. Cote GitLab, il n'existe pas d'equivalent hors ligne : la
-    garantie y est plus faible, et le README du domaine le dit."""
+def test_the_generated_pipeline_passes_its_validator(path, tool, tmp_path):
+    """`actionlint` knows the schema of GitHub workflows, their expressions and
+    their actions. On the GitLab side there is no offline equivalent: the
+    guarantee is weaker there, and the domain README says so."""
     from tests.conftest import require_tools
 
-    require_tools("pipeline", outil)
+    require_tools("pipeline", tool)
 
-    spec, manager = _genere(tmp_path, chemin)
-    resultat = pipeline_module.validate(spec, manager, tmp_path, only=["pipeline"])
-    echecs = [check for rapport in resultat.reports for check in rapport.failures()]
-    assert not echecs, (
-        f"validateurs en echec : {', '.join(c.label for c in echecs)}\n"
-        + "\n".join(c.detail for c in echecs)[:2000]
+    spec, manager = _generate(tmp_path, path)
+    result = pipeline_module.validate(spec, manager, tmp_path, only=["pipeline"])
+    failures = [check for report in result.reports for check in report.failures()]
+    assert not failures, (
+        f"failing validators: {', '.join(c.label for c in failures)}\n"
+        + "\n".join(c.detail for c in failures)[:2000]
     )
 
 
-def test_toute_expansion_de_variable_est_protegee_par_des_guillemets():
-    """shellcheck (SC2086) fait echouer actionlint sur une expansion nue.
+def test_every_variable_expansion_is_protected_by_quotes():
+    """shellcheck (SC2086) makes actionlint fail on a bare expansion.
 
-    Trouve par la CI : shellcheck n'etait pas installe sur le poste, donc
-    actionlint ne le lancait pas et l'etape passait. Ce n'est pas du zele — un
-    tag contenant un blanc ou un caractere generique serait coupe en plusieurs
-    arguments par le shell.
+    Found by CI: shellcheck was not installed on the workstation, so actionlint
+    did not run it and the step passed. This is not zeal — a tag containing a
+    blank or a wildcard would be split into several arguments by the shell.
     """
     import re
 
-    donnees = _base(provider="github", build={"registry": "ghcr.io", "image": "acme/x"})
-    projection = _projection(donnees)
-    nue = re.compile(r'(?<!")\$[A-Za-z_][A-Za-z0-9_]*')
+    given = _base(provider="github", build={"registry": "ghcr.io", "image": "acme/x"})
+    projection = _projection(given)
+    bare = re.compile(r'(?<!")\$[A-Za-z_][A-Za-z0-9_]*')
     for job in projection["jobs"]:
-        for etape in job["steps"]:
-            for ligne in etape["run"]:
-                # `2>/dev/null` et les expansions deja entre guillemets sont sures ;
-                # on ne cherche que les `$VAR` que rien n'entoure.
-                fautives = [
-                    trouve.group(0)
-                    for trouve in nue.finditer(ligne)
-                    if f'"{trouve.group(0)}"' not in ligne
-                    and f'"{trouve.group(0)}\\"' not in ligne
-                    and not _dans_des_guillemets(ligne, trouve.start())
+        for step in job["steps"]:
+            for line in step["run"]:
+                # `2>/dev/null` and already quoted expansions are safe; we only
+                # look for the `$VAR` that nothing surrounds.
+                offenders = [
+                    found.group(0)
+                    for found in bare.finditer(line)
+                    if f'"{found.group(0)}"' not in line
+                    and f'"{found.group(0)}\\"' not in line
+                    and not _inside_quotes(line, found.start())
                 ]
-                assert not fautives, f"{job['key']} / {etape['name']} : {fautives}\n{ligne}"
+                assert not offenders, f"{job['key']} / {step['name']}: {offenders}\n{line}"
 
 
-def _dans_des_guillemets(ligne: str, position: int) -> bool:
-    """Vrai si le caractere a `position` est a l'interieur d'une paire de `"`."""
-    return ligne[:position].count('"') % 2 == 1
+def _inside_quotes(line: str, position: int) -> bool:
+    """True if the character at `position` sits inside a pair of `"`."""
+    return line[:position].count('"') % 2 == 1

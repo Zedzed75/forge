@@ -1,11 +1,11 @@
-"""Domaines factices utilises par les tests du coeur.
+"""Fake domains used by the core tests.
 
-Chaque module de ce paquet est un plugin complet, importable par son chemin
-pointe : les tests peuvent donc les declarer via `FORGE_PLUGINS` et exercer la
-CLI de bout en bout avec **plusieurs** domaines — ce que le seul plugin `demo`
-ne permet pas (filtrage `--only`, controles inter-domaines en echec).
+Every module in this package is a complete plugin, importable by its dotted
+path: the tests can therefore declare them through `FORGE_PLUGINS` and exercise
+the CLI end to end with **several** domains — which the `demo` plugin alone does
+not allow (`--only` filtering, failing cross-domain checks).
 
-Ils ne sont jamais enregistres en production : `BUILTIN_PLUGINS` reste vide.
+They are never registered in production: `BUILTIN_PLUGINS` stays free of them.
 """
 
 from __future__ import annotations
@@ -16,15 +16,15 @@ from forge.plugins_api.types import Projection
 from forge.spec.types import ForgeModel
 
 
-class SectionTriviale(ForgeModel):
-    """Section de forge.yml sans contenu utile : seule la projection compte."""
+class TrivialSection(ForgeModel):
+    """A forge.yml section with no useful content: only the projection matters."""
 
-    #: Presence symbolique, pour que la section ait au moins un champ.
+    #: Symbolic presence, so that the section has at least one field.
     enabled: bool = True
 
 
-def projection_standard(spec: Any) -> Projection:
-    """Projection fidele a la specification : la reference de comparaison."""
+def standard_projection(spec: Any) -> Projection:
+    """Projection faithful to the specification: the comparison reference."""
     return Projection(
         service_name=spec.service.name,
         environments=tuple(env.name for env in spec.service.environments),

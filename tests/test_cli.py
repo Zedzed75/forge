@@ -1,7 +1,7 @@
-"""Tests de bout en bout de la CLI, plugin `demo` a l'appui.
+"""End-to-end tests of the CLI, backed by the `demo` plugin.
 
-Ils verifient le cablage complet — entretien, spec, rendu copier, validation,
-comparaison — et non le detail de chaque couche, deja couvert ailleurs.
+They check the whole wiring — interview, spec, copier render, validation,
+comparison — and not the detail of each layer, which is covered elsewhere.
 """
 
 from __future__ import annotations
@@ -19,22 +19,24 @@ from tests.scripted_prompter import ScriptedPrompter
 
 runner = CliRunner()
 
-#: Reponses rejouant l'entretien complet : bloc service, puis domaine demo.
-ENTRETIEN = [
-    "boutique",                # nom du service
+#: Answers replaying the full interview: the service block, then the demo domain.
+#: The values are the ones the reference specs use, so they stay as they are
+#: until the fixtures and the templates are translated together.
+INTERVIEW = [
+    "boutique",                # service name
     "Boutique en ligne",       # description
-    "Equipe Plateforme",       # responsable
-    "",                        # adresse de contact
-    "dev,prod",                # environnements
-    True,                      # un environnement de production ?
-    "prod",                    # lequel
-    "dev.example.net",         # domaine de dev
-    "example.net",             # domaine de prod
-    True,                      # generer le domaine demo ?
-    "bonjour",                 # salutation
+    "Equipe Plateforme",       # owner
+    "",                        # contact address
+    "dev,prod",                # environments
+    True,                      # is one of them production?
+    "prod",                    # which one
+    "dev.example.net",         # dev domain
+    "example.net",             # prod domain
+    True,                      # generate the demo domain?
+    "bonjour",                 # greeting
     "cpu,requetes",            # widgets
-    "gauge",                   # type du widget cpu
-    "counter",                 # type du widget requetes
+    "gauge",                   # kind of the cpu widget
+    "counter",                 # kind of the requetes widget
 ]
 
 
@@ -54,48 +56,48 @@ def test_version():
     assert "forge" in result.stdout
 
 
-def test_plugins_liste_les_domaines_enregistres(monkeypatch):
+def test_plugins_lists_the_registered_domains(monkeypatch):
     result = _invoke(["plugins"], monkeypatch)
     assert result.exit_code == 0
     assert "demo" in result.stdout
 
 
-def test_plugins_sans_plugin_le_dit_clairement(monkeypatch):
-    """Branche atteignable seulement si aucun domaine n'est livre ni declare."""
+def test_plugins_says_so_plainly_when_there_is_none(monkeypatch):
+    """A branch only reachable when no domain is shipped nor declared."""
     monkeypatch.setattr("forge.plugins_api.manager.BUILTIN_PLUGINS", ())
     result = runner.invoke(app, ["plugins"])
     assert result.exit_code == 0
     assert "no registered domain" in result.stdout
 
 
-def test_plugins_liste_les_domaines_livres():
-    """Le domaine Ansible est disponible sans rien declarer."""
+def test_plugins_lists_the_shipped_domains():
+    """The Ansible domain is available without declaring anything."""
     result = runner.invoke(app, ["plugins"])
     assert result.exit_code == 0
     assert "ansible" in result.stdout
 
 
-def test_catalog_liste_les_elements(monkeypatch):
+def test_catalog_lists_the_entries(monkeypatch):
     result = _invoke(["catalog", "demo"], monkeypatch)
     assert result.exit_code == 0
     assert "gauge" in result.stdout
 
 
-def test_catalog_detaille_un_element(monkeypatch):
+def test_catalog_details_one_entry(monkeypatch):
     result = _invoke(["catalog", "demo", "gauge"], monkeypatch)
     assert result.exit_code == 0
     assert "detailed" in result.stdout
 
 
-def test_catalog_refuse_un_element_inconnu(monkeypatch):
+def test_catalog_refuses_an_unknown_entry(monkeypatch):
     result = _invoke(["catalog", "demo", "sonar"], monkeypatch)
     assert result.exit_code == 1
 
 
-def test_catalog_refuse_un_domaine_inconnu(monkeypatch):
-    # Un nom qu'aucun plugin ne portera : « terraform » servait ici jusqu'a
-    # ce qu'il devienne un domaine reel (phase 7).
-    result = _invoke(["catalog", "inexistant"], monkeypatch)
+def test_catalog_refuses_an_unknown_domain(monkeypatch):
+    # A name no plugin will ever carry: "terraform" served here until it became
+    # a real domain (phase 7).
+    result = _invoke(["catalog", "nonexistent"], monkeypatch)
     assert result.exit_code == 1
 
 
@@ -104,7 +106,7 @@ def test_catalog_refuse_un_domaine_inconnu(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_generate_produit_l_arborescence_attendue(tmp_path, monkeypatch):
+def test_generate_produces_the_expected_tree(tmp_path, monkeypatch):
     result = _invoke(
         ["generate", "-s", str(SPECS_DIR / "demo-complet.yml"), "-o", str(tmp_path)],
         monkeypatch,
@@ -116,7 +118,7 @@ def test_generate_produit_l_arborescence_attendue(tmp_path, monkeypatch):
     assert (tmp_path / "demo" / "environments" / "prod" / "cpu.yml").is_file()
 
 
-def test_generate_en_simulation_n_ecrit_rien(tmp_path, monkeypatch):
+def test_generate_in_dry_run_writes_nothing(tmp_path, monkeypatch):
     result = _invoke(
         [
             "generate",
@@ -132,7 +134,7 @@ def test_generate_en_simulation_n_ecrit_rien(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_generate_refuse_un_domaine_inconnu(tmp_path, monkeypatch):
+def test_generate_refuses_an_unknown_domain(tmp_path, monkeypatch):
     result = _invoke(
         [
             "generate",
@@ -148,54 +150,54 @@ def test_generate_refuse_un_domaine_inconnu(tmp_path, monkeypatch):
     assert result.exit_code == 1
 
 
-def test_generate_sans_spec_trouvable_le_dit(tmp_path, monkeypatch):
+def test_generate_says_so_when_no_spec_can_be_found(tmp_path, monkeypatch):
     result = _invoke(["generate", "-o", str(tmp_path)], monkeypatch)
     assert result.exit_code == 1
 
 
 # ---------------------------------------------------------------------------
-# validate / diff sur un projet deja genere
+# validate / diff on an already generated project
 # ---------------------------------------------------------------------------
 
 
-def test_validate_passe_sur_un_projet_fraichement_genere(projet_demo, monkeypatch):
-    target, _, _ = projet_demo
+def test_validate_passes_on_a_freshly_generated_project(demo_project, monkeypatch):
+    target, _, _ = demo_project
     result = _invoke(["validate", "-o", str(target)], monkeypatch)
     assert result.exit_code == 0, result.stdout
     assert "no difference" in result.stdout
 
 
-def test_diff_ne_voit_aucun_ecart_juste_apres_generation(projet_demo, monkeypatch):
-    target, _, _ = projet_demo
+def test_diff_sees_no_difference_right_after_generation(demo_project, monkeypatch):
+    target, _, _ = demo_project
     result = _invoke(["diff", "-o", str(target)], monkeypatch)
     assert result.exit_code == 0, result.stdout
     assert "up to date" in result.stdout
 
 
-def test_diff_signale_un_fichier_supprime_dans_la_cible(projet_demo, tmp_path, monkeypatch):
-    target, model, manager = projet_demo
-    copie = tmp_path / "copie"
-    copie.mkdir()
+def test_diff_reports_a_file_deleted_from_the_target(demo_project, tmp_path, monkeypatch):
+    target, model, manager = demo_project
+    copy = tmp_path / "copy"
+    copy.mkdir()
     import shutil
 
-    shutil.copytree(target / "demo", copie / "demo")
-    (copie / "demo" / "environments" / "prod" / "cpu.yml").unlink()
-    shutil.copy(target / "forge.yml", copie / "forge.yml")
+    shutil.copytree(target / "demo", copy / "demo")
+    (copy / "demo" / "environments" / "prod" / "cpu.yml").unlink()
+    shutil.copy(target / "forge.yml", copy / "forge.yml")
 
-    result = _invoke(["diff", "-o", str(copie)], monkeypatch)
+    result = _invoke(["diff", "-o", str(copy)], monkeypatch)
     assert result.exit_code == 0, result.stdout
     assert "environments/prod/cpu.yml" in result.stdout
 
 
 # ---------------------------------------------------------------------------
-# new (entretien scripte)
+# new (scripted interview)
 # ---------------------------------------------------------------------------
 
 
-def test_new_conduit_l_entretien_puis_genere(tmp_path):
+def test_new_conducts_the_interview_then_generates(tmp_path):
     manager = ForgeManager()
     manager.register_module(DEMO_PLUGIN)
-    prompter = ScriptedPrompter(ENTRETIEN)
+    prompter = ScriptedPrompter(INTERVIEW)
     result = run_new(
         tmp_path,
         manager,
@@ -208,13 +210,13 @@ def test_new_conduit_l_entretien_puis_genere(tmp_path):
     assert (tmp_path / "demo" / "environments" / "dev" / "cpu.yml").is_file()
 
 
-def test_new_ecrit_une_spec_rejouable(tmp_path):
+def test_new_writes_a_replayable_spec(tmp_path):
     manager = ForgeManager()
     manager.register_module(DEMO_PLUGIN)
     run_new(
-        tmp_path / "projet",
+        tmp_path / "project",
         manager,
-        ScriptedPrompter(ENTRETIEN),
+        ScriptedPrompter(INTERVIEW),
         spec_out=tmp_path / "forge.yml",
         dry_run=True,
     )
@@ -224,14 +226,14 @@ def test_new_ecrit_une_spec_rejouable(tmp_path):
     assert [w["name"] for w in data["demo"]["widgets"]] == ["cpu", "requetes"]
 
 
-def test_new_permet_de_decliner_un_domaine(tmp_path):
+def test_new_allows_declining_a_domain(tmp_path):
     manager = ForgeManager()
     manager.register_module(DEMO_PLUGIN)
-    reponses = list(ENTRETIEN[:9]) + [False]
+    answers = list(INTERVIEW[:9]) + [False]
     result = run_new(
         tmp_path,
         manager,
-        ScriptedPrompter(reponses),
+        ScriptedPrompter(answers),
         spec_out=tmp_path / "forge.yml",
         dry_run=True,
     )
@@ -244,14 +246,14 @@ def test_new_permet_de_decliner_un_domaine(tmp_path):
 
 
 @pytest.mark.integration
-def test_update_rejoue_le_gabarit_sur_un_projet_genere(tmp_path, monkeypatch):
-    """`copier update` exige un depot git cible : c'est bien ce que le coeur fait."""
+def test_update_replays_the_template_on_a_generated_project(tmp_path, monkeypatch):
+    """`copier update` requires a git target repository: that is what the core does."""
     import subprocess
 
     from tests.conftest import build_project, template_is_dirty
 
     if template_is_dirty():
-        pytest.skip("gabarit non committe : copier update ne peut pas comparer deux refs")
+        pytest.skip("template not committed: copier update cannot compare two refs")
 
     build_project(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
@@ -267,40 +269,40 @@ def test_update_rejoue_le_gabarit_sur_un_projet_genere(tmp_path, monkeypatch):
     assert (tmp_path / "demo" / "environments" / "prod" / "cpu.yml").is_file()
 
 
-def test_update_ignore_un_domaine_jamais_genere(tmp_path, monkeypatch):
+def test_update_ignores_a_domain_that_was_never_generated(tmp_path, monkeypatch):
     result = _invoke(["update", "-o", str(tmp_path)], monkeypatch)
     assert result.exit_code == 0
     assert "none" in result.stdout
 
 
-def test_le_chemin_de_gabarit_du_plugin_est_celui_declare(tmp_path):
+def test_the_plugin_template_path_is_the_declared_one(tmp_path):
     manager = ForgeManager()
     manager.register_module(DEMO_PLUGIN)
     hooks = manager.domain("demo")
     assert (Path(pipeline.copier_runner.template_root()) / hooks.template_subdir()).is_dir()
 
 
-def test_la_version_annoncee_est_celle_du_projet():
-    """`forge --version` doit dire la verite.
+def test_the_announced_version_is_the_project_s():
+    """`forge --version` must tell the truth.
 
-    La version etait ecrite dans `pyproject.toml` **et** dans `forge/__init__.py`
-    ; les deux avaient diverge, et la CLI annoncait `0.1.0` sur un depot tague
-    `v1.1.0`. `pyproject.toml` la lit desormais du module, et ce test verifie
-    que le lien tient.
+    The version used to be written in `pyproject.toml` **and** in
+    `forge/__init__.py`; the two had diverged, and the CLI announced `0.1.0` on a
+    repository tagged `v1.1.0`. `pyproject.toml` now reads it from the module,
+    and this test checks that the link holds.
     """
     import tomllib
 
     from forge import __version__
 
-    projet = tomllib.loads(
+    project = tomllib.loads(
         (REPO_ROOT / "pyproject.toml").read_bytes().decode("utf-8")
     )["project"]
-    assert "version" not in projet, (
-        "la version ne doit pas etre ecrite en dur dans pyproject.toml : "
-        "elle y serait une seconde source, et les deux divergeraient"
+    assert "version" not in project, (
+        "the version must not be hardcoded in pyproject.toml: it would be a "
+        "second source, and the two would diverge"
     )
-    assert projet["dynamic"] == ["version"]
+    assert project["dynamic"] == ["version"]
 
-    resultat = runner.invoke(app, ["--version"])
-    assert resultat.exit_code == 0
-    assert __version__ in resultat.stdout
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert __version__ in result.stdout

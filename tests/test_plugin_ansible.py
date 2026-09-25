@@ -1,13 +1,16 @@
-"""Tests du plugin Ansible : modele, controles croises, validateurs, entretien.
+"""Tests of the Ansible plugin: model, cross-checks, validators, interview.
 
-La parite avec le generateur d'origine a servi pendant tout le portage, puis a
-ete retiree en phase 10 avec `_legacy/` : elle mesurait une ressemblance a un
-outil qui n'existe plus, et le projet genere l'a depuis depassee — il passe
-`ansible-lint` en profil production, ce que la suite d'origine n'avait jamais
-verifie. La non-regression est desormais tenue par `tests/golden/` seul.
+Parity with the original generator served throughout the port, then was removed
+in phase 10 along with `_legacy/`: it measured a resemblance to a tool that no
+longer exists, and the generated project has since gone past it — it passes
+`ansible-lint` in production profile, which the original suite had never
+checked. Non-regression is now held by `tests/golden/` alone.
 
-Ce module couvre ce que ni l'un ni l'autre ne dit : les refus, les messages, et
-les garde-fous propres au domaine.
+This module covers what neither of them says: the refusals, the messages, and
+the guards specific to the domain.
+
+The plugin's own messages are still French: the domains are translated with
+their templates, so the `match=` patterns below quote them as they are.
 """
 
 from __future__ import annotations
@@ -36,8 +39,8 @@ def _manager() -> ForgeManager:
     return instance
 
 
-def _spec_data(**surcharges) -> dict:
-    """Specification minimale valide du domaine Ansible."""
+def _spec_data(**overrides) -> dict:
+    """Minimal valid specification of the Ansible domain."""
     data = {
         "forge_version": 1,
         "service": {
@@ -51,34 +54,34 @@ def _spec_data(**surcharges) -> dict:
             "hosts": {"prod": {"gateways": [{"name": "gw-01", "ansible_host": "10.0.0.1"}]}},
         },
     }
-    for chemin, valeur in surcharges.items():
-        cible = data
-        *parents, feuille = chemin.split(".")
+    for path, value in overrides.items():
+        target = data
+        *parents, leaf = path.split(".")
         for parent in parents:
-            cible = cible[parent]
-        cible[feuille] = valeur
+            target = target[parent]
+        target[leaf] = value
     return data
 
 
 # ---------------------------------------------------------------------------
-# Modele
+# Model
 # ---------------------------------------------------------------------------
 
 
-def test_un_nom_de_groupe_a_tiret_est_refuse():
-    """Ansible interdit le tiret dans un nom de groupe."""
+def test_a_group_name_with_a_hyphen_is_refused():
+    """Ansible forbids the hyphen in a group name."""
     with pytest.raises(SpecValidationError, match="tirets sont interdits"):
         validate_spec(
             _spec_data(**{"ansible.groups": [{"name": "web-servers"}]}), _manager()
         )
 
 
-def test_un_nom_de_groupe_reserve_est_refuse():
+def test_a_reserved_group_name_is_refused():
     with pytest.raises(SpecValidationError, match="reserve par Ansible"):
         validate_spec(_spec_data(**{"ansible.groups": [{"name": "all"}]}), _manager())
 
 
-def test_un_role_inconnu_est_refuse():
+def test_an_unknown_role_is_refused():
     with pytest.raises(SpecValidationError, match="Role inconnu"):
         validate_spec(
             _spec_data(**{"ansible.groups": [{"name": "g", "roles": ["kubernetes"]}]}),
@@ -86,21 +89,21 @@ def test_un_role_inconnu_est_refuse():
         )
 
 
-def test_un_groupe_sans_role_est_refuse():
+def test_a_group_without_a_role_is_refused():
     with pytest.raises(SpecValidationError, match="au moins un role"):
         validate_spec(
             _spec_data(**{"ansible.groups": [{"name": "g", "roles": []}]}), _manager()
         )
 
 
-def test_les_hotes_citant_un_groupe_inconnu_sont_refuses():
+def test_hosts_naming_an_unknown_group_are_refused():
     with pytest.raises(SpecValidationError, match="groupes inconnus"):
         validate_spec(
             _spec_data(**{"ansible.hosts": {"prod": {"absent": []}}}), _manager()
         )
 
 
-def test_un_hote_declare_deux_fois_dans_un_environnement_est_refuse():
+def test_a_host_declared_twice_in_an_environment_is_refused():
     data = _spec_data()
     data["ansible"]["groups"].append({"name": "autres", "roles": ["common"]})
     data["ansible"]["hosts"]["prod"]["autres"] = [
@@ -110,7 +113,7 @@ def test_un_hote_declare_deux_fois_dans_un_environnement_est_refuse():
         validate_spec(data, _manager())
 
 
-def test_un_nom_de_variable_libre_invalide_est_refuse():
+def test_an_invalid_free_variable_name_is_refused():
     with pytest.raises(SpecValidationError, match="Nom de variable invalide"):
         validate_spec(
             _spec_data(
@@ -120,15 +123,15 @@ def test_un_nom_de_variable_libre_invalide_est_refuse():
         )
 
 
-def test_les_options_de_role_absentes_prennent_le_defaut_du_catalogue():
-    """C'est ce qui rend une spec partielle equivalente a une spec complete."""
+def test_absent_role_options_take_the_catalogue_default():
+    """This is what makes a partial spec equivalent to a complete one."""
     spec = validate_spec(_spec_data(), _manager())
     options = spec.ansible.role_options("common")
-    assert options, "les options du catalogue devraient etre presentes"
-    assert "common_timezone" not in options, "les cles sont nues, sans prefixe de role"
+    assert options, "the catalogue options should be present"
+    assert "common_timezone" not in options, "the keys are bare, with no role prefix"
 
 
-def test_les_roles_sont_ordonnes_par_le_catalogue_pas_par_l_alphabet():
+def test_the_roles_are_ordered_by_the_catalogue_not_alphabetically():
     data = _spec_data(
         **{
             "ansible.groups": [{"name": "g", "roles": ["nginx", "users", "common"]}],
@@ -140,18 +143,18 @@ def test_les_roles_sont_ordonnes_par_le_catalogue_pas_par_l_alphabet():
     assert spec.ansible.groups[0].roles == ["common", "users", "nginx"]
 
 
-def test_un_role_applique_mais_non_configure_est_ajoute():
+def test_a_role_applied_but_not_configured_is_added():
     spec = validate_spec(_spec_data(), _manager())
     assert [role.name for role in spec.ansible.roles] == ["common"]
 
 
 # ---------------------------------------------------------------------------
-# Controles croises — ce que le sous-modele ne peut pas voir
+# Cross-checks — what the sub-model cannot see
 # ---------------------------------------------------------------------------
 
 
-def test_un_environnement_inconnu_dans_hosts_est_signale():
-    """`AnsibleSpec` ne voit pas `service.environments` : le controle croise, si."""
+def test_an_unknown_environment_in_hosts_is_reported():
+    """`AnsibleSpec` does not see `service.environments`: the cross-check does."""
     data = _spec_data()
     data["ansible"]["hosts"]["recette"] = {"gateways": []}
     spec = validate_spec(data, _manager())
@@ -161,8 +164,8 @@ def test_un_environnement_inconnu_dans_hosts_est_signale():
     assert issues[0].hint
 
 
-def test_un_nom_d_environnement_a_tiret_est_signale():
-    """Le coeur accepte le tiret (label DNS), Ansible non (nom de groupe)."""
+def test_an_environment_name_with_a_hyphen_is_reported():
+    """The core accepts the hyphen (DNS label), Ansible does not (group name)."""
     data = _spec_data()
     data["service"]["environments"] = [{"name": "pre-prod"}]
     data["ansible"]["hosts"] = {"pre-prod": {"gateways": []}}
@@ -172,140 +175,141 @@ def test_un_nom_d_environnement_a_tiret_est_signale():
     assert any("souligne" in issue.hint for issue in issues)
 
 
-def test_une_specification_saine_ne_produit_aucun_constat():
+def test_a_sound_specification_produces_no_finding():
     spec = validate_spec(_spec_data(), _manager())
     assert answers_module.cross_check(spec) == []
 
 
 # ---------------------------------------------------------------------------
-# Validateurs
+# Validators
 # ---------------------------------------------------------------------------
 
 
-def test_une_verification_de_syntaxe_par_environnement_plus_le_linter():
+def test_one_syntax_check_per_environment_plus_the_linter():
     data = _spec_data()
     data["service"]["environments"] = [{"name": "dev"}, {"name": "prod", "production": True}]
     data["ansible"]["hosts"] = {}
     spec = validate_spec(data, _manager())
-    commandes = validators.commands(spec, Path("ansible"))
-    assert [c.label for c in commandes] == [
+    commands = validators.commands(spec, Path("ansible"))
+    assert [c.label for c in commands] == [
         "syntax-check (dev)",
         "syntax-check (prod)",
         "ansible-lint",
     ]
-    assert all(c.requires_linux for c in commandes)
+    assert all(c.requires_linux for c in commands)
 
 
-def test_les_commandes_transmettent_le_chemin_des_collections(monkeypatch):
-    """Sans les collections Galaxy, `--syntax-check` echoue sur des modules absents."""
-    monkeypatch.setenv(validators.COLLECTIONS_ENV_VAR, "/ailleurs/collections")
+def test_the_commands_pass_the_collections_path(monkeypatch):
+    """Without the Galaxy collections, `--syntax-check` fails on missing modules."""
+    monkeypatch.setenv(validators.COLLECTIONS_ENV_VAR, "/elsewhere/collections")
     spec = validate_spec(_spec_data(), _manager())
-    commande = validators.commands(spec, Path("ansible"))[0]
-    assert dict(commande.env)["ANSIBLE_COLLECTIONS_PATH"] == "/ailleurs/collections"
-    assert dict(commande.env)["ANSIBLE_FORCE_COLOR"] == "0"
+    command = validators.commands(spec, Path("ansible"))[0]
+    assert dict(command.env)["ANSIBLE_COLLECTIONS_PATH"] == "/elsewhere/collections"
+    assert dict(command.env)["ANSIBLE_FORCE_COLOR"] == "0"
 
 
 # ---------------------------------------------------------------------------
-# Contraintes de version des collections Galaxy
+# Version constraints of the Galaxy collections
 # ---------------------------------------------------------------------------
 
 
-def _bornes(contrainte: str) -> tuple[tuple[int, ...], int]:
-    """Decoupe une contrainte `>=x.y.z,<M.0.0` en plancher et majeure plafond."""
-    plancher, plafond = contrainte.split(",")
-    assert plancher.startswith(">="), contrainte
-    assert plafond.startswith("<") and plafond.endswith(".0.0"), contrainte
+def _bounds(constraint: str) -> tuple[tuple[int, ...], int]:
+    """Split a `>=x.y.z,<M.0.0` constraint into a floor and a ceiling major."""
+    floor, ceiling = constraint.split(",")
+    assert floor.startswith(">="), constraint
+    assert ceiling.startswith("<") and ceiling.endswith(".0.0"), constraint
     return (
-        tuple(int(part) for part in plancher[2:].split(".")),
-        int(plafond[1:].removesuffix(".0.0")),
+        tuple(int(part) for part in floor[2:].split(".")),
+        int(ceiling[1:].removesuffix(".0.0")),
     )
 
 
-def test_toute_collection_du_catalogue_porte_une_contrainte_de_version():
-    """Un role qui nomme une collection absente de la table casse l'import du plugin.
+def test_every_catalogue_collection_carries_a_version_constraint():
+    """A role naming a collection absent from the table breaks the plugin import.
 
-    C'est le garde-fou de ZED-7 : sans lui, ajouter un role suffirait a
-    reintroduire une dependance Galaxy sans version, et la derive ne se verrait
-    que chez l'utilisateur, des mois apres la generation.
+    This is the ZED-7 guard: without it, adding a role would be enough to
+    reintroduce an unversioned Galaxy dependency, and the drift would only show
+    up at the user's, months after the generation.
     """
-    nommees = {
-        nom for role in registry.all_roles() for nom in role.collections
+    named = {
+        name for role in registry.all_roles() for name in role.collections
     }
-    assert nommees <= set(catalog_collections.COLLECTION_REQUIREMENTS)
+    assert named <= set(catalog_collections.COLLECTION_REQUIREMENTS)
 
 
-def test_une_collection_hors_table_est_refusee():
-    """Le refus est une erreur de specification, pas un KeyError nu."""
+def test_a_collection_outside_the_table_is_refused():
+    """The refusal is a specification error, not a bare KeyError."""
     with pytest.raises(SpecValidationError, match="sans contrainte de version"):
         catalog_collections.requirement_for("community.inventee")
 
 
-def test_chaque_contrainte_a_un_plancher_et_un_plafond():
-    """Un plancher seul n'aurait pas empeche la casse de community.postgresql 5.0.0.
+def test_every_constraint_has_a_floor_and_a_ceiling():
+    """A floor alone would not have prevented the community.postgresql 5.0.0 breakage.
 
-    Decision ZED-7 : les deux bornes, toujours. Ce test interdit d'ecrire une
-    entree sans plafond de majeure, qui redonnerait a Galaxy le dernier mot.
+    Decision ZED-7: both bounds, always. This test forbids writing an entry
+    without a major ceiling, which would give Galaxy the last word again.
     """
-    for besoin in catalog_collections.COLLECTION_REQUIREMENTS.values():
-        plancher, plafond = _bornes(besoin.version)
-        validee = tuple(int(part) for part in besoin.validated.split("."))
-        assert plancher <= validee, besoin.name
-        assert validee[0] < plafond, besoin.name
+    for requirement in catalog_collections.COLLECTION_REQUIREMENTS.values():
+        floor, ceiling = _bounds(requirement.version)
+        validated = tuple(int(part) for part in requirement.validated.split("."))
+        assert floor <= validated, requirement.name
+        assert validated[0] < ceiling, requirement.name
 
 
-def test_la_contrainte_de_community_postgresql_couvre_alter_system():
-    """Le role postgresql utilise `postgresql_alter_system`, apparu en 3.13.0.
+def test_the_community_postgresql_constraint_covers_alter_system():
+    """The postgresql role uses `postgresql_alter_system`, added in 3.13.0.
 
-    Un plancher plus bas laisserait installer une version ou le module n'existe
-    pas ; le projet genere echouerait a l'execution, pas a l'installation.
+    A lower floor would allow installing a version where the module does not
+    exist; the generated project would fail at run time, not at install time.
     """
-    besoin = catalog_collections.requirement_for("community.postgresql")
-    assert _bornes(besoin.version)[0] >= (3, 13, 0)
+    requirement = catalog_collections.requirement_for("community.postgresql")
+    assert _bounds(requirement.version)[0] >= (3, 13, 0)
 
 
-def test_les_collections_derivees_portent_toutes_une_version():
-    """Ce que lit le gabarit `requirements.yml` : jamais un nom sans intervalle."""
+def test_the_derived_collections_all_carry_a_version():
+    """What the `requirements.yml` template reads: never a name without a range."""
     spec = validate_spec(_spec_data(), _manager())
-    derivees = derive.collections(spec.ansible)
-    assert derivees, "le cas de reference applique des roles a collections"
-    assert all(besoin["version"] for besoin in derivees)
+    derived = derive.collections(spec.ansible)
+    assert derived, "the reference case applies roles with collections"
+    assert all(requirement["version"] for requirement in derived)
 
 
 # ---------------------------------------------------------------------------
-# Arborescence annoncee par le README
+# The tree the README announces
 # ---------------------------------------------------------------------------
 
 
-def test_le_readme_annonce_exactement_les_fichiers_generes(tmp_path):
-    """`tree.py` duplique la connaissance de l'arborescence : ce test l'atteste.
+def test_the_readme_announces_exactly_the_generated_files(tmp_path):
+    """`tree.py` duplicates knowledge of the tree: this test attests to it.
 
-    copier ne peut pas connaitre a l'avance la liste des fichiers qu'il ecrira,
-    et le README genere l'affiche. Un gabarit ajoute sans mise a jour de
-    `expected_paths` rendrait donc le README faux — en silence, sans ce test.
+    copier cannot know in advance the list of files it will write, and the
+    generated README displays it. A template added without updating
+    `expected_paths` would therefore make the README wrong — silently, without
+    this test.
     """
     manager = _manager()
     data = _spec_data()
     spec = validate_spec(data, manager)
     pipeline.generate(data, spec, manager, tmp_path)
 
-    produits = {
-        chemin.relative_to(tmp_path / "ansible").as_posix()
-        for chemin in (tmp_path / "ansible").rglob("*")
-        if chemin.is_file()
+    produced = {
+        path.relative_to(tmp_path / "ansible").as_posix()
+        for path in (tmp_path / "ansible").rglob("*")
+        if path.is_file()
     }
-    annonces = set(tree.expected_paths(spec))
-    # Ecarts assumes et documentes dans tree.py : la plomberie de copier n'est
-    # pas annoncee, et forge.yml vit desormais a la racine du depot cible.
-    assert produits - annonces <= {".copier-answers.yml"}
-    assert annonces - produits <= {"forge.yml"}
+    announced = set(tree.expected_paths(spec))
+    # Accepted differences, documented in tree.py: copier's plumbing is not
+    # announced, and forge.yml now lives at the root of the target repository.
+    assert produced - announced <= {".copier-answers.yml"}
+    assert announced - produced <= {"forge.yml"}
 
 
 # ---------------------------------------------------------------------------
-# Entretien
+# Interview
 # ---------------------------------------------------------------------------
 
-#: Entretien minimal : connexion, un groupe, un environnement, une machine.
-ENTRETIEN_MINIMAL = [
+#: Minimal interview: connection, one group, one environment, one machine.
+MINIMAL_INTERVIEW = [
     "debian", "ansible", "22", True, "auto_silent",
     "gateways", "Passerelles exposees", ["common"], False,
     False,
@@ -315,7 +319,7 @@ ENTRETIEN_MINIMAL = [
 ]
 
 
-def test_l_entretien_produit_une_section_valide():
+def test_the_interview_produces_a_valid_section():
     from forge.plugins.ansible import interview
     from forge.spec.service import ServiceSpec
 
@@ -325,18 +329,18 @@ def test_l_entretien_produit_une_section_valide():
         owner="Equipe Plateforme",
         environments=[{"name": "prod", "production": True}],
     )
-    prompter = ScriptedPrompter(list(ENTRETIEN_MINIMAL))
+    prompter = ScriptedPrompter(list(MINIMAL_INTERVIEW))
     section = interview.run(prompter, service)
 
     assert prompter.exhausted
     assert section is not None
-    modele = AnsibleSpec.model_validate(section)
-    assert [groupe.name for groupe in modele.groups] == ["gateways"]
-    assert modele.hosts["prod"]["gateways"][0].name == "gw-prod-01"
+    model = AnsibleSpec.model_validate(section)
+    assert [group.name for group in model.groups] == ["gateways"]
+    assert model.hosts["prod"]["gateways"][0].name == "gw-prod-01"
 
 
-def test_l_entretien_ne_repose_pas_les_questions_du_bloc_service():
-    """L'identite et les environnements appartiennent au coeur, pas au domaine."""
+def test_the_interview_does_not_repeat_the_service_block_questions():
+    """Identity and environments belong to the core, not to the domain."""
     from forge.plugins.ansible import interview
     from forge.spec.service import ServiceSpec
 
@@ -346,35 +350,35 @@ def test_l_entretien_ne_repose_pas_les_questions_du_bloc_service():
         owner="Equipe Plateforme",
         environments=[{"name": "prod", "production": True}],
     )
-    prompter = ScriptedPrompter(list(ENTRETIEN_MINIMAL))
+    prompter = ScriptedPrompter(list(MINIMAL_INTERVIEW))
     interview.run(prompter, service)
 
-    posees = " ".join(prompter.asked).lower()
-    for question_du_coeur in (
+    asked = " ".join(prompter.asked).lower()
+    for core_question in (
         "nom du service",
         "nom du projet",
         "responsable",
         "environnements, separes",
         "adresse de contact",
     ):
-        assert question_du_coeur not in posees, (
-            f"l'entretien du domaine repose une question du coeur : {question_du_coeur}"
+        assert core_question not in asked, (
+            f"the domain interview repeats a core question: {core_question}"
         )
 
 
 # ---------------------------------------------------------------------------
-# Validation reelle du projet genere
+# Real validation of the generated project
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.integration
-def test_le_projet_genere_passe_ses_propres_validateurs(tmp_path):
-    """Regle dure de CLAUDE.md : le projet genere doit passer ses validateurs.
+def test_the_generated_project_passes_its_own_validators(tmp_path):
+    """Hard rule from CLAUDE.md: the generated project must pass its validators.
 
-    Le generateur d'origine ne l'avait jamais verifie — sa suite ignorait
-    ansible-lint, faute d'outil installe. Ce test lance les deux outils pour de
-    vrai (nativement, ou via le pont WSL sous Windows) sur le cas le plus riche
-    du catalogue.
+    The original generator had never checked it — its suite skipped
+    ansible-lint, for lack of an installed tool. This test runs both tools for
+    real (natively, or through the WSL bridge under Windows) on the richest case
+    of the catalogue.
     """
     from tests.conftest import require_tools
 
@@ -388,13 +392,13 @@ def test_le_projet_genere_passe_ses_propres_validateurs(tmp_path):
     spec = validate_spec(data, manager)
     pipeline.generate(data, spec, manager, tmp_path)
 
-    resultat = pipeline.validate(spec, manager, tmp_path)
-    echecs = [check.label for rapport in resultat.reports for check in rapport.failures()]
-    assert not echecs, (
-        f"validateurs en echec : {', '.join(echecs)}\n"
+    result = pipeline.validate(spec, manager, tmp_path)
+    failures = [check.label for report in result.reports for check in report.failures()]
+    assert not failures, (
+        f"failing validators: {', '.join(failures)}\n"
         + "\n".join(
             check.detail
-            for rapport in resultat.reports
-            for check in rapport.failures()
+            for report in result.reports
+            for check in report.failures()
         )[:2000]
     )
