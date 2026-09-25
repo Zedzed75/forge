@@ -5,7 +5,7 @@
 # missing is knowing when it goes wrong. The monitoring domain reads no other
 # section: what it watches is declared here, and nowhere else.
 #
-#   forge generate -s examples/monitoring-seul.yml -o /tmp/payments
+#   forge generate -s examples/monitoring-only.yml -o /tmp/payments
 #
 # Produces `monitoring/` and nothing else.
 #

@@ -5,7 +5,7 @@
 # into it — without deploying anything yourself. That is the need of a platform
 # team preparing the ground for product teams.
 #
-#   forge generate -s examples/terraform-seul.yml -o /tmp/foundation
+#   forge generate -s examples/terraform-only.yml -o /tmp/foundation
 #
 # Produces `terraform/` and nothing else. The `ansible:` and `helm:` sections
 # are absent, so those domains are not generated.

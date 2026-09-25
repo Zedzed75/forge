@@ -4,7 +4,7 @@
 # Machines to configure, no container, no infrastructure to create. That is a
 # complete and frequent need — not a degraded version of anything.
 #
-#   forge generate -s examples/ansible-seul.yml -o /tmp/gateway
+#   forge generate -s examples/ansible-only.yml -o /tmp/gateway
 #
 # Produces `ansible/` and nothing else: no Helm chart, no Terraform foundation.
 # The `helm:` and `terraform:` sections are absent, so those domains are not
