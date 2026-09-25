@@ -11,7 +11,7 @@ name = "forge"
 # dupliquee ici et la, et les deux avaient deja diverge — `forge --version`
 # annoncait 0.1.0 sur un depot tague v1.1.0.
 dynamic = ["version"]
-description = "Generateur deterministe de projets IaC complets et commentes, a base de plugins"
+description = "Plugin-based deterministic generator of complete, commented IaC projects"
 readme = "README.md"
 requires-python = ">=3.11"
 # Forme PEP 639 : une expression SPDX, plus le fichier de licence declare a

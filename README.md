@@ -1,307 +1,301 @@
 # forge
 
-Generateur deterministe de projets d'infrastructure complets et commentes
-(Ansible, Helm, Terraform, monitoring, CI/CD) a partir d'une seule
-specification `forge.yml`.
+Deterministic generator of complete, commented infrastructure projects
+(Ansible, Helm, Terraform, monitoring, CI/CD) from a single `forge.yml`
+specification.
 
-Ce que forge produit n'est pas un squelette a completer : chaque fichier porte un
-en-tete disant a quoi il sert, chaque variable exposee est commentee avec ses
-valeurs admises, et **le projet genere passe les validateurs reels de son
-domaine** — pas un controle interne, les vrais outils.
+What forge produces is not a skeleton left to be filled in: every file carries a
+header saying what it is for, every exposed variable is commented with its
+allowed values, and **the generated project passes the real validators of its
+domain** — not an internal check, the actual tools.
 
-## Un projet n'a pas besoin de tout
+## A project does not need everything
 
-Un projet peut n'avoir besoin que d'un chart Helm. Un autre, que de roles et de
-playbooks Ansible. Un troisieme, que d'un socle Terraform, ou que de regles
-d'alerte. **C'est vous qui choisissez**, et forge ne produit rien d'autre.
+One project may need nothing but a Helm chart. Another, nothing but Ansible
+roles and playbooks. A third, nothing but a Terraform foundation, or nothing but
+alerting rules. **You are the one who chooses**, and forge produces nothing
+else.
 
 ```bash
-forge generate -s examples/helm-only.yml       -o /tmp/boutique    # helm/ seul
-forge generate -s examples/ansible-only.yml    -o /tmp/passerelle  # ansible/ seul
-forge generate -s examples/terraform-only.yml  -o /tmp/socle       # terraform/ seul
-forge generate -s examples/monitoring-only.yml -o /tmp/paiement    # monitoring/ seul
-forge generate -s examples/pipeline-only.yml   -o /tmp/ci          # une chaine de CI seule
+forge generate -s examples/helm-only.yml       -o /tmp/storefront  # helm/ only
+forge generate -s examples/ansible-only.yml    -o /tmp/gateway     # ansible/ only
+forge generate -s examples/terraform-only.yml  -o /tmp/foundation  # terraform/ only
+forge generate -s examples/monitoring-only.yml -o /tmp/payment     # monitoring/ only
+forge generate -s examples/pipeline-only.yml   -o /tmp/ci          # a CI chain on its own
 ```
 
-Ces six exemples sont commites et testes : voir [`examples/`](examples/).
+These six examples are committed and tested: see [`examples/`](examples/).
 
-| Domaine | Section | Produit | Valide par |
+| Domain | Section | Produces | Validated by |
 | --- | --- | --- | --- |
-| Ansible | `ansible:` | inventaires, playbooks, roles | `ansible-playbook --syntax-check`, `ansible-lint` (profil production) |
-| Helm | `helm:` | chart complet, values par environnement | `helm lint`, `helm template`, `kubeconform -strict` |
-| Terraform | `terraform:` | un module, une racine par environnement | `terraform fmt`, `init`, `validate`, `tflint` |
-| Monitoring | `monitoring:` | collecte, regles d'alerte, **tests d'alerte** | `promtool check config`, `check rules`, `test rules` |
-| Pipeline | `pipeline:` | chaine GitHub Actions ou GitLab CI, a la racine | `actionlint` (GitHub), `yamllint` (GitLab) |
+| Ansible | `ansible:` | inventories, playbooks, roles | `ansible-playbook --syntax-check`, `ansible-lint` (production profile) |
+| Helm | `helm:` | complete chart, per-environment values | `helm lint`, `helm template`, `kubeconform -strict` |
+| Terraform | `terraform:` | one module, one root per environment | `terraform fmt`, `init`, `validate`, `tflint` |
+| Monitoring | `monitoring:` | collection, alerting rules, **alert tests** | `promtool check config`, `check rules`, `test rules` |
+| Pipeline | `pipeline:` | GitHub Actions or GitLab CI chain, at the root | `actionlint` (GitHub), `yamllint` (GitLab) |
 
-Trois facons de choisir :
+Three ways to choose:
 
-| Vous voulez | Vous faites |
+| You want | You do |
 | --- | --- |
-| un seul domaine | n'ecrivez que sa section dans `forge.yml` — une section absente ne genere rien |
-| une execution restreinte | `forge generate --only helm` |
-| decider a la creation | `forge new` demande quels domaines produire |
+| a single domain | write only its section in `forge.yml` — an absent section generates nothing |
+| a restricted run | `forge generate --only helm` |
+| to decide at creation time | `forge new` asks which domains to produce |
 
-`--only` **restreint** toujours, il n'ajoute jamais : demander un domaine que la
-specification ne declare pas est une erreur nommee, pas une generation vide.
+`--only` always **restricts**, it never adds: asking for a domain the
+specification does not declare is a named error, not an empty generation.
 
-`forge plugins -s forge.yml` dit quels domaines sont demandes et lesquels ne le
-sont pas ; `forge generate --dry-run` annonce ce qu'il produirait sans rien
-ecrire. Une specification qui ne declare aucun domaine ne produit pas un projet
-vide en silence : forge dit lesquels sont disponibles et comment en demander un.
+`forge plugins -s forge.yml` tells which domains are requested and which are
+not; `forge generate --dry-run` announces what it would produce without writing
+anything. A specification that declares no domain does not silently produce an
+empty project: forge says which ones are available and how to ask for one.
 
-Demander plusieurs domaines a la fois est **un** usage possible — forge verifie
-alors qu'ils restent coherents entre eux — pas l'usage normal.
+Asking for several domains at once is **one** possible use — forge then checks
+that they stay consistent with each other — not the normal one.
 
-## Prise en main
+## Getting started
 
 ```bash
-forge new -o mon-service     # entretien, ecrit forge.yml, puis genere
-forge validate -o mon-service
+forge new -o my-service     # interview, writes forge.yml, then generates
+forge validate -o my-service
 ```
 
-L'entretien demande d'abord l'identite du service et ses environnements, puis
-**quels domaines generer**, et n'interroge ensuite que sur ceux-la.
+The interview first asks for the service identity and its environments, then
+**which domains to generate**, and afterwards only asks about those.
 
-| Commande | Role |
+| Command | Role |
 | --- | --- |
-| `forge new` | entretien interactif — demande quels domaines generer — ecrit `forge.yml` puis genere |
-| `forge generate` | rejoue une specification existante |
-| `forge validate` | validateurs de chaque domaine + coherence inter-domaines |
-| `forge update` | applique les evolutions de gabarit sans ecraser vos modifications |
-| `forge diff` | resume l'ecart entre la cible et un rendu neuf |
-| `forge plugins` | domaines enregistres et etat des outils externes |
-| `forge catalog <domaine>` | catalogue publie par un plugin, pieges compris |
+| `forge new` | interactive interview — asks which domains to generate — writes `forge.yml` then generates |
+| `forge generate` | replays an existing specification |
+| `forge validate` | each domain's validators + cross-domain consistency |
+| `forge update` | applies template evolutions without overwriting your changes |
+| `forge diff` | summarises the gap between the target and a fresh render |
+| `forge plugins` | registered domains and state of the external tools |
+| `forge catalog <domain>` | catalogue published by a plugin, pitfalls included |
 
-`forge catalog <domaine> <element>` est plus qu'une liste : chaque famille de
-ressources y documente ses **pieges mesures** — pourquoi un ResourceQuota casse
-un chart qui ne declare pas ses `requests`, pourquoi une NetworkPolicy sans
-ouverture DNS coupe toute resolution de nom, pourquoi un seau `+Inf` fait mentir
-un quantile.
+`forge catalog <domain> <item>` is more than a list: every resource family
+documents its **measured pitfalls** there — why a ResourceQuota breaks a chart
+that does not declare its `requests`, why a NetworkPolicy without a DNS opening
+cuts off all name resolution, why a `+Inf` bucket makes a quantile lie.
 
 ## Architecture
 
-### Le coeur ne connait aucun domaine
+### The core knows no domain
 
-`src/forge/` sait charger une specification, appeler copier, executer des
-commandes et comparer des projections. Il ne sait pas ce qu'est un namespace, un
-role ou un histogramme. Toute connaissance de domaine vit dans
-`src/forge/plugins/<domaine>/`.
+`src/forge/` knows how to load a specification, call copier, run commands and
+compare projections. It does not know what a namespace, a role or a histogram
+is. All domain knowledge lives in `src/forge/plugins/<domain>/`.
 
-Cette separation n'est pas decorative : **ajouter un domaine a coute une ligne
-du coeur** — l'entree de `BUILTIN_PLUGINS`. C'est verifie a chaque ajout, et les
-deux derniers domaines l'ont confirme.
+This separation is not decorative: **adding a domain costs one line of the
+core** — the `BUILTIN_PLUGINS` entry. It is checked on every addition, and the
+last two domains confirmed it.
 
 ```
 src/forge/
-├── spec/           # bloc `service:` partage, assemblage du modele racine
-├── plugins_api/    # le contrat : hookspecs, types echanges, registre
-├── render/         # invocation de copier, fichiers de niveau depot, diff
-├── validate/       # execution des commandes, pont WSL, controles inter-domaines
-├── interview/      # protocole de saisie, rejouable en test
-├── pipeline.py     # enchainement des operations, sans terminal
-├── cli.py          # lecture d'arguments et affichage, rien d'autre
-└── plugins/        # ansible/ helm/ terraform/ monitoring/  (+ demo/, hors production)
+├── spec/           # shared `service:` block, assembly of the root model
+├── plugins_api/    # the contract: hookspecs, exchanged types, registry
+├── render/         # copier invocation, repository-level files, diff
+├── validate/       # command execution, WSL bridge, cross-domain checks
+├── interview/      # input protocol, replayable in tests
+├── pipeline.py     # chaining of the operations, no terminal
+├── cli.py          # argument reading and display, nothing else
+└── plugins/        # ansible/ helm/ terraform/ monitoring/  (+ demo/, not for production)
 ```
 
-### Ce que copier fait, et pourquoi
+### What copier does, and why
 
-Le rendu passe **toujours** par copier, jamais par une ecriture de fichier en
-dur. C'est ce qui rend `forge update` possible : un projet livre il y a six mois
-recoit les evolutions du gabarit sans perdre les reglages faits a la main.
+Rendering **always** goes through copier, never through a hardcoded file write.
+That is what makes `forge update` possible: a project delivered six months ago
+receives the template evolutions without losing the settings made by hand.
 
-Consequence sur les gabarits : ils emploient les delimiteurs `[[ ]]`, `[% %]` et
-`[# #]`, jamais `{{ }}`. Helm et Ansible ecrivent tous deux `{{ ... }}` dans
-leurs propres fichiers ; avec les delimiteurs par defaut, chaque gabarit aurait
-demande un bloc `raw`. Ici, `{{ .Values.image.tag }}` traverse le rendu sans
-etre touche.
+Consequence for the templates: they use the `[[ ]]`, `[% %]` and `[# #]`
+delimiters, never `{{ }}`. Helm and Ansible both write `{{ ... }}` in their own
+files; with the default delimiters, every template would have required a `raw`
+block. Here, `{{ .Values.image.tag }}` goes through the render untouched.
 
-### Comment deux domaines se rencontrent sans se connaitre
+### How two domains meet without knowing each other
 
-Aucun plugin ne lit la section d'un autre. Quand deux domaines doivent
-s'accorder, ils declarent une **facette** — un fait, dans un vocabulaire
-partage — et le coeur compare :
+No plugin reads another's section. When two domains have to agree, they declare
+a **facet** — a fact, in a shared vocabulary — and the core compares:
 
-| Facette | Ce qu'elle designe | Declaree par |
+| Facet | What it designates | Declared by |
 | --- | --- | --- |
-| `namespaces` | cloisons ou le service vit | terraform, helm, monitoring |
-| `ingress_hosts` | noms par lesquels le service est joignable de l'exterieur | helm, monitoring |
-| `inventory_hosts` | machines nommees dans un inventaire | ansible |
-| `groups` | regroupements de machines partageant un role | ansible |
+| `namespaces` | partitions where the service lives | terraform, helm, monitoring |
+| `ingress_hosts` | names by which the service is reachable from outside | helm, monitoring |
+| `inventory_hosts` | machines named in an inventory | ansible |
+| `groups` | groupings of machines sharing a role | ansible |
 
-Terraform cree le namespace, Helm y deploie, le monitoring le regarde : si les
-trois cessent de le nommer pareil, `forge validate` le dit — sans qu'aucune
-regle « si terraform alors helm » n'existe nulle part.
+Terraform creates the namespace, Helm deploys into it, monitoring watches it: if
+the three stop naming it the same way, `forge validate` says so — without any
+"if terraform then helm" rule existing anywhere.
 
-Le vocabulaire est **ferme** : le coeur ne compare que les facettes qui y
-figurent. Une facette hors vocabulaire est sans danger, mais sans effet. La
-regle vient d'un vrai faux positif : Ansible et Helm declaraient tous deux
-`hosts`, pour des choses sans rapport.
+The vocabulary is **closed**: the core only compares the facets listed in it. A
+facet outside the vocabulary is harmless, but has no effect. The rule comes from
+a real false positive: Ansible and Helm both declared `hosts`, for unrelated
+things.
 
-### Le domaine qui federe les autres sans les connaitre
+### The domain that federates the others without knowing them
 
-Le domaine `pipeline` est le seul dont la sortie **depend des autres sections**.
-Il engendre un job de validation par domaine declare, avec les commandes que
-chaque domaine annonce lui-meme et l'installation des outils qu'elles exigent.
-Ajouter une section a `forge.yml` ajoute un job, sans qu'une ligne de gabarit
-change.
+The `pipeline` domain is the only one whose output **depends on the other
+sections**. It generates one validation job per declared domain, with the
+commands each domain announces itself and the installation of the tools they
+require. Adding a section to `forge.yml` adds a job, without a line of template
+changing.
 
-Le coeur ne devient pas un ordonnanceur pour autant : il assemble un
-`GenerationContext` a partir de hooks qu'il appelait deja — `DomainInfo`,
-`Command`, `Projection` — et n'en tire aucune conclusion. Le plugin `pipeline`
-ne contient aucun nom de domaine ; un domaine factice qu'il n'a jamais vu obtient
-son job, et c'est un test qui le prouve.
+The core does not become a scheduler for all that: it assembles a
+`GenerationContext` from hooks it was already calling — `DomainInfo`, `Command`,
+`Projection` — and draws no conclusion from it. The `pipeline` plugin contains no
+domain name; a fake domain it has never seen gets its job, and a test proves it.
 
-Trois traductions y demandent du soin, et chacune est verrouillee par un test :
+Three translations call for care there, and each is locked down by a test:
 
-- **le chainage par stdin** devient une redirection par fichier, jamais un tube :
-  `pipefail` n'existe pas dans le `/bin/sh` d'une image Debian, et un tube y
-  masquerait l'echec de la commande source ;
-- **l'ordre de deploiement** suit `DomainInfo.deploy_order`, pas l'alphabet —
-  sans quoi le chart partirait avant le Terraform qui cree son namespace ;
-- **les variables d'environnement locales** sont ecartees : un chemin de cache
-  calcule sur le poste n'a aucun sens sur un runner, et le graver rendrait la
-  sortie dependante de la machine qui l'a engendree.
+- **chaining through stdin** becomes a redirection through a file, never a pipe:
+  `pipefail` does not exist in the `/bin/sh` of a Debian image, and a pipe there
+  would mask the failure of the source command;
+- **the deployment order** follows `DomainInfo.deploy_order`, not the alphabet —
+  otherwise the chart would go out before the Terraform that creates its
+  namespace;
+- **local environment variables** are discarded: a cache path computed on the
+  workstation makes no sense on a runner, and carving it in would make the
+  output depend on the machine that generated it.
 
-Un domaine qui ne declare pas comment se deployer est **nomme** dans le fichier
-engendre, jamais devine. De meme pour un outil que la table d'installation ne
-connait pas : l'etape echoue en le nommant, plutot que de laisser le job tomber
-plus loin sur un « command not found ».
+A domain that does not declare how to deploy itself is **named** in the
+generated file, never guessed. Likewise for a tool the installation table does
+not know: the step fails naming it, rather than letting the job fall over
+further down on a "command not found".
 
-## Ecrire un plugin de domaine
+## Writing a domain plugin
 
-Un plugin est un module Python exposant des `@hookimpl`. Un seul hook est
-obligatoire.
+A plugin is a Python module exposing `@hookimpl`s. Exactly one hook is
+mandatory.
 
-| Hook | Obligatoire | Role |
+| Hook | Mandatory | Role |
 | --- | --- | --- |
-| `forge_domain()` | **oui** | identite du domaine : nom, titre, resume, repertoire de sortie |
-| `forge_spec_model()` | oui en pratique | sous-modele pydantic validant la section `<domaine>:` |
-| `forge_template_subdir()` | oui en pratique | chemin du gabarit copier |
-| `forge_answers(spec, context)` | oui en pratique | projette la spec vers le dict `domain` que les gabarits lisent ; `context` decrit les autres domaines demandes, et un plugin qui n'en a pas besoin ne declare pas le parametre |
-| `forge_check_spec(spec)` | non | controles que le sous-modele ne peut pas faire — il ne voit pas `service:` |
-| `forge_validators(spec, outdir)` | non | commandes externes validant le projet genere |
-| `forge_deploy(spec, outdir, env)` | non | comment ce domaine se deploie. Le coeur ne l'execute **jamais** : ces commandes n'existent que pour etre ecrites dans un pipeline |
-| `forge_projection(spec)` | non | ce que le domaine affirme produire, pour la comparaison de facettes |
-| `forge_interview(prompter, service)` | non | questionnaire de `forge new` |
-| `forge_catalog()` | non | catalogue consultable par `forge catalog` |
-| `forge_consistency(spec, outdirs)` | non | echappatoire : controles sur le projet **deja ecrit** |
+| `forge_domain()` | **yes** | the domain's identity: name, title, summary, output directory |
+| `forge_spec_model()` | yes in practice | pydantic submodel validating the `<domain>:` section |
+| `forge_template_subdir()` | yes in practice | path to the copier template |
+| `forge_answers(spec, context)` | yes in practice | projects the spec into the `domain` dict the templates read; `context` describes the other requested domains, and a plugin that does not need it does not declare the parameter |
+| `forge_check_spec(spec)` | no | checks the submodel cannot do — it does not see `service:` |
+| `forge_validators(spec, outdir)` | no | external commands validating the generated project |
+| `forge_deploy(spec, outdir, env)` | no | how this domain deploys. The core **never** runs it: these commands exist only to be written into a pipeline |
+| `forge_projection(spec)` | no | what the domain claims to produce, for the facet comparison |
+| `forge_interview(prompter, service)` | no | `forge new` questionnaire |
+| `forge_catalog()` | no | catalogue browsable by `forge catalog` |
+| `forge_consistency(spec, outdirs)` | no | escape hatch: checks on the **already written** project |
 
-### La marche a suivre
+### The procedure to follow
 
-1. **`spec.py`** — un modele pydantic heritant de `ForgeModel` (`extra="forbid"` :
-   une cle inconnue est une faute de frappe, jamais un silence). Refusez tot ce
-   qui ne se verra que tard : une contrainte de version sans borne haute, un
-   backend sans sa cle obligatoire, un delai de collecte superieur a son
-   intervalle.
-2. **`catalog/`** — les familles de ce que le domaine sait produire, avec leurs
-   pieges. C'est la connaissance metier ; le reste n'est que plomberie.
-3. **`derive.py` / `answers.py`** — la projection vers le dict `domain`. Elle
-   doit etre **JSON-serialisable et deterministe** : elle est ecrite telle quelle
-   dans `.copier-answers.yml` et rejouee par `copier update`. Aucun objet
-   pydantic, aucun `set`, aucun chemin absolu.
-4. **`template/`** — les gabarits, delimiteurs `[[ ]]`.
-5. **`tree.py`** — la liste des chemins produits, pour que le README genere ne
-   mente pas. Un test la confronte au rendu reel.
-6. **`validators.py`** — les commandes reelles. Un domaine dont la sortie n'est
-   verifiee par rien n'est pas fini.
-7. Une ligne dans `BUILTIN_PLUGINS`, une specification de reference dans
-   `tests/specs/`, un exemple mono-domaine dans `examples/`.
+1. **`spec.py`** — a pydantic model inheriting from `ForgeModel` (`extra="forbid"`:
+   an unknown key is a typo, never a silence). Reject early whatever would only
+   show up late: a version constraint without an upper bound, a backend without
+   its mandatory key, a scrape timeout greater than its interval.
+2. **`catalog/`** — the families of what the domain knows how to produce, with
+   their pitfalls. That is the domain knowledge; the rest is only plumbing.
+3. **`derive.py` / `answers.py`** — the projection into the `domain` dict. It
+   must be **JSON-serialisable and deterministic**: it is written as-is into
+   `.copier-answers.yml` and replayed by `copier update`. No pydantic object, no
+   `set`, no absolute path.
+4. **`template/`** — the templates, `[[ ]]` delimiters.
+5. **`tree.py`** — the list of produced paths, so that the generated README does
+   not lie. A test confronts it with the real render.
+6. **`validators.py`** — the real commands. A domain whose output nothing checks
+   is not finished.
+7. One line in `BUILTIN_PLUGINS`, a reference specification in `tests/specs/`,
+   a single-domain example in `examples/`.
 
-### Trois pieges qui ont mordu
+### Three pitfalls that have bitten
 
-- **Ne lisez jamais une cle en notation pointee quand elle porte le nom d'une
-  methode de dict.** En Jinja, `objet.values` resout la methode avant la cle, et
-  le gabarit ecrit `<built-in method values...>` dans le fichier genere. La forme
-  sure est `objet["values"]`. Deux tests l'imposent, l'un sur la source des
-  gabarits, l'autre sur la sortie.
-- **Gardez les noms de gabarit courts.** Windows plafonne un chemin a 260
-  caracteres, et copier clone le depot dans un repertoire temporaire avant de
-  rendre. Un nom portant deux balises `yield` explicites depasse la limite ;
-  employez des listes de noms courtes et relisez l'entree complete dans le corps
-  du fichier.
-- **N'ecrivez jamais dans un fichier genere une valeur lue dans l'environnement
-  du processus.** Un chemin de cache calcule sur le poste de developpement rend
-  la sortie dependante de la machine, et le test golden ne peut plus comparer.
+- **Never read a key in dotted notation when it bears the name of a dict
+  method.** In Jinja, `object.values` resolves the method before the key, and the
+  template writes `<built-in method values...>` into the generated file. The safe
+  form is `object["values"]`. Two tests enforce it, one on the template sources,
+  the other on the output.
+- **Keep template names short.** Windows caps a path at 260 characters, and
+  copier clones the repository into a temporary directory before rendering. A
+  name carrying two explicit `yield` tags goes past the limit; use short name
+  lists and re-read the full entry in the body of the file.
+- **Never write into a generated file a value read from the process
+  environment.** A cache path computed on the development workstation makes the
+  output machine-dependent, and the golden test can no longer compare.
 
-### Le motif des emplacements
+### The slots pattern
 
-Un gabarit propre a un element existe sans qu'un `[% if %]` figure dans son
-chemin : la projection expose un dict `{cle: [element] ou []}`, et la balise
-`yield` de copier decide d'ecrire ou non. Les quatre domaines l'ont invente
-separement ; c'est devenu une convention.
+A template specific to an item exists without a `[% if %]` appearing in its
+path: the projection exposes a `{key: [item] or []}` dict, and copier's `yield`
+tag decides whether to write it. The four domains invented it separately; it has
+become a convention.
 
-## Ce qui garantit la sortie
+## What guarantees the output
 
-**Meme specification, meme sortie, octet pour octet.** Des tests golden
-comparent chaque rendu a une reference commitee. Ils attrapent aussi bien un
-changement voulu qu'un non-determinisme accidentel.
+**Same specification, same output, byte for byte.** Golden tests compare every
+render to a committed reference. They catch an intended change just as well as
+an accidental non-determinism.
 
-**Le projet genere passe les validateurs reels de son domaine.** Les cinq
-specifications de reference declenchent **31 commandes externes**, lancees par
-la suite de tests sur de vrais projets rendus. Ce ne sont pas des controles
-internes : ce sont les outils que l'utilisateur lancera.
+**The generated project passes the real validators of its domain.** The five
+reference specifications trigger **31 external commands**, launched by the test
+suite on genuinely rendered projects. These are not internal checks: they are the
+tools the user will run.
 
-Un cas merite d'etre souligne : le domaine monitoring livre, avec chaque regle
-d'alerte, le **test unitaire** qui prouve qu'elle se declenche —
-`promtool test rules` fabrique une serie temporelle synthetique et verifie que
-l'alerte apparait avec les bons libelles. C'est le seul validateur du projet qui
-verifie quelque chose de semantique : une regle d'alerte peut etre
-syntaxiquement irreprochable et rester muette pour toujours.
+One case deserves to be highlighted: the monitoring domain delivers, with every
+alerting rule, the **unit test** that proves it fires — `promtool test rules`
+builds a synthetic time series and checks that the alert appears with the right
+labels. It is the only validator in the project that checks something semantic:
+an alerting rule can be syntactically impeccable and stay mute forever.
 
-Sous Windows, les outils qui n'existent pas nativement sont cherches dans une
-distribution WSL. La CI Linux fait autorite.
+On Windows, the tools that do not exist natively are looked up in a WSL
+distribution. The Linux CI is authoritative.
 
-## D'ou vient forge
+## Where forge comes from
 
-forge est le portage de deux generateurs autonomes, `ansible-forge` et
-`helm-forge`, qui partageaient un modele de specification, un moteur Jinja, un
-harnais de tests golden et une CLI — en double.
+forge is the port of two standalone generators, `ansible-forge` and `helm-forge`,
+which shared a specification model, a Jinja engine, a golden test harness and a
+CLI — in duplicate.
 
-Le portage a ete conduit a la **parite octet**, sur des instantanes figes de la
-sortie d'origine : 313 fichiers cote Ansible, 32 cote Helm. Cette parite a servi
-tout le temps du portage, puis a ete retiree, avec le code d'origine, une fois
-qu'elle mesurait une ressemblance a des outils qui n'existent plus — et que le
-projet genere l'avait depassee. Le chart Helm compte neuf familles de ressources
-que l'outil d'origine n'a jamais eues ; le projet Ansible passe `ansible-lint` en
-profil production, ce que la suite d'origine n'avait jamais verifie.
+The port was carried out at **byte parity**, against frozen snapshots of the
+original output: 313 files on the Ansible side, 32 on the Helm side. That parity
+served throughout the port, then was removed, along with the original code, once
+it was measuring a resemblance to tools that no longer exist — and once the
+generated project had outgrown it. The Helm chart has nine resource families the
+original tool never had; the Ansible project passes `ansible-lint` in production
+profile, which the original suite had never checked.
 
-`MIGRATION.md` conserve le releve complet : les doublons fusionnes, les
-arbitrages rendus, et les ecarts assumes.
+`MIGRATION.md` keeps the complete record: the merged duplicates, the arbitrations
+made, and the assumed divergences.
 
-## Installation et tests
+## Installation and tests
 
 ```bash
 uv venv
 uv pip install --python .venv/Scripts/python.exe -e ".[dev]"
 ```
 
-Sous Linux et macOS, remplacez `.venv/Scripts/python.exe` par
-`.venv/bin/python`. Si `uv` n'est pas sur le PATH, il s'installe avec
-`python -m pip install uv` puis s'invoque par `python -m uv`.
+On Linux and macOS, replace `.venv/Scripts/python.exe` with `.venv/bin/python`.
+If `uv` is not on the PATH, it installs with `python -m pip install uv` and is
+then invoked as `python -m uv`.
 
 ```bash
-.venv/Scripts/python.exe -m pytest                        # tout
-.venv/Scripts/python.exe -m pytest -m "not integration"   # sans les outils externes
+.venv/Scripts/python.exe -m pytest                        # everything
+.venv/Scripts/python.exe -m pytest -m "not integration"   # without the external tools
 ```
 
-Les tests marques `integration` lancent les validateurs reels et s'ignorent si
-l'outil est absent — nativement comme dans WSL. La CI les installe tous : une
-suite verte y veut donc dire que les projets generes sont valides.
+The tests marked `integration` launch the real validators and skip themselves if
+the tool is absent — natively as well as in WSL. CI installs them all: a green
+suite there therefore means the generated projects are valid.
 
-Les references golden se regenerent avec `pytest --regen-golden`, a ne faire
-qu'apres avoir constate que l'ecart est voulu : la commande **enterine** la
-sortie courante, elle ne la verifie pas.
+The golden references are regenerated with `pytest --regen-golden`, to be done
+only after establishing that the gap is intended: the command **ratifies** the
+current output, it does not verify it.
 
-Un test est ignore tant que le depot porte des modifications non committees :
-`copier update` compare deux references git, et un rendu fait depuis un arbre de
-travail sale reference un commit temporaire introuvable ensuite.
+One test is skipped as long as the repository carries uncommitted changes:
+`copier update` compares two git references, and a render made from a dirty
+working tree refers to a temporary commit that cannot be found afterwards.
 
 ## Documents
 
-| Fichier | Contenu |
+| File | Contents |
 | --- | --- |
 | `CHANGELOG.md` | what changed in generated output, and what `forge update` asks of you |
-| `DESIGN.md` | architecture detaillee, contrat de plugin, decisions arbitrees |
-| `MIGRATION.md` | releve du portage : doublons fusionnes, arbitrages, ecarts |
-| `PLAN.md` | avancement phase par phase, et ce que chacune a etabli |
-| `examples/` | cinq specifications commentees, toutes generees par la suite de tests |
+| `DESIGN.md` | detailed architecture, plugin contract, arbitrated decisions |
+| `MIGRATION.md` | port record: merged duplicates, arbitrations, divergences |
+| `PLAN.md` | progress phase by phase, and what each one established |
+| `examples/` | five commented specifications, all generated by the test suite |
