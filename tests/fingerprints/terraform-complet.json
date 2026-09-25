@@ -36,7 +36,7 @@
     "terraform/modules/boutique/network_policy.tf": "- text e7ee89acd803d2ae",
     "terraform/modules/boutique/outputs.tf": "- text 1ae6e1c143976586",
     "terraform/modules/boutique/quota.tf": "- text 71edf1ee64fe9194",
-    "terraform/modules/boutique/random_secret.tf": "- text b377a69dd5c61b5a",
+    "terraform/modules/boutique/random_secret.tf": "- text 1e38254b058f19e5",
     "terraform/modules/boutique/registry_secret.tf": "- text e0947a09b8769e39",
     "terraform/modules/boutique/service_account.tf": "- text b18bd90eb1307f3a",
     "terraform/modules/boutique/tls_certificate.tf": "- text df827a8f6e129b0e",
