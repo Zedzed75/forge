@@ -25,10 +25,21 @@ jobs:
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # Liée à la version d'ansible-core installée plus bas : sa branche est
+          # la dernière à accepter cette version de Python comme nœud de
+          # contrôle. Les deux se montent ensemble, jamais l'une sans l'autre.
+          python-version: "[[ domain.tooling.python_version ]]"
 
+      # Versions exactes, jamais « la plus récente ». Un validateur qui se met
+      # à jour tout seul fait passer ce dépôt au rouge un matin sans qu'une
+      # seule de ses lignes ait bougé : ansible-lint durcit une règle, et un
+      # projet valide hier ne l'est plus aujourd'hui.
+      #
+      # Ce sont les versions contre lesquelles forge a validé ce projet. Les
+      # monter reste votre droit ; faites-le dans son propre commit, pour que
+      # le journal dise ce qui a changé le verdict.
       - name: Installer ansible-core et ansible-lint
-        run: python -m pip install --upgrade ansible-core ansible-lint
+        run: python -m pip install [[ domain.tooling.pip_install ]]
 
       - name: Installer les collections Galaxy
         run: ansible-galaxy collection install -r requirements.yml

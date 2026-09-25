@@ -466,6 +466,11 @@ domain:
     - *id004
     - *id005
     ssh_port: 22
+    tooling:
+        ansible_core: 2.19.13
+        ansible_lint: 26.9.0
+        pip_install: '"ansible-core==2.19.13" "ansible-lint==26.9.0"'
+        python_version: '3.11'
     tree: 'boutique/
 
         ├── group_vars/

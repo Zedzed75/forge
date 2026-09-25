@@ -19,7 +19,7 @@
     ".gitattributes": "- text f70d755466b10164",
     "README.md": "- prose 82d38686812ee5df",
     "ansible/.ansible-lint": "- structured a95bf90cbd012a1b",
-    "ansible/.copier-answers.yml": "- structured ab357704c4446206",
+    "ansible/.copier-answers.yml": "- structured c053bfff744e315f",
     "ansible/.gitignore": "- text e975bb0aab12f5d1",
     "ansible/.yamllint": "- structured b78e6035e58a0c88",
     "ansible/README.md": "- prose 01a43f7fac9cce9c",

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from forge.plugins.ansible.catalog import tooling as catalog_tooling
 from forge.plugins.ansible.catalog.definition import RoleDefinition
 from forge.plugins.ansible.catalog.collections import requirements_for
 from forge.plugins.ansible.catalog.registry import (
@@ -278,6 +279,15 @@ def collections(ansible: Any) -> list[dict[str, str]]:
         }
         for besoin in collection_requirements_for(ansible.ordered_used_roles())
     ]
+
+
+def tooling() -> dict[str, str]:
+    """Versions des outils Ansible, pour le workflow que le projet emporte.
+
+    Ne depend pas de la specification : ce sont les versions contre lesquelles
+    forge valide sa propre sortie, quelle que soit la specification rendue.
+    """
+    return catalog_tooling.context()
 
 
 def _role_collections(names: tuple[str, ...]) -> list[dict[str, str]]:

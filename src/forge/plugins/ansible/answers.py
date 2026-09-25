@@ -64,6 +64,13 @@ def build(spec: Any) -> dict[str, Any]:
         # -- dependances Galaxy --------------------------------------------
         "collections": derive.collections(ansible),
         "collection_users": derive.collection_users(ansible),
+        # -- outils que le projet genere lance sur lui-meme -----------------
+        # Versions contre lesquelles forge valide sa propre sortie ; le
+        # workflow `.github/workflows/ansible-lint.yml` du projet les installe
+        # telles quelles. Elles figurent dans `.copier-answers.yml` a dessein :
+        # un `forge update` doit pouvoir montrer qu'un validateur a change de
+        # version, comme il le montre pour une collection.
+        "tooling": derive.tooling(),
         # -- roles ----------------------------------------------------------
         "roles": contextes,
         "role_slots": derive.role_slots(contextes),
