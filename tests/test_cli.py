@@ -12,7 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from forge import pipeline
-from forge.cli import app, run_new
+from forge.cli import CHANGELOG_URL, app, run_new
 from forge.plugins_api.manager import ForgeManager
 from tests.conftest import DEMO_PLUGIN, REPO_ROOT, SPECS_DIR
 from tests.scripted_prompter import ScriptedPrompter
@@ -267,12 +267,18 @@ def test_update_replays_the_template_on_a_generated_project(tmp_path, monkeypatc
     assert result.exit_code == 0, result.stdout
     assert "demo" in result.stdout
     assert (tmp_path / "demo" / "environments" / "prod" / "cpu.yml").is_file()
+    # An update that moved files is the only place forge can tell the user that
+    # a rename may ask something of them outside the generated tree.
+    assert CHANGELOG_URL in result.stdout
 
 
 def test_update_ignores_a_domain_that_was_never_generated(tmp_path, monkeypatch):
     result = _invoke(["update", "-o", str(tmp_path)], monkeypatch)
     assert result.exit_code == 0
     assert "none" in result.stdout
+    # Nothing moved, so there is nothing to go and read: pointing at the
+    # changelog here would train the user to ignore the line.
+    assert CHANGELOG_URL not in result.stdout
 
 
 def test_the_plugin_template_path_is_the_declared_one(tmp_path):

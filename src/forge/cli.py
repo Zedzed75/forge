@@ -27,6 +27,11 @@ from forge.validate.consistency import format_issues
 from forge.validate.tools import probe
 from forge import pipeline
 
+#: Where `forge update` sends the user to find out what it just moved. A URL and
+#: not a path: the user is standing in their generated project, which has no copy
+#: of forge's changelog and no reason to acquire one.
+CHANGELOG_URL = "https://github.com/Zedzed75/forge/blob/master/CHANGELOG.md"
+
 app = typer.Typer(
     name="forge",
     help="Generates complete, commented IaC projects from a single forge.yml.",
@@ -290,6 +295,14 @@ def cmd_update(
         _fail(str(exc))
         return
     typer.echo(f"domains updated: {', '.join(updated) or 'none'}")
+    if updated:
+        # The moment the user is told their files moved is the only moment the
+        # changelog is worth reading, so the pointer is printed here rather than
+        # written into the generated project: a line in the generated README
+        # would be authored once, then owned by the user and re-merged by every
+        # later update, which is a permanent conflict site for a link that never
+        # changes. Nothing is printed when no domain moved.
+        typer.echo(f"what moved, and what it asks of you: {CHANGELOG_URL}")
 
 
 @app.command("diff")
