@@ -30,7 +30,7 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: kube_pod_container_status_restarts_total{namespace="boutique-dev", pod="pod-de-test", container="conteneur-de-test"}
+      - series: kube_pod_container_status_restarts_total{namespace="boutique-dev", pod="test-pod", container="test-container"}
         values: 0+1x70
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -40,12 +40,12 @@ tests:
         alertname: BoutiqueRedemarragesEnBoucle
         exp_alerts:
           - exp_labels:
-              container: conteneur-de-test
+              container: test-container
               env: dev
               namespace: boutique-dev
-              pod: pod-de-test
+              pod: test-pod
               service: boutique
               severity: warning
             exp_annotations:
               summary: A container is restarting in a loop
-              description: Container conteneur-de-test of pod pod-de-test has restarted more than 3 times in one hour.
+              description: Container test-container of pod test-pod has restarted more than 3 times in one hour.

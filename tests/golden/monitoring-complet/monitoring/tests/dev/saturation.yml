@@ -30,9 +30,9 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: container_memory_working_set_bytes{namespace="boutique-dev", pod="pod-de-test", container="conteneur-de-test"}
+      - series: container_memory_working_set_bytes{namespace="boutique-dev", pod="test-pod", container="test-container"}
         values: 950000000+0x20
-      - series: container_spec_memory_limit_bytes{namespace="boutique-dev", pod="pod-de-test", container="conteneur-de-test"}
+      - series: container_spec_memory_limit_bytes{namespace="boutique-dev", pod="test-pod", container="test-container"}
         values: 1000000000+0x20
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -42,22 +42,22 @@ tests:
         alertname: BoutiqueMemoireProcheDeLaLimite
         exp_alerts:
           - exp_labels:
-              container: conteneur-de-test
+              container: test-container
               env: dev
               namespace: boutique-dev
-              pod: pod-de-test
+              pod: test-pod
               service: boutique
               severity: warning
             exp_annotations:
               summary: A container is approaching its memory limit
-              description: Container conteneur-de-test of pod pod-de-test has exceeded 90 % of its memory limit for 10 minutes. An actual overrun causes an OOMKill, not a slowdown.
+              description: Container test-container of pod test-pod has exceeded 90 % of its memory limit for 10 minutes. An actual overrun causes an OOMKill, not a slowdown.
 
   # ---------------------------------------------------------------------------
   # BoutiqueCpuEleve — A pod is durably consuming a lot of CPU
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: container_cpu_usage_seconds_total{namespace="boutique-dev", pod="pod-de-test", container="conteneur-de-test"}
+      - series: container_cpu_usage_seconds_total{namespace="boutique-dev", pod="test-pod", container="test-container"}
         values: 0+150x20
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -68,9 +68,9 @@ tests:
         exp_alerts:
           - exp_labels:
               env: dev
-              pod: pod-de-test
+              pod: test-pod
               service: boutique
               severity: warning
             exp_annotations:
               summary: A pod is durably consuming a lot of CPU
-              description: Pod pod-de-test has been consuming more than 1.5 core(s) for 10 minutes.
+              description: Pod test-pod has been consuming more than 1.5 core(s) for 10 minutes.
