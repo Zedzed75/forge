@@ -31,7 +31,7 @@ NEVER_INSTALLED = "forge-validator-that-cannot-exist"
 
 #: The seven skip sites the flag governs, and the module each lives in.
 EXPECTED_CALL_SITES = {
-    "test_inter_domaines.py": 1,
+    "test_cross_domain.py": 1,
     "test_plugin_ansible.py": 1,
     "test_plugin_helm.py": 1,
     "test_plugin_monitoring.py": 1,

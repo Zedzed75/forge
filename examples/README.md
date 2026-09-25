@@ -84,7 +84,7 @@ diff` shows you the difference, the deletion stays yours.
 
 ## These examples are tested
 
-`tests/test_choix_des_domaines.py` generates each of these files and checks that
+`tests/test_domain_selection.py` generates each of these files and checks that
 it produces exactly the domains it declares, no more and no less. It also checks
 that **a single-domain example exists for every shipped domain**: a domain added
 without one makes the suite fail. A stale example is not possible here.

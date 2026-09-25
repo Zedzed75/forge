@@ -65,7 +65,7 @@ mettre a jour la section « Etat courant », committer, s'arreter.
   - [x] CLI : `forge generate` annonce ce qu'il va produire avant d'ecrire ;
         message actionnable quand aucun domaine n'est demande ; `forge plugins`
         distingue les domaines demandes par la specification des autres.
-  - [x] `tests/test_choix_des_domaines.py` : 11 tests verrouillant les trois
+  - [x] `tests/test_domain_selection.py` : 11 tests verrouillant les trois
         facons de choisir, dont un entretien ne retenant qu'un domaine.
 - [x] **Phase 7 — Plugin Terraform** (premier domaine ecrit de zero) (2026-08-26)
   - [x] Aucun code legacy a porter. Promesse tenue : **une seule ligne du coeur
@@ -257,7 +257,7 @@ l'utilisateur. Le mecanisme existait ; ce qui manquait, c'est qu'il soit
 **structurellement invulnerable a la derive** et **visible**.
 
 Ce qui a ete fait :
-- `tests/test_choix_des_domaines.py` reecrit : **plus aucun nom ni nombre de
+- `tests/test_domain_selection.py` reecrit : **plus aucun nom ni nombre de
   domaine code en dur**. Tout est lu dans le registre de plugins, et
   `test_chaque_domaine_livre_a_une_specification_mono_domaine` fait echouer la
   suite si un domaine est ajoute sans son cas mono-domaine. 11 tests -> 34.
@@ -425,7 +425,7 @@ Rappels pour la phase 5 :
 - `forge update` et `forge diff` existent depuis la phase 2 et sont testes ; la
   phase 5 demande d'y ajouter le test d'une mise a jour **apres modification
   deliberee d'un gabarit** — le motif du depot de gabarit temporaire
-  (`tests/test_cli_couverture.py::_depot_de_gabarit`) le permet deja.
+  (`tests/test_cli_coverage.py::_depot_de_gabarit`) le permet deja.
 
 ## Journal des sessions
 
