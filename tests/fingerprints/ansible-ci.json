@@ -7,7 +7,7 @@
   ],
   "files": {
     ".gitattributes": "- text f70d755466b10164",
-    "README.md": "- prose 7f48ecaf1d79d6d1",
+    "README.md": "- prose 8c505416c0d23f8a",
     "ansible/.ansible-lint": "- structured a95bf90cbd012a1b",
     "ansible/.copier-answers.yml": "- structured 5fffba57ea94a461",
     "ansible/.github/workflows/ansible-lint.yml": "- structured 1dc5b99fa9bc3c91",

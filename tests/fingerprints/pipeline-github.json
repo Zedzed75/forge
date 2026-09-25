@@ -4,7 +4,7 @@
     ".copier-answers.yml": "- structured 609219005a11c687",
     ".gitattributes": "- text f70d755466b10164",
     ".github/workflows/ci.yml": "- structured a4ea443b05c17a03",
-    "README.md": "- prose ef571b3f70962994",
+    "README.md": "- prose db0c4e39d67a28d0",
     "forge.yml": "- structured b4a55e8dcd8fc442",
     "helm/.copier-answers.yml": "- structured 8bb26bc5dad7901b",
     "helm/.gitignore": "- text 7fa87af790c4bdf2",
