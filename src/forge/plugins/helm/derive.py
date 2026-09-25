@@ -1,22 +1,22 @@
-"""Valeurs derivees de la specification Helm, pretes pour les gabarits.
+"""Values derived from the Helm specification, ready for the templates.
 
-Ce module est le portage du **calcul de donnees** que faisaient
-`helm_forge.models.spec` (dans ses validateurs) et
-`helm_forge.engine.renderer._base_context` avant de rendre quoi que ce soit. Le
-rendu et l'ecriture sont desormais l'affaire de copier.
+This module is the port of the **data computation** that
+`helm_forge.models.spec` (inside its validators) and
+`helm_forge.engine.renderer._base_context` performed before rendering anything.
+Rendering and writing are copier's business now.
 
-Il couvre la partie **statique** du dict `domain` : identite du chart, image,
-composants, emplacements par famille de ressource. Ce qui varie par
-environnement vit dans :mod:`forge.plugins.helm.derive_env`.
+It covers the **static** part of the `domain` dict: chart identity, image,
+components, slots per resource family. What varies per environment lives in
+:mod:`forge.plugins.helm.derive_env`.
 
-Regle absolue : **toute sortie est JSON-serialisable et d'ordre fige**. Jamais
-d'objet pydantic, jamais d'`Enum` (`.value` partout), jamais de `set` : ce dict
-est ecrit tel quel dans `.copier-answers.yml` et rejoue par `copier update`.
+Absolute rule: **every output is JSON-serialisable and of frozen order**. Never a
+pydantic object, never an `Enum` (`.value` everywhere), never a `set`: this dict
+is written as-is into `.copier-answers.yml` and replayed by `copier update`.
 
-Nommage : les cles reprennent celles que les gabarits legacy lisaient sur les
-objets pydantic, afin que convertir un gabarit se reduise a prefixer `domain.`
-ou a employer la variable de boucle d'un `yield`. Les trois ecarts de nommage
-assumes sont signales en commentaire a l'endroit ou ils apparaissent.
+Naming: the keys reuse those the legacy templates read on the pydantic objects,
+so that converting a template comes down to prefixing `domain.` or to using the
+loop variable of a `yield`. The three deliberate naming divergences are flagged
+as comments where they appear.
 """
 
 from __future__ import annotations
@@ -36,18 +36,18 @@ from forge.plugins.helm.tree import (
 )
 
 # ---------------------------------------------------------------------------
-# Identite du chart
+# Chart identity
 # ---------------------------------------------------------------------------
 
 
 def maintainer(service: Any) -> dict[str, str]:
-    """Mainteneur ecrit dans `Chart.yaml`, jamais vide.
+    """Maintainer written into `Chart.yaml`, never empty.
 
-    `Chart.yaml` refuse une entree `maintainers` sans nom ni adresse, alors que
-    `service.owner_email` est facultatif dans le coeur : le plugin fournit donc
-    les replis, qui sont ceux d'`AppMeta` legacy (`unknown`,
-    `unknown@example.com`). Les cles gardent les noms legacy `maintainer_name`
-    et `maintainer_email`.
+    `Chart.yaml` refuses a `maintainers` entry without a name nor an address,
+    whereas `service.owner_email` is optional in the core: the plugin therefore
+    supplies the fallbacks, which are those of the legacy `AppMeta` (`unknown`,
+    `unknown@example.com`). The keys keep the legacy names `maintainer_name` and
+    `maintainer_email`.
     """
     return {
         "maintainer_name": service.owner or DEFAULT_MAINTAINER_NAME,
@@ -56,12 +56,11 @@ def maintainer(service: Any) -> dict[str, str]:
 
 
 def kubernetes(helm: Any) -> dict[str, str]:
-    """Version de Kubernetes ciblee, avec ses deux formes derivees.
+    """Targeted Kubernetes version, with its two derived forms.
 
-    `kube_version_constraint` alimente `Chart.yaml`, `full_version` alimente
-    `kubeconform`. Toutes deux etaient des proprietes du modele legacy ; un dict
-    JSON-serialisable ne peut pas porter de propriete, elles sont donc
-    materialisees ici.
+    `kube_version_constraint` feeds `Chart.yaml`, `full_version` feeds
+    `kubeconform`. Both were properties of the legacy model; a JSON-serialisable
+    dict cannot carry a property, so they are materialised here.
     """
     return {
         "version": helm.kubernetes.version,
@@ -71,10 +70,10 @@ def kubernetes(helm: Any) -> dict[str, str]:
 
 
 def image(helm: Any) -> dict[str, Any]:
-    """Image de conteneur par defaut du projet.
+    """Default container image of the project.
 
-    `strategy` et `pull_policy` sont rendues en chaines : les gabarits legacy
-    ecrivaient deja `spec.image.strategy.value`.
+    `strategy` and `pull_policy` are rendered as strings: the legacy templates
+    already wrote `spec.image.strategy.value`.
     """
     return {
         "registry": helm.image.registry,
@@ -87,7 +86,7 @@ def image(helm: Any) -> dict[str, Any]:
 
 
 def secrets(helm: Any) -> dict[str, str]:
-    """Strategie de gestion des secrets. Aucune valeur secrete n'y transite."""
+    """How the secrets are managed. No secret value ever passes through here."""
     return {
         "strategy": helm.secrets.strategy.value,
         "store_name": helm.secrets.store_name,
@@ -96,7 +95,7 @@ def secrets(helm: Any) -> dict[str, str]:
 
 
 def extras(helm: Any) -> dict[str, bool]:
-    """Fichiers annexes demandes (`helmfile` et `ci` non portes : H7, H8)."""
+    """Extra files requested (`helmfile` and `ci` not ported: H7, H8)."""
     return {
         "makefile": helm.extras.makefile,
         "helm_tests": helm.extras.helm_tests,
@@ -104,23 +103,23 @@ def extras(helm: Any) -> dict[str, bool]:
 
 
 # ---------------------------------------------------------------------------
-# Composants
+# Components
 # ---------------------------------------------------------------------------
 
 
 def addon_flags(component: Any) -> dict[str, bool]:
-    """Un booleen par addon, **toutes les cles toujours presentes**.
+    """One boolean per addon, **every key always present**.
 
-    Remplace `component.has(AddonKind.SERVICE)` des gabarits legacy par
-    `c.has.service` : un dict complet garantit qu'un gabarit ne peut pas
-    referencer une cle absente, meme pour un addon qu'aucun composant n'emploie.
+    Replaces the legacy templates' `component.has(AddonKind.SERVICE)` with
+    `c.has.service`: a complete dict guarantees that a template cannot reference
+    a missing key, even for an addon no component uses.
     """
-    presents = {addon.value for addon in component.addons}
-    return {addon.value: addon.value in presents for addon in AddonKind}
+    present = {addon.value for addon in component.addons}
+    return {addon.value: addon.value in present for addon in AddonKind}
 
 
 def probes(component: Any) -> dict[str, Any]:
-    """Sondes de sante. Le port interroge est `port_name`, jamais un numero."""
+    """Health probes. The port queried is `port_name`, never a number."""
     p = component.probes
     return {
         "enabled": p.enabled,
@@ -135,7 +134,7 @@ def probes(component: Any) -> dict[str, Any]:
 
 
 def resources(spec_resources: Any) -> dict[str, str]:
-    """Requests et limits d'un conteneur, profil compris (informatif)."""
+    """Requests and limits of a container, profile included (informative)."""
     return {
         "profile": spec_resources.profile.value,
         "cpu_request": spec_resources.cpu_request,
@@ -146,7 +145,7 @@ def resources(spec_resources: Any) -> dict[str, str]:
 
 
 def security(component: Any) -> dict[str, Any]:
-    """Contexte de securite du pod et du conteneur."""
+    """Security context of the pod and of the container."""
     s = component.security
     return {
         "strict": s.strict,
@@ -162,7 +161,7 @@ def security(component: Any) -> dict[str, Any]:
 
 
 def component_service(component: Any) -> dict[str, Any]:
-    """Service exposant la charge de travail."""
+    """Service exposing the workload."""
     s = component.service
     return {
         "type": s.type.value,
@@ -174,12 +173,13 @@ def component_service(component: Any) -> dict[str, Any]:
 
 
 def ingress(component: Any) -> dict[str, Any]:
-    """Exposition HTTP. `class_name` est resolu ici, jamais dans un gabarit.
+    """HTTP exposure. `class_name` is resolved here, never in a template.
 
-    Le modele documente `class_name` comme « absent = derive du controller » :
-    la derivation est litterale (`nginx` -> `nginx`, `traefik` -> `traefik`),
-    mais elle doit exister quelque part, et un gabarit n'a pas a la porter.
-    L'hote, lui, depend de l'environnement : il vit dans `domain.environments`.
+    The model documents `class_name` as "absent = derived from the controller":
+    the derivation is literal (`nginx` -> `nginx`, `traefik` -> `traefik`), but it
+    has to exist somewhere, and a template has no business carrying it. The host,
+    on the other hand, depends on the environment: it lives in
+    `domain.environments`.
     """
     i = component.ingress
     return {
@@ -195,7 +195,7 @@ def ingress(component: Any) -> dict[str, Any]:
 
 
 def persistence(component: Any) -> dict[str, Any]:
-    """Volume persistant attache a la charge de travail."""
+    """Persistent volume attached to the workload."""
     p = component.persistence
     return {
         "enabled": p.enabled,
@@ -207,7 +207,7 @@ def persistence(component: Any) -> dict[str, Any]:
 
 
 def hpa(component: Any) -> dict[str, Any]:
-    """Bornes et cibles de l'autoscaling horizontal."""
+    """Bounds and targets of the horizontal autoscaling."""
     h = component.hpa
     return {
         "min_replicas": h.min_replicas,
@@ -218,7 +218,7 @@ def hpa(component: Any) -> dict[str, Any]:
 
 
 def networkpolicy(component: Any) -> dict[str, Any]:
-    """Restriction du trafic reseau entrant et sortant."""
+    """Restriction of the ingress and egress network traffic."""
     n = component.networkpolicy
     return {
         "allow_from_same_namespace": n.allow_from_same_namespace,
@@ -229,7 +229,7 @@ def networkpolicy(component: Any) -> dict[str, Any]:
 
 
 def cron(component: Any) -> dict[str, Any] | None:
-    """Parametres du CronJob, ou `None` pour tout autre type de composant."""
+    """CronJob parameters, or `None` for any other type of component."""
     c = component.cron
     if c is None:
         return None
@@ -245,21 +245,21 @@ def cron(component: Any) -> dict[str, Any] | None:
 
 
 def component_context(component: Any, helm: Any, *, service_name: str) -> dict[str, Any]:
-    """Contexte complet d'un composant, tel que le voient tous les gabarits.
+    """Complete context of a component, as every template sees it.
 
-    Trois valeurs sont **resolues** plutot que recopiees, parce que chaque
-    gabarit legacy refaisait la meme resolution :
+    Three values are **resolved** rather than copied, because every legacy
+    template redid the same resolution:
 
-    * `image_repository` : `component.image_repository or spec.image.repository`
-      — jamais nul, contrairement au champ du modele ;
-    * `values_ref` : l'expression d'acces a la cle de values du composant, qui
-      gere le cas du nom a tiret (`[% set v = values_ref(component.name) %]`
-      en tete de chaque gabarit legacy) ;
-    * `helper` : le prefixe des helpers du composant
+    * `image_repository`: `component.image_repository or spec.image.repository`
+      — never null, unlike the model field;
+    * `values_ref`: the expression accessing the component's values key, which
+      handles the hyphenated-name case (`[% set v = values_ref(component.name) %]`
+      at the top of every legacy template);
+    * `helper`: the prefix of the component helpers
       (`[% set h = spec.app.name ~ "." ~ component.name %]`).
 
-    `families` liste les fichiers que ce composant fera generer : c'est ce qui
-    permet au README du chart de se documenter sans reimplementer le filtrage.
+    `families` lists the files this component will have generated: that is what
+    lets the chart README document itself without reimplementing the filtering.
     """
     return {
         "name": component.name,
@@ -287,7 +287,7 @@ def component_context(component: Any, helm: Any, *, service_name: str) -> dict[s
         "networkpolicy": networkpolicy(component),
         "rbac": {
             "create": component.rbac.create,
-            "rules": [dict(regle) for regle in component.rbac.rules],
+            "rules": [dict(rule) for rule in component.rbac.rules],
         },
         "config": {
             "keys": list(component.config.keys),
@@ -302,44 +302,44 @@ def component_context(component: Any, helm: Any, *, service_name: str) -> dict[s
 
 
 def components(helm: Any, *, service_name: str) -> list[dict[str, Any]]:
-    """Contextes des composants, dans l'**ordre de la specification**.
+    """Component contexts, in the **order of the specification**.
 
-    Cet ordre est significatif a deux titres : il fixe l'ordre des fichiers
-    generes, et le premier composant expose porte l'hote d'Ingress nu.
+    That order is significant on two counts: it fixes the order of the generated
+    files, and the first exposed component carries the bare Ingress host.
     """
     return [
-        component_context(composant, helm, service_name=service_name)
-        for composant in helm.components
+        component_context(component, helm, service_name=service_name)
+        for component in helm.components
     ]
 
 
 def component_slots(
-    helm: Any, contextes: list[dict[str, Any]]
+    helm: Any, contexts: list[dict[str, Any]]
 ) -> dict[str, list[dict[str, Any]]]:
-    """Un emplacement par famille de ressource, deja filtre par kind et addon.
+    """One slot per resource family, already filtered by kind and addon.
 
-    Sur le modele de `ansible.derive.role_slots`. Chaque cle porte la liste des
-    contextes de composant concernes, dans l'ordre de la specification ; un
-    gabarit s'ecrit alors, dans un **nom de chemin** :
+    On the model of `ansible.derive.role_slots`. Each key carries the list of the
+    component contexts concerned, in the order of the specification; a template
+    is then written, inside a **path name**, as:
 
         templates/[% yield c from domain.component_slots.ingress %]
         ingress-[[ c.name ]][% endyield %].yaml.jinja
 
-    Une liste vide fait disparaitre le fichier. **Toutes les cles sont
-    toujours presentes**, y compris vides, pour qu'un gabarit ne puisse jamais
-    referencer une cle absente.
+    An empty list makes the file disappear. **Every key is always present**,
+    including the empty ones, so that a template can never reference a missing
+    key.
 
-    `test_connection` est un cas a part : zero ou un element, le premier
-    composant expose non headless, et seulement si `extras.helm_tests`
-    (portage de `planner.first_exposed` et de sa condition d'appel).
+    `test_connection` is a case apart: zero or one element, the first exposed
+    non-headless component, and only when `extras.helm_tests` (port of
+    `planner.first_exposed` and of the condition on its call site).
     """
     slots: dict[str, list[dict[str, Any]]] = {
-        famille: [
-            contexte for contexte in contextes if famille in contexte["families"]
+        family: [
+            context for context in contexts if family in context["families"]
         ]
-        for famille in FAMILY_ORDER
+        for family in FAMILY_ORDER
     }
-    cible = test_connection_target(helm)
-    par_nom = {contexte["name"]: contexte for contexte in contextes}
-    slots["test_connection"] = [] if cible is None else [par_nom[cible.name]]
+    target = test_connection_target(helm)
+    by_name = {context["name"]: context for context in contexts}
+    slots["test_connection"] = [] if target is None else [by_name[target.name]]
     return slots

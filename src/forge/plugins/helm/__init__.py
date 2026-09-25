@@ -1,1 +1,1 @@
-"""Plugin de domaine Helm."""
+"""Helm domain plugin."""

@@ -1,22 +1,22 @@
-"""Filtres et globals Jinja2 propres au domaine Helm.
+"""Jinja2 filters and globals specific to the Helm domain.
 
-Charges par `forge.jinja_ext.ForgeExtension` (MIGRATION.md §5) : un plugin
-ajoute ses fabriques d'identifiants sans que le `copier.yml` racine soit touche.
+Loaded by `forge.jinja_ext.ForgeExtension` (MIGRATION.md §5): a plugin adds its
+identifier factories without the root `copier.yml` being touched.
 
-Ce module ne contient que du **nommage**. Tout ce qui releve de la mise en forme
-YAML ou des commentaires vit dans le coeur (`forge.jinja_ext`), ou les deux
-implementations legacy ont ete fusionnees.
+This module holds **naming only**. Everything to do with YAML formatting or with
+comments lives in the core (`forge.jinja_ext`), where the two legacy
+implementations were merged.
 
-Le point critique est :func:`values_ref` (MIGRATION.md §4, portage de
-`engine/naming.py`) : la notation pointee de Go refuse le tiret, donc
-`.Values.mon-api` est une **erreur de syntaxe Helm**. Sans ce global, un
-composant nomme avec un tiret produit un chart qui ne compile pas.
+The critical piece is :func:`values_ref` (MIGRATION.md §4, port of
+`engine/naming.py`): Go's dotted notation refuses hyphens, so `.Values.my-api`
+is a **Helm syntax error**. Without this global, a component named with a hyphen
+produces a chart that does not compile.
 
-Les contextes de composant exposes par `derive.py` portent deja `values_ref` et
-`helper` pre-calcules : dans le contenu d'un gabarit on ecrit donc plutot
-`[[ c.values_ref ]]`. Ces globals restent necessaires pour les expressions
-construites a la volee (une cle de values qui n'est pas un composant, par
-exemple) et pour rester fidele au contrat legacy.
+The component contexts exposed by `derive.py` already carry `values_ref` and
+`helper` precomputed: inside the body of a template one therefore writes
+`[[ c.values_ref ]]` instead. These globals remain necessary for expressions
+built on the fly (a values key that is not a component, for instance) and to
+stay faithful to the legacy contract.
 """
 
 from __future__ import annotations
@@ -24,17 +24,17 @@ from __future__ import annotations
 import re
 from typing import Any, Final
 
-#: Identifiant acceptable dans la notation pointee des gabarits Go/Helm.
-#: Portage litteral de `helm_forge.engine.naming._GO_FIELD`.
+#: Identifier acceptable in the dotted notation of Go/Helm templates.
+#: Literal port of `helm_forge.engine.naming._GO_FIELD`.
 _GO_FIELD: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def values_ref(name: str, prefix: str = ".Values") -> str:
-    """Expression Helm d'acces a une cle de values.
+    """Helm expression accessing a values key.
 
-    `values_ref("api")` rend `.Values.api` ; `values_ref("mon-api")` rend
-    `(index .Values "mon-api")`, seule forme acceptee par Go pour une cle
-    contenant un tiret.
+    `values_ref("api")` renders `.Values.api`; `values_ref("my-api")` renders
+    `(index .Values "my-api")`, the only form Go accepts for a key containing a
+    hyphen.
     """
     if _GO_FIELD.match(name):
         return f"{prefix}.{name}"
@@ -42,44 +42,44 @@ def values_ref(name: str, prefix: str = ".Values") -> str:
 
 
 def helper_name(chart: str, *parts: str) -> str:
-    """Nom d'un helper Helm : `helper_name("shop", "api", "labels")` rend
+    """Name of a Helm helper: `helper_name("shop", "api", "labels")` renders
     `shop.api.labels`."""
     return ".".join([chart, *parts])
 
 
 def resource_filename(resource: str, component: Any) -> str:
-    """Nom de fichier d'une ressource, toujours suffixe par le composant.
+    """File name of a resource, always suffixed by the component.
 
-    Portage de `helm_forge.engine.planner.resource_filename`. Le suffixe est
-    systematique, y compris pour un chart mono-composant : la regle reste ainsi
-    identique quel que soit le projet, et ajouter un second composant ne renomme
-    aucun fichier existant.
+    Port of `helm_forge.engine.planner.resource_filename`. The suffix is
+    systematic, including for a single-component chart: the rule then stays the
+    same whatever the project, and adding a second component renames no existing
+    file.
 
-    `component` accepte le contexte de composant produit par `derive.py` (un
-    dict portant `name`) ou directement un nom, ce qui evite au gabarit de
-    connaitre la forme exacte du contexte.
+    `component` accepts the component context produced by `derive.py` (a dict
+    carrying `name`) or a name directly, which spares the template from knowing
+    the exact shape of the context.
     """
     name = component["name"] if isinstance(component, dict) else str(component)
     return f"{resource}-{name}.yaml"
 
 
 def camel(value: str) -> str:
-    """Convertit `liveness_path` en `livenessPath`.
+    """Convert `liveness_path` into `livenessPath`.
 
-    Portage de `helm_forge.engine.filters.camel` : les cles de values suivent la
-    convention camelCase de l'ecosysteme Helm, alors que le modele Python suit
-    la convention snake_case.
+    Port of `helm_forge.engine.filters.camel`: values keys follow the camelCase
+    convention of the Helm ecosystem, whereas the Python model follows the
+    snake_case one.
     """
     head, *rest = value.split("_")
     return head + "".join(part.capitalize() for part in rest)
 
 
-#: Filtres ajoutes par le domaine Helm (`| camel`).
+#: Filters added by the Helm domain (`| camel`).
 FILTERS = {
     "camel": camel,
 }
 
-#: Fonctions globales ajoutees par le domaine Helm.
+#: Global functions added by the Helm domain.
 GLOBALS = {
     "values_ref": values_ref,
     "helper_name": helper_name,
