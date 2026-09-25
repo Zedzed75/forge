@@ -1,16 +1,15 @@
-"""Variables d'entree du module Terraform genere.
+"""Input variables of the generated Terraform module.
 
-Une seule declaration sert quatre fichiers : `variables.tf` du module,
-`variables.tf` de chaque racine d'environnement, l'appel de module dans son
-`main.tf`, et le `terraform.tfvars` de l'environnement. Les redeclarer dans
-chaque gabarit les ferait diverger au premier ajout — et Terraform ne signale
-pas une variable declaree cote racine mais jamais transmise au module : elle est
-simplement sans effet.
+A single declaration serves four files: the `variables.tf` of the module, the
+`variables.tf` of each environment root, the module call in its `main.tf`, and
+the `terraform.tfvars` of the environment. Redeclaring them in each template
+would make them diverge on the first addition -- and Terraform does not report a
+variable declared on the root side but never passed to the module: it is simply
+without effect.
 
-Regle absolue : **aucune valeur secrete n'est jamais ecrite**. Une variable
-`sensitive` n'a pas de valeur par defaut et n'apparait pas dans
-`terraform.tfvars` ; elle se fournit par `TF_VAR_<nom>`, une variable
-d'environnement de la CI ou un coffre.
+Absolute rule: **no secret value is ever written**. A `sensitive` variable has
+no default value and does not appear in `terraform.tfvars`; it is provided
+through `TF_VAR_<name>`, an environment variable of the CI or a vault.
 """
 
 from __future__ import annotations
@@ -21,33 +20,33 @@ from typing import Any
 
 @dataclass(frozen=True)
 class Variable:
-    """Une variable d'entree, telle que declaree dans `variables.tf`."""
+    """An input variable, as declared in `variables.tf`."""
 
-    #: Nom de la variable (identifiant HCL).
+    #: Name of the variable (HCL identifier).
     name: str
 
-    #: Type HCL : `string`, `number`, `bool`, `list(string)`, `map(string)`.
+    #: HCL type: `string`, `number`, `bool`, `list(string)`, `map(string)`.
     type: str
 
-    #: Phrase de description, reprise telle quelle dans `description`.
+    #: Description sentence, taken up as it is in `description`.
     description: str
 
-    #: Valeur par defaut, ou `_ABSENT` si la variable est obligatoire.
+    #: Default value, or `_ABSENT` if the variable is mandatory.
     default: Any = None
 
-    #: Vrai si la variable porte une valeur par defaut (y compris `null`).
+    #: True if the variable carries a default value (including `null`).
     has_default: bool = True
 
-    #: Marque la valeur comme secrete : Terraform la masque dans ses sorties.
+    #: Marks the value as secret: Terraform masks it in its outputs.
     sensitive: bool = False
 
-    #: Vrai si la valeur est transmise par `terraform.tfvars` (donc jamais
-    #: secrete, et calculee par environnement).
+    #: True if the value is passed through `terraform.tfvars` (therefore never
+    #: secret, and computed per environment).
     per_environment: bool = False
 
 
 def required(name: str, type_: str, description: str, *, sensitive: bool = False) -> Variable:
-    """Variable sans valeur par defaut : Terraform exige qu'elle soit fournie."""
+    """Variable with no default value: Terraform requires it to be provided."""
     return Variable(
         name=name,
         type=type_,
@@ -66,7 +65,7 @@ def optional(
     *,
     per_environment: bool = False,
 ) -> Variable:
-    """Variable avec valeur par defaut, eventuellement surchargee par environnement."""
+    """Variable with a default value, possibly overridden per environment."""
     return Variable(
         name=name,
         type=type_,
@@ -77,40 +76,40 @@ def optional(
     )
 
 
-#: Variables presentes quelles que soient les familles retenues. Elles decrivent
-#: *a quoi* le module se rattache ; les familles ajoutent *ce qu'il pose*.
+#: Variables present whatever the retained families. They describe *what* the
+#: module attaches itself to; the families add *what it sets up*.
 COMMON_VARIABLES: tuple[Variable, ...] = (
     required(
         "service_name",
         "string",
-        "Nom du service. Prefixe toutes les ressources creees et alimente le "
-        "label app.kubernetes.io/name.",
+        "Name of the service. Prefixes every created resource and feeds the "
+        "app.kubernetes.io/name label.",
     ),
     required(
         "environment",
         "string",
-        "Nom de l'environnement (dev, staging, prod). Sert de suffixe de "
-        "ressource et de valeur du label app.kubernetes.io/instance.",
+        "Name of the environment (dev, staging, prod). Serves as a resource "
+        "suffix and as the value of the app.kubernetes.io/instance label.",
     ),
     required(
         "namespace",
         "string",
-        "Namespace Kubernetes vise. Cree par ce module si la famille "
-        "'namespace' est retenue, suppose exister sinon.",
+        "Targeted Kubernetes namespace. Created by this module if the "
+        "'namespace' family is retained, assumed to exist otherwise.",
     ),
     optional(
         "labels",
         "map(string)",
-        "Labels apposes sur toutes les ressources, en plus des labels "
-        "app.kubernetes.io calcules par le module.",
+        "Labels applied to every resource, in addition to the "
+        "app.kubernetes.io labels computed by the module.",
         {},
         per_environment=True,
     ),
     optional(
         "annotations",
         "map(string)",
-        "Annotations apposees sur toutes les ressources. Laissez vide si "
-        "aucun controleur du cluster n'en attend.",
+        "Annotations applied to every resource. Leave empty if no controller "
+        "of the cluster expects any.",
         {},
     ),
 )

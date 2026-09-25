@@ -1,16 +1,16 @@
-"""Chemins que le domaine Terraform ecrit, et ce que chacun contient.
+"""Paths the Terraform domain writes, and what each of them contains.
 
-Meme role — et meme mise en garde — que `plugins/ansible/tree.py` et
-`plugins/helm/tree.py` : **c'est le seul endroit du domaine qui duplique la
-connaissance de l'arborescence de gabarit**. Un gabarit ajoute, retire ou
-renomme sans mise a jour de ce module rend les README generes faux.
+Same role -- and same warning -- as `plugins/ansible/tree.py` and
+`plugins/helm/tree.py`: **this is the only place in the domain that duplicates
+the knowledge of the template tree**. A template added, removed or renamed
+without updating this module makes the generated READMEs wrong.
 
-L'arbitrage R3 (PLAN.md) a laisse cette liste au plugin plutot que de l'inferer
-d'un rendu a blanc, a une condition : qu'un test la confronte a l'arborescence
-reellement produite. C'est `test_plugin_terraform.py` qui la tient.
+Arbitration R3 (PLAN.md) left this list to the plugin rather than inferring it
+from a dry render, on one condition: that a test confronts it with the tree
+really produced. It is `test_plugin_terraform.py` that holds it.
 
-Chaque entree porte sa description : les README generes ne se contentent pas
-d'afficher des noms de fichiers, ils disent a quoi chacun sert.
+Every entry carries its description: the generated READMEs do not merely display
+file names, they say what each of them is for.
 """
 
 from __future__ import annotations
@@ -21,146 +21,146 @@ from forge.plugins.terraform.catalog.registry import selected
 
 
 class Entry(NamedTuple):
-    """Un fichier genere et la phrase qui le decrit."""
+    """A generated file and the sentence that describes it."""
 
-    #: Chemin relatif a la racine du domaine (`terraform/`).
+    #: Path relative to the root of the domain (`terraform/`).
     path: str
 
-    #: A quoi sert ce fichier, en une phrase.
+    #: What this file is for, in one sentence.
     purpose: str
 
 
-#: Repertoire des modules, relatif a la racine du domaine.
+#: Directory of the modules, relative to the root of the domain.
 MODULES_DIR: Final[str] = "modules"
 
-#: Repertoire des racines d'environnement.
+#: Directory of the environment roots.
 ENVIRONMENTS_DIR: Final[str] = "environments"
 
-#: Fichiers du module, hors ceux des familles retenues. L'ordre est celui de la
-#: lecture : ce qu'exige Terraform, puis ce que le module recoit, ce qu'il
-#: calcule, ce qu'il rend.
+#: Files of the module, apart from those of the retained families. The order is
+#: the reading order: what Terraform requires, then what the module receives,
+#: what it computes, what it returns.
 MODULE_BASE: Final[tuple[Entry, ...]] = (
-    Entry("versions.tf", "Version de Terraform et providers exiges par le module."),
-    Entry("variables.tf", "Toutes les entrees du module, chacune commentee."),
-    Entry("locals.tf", "Valeurs calculees : namespace effectif, labels communs."),
-    Entry("outputs.tf", "Ce que le module rend a son appelant."),
-    Entry("README.md", "Role du module, entrees, sorties et pieges de chaque famille."),
+    Entry("versions.tf", "Terraform version and providers required by the module."),
+    Entry("variables.tf", "Every input of the module, each one commented."),
+    Entry("locals.tf", "Computed values: effective namespace, common labels."),
+    Entry("outputs.tf", "What the module returns to its caller."),
+    Entry("README.md", "Role of the module, inputs, outputs and traps of each family."),
 )
 
-#: Fichiers d'une racine d'environnement, dans l'ordre de lecture.
+#: Files of an environment root, in reading order.
 ENVIRONMENT_FILES: Final[tuple[Entry, ...]] = (
-    Entry("versions.tf", "Version de Terraform et providers exiges par cette racine."),
-    Entry("backend.tf", "Ou l'etat de cet environnement est conserve."),
-    Entry("providers.tf", "Configuration des providers : cluster vise, contexte."),
-    Entry("variables.tf", "Entrees de la racine, reprises de celles du module."),
-    Entry("main.tf", "Appel du module, avec les valeurs de cet environnement."),
-    Entry("outputs.tf", "Sorties remontees depuis le module."),
-    Entry("terraform.tfvars", "Valeurs de cet environnement. Aucune valeur secrete."),
+    Entry("versions.tf", "Terraform version and providers required by this root."),
+    Entry("backend.tf", "Where the state of this environment is kept."),
+    Entry("providers.tf", "Configuration of the providers: targeted cluster, context."),
+    Entry("variables.tf", "Inputs of the root, taken up from those of the module."),
+    Entry("main.tf", "Call of the module, with the values of this environment."),
+    Entry("outputs.tf", "Outputs brought up from the module."),
+    Entry("terraform.tfvars", "Values of this environment. No secret value."),
 )
 
 
 def module_dir(service_name: str) -> str:
-    """Chemin du module, relatif a la racine du domaine."""
+    """Path of the module, relative to the root of the domain."""
     return f"{MODULES_DIR}/{service_name}"
 
 
 def environment_dir(environment: str) -> str:
-    """Chemin d'une racine d'environnement, relatif a la racine du domaine."""
+    """Path of an environment root, relative to the root of the domain."""
     return f"{ENVIRONMENTS_DIR}/{environment}"
 
 
 def family_file(family: str) -> str:
-    """Nom du fichier `.tf` portant une famille de ressources."""
+    """Name of the `.tf` file carrying a resource family."""
     return f"{family}.tf"
 
 
 def module_files(spec: Any) -> list[dict[str, str]]:
-    """Fichiers du module, base puis familles retenues, dans l'ordre canonique.
+    """Files of the module, base then retained families, in canonical order.
 
-    Rendu en dicts et non en `Entry` : le resultat part dans le dict `domain`,
-    qui doit rester JSON-serialisable (un `NamedTuple` se serialiserait en
-    liste, et les gabarits liraient `f[0]` au lieu de `f.path`).
+    Returned as dicts and not as `Entry`: the result goes into the `domain`
+    dict, which has to stay JSON-serialisable (a `NamedTuple` would serialise as
+    a list, and the templates would read `f[0]` instead of `f.path`).
     """
-    entrees = [
-        {"path": entree.path, "purpose": entree.purpose} for entree in MODULE_BASE
+    entries = [
+        {"path": entry.path, "purpose": entry.purpose} for entry in MODULE_BASE
     ]
-    entrees += [
+    entries += [
         {
-            "path": family_file(famille.name),
-            "purpose": f"{famille.summary} ({', '.join(famille.resources)}).",
+            "path": family_file(family.name),
+            "purpose": f"{family.summary} ({', '.join(family.resources)}).",
         }
-        for famille in selected(spec.terraform.family_names())
+        for family in selected(spec.terraform.family_names())
     ]
-    return entrees
+    return entries
 
 
 def environment_files() -> list[dict[str, str]]:
-    """Fichiers d'une racine d'environnement, en dicts JSON-serialisables."""
-    return [{"path": entree.path, "purpose": entree.purpose} for entree in ENVIRONMENT_FILES]
+    """Files of an environment root, as JSON-serialisable dicts."""
+    return [{"path": entry.path, "purpose": entry.purpose} for entry in ENVIRONMENT_FILES]
 
 
 def root_files(spec: Any) -> list[dict[str, str]]:
-    """Fichiers de niveau `terraform/`, hors modules et environnements."""
-    entrees = [
-        {"path": "README.md", "purpose": "Ce fichier : comment employer le projet."},
+    """Files at the `terraform/` level, apart from modules and environments."""
+    entries = [
+        {"path": "README.md", "purpose": "This file: how to use the project."},
         {
             "path": ".gitignore",
             "purpose": (
-                "Exclut l'etat, les plans et le cache de providers. L'etat "
-                "porte des valeurs en clair : il ne doit jamais etre committe."
+                "Excludes the state, the plans and the provider cache. The state "
+                "carries values in plain text: it must never be committed."
             ),
         },
         {
             "path": ".copier-answers.yml",
-            "purpose": "Reponses du gabarit, relues par `forge update`. Ne pas editer.",
+            "purpose": "Answers of the template, read back by `forge update`. Do not edit.",
         },
     ]
     if spec.terraform.extras.tflint_config:
-        entrees.append(
+        entries.append(
             {
                 "path": ".tflint.hcl",
-                "purpose": "Jeu de regles tflint applique au projet.",
+                "purpose": "tflint rule set applied to the project.",
             }
         )
     if spec.terraform.extras.makefile:
-        entrees.append(
+        entries.append(
             {
                 "path": "Makefile",
-                "purpose": "Raccourcis : `make init ENV=prod`, `make plan ENV=prod`.",
+                "purpose": "Shortcuts: `make init ENV=prod`, `make plan ENV=prod`.",
             }
         )
-    return sorted(entrees, key=lambda entree: entree["path"])
+    return sorted(entries, key=lambda entry: entry["path"])
 
 
 def expected_paths(spec: Any) -> list[str]:
-    """Tous les chemins ecrits par le domaine, tries.
+    """Every path written by the domain, sorted.
 
-    C'est la liste que le test confronte a l'arborescence reellement rendue.
+    This is the list the test confronts with the tree really rendered.
     """
-    chemins = [entree["path"] for entree in root_files(spec)]
+    paths = [entry["path"] for entry in root_files(spec)]
     module = module_dir(spec.service.name)
-    chemins += [f"{module}/{entree['path']}" for entree in module_files(spec)]
+    paths += [f"{module}/{entry['path']}" for entry in module_files(spec)]
     for env in spec.service.environments:
-        racine = environment_dir(env.name)
-        chemins += [f"{racine}/{entree['path']}" for entree in environment_files()]
-    return sorted(chemins)
+        root = environment_dir(env.name)
+        paths += [f"{root}/{entry['path']}" for entry in environment_files()]
+    return sorted(paths)
 
 
 def resource_slots(spec: Any) -> dict[str, list[dict[str, str]]]:
-    """Emplacements de fichier par famille : `[{...}]` si retenue, `[]` sinon.
+    """File slots per family: `[{...}]` if retained, `[]` otherwise.
 
-    Motif partage avec les deux autres domaines (arbitrage R4, DESIGN.md §5.3) :
-    un gabarit propre a une famille existe sans qu'un `[% if %]` ait a figurer
-    dans son chemin, et copier decide de l'ecrire ou non par la balise `yield`.
+    Pattern shared with the two other domains (arbitration R4, DESIGN.md §5.3):
+    a template specific to a family exists without a `[% if %]` having to appear
+    in its path, and copier decides whether to write it through the `yield` tag.
     """
-    retenues = set(spec.terraform.family_names())
+    retained = set(spec.terraform.family_names())
     from forge.plugins.terraform.catalog.registry import all_families
 
     return {
-        famille.name: (
-            [{"name": famille.name, "summary": famille.summary}]
-            if famille.name in retenues
+        family.name: (
+            [{"name": family.name, "summary": family.summary}]
+            if family.name in retained
             else []
         )
-        for famille in all_families()
+        for family in all_families()
     }
