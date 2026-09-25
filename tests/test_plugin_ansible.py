@@ -355,11 +355,11 @@ def test_the_interview_does_not_repeat_the_service_block_questions():
 
     asked = " ".join(prompter.asked).lower()
     for core_question in (
-        "nom du service",
-        "nom du projet",
-        "responsable",
-        "environnements, separes",
-        "adresse de contact",
+        "service name",
+        "one-line description",
+        "person in charge",
+        "environments, comma-separated",
+        "contact address",
     ):
         assert core_question not in asked, (
             f"the domain interview repeats a core question: {core_question}"
