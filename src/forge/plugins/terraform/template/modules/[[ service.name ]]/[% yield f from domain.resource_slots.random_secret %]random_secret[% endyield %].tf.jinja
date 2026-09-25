@@ -44,5 +44,5 @@ resource "kubernetes_secret" "generated" {
 
   type = "Opaque"
 
-  data = { for cle, motdepasse in random_password.generated : cle => motdepasse.result }
+  data = { for key, password in random_password.generated : key => password.result }
 }
