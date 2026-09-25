@@ -1,11 +1,11 @@
-"""Familles de regles : un fichier de regles, ses alertes, et ses pieges.
+"""Rule families: a rule file, its alerts, and its traps.
 
-Une famille = un fichier `rules/<famille>.yml` par environnement, le fichier de
-test unitaire qui va avec, et ce qu'il faut savoir pour ne pas se faire pieger.
+One family = one `rules/<family>.yml` file per environment, the unit test file
+that goes with it, and what has to be known in order not to be caught out.
 
-L'ordre canonique suit celui d'un diagnostic : le service repond-il ? repond-il
-correctement ? repond-il vite ? a-t-il de quoi tenir ? tient-il debout ? est-il
-joignable de l'exterieur ?
+The canonical order follows that of a diagnosis: does the service answer? does it
+answer correctly? does it answer quickly? does it have enough to keep going? is
+it holding up? is it reachable from the outside?
 """
 
 from __future__ import annotations
@@ -19,227 +19,221 @@ from forge.plugins.monitoring.enums import RuleFamily
 
 @dataclass(frozen=True)
 class Family:
-    """Une famille de regles retenue ou non par la specification."""
+    """A rule family, retained by the specification or not."""
 
-    #: Identifiant employe dans `monitoring.rules` de forge.yml.
+    #: Identifier used in `monitoring.rules` of forge.yml.
     name: str
 
-    #: Resume d'une ligne.
+    #: One-line summary.
     summary: str
 
-    #: Description longue, affichee par `forge catalog monitoring <famille>`.
+    #: Long description, displayed by `forge catalog monitoring <family>`.
     details: str
 
-    #: Alertes du fichier, dans l'ordre d'ecriture.
+    #: Alerts of the file, in writing order.
     alerts: tuple[Alert, ...]
 
-    #: Exporters dont les metriques sont necessaires.
+    #: Exporters whose metrics are necessary.
     exporters: tuple[str, ...] = ()
 
-    #: Pieges mesures, affiches et repris en commentaire dans le fichier genere.
+    #: Measured traps, displayed and taken up as comments in the generated file.
     traps: tuple[str, ...] = ()
 
     @property
     def needs_namespace(self) -> bool:
-        """Vrai si une alerte de la famille cible un namespace Kubernetes."""
-        return any(alerte.needs_namespace for alerte in self.alerts)
+        """True if an alert of the family targets a Kubernetes namespace."""
+        return any(alert.needs_namespace for alert in self.alerts)
 
     @property
     def needs_probe(self) -> bool:
-        """Vrai si une alerte de la famille repose sur une sonde blackbox."""
-        return any(alerte.needs_probe for alerte in self.alerts)
+        """True if an alert of the family relies on a blackbox probe."""
+        return any(alert.needs_probe for alert in self.alerts)
 
     def option_descriptions(self) -> dict[str, str]:
-        """Seuils reglables de la famille, au format attendu par `CatalogEntry`."""
+        """Adjustable thresholds of the family, in the format `CatalogEntry` expects."""
         return {
-            alerte.threshold_field: (
-                f"{alerte.summary} — seuil en {alerte.threshold_unit}, "
-                f"defaut {alerte.threshold_default}"
+            alert.threshold_field: (
+                f"{alert.summary} — threshold in {alert.threshold_unit}, "
+                f"default {alert.threshold_default}"
             )
-            for alerte in self.alerts
-            if alerte.threshold_field
+            for alert in self.alerts
+            if alert.threshold_field
         }
 
 
 FAMILIES: tuple[Family, ...] = (
     Family(
         name=RuleFamily.AVAILABILITY.value,
-        summary="La cible ne repond plus au collecteur",
+        summary="The target no longer answers the collector",
         details=(
-            "L'alerte la plus simple, et celle qu'on oublie le plus souvent : "
-            "`up == 0`. Prometheus fabrique lui-meme la metrique `up` a chaque "
-            "collecte, sans qu'aucun exporter n'ait a l'exposer.\n\n"
-            "C'est la seule famille qui ne depend d'aucune convention de "
-            "nommage : elle fonctionne des la premiere collecte."
+            "The simplest alert, and the one most often forgotten: `up == 0`. "
+            "Prometheus builds the `up` metric itself on every collection, "
+            "without any exporter having to expose it.\n\n"
+            "It is the only family that depends on no naming convention: it works "
+            "from the very first collection."
         ),
         alerts=alert_defs.AVAILABILITY_ALERTS,
         traps=(
-            "`up == 0` ne se declenche que si la cible est **connue** du "
-            "collecteur. Une cible jamais declaree ne produit aucune serie, "
-            "donc aucune alerte : le silence n'est pas la sante. C'est pourquoi "
-            "les cibles sont ecrites dans la configuration plutot que "
-            "decouvertes.",
-            "Sans clause `for`, un redemarrage de deux minutes reveille "
-            "quelqu'un. Avec un `for` trop long, une panne reelle attend. Cinq "
-            "minutes est le compromis usuel, pas une verite.",
-            "Une alerte qui se declenche pour **toutes** les instances a la "
-            "fois designe presque toujours le collecteur ou le reseau, pas le "
-            "service. Un recepteur qui ne fait pas la difference noie "
-            "l'astreinte.",
+            "`up == 0` only fires if the target is **known** to the collector. A "
+            "target never declared produces no series, and therefore no alert: "
+            "silence is not health. That is why the targets are written in the "
+            "configuration rather than discovered.",
+            "Without a `for` clause, a two-minute restart wakes somebody up. With "
+            "a `for` that is too long, a real outage waits. Five minutes is the "
+            "usual compromise, not a truth.",
+            "An alert that fires for **every** instance at once almost always "
+            "points at the collector or the network, not at the service. A "
+            "receiver that does not tell the difference drowns the on-call rota.",
         ),
     ),
     Family(
         name=RuleFamily.ERROR_RATE.value,
-        summary="Trop de reponses en erreur serveur",
+        summary="Too many responses in server error",
         details=(
-            "Un ratio, jamais un compte : cent erreurs sur un million de "
-            "requetes n'est pas la meme chose que cent erreurs sur deux cents.\n\n"
-            "Le nom du compteur et celui du libelle de code de statut sont "
-            "**configurables** : ils dependent de la bibliotheque cliente "
-            "employee, et en deviner un produirait une alerte qui ne se "
-            "declenche jamais."
+            "A ratio, never a count: a hundred errors out of a million requests "
+            "is not the same thing as a hundred errors out of two hundred.\n\n"
+            "The name of the counter and that of the status code label are "
+            "**configurable**: they depend on the client library used, and "
+            "guessing one would produce an alert that never fires."
         ),
         alerts=alert_defs.ERROR_RATE_ALERTS,
-        exporters=("l'application elle-meme (client Prometheus)",),
+        exporters=("the application itself (Prometheus client)",),
         traps=(
-            "Un ratio sur un denominateur nul donne `NaN`, et une comparaison "
-            "avec `NaN` est fausse : l'alerte ne se declenche pas. Un service "
-            "qui ne recoit plus **aucune** requete est donc invisible ici — "
-            "c'est la famille `availability` qui le voit.",
-            "`rate()` sur une fenetre plus courte que deux intervalles de "
-            "collecte rend `NaN`. Avec une collecte toutes les 30 s, une "
-            "fenetre de 5 minutes laisse de la marge ; une fenetre d'une "
-            "minute n'en laisse aucune.",
-            "Le libelle de statut n'est pas normalise : `status`, `code`, "
-            "`status_code` selon la bibliotheque. Se tromper de nom donne une "
-            "regle valide, acceptee par promtool, et definitivement muette.",
-            "Compter les 5xx seulement laisse passer les timeouts cote client "
-            "et les connexions refusees, qui ne produisent aucune reponse et "
-            "donc aucune ligne dans le compteur.",
+            "A ratio over a null denominator gives `NaN`, and a comparison with "
+            "`NaN` is false: the alert does not fire. A service that no longer "
+            "receives **any** request is therefore invisible here -- it is the "
+            "`availability` family that sees it.",
+            "`rate()` over a window shorter than two collection intervals returns "
+            "`NaN`. With a collection every 30 s, a 5-minute window leaves room; "
+            "a one-minute window leaves none.",
+            "The status label is not standardised: `status`, `code`, "
+            "`status_code` depending on the library. Getting the name wrong gives "
+            "a valid rule, accepted by promtool, and permanently mute.",
+            "Counting only the 5xx lets through the client-side timeouts and the "
+            "refused connections, which produce no response and therefore no line "
+            "in the counter.",
         ),
     ),
     Family(
         name=RuleFamily.LATENCY.value,
-        summary="Le service repond trop lentement",
+        summary="The service answers too slowly",
         details=(
-            "Quantile 95 calcule sur un histogramme, pas une moyenne : une "
-            "moyenne de temps de reponse cache exactement ce qu'on cherche.\n\n"
-            "Exige un histogramme, pas un summary : `histogram_quantile` "
-            "travaille sur les seaux `_bucket`, qu'un summary n'expose pas."
+            "95th percentile computed on a histogram, not an average: an average "
+            "response time hides exactly what is being looked for.\n\n"
+            "Requires a histogram, not a summary: `histogram_quantile` works on "
+            "the `_bucket` buckets, which a summary does not expose."
         ),
         alerts=alert_defs.LATENCY_ALERTS,
-        exporters=("l'application elle-meme (client Prometheus)",),
+        exporters=("the application itself (Prometheus client)",),
         traps=(
-            "`histogram_quantile` **interpole lineairement** dans le seau ou "
-            "tombe le quantile. La precision du resultat ne depasse donc jamais "
-            "celle du decoupage en seaux : avec des seaux 0.5 s / 2 s, aucun "
-            "quantile ne peut valoir 1.2 s autrement que par interpolation.",
-            "Si le quantile tombe dans le dernier seau (`+Inf`), la fonction "
-            "rend la borne haute du seau precedent — jamais l'infini. Une "
-            "latence catastrophique peut donc s'afficher comme egale a la borne "
-            "du plus grand seau fini, et ne pas franchir un seuil place "
-            "au-dessus.",
-            "L'agregation `sum by (le)` est obligatoire avant "
-            "`histogram_quantile` : appliquer la fonction a des seaux non "
-            "agreges calcule un quantile par instance, ce qui n'a pas de sens "
-            "quand on veut celui du service.",
-            "Les seaux d'un histogramme sont **cumulatifs** : `le=\"2\"` compte "
-            "aussi les observations sous 0.5 s. Ecrire une serie de test avec "
-            "des seaux decroissants produit un histogramme invalide que "
-            "Prometheus accepte et interprete de travers.",
+            "`histogram_quantile` **interpolates linearly** in the bucket the "
+            "percentile falls into. The precision of the result therefore never "
+            "exceeds that of the bucket layout: with 0.5 s / 2 s buckets, no "
+            "percentile can be worth 1.2 s other than by interpolation.",
+            "If the percentile falls into the last bucket (`+Inf`), the function "
+            "returns the upper bound of the previous bucket -- never infinity. A "
+            "catastrophic latency can therefore show up as equal to the bound of "
+            "the largest finite bucket, and not cross a threshold placed above "
+            "it.",
+            "The `sum by (le)` aggregation is mandatory before "
+            "`histogram_quantile`: applying the function to non-aggregated "
+            "buckets computes one percentile per instance, which makes no sense "
+            "when the one of the service is wanted.",
+            "The buckets of a histogram are **cumulative**: `le=\"2\"` also counts "
+            "the observations below 0.5 s. Writing a test series with decreasing "
+            "buckets produces an invalid histogram that Prometheus accepts and "
+            "interprets wrongly.",
         ),
     ),
     Family(
         name=RuleFamily.SATURATION.value,
-        summary="Consommation proche des limites (memoire, CPU)",
+        summary="Consumption close to the limits (memory, CPU)",
         details=(
-            "Deux alertes de nature differente, et la distinction compte : "
-            "depasser sa limite memoire fait **tuer** le conteneur (OOMKill), "
-            "depasser sa limite CPU le fait seulement ralentir (throttling).\n\n"
-            "La memoire est donc surveillee en proportion de sa limite ; le CPU "
-            "en valeur absolue, parce qu'un pod sans limite CPU est frequent et "
-            "legitime."
+            "Two alerts of a different nature, and the distinction matters: "
+            "exceeding its memory limit gets the container **killed** (OOMKill), "
+            "exceeding its CPU limit only makes it slow down (throttling).\n\n"
+            "Memory is therefore watched as a proportion of its limit; CPU in "
+            "absolute value, because a pod with no CPU limit is frequent and "
+            "legitimate."
         ),
         alerts=alert_defs.SATURATION_ALERTS,
-        exporters=("cAdvisor, expose par le kubelet",),
+        exporters=("cAdvisor, exposed by the kubelet",),
         traps=(
-            "Un conteneur **sans limite memoire** n'expose pas "
-            "`container_spec_memory_limit_bytes`, ou l'expose a zero : la "
-            "division ne donne aucun resultat, et l'alerte reste muette. "
-            "L'absence d'alerte ne dit donc rien de la sante du pod.",
-            "`container_memory_working_set_bytes` est la metrique que le "
-            "kubelet compare a la limite pour decider d'un OOMKill — pas "
-            "`container_memory_usage_bytes`, qui inclut le cache de fichiers "
-            "recuperable et surestime largement la pression reelle.",
-            "Le filtre `container!=\"\"` n'est pas cosmetique : cAdvisor expose "
-            "aussi des series agregees au niveau du pod, avec un libelle "
-            "`container` vide. Les compter deux fois double la consommation "
-            "apparente.",
-            "Le throttling CPU ne se voit pas dans "
-            "`container_cpu_usage_seconds_total` : un pod bride consomme moins, "
-            "donc parait sain. C'est "
-            "`container_cpu_cfs_throttled_seconds_total` qui le montre.",
+            "A container **with no memory limit** does not expose "
+            "`container_spec_memory_limit_bytes`, or exposes it at zero: the "
+            "division gives no result, and the alert stays mute. The absence of an "
+            "alert therefore says nothing about the health of the pod.",
+            "`container_memory_working_set_bytes` is the metric the kubelet "
+            "compares to the limit in order to decide on an OOMKill -- not "
+            "`container_memory_usage_bytes`, which includes the reclaimable file "
+            "cache and largely overestimates the real pressure.",
+            "The `container!=\"\"` filter is not cosmetic: cAdvisor also exposes "
+            "series aggregated at the pod level, with an empty `container` label. "
+            "Counting them twice doubles the apparent consumption.",
+            "CPU throttling is not visible in "
+            "`container_cpu_usage_seconds_total`: a throttled pod consumes less, "
+            "and therefore looks healthy. It is "
+            "`container_cpu_cfs_throttled_seconds_total` that shows it.",
         ),
     ),
     Family(
         name=RuleFamily.RESTARTS.value,
-        summary="Un conteneur redemarre en boucle",
+        summary="A container is restarting in a loop",
         details=(
-            "Un service peut repondre correctement et redemarrer toutes les "
-            "dix minutes. Aucune des autres familles ne le voit : la "
-            "disponibilite est bonne entre deux redemarrages, le taux d'erreur "
-            "aussi.\n\n"
-            "C'est souvent le premier signe visible d'une fuite memoire ou "
-            "d'une sonde de vivacite mal reglee."
+            "A service can answer correctly and restart every ten minutes. None "
+            "of the other families sees it: availability is good between two "
+            "restarts, and so is the error rate.\n\n"
+            "It is often the first visible sign of a memory leak or of a badly "
+            "tuned liveness probe."
         ),
         alerts=alert_defs.RESTART_ALERTS,
         exporters=("kube-state-metrics",),
         traps=(
-            "`kube_pod_container_status_restarts_total` est remis a zero quand "
-            "le pod est recree — ce n'est pas un compteur monotone du point de "
-            "vue du service. `increase()` gere la remise a zero d'une serie, "
-            "mais pas la disparition d'une serie au profit d'une autre : un pod "
-            "remplace fait perdre l'historique.",
-            "Une sonde de vivacite trop stricte produit exactement cette "
-            "alerte, alors que l'application va bien. Verifier le reglage de la "
-            "sonde avant de chercher dans le code fait gagner des heures.",
-            "kube-state-metrics doit tourner **et** etre collecte. Son absence "
-            "rend cette famille silencieuse sans qu'aucune erreur n'apparaisse "
-            "nulle part.",
+            "`kube_pod_container_status_restarts_total` is reset to zero when the "
+            "pod is recreated -- it is not a monotonic counter from the point of "
+            "view of the service. `increase()` handles the reset of a series, but "
+            "not the disappearance of a series in favour of another: a replaced "
+            "pod loses the history.",
+            "A liveness probe that is too strict produces exactly this alert, "
+            "while the application is fine. Checking the tuning of the probe "
+            "before looking in the code saves hours.",
+            "kube-state-metrics has to be running **and** be collected. Its "
+            "absence makes this family silent without any error appearing "
+            "anywhere.",
         ),
     ),
     Family(
         name=RuleFamily.PROBE.value,
-        summary="Sonde externe : joignabilite et expiration du certificat",
+        summary="External probe: reachability and certificate expiry",
         details=(
-            "La seule famille qui regarde le service **de l'exterieur**, comme "
-            "un utilisateur. Un service peut tourner parfaitement et rester "
-            "injoignable : DNS casse, ingress mal configure, certificat "
-            "expire. Aucune metrique interne ne le montre.\n\n"
-            "Exige un blackbox exporter joignable par le collecteur, et des URL "
-            "a sonder declarees par environnement."
+            "The only family that looks at the service **from the outside**, like "
+            "a user. A service can be running perfectly and stay unreachable: "
+            "broken DNS, badly configured ingress, expired certificate. No "
+            "internal metric shows it.\n\n"
+            "Requires a blackbox exporter reachable by the collector, and URLs to "
+            "probe declared per environment."
         ),
         alerts=alert_defs.PROBE_ALERTS,
         exporters=("blackbox exporter",),
         traps=(
-            "La configuration de sonde du blackbox exporter est un ballet de "
-            "`relabel_configs` : l'adresse a sonder passe par `__param_target`, "
-            "puis devient `instance`, et `__address__` est finalement remplace "
-            "par l'adresse de l'exporter. Sauter une etape fait sonder "
-            "l'exporter lui-meme, qui repond toujours.",
-            "`probe_ssl_earliest_cert_expiry` n'existe que pour les sondes "
-            "**HTTPS**. Une URL en `http://` ne produit pas cette serie, et "
-            "l'alerte de certificat reste muette sans que rien ne le signale.",
-            "La sonde voit ce qu'un client voit depuis le reseau du "
-            "collecteur. Si celui-ci est dans le cluster, elle ne teste ni le "
-            "DNS public, ni le repartiteur de charge, ni le pare-feu — "
-            "c'est-a-dire l'essentiel de ce qui casse.",
-            "Un certificat renouvele automatiquement declenche quand meme "
-            "l'alerte si le renouvellement echoue silencieusement. C'est le but ; "
-            "ce n'est pas un faux positif.",
+            "The probe configuration of the blackbox exporter is a ballet of "
+            "`relabel_configs`: the address to probe goes through "
+            "`__param_target`, then becomes `instance`, and `__address__` is "
+            "finally replaced by the address of the exporter. Skipping a step "
+            "makes it probe the exporter itself, which always answers.",
+            "`probe_ssl_earliest_cert_expiry` only exists for **HTTPS** probes. A "
+            "URL in `http://` does not produce this series, and the certificate "
+            "alert stays mute without anything reporting it.",
+            "The probe sees what a client sees from the network of the collector. "
+            "If that one is inside the cluster, it tests neither the public DNS, "
+            "nor the load balancer, nor the firewall -- that is to say, most of "
+            "what breaks.",
+            "A certificate renewed automatically still triggers the alert if the "
+            "renewal fails silently. That is the point; it is not a false "
+            "positive.",
         ),
     ),
 )
 
-#: Familles indexees par nom.
-BY_NAME: dict[str, Family] = {famille.name: famille for famille in FAMILIES}
+#: Families indexed by name.
+BY_NAME: dict[str, Family] = {family.name: family for family in FAMILIES}
