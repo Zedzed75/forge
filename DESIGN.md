@@ -608,7 +608,8 @@ sur un domaine inconnu), `--dry-run` n'écrit rien, sortie non colorée si
 > Q2, Q3, Q4 et Q8 retenues telles que recommandees, sans objection. Cette
 > section est desormais un releve de decisions : ne pas la rouvrir sans raison
 > nouvelle. Q9 en est une, apparue en production le 2026-09-24 et arbitree le
-> jour meme : elle s'ajoute a la suite, elle ne rouvre aucune des huit.
+> jour meme ; Q10 est ce que Q9 avait explicitement laisse de cote, arbitre le
+> 2026-09-25. Elles s'ajoutent a la suite, elles ne rouvrent aucune des huit.
 
 **Q1. Délimiteurs des gabarits Ansible.** Le legacy utilise `{{ }}` plus des
 helpers `j()`/`jstr()` et 6 blocs `{% raw %}` pour émettre du Jinja destiné à
@@ -720,15 +721,55 @@ collection dans `plugins/ansible/catalog/collections.py`.
   généré : forge ne prétend pas savoir ce qu'il n'a pas testé, et le plancher se
   descend le jour où quelqu'un vérifie.
 
-> **Reste exposé, hors de cette décision** — cette décision ne porte que sur les
-> **collections** nommées par `requirements.yml`. Deux installations d'outils
-> restent sans version dans ce que forge génère : `pip install --upgrade
-> ansible-core ansible-lint` dans le workflow `.github/workflows/ansible-lint.yml`
-> du projet Ansible, et la table `plugins/pipeline/tools.py`, où `ansible-core`,
-> `ansible-lint` **et les trois collections** sont encore libres et où la liste
-> des collections est recopiée. La première se pin en trois lignes ; la seconde
-> demande que `pipeline` apprenne les versions du domaine
-> `ansible` sans l'importer — donc une projection, donc une décision à part.
+> **Reste exposé, hors de cette décision** — *levé le 2026-09-25 par la Q10
+> ci-dessous, qui traite les deux installations d'outils que cette décision
+> laissait libres.*
+
+**Q10. Versions des outils que forge installe dans ce qu'il génère** —
+*question ouverte par la Q9, arbitrée le 2026-09-25.* Deux fichiers générés
+installaient des outils sans version : le workflow
+`.github/workflows/ansible-lint.yml` du projet Ansible (`pip install --upgrade
+ansible-core ansible-lint`) et la table `plugins/pipeline/tools.py`, dont le
+propre docstring exige pourtant des versions figées. La seconde **recopiait en
+plus la liste des collections**, ce que la Q9 venait d'interdire.
+→ **DÉCISION : deux régimes, parce que ce sont deux sortes de choses.**
+
+- **Une collection est une dépendance du projet généré.** Elle est déclarée dans
+  son `requirements.yml`, elle voyage avec lui, et deux endroits qui n'en
+  diraient pas la même version décriraient deux projets différents. Sa version
+  reste donc autorisée **une seule fois** (`plugins/ansible/catalog/collections.py`)
+  et parvient au domaine `pipeline` par la **projection** du domaine qui la
+  déclare : facette `galaxy_collections`, consommée par une `FacetInstall` de
+  `tools.py`. Le pipeline reçoit des chaînes opaques ; il n'importe rien, ne
+  nomme aucun domaine, et une recette sans facette publiée installe simplement
+  l'outil seul. *(C'est l'option « projection » de l'énoncé, retenue contre
+  l'installation depuis `ansible/requirements.yml` — qui aurait couplé l'étape
+  au nom du répertoire du domaine — et contre une seconde table, que la Q9
+  proscrit.)*
+- **Une projection sert désormais à deux choses, et elles s'excluent.**
+  `FACET_VOCABULARY` reste le vocabulaire **comparé** ; `PUBLISHED_FACETS` liste
+  les facettes **publiées**, qu'un consommateur lit et que le cœur ne compare
+  jamais. Comparer une publication redonnerait le faux positif de `hosts`, en
+  pire : deux domaines qui installent des collections n'ont aucune raison
+  d'installer les mêmes. Un test interdit qu'un nom figure dans les deux
+  registres.
+- **Un outil est ce qu'une machine lance *sur* le projet**, et trois machines le
+  lancent : la CI de forge, la CI du projet généré, le pipeline engendré à la
+  racine du dépôt. Chacune provisionne la sienne, donc la version est écrite
+  trois fois. **Duplication assumée, divergence interdite** : `tests/test_pins.py`
+  échoue dès que les trois cessent de dire la même chose, et
+  `plugins/ansible/catalog/tooling.py` est l'endroit où l'on monte la version.
+  *(Alternative écartée : publier aussi les versions d'outils par la projection.
+  Un domaine tiers qui déclarerait `ansible-playbook` sans rien publier
+  retomberait alors sur une installation sans version — exactement ce qu'on
+  refuse.)*
+- **ansible-core reste en 2.19.** C'est la dernière branche qui accepte Python
+  3.11 comme nœud de contrôle, et 3.11 est dans la matrice de la CI de forge
+  comme dans le `setup-python` du workflow généré. Monter l'un demande de
+  retirer 3.11 des deux.
+- **Aucune exception.** `yamllint`, seul autre outil installé par `pip` dans la
+  table du pipeline, était libre lui aussi : il est épinglé. Un test exige que
+  chaque recette d'installation cite un numéro de la table des versions.
 
 ---
 
