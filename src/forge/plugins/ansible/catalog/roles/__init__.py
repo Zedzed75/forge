@@ -1,1 +1,1 @@
-"""Définitions des rôles du catalogue, un module par rôle."""
+"""Definitions of the catalogue roles, one module per role."""

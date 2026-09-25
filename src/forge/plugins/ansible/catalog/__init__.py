@@ -1,1 +1,1 @@
-"""Catalogue des roles Ansible : definition, registre et roles livres."""
+"""Ansible role catalogue: definition, registry and shipped roles."""

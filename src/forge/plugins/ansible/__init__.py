@@ -1,1 +1,1 @@
-"""Plugin de domaine Ansible."""
+"""Ansible domain plugin."""
