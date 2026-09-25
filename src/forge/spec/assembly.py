@@ -1,8 +1,8 @@
-"""Assemblage du modele racine a partir des sous-modeles de plugins.
+"""Assembly of the root model from the plugins' sub-models.
 
-Le coeur ne connait que `forge_version` et `service:` ; chaque plugin apporte sa
-section, optionnelle. Une section absente signifie « domaine non genere »
-(DESIGN.md §3). Aucune connaissance du contenu cote coeur.
+The core only knows about `forge_version` and `service:`; every plugin brings
+its own, optional section. An absent section means "domain not generated"
+(DESIGN.md §3). The core knows nothing about the content.
 """
 
 from __future__ import annotations
@@ -18,24 +18,24 @@ from forge.spec.types import ForgeModel
 if TYPE_CHECKING:  # pragma: no cover
     from forge.plugins_api.manager import ForgeManager
 
-#: Version de format de `forge.yml` que ce coeur sait lire.
+#: Version of the `forge.yml` format this core can read.
 FORGE_VERSION = 1
 
-#: Champs du modele racine qui n'appartiennent a aucun domaine.
+#: Fields of the root model that belong to no domain.
 CORE_FIELDS = frozenset({"forge_version", "service"})
 
 
 class ForgeSpecBase(ForgeModel):
-    """Partie du modele racine connue du coeur ; les plugins ajoutent le reste."""
+    """The part of the root model the core knows; plugins add the rest."""
 
-    #: Version du format de specification.
+    #: Version of the specification format.
     forge_version: int = FORGE_VERSION
 
-    #: Bloc partage, visible de tous les domaines.
+    #: Shared block, visible to every domain.
     service: ServiceSpec
 
     def domain_names(self) -> tuple[str, ...]:
-        """Domaines effectivement demandes par la spec, tries."""
+        """Domains the spec actually asks for, sorted."""
         return tuple(
             sorted(
                 name
@@ -45,32 +45,32 @@ class ForgeSpecBase(ForgeModel):
         )
 
     def section(self, domain: str) -> Any:
-        """Sous-modele du domaine, ou None si la spec ne le demande pas."""
+        """Sub-model of the domain, or None if the spec does not ask for it."""
         if domain in CORE_FIELDS or domain not in type(self).model_fields:
             raise KeyError(domain)
         return getattr(self, domain)
 
 
 def build_spec_model(manager: ForgeManager) -> type[ForgeSpecBase]:
-    """Construit `ForgeSpec` : une section optionnelle par domaine enregistre.
+    """Build `ForgeSpec`: one optional section per registered domain.
 
-    Le modele est reconstruit a chaque appel : il depend des plugins presents,
-    donc il ne peut pas etre defini statiquement.
+    The model is rebuilt on every call: it depends on which plugins are present,
+    so it cannot be defined statically.
     """
     fields: dict[str, Any] = {}
     for info in manager.domains():
         model = manager.domain(info.name).spec_model()
         if not (isinstance(model, type) and issubclass(model, BaseModel)):
             raise SpecValidationError(
-                f"forge_spec_model() du domaine '{info.name}' doit retourner un "
-                "modele pydantic"
+                f"forge_spec_model() of domain '{info.name}' must return a "
+                "pydantic model"
             )
         if info.name in ForgeSpecBase.model_fields:
-            # Defense en profondeur : `ForgeManager.register` refuse deja ces noms.
-            # create_model ecraserait silencieusement le champ herite.
+            # Defence in depth: `ForgeManager.register` already refuses these
+            # names. create_model would silently overwrite the inherited field.
             raise SpecValidationError(
-                f"le domaine '{info.name}' porte le nom d'un champ du modele racine ; "
-                "il masquerait le coeur de la specification"
+                f"domain '{info.name}' carries the name of a root model field; "
+                "it would shadow the core of the specification"
             )
         fields[info.name] = (model | None, None)
     return create_model("ForgeSpec", __base__=ForgeSpecBase, **fields)
@@ -79,33 +79,33 @@ def build_spec_model(manager: ForgeManager) -> type[ForgeSpecBase]:
 def _format_errors(exc: ValidationError) -> str:
     lines = []
     for error in exc.errors():
-        location = ".".join(str(part) for part in error["loc"]) or "<racine>"
-        lines.append(f"  - {location} : {error['msg']}")
+        location = ".".join(str(part) for part in error["loc"]) or "<root>"
+        lines.append(f"  - {location}: {error['msg']}")
     return "\n".join(lines)
 
 
 def validate_spec(data: dict[str, Any], manager: ForgeManager) -> ForgeSpecBase:
-    """Valide `data` contre le modele assemble et retourne l'instance."""
+    """Validate `data` against the assembled model and return the instance."""
     model = build_spec_model(manager)
     version = data.get("forge_version", FORGE_VERSION)
     if version != FORGE_VERSION:
         raise SpecValidationError(
-            f"forge_version {version!r} non supportee : ce forge lit la version "
+            f"unsupported forge_version {version!r}: this forge reads version "
             f"{FORGE_VERSION}"
         )
     unknown = sorted(set(data) - set(model.model_fields))
     if unknown:
         known = ", ".join(sorted(model.model_fields))
         raise SpecValidationError(
-            f"section(s) inconnue(s) dans forge.yml : {', '.join(unknown)}\n"
-            f"  sections reconnues : {known}\n"
-            "  un domaine absent de cette liste n'a pas de plugin enregistre."
+            f"unknown section(s) in forge.yml: {', '.join(unknown)}\n"
+            f"  recognised sections: {known}\n"
+            "  a domain absent from that list has no registered plugin."
         )
     try:
         return model.model_validate(data)
     except ValidationError as exc:
         raise SpecValidationError(
-            f"specification invalide ({exc.error_count()} erreur(s)) :\n"
+            f"invalid specification ({exc.error_count()} error(s)):\n"
             f"{_format_errors(exc)}"
         ) from exc
 
@@ -113,23 +113,24 @@ def validate_spec(data: dict[str, Any], manager: ForgeManager) -> ForgeSpecBase:
 def resolve_domains(
     spec: ForgeSpecBase, manager: ForgeManager, only: list[str] | None = None
 ) -> list[str]:
-    """Domaines a traiter : ceux de la spec, filtres par `--only`.
+    """Domains to process: those of the spec, filtered by `--only`.
 
-    Erreur explicite si `--only` cite un domaine inconnu ou absent de la spec.
+    Explicit error if `--only` names a domain that is unknown or absent from the
+    spec.
     """
     present = list(spec.domain_names())
     if only is None:
         return present
     unknown = [name for name in only if name not in manager.domain_names()]
     if unknown:
-        known = ", ".join(manager.domain_names()) or "aucun"
+        known = ", ".join(manager.domain_names()) or "none"
         raise SpecValidationError(
-            f"domaine(s) inconnu(s) : {', '.join(unknown)} (enregistres : {known})"
+            f"unknown domain(s): {', '.join(unknown)} (registered: {known})"
         )
     missing = [name for name in only if name not in present]
     if missing:
         raise SpecValidationError(
-            f"domaine(s) absent(s) de la specification : {', '.join(missing)}\n"
-            f"  sections presentes : {', '.join(present) or 'aucune'}"
+            f"domain(s) absent from the specification: {', '.join(missing)}\n"
+            f"  sections present: {', '.join(present) or 'none'}"
         )
     return [name for name in present if name in only]

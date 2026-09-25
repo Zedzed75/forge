@@ -57,7 +57,7 @@ def test_un_outil_absent_donne_un_message_d_installation(tmp_path):
 def test_un_depassement_de_delai_est_signale_sans_trace(tmp_path):
     check = run_command(_python("lent", "import time; time.sleep(5)", timeout=1), tmp_path)
     assert check.status == "timeout"
-    assert "delai" in check.detail
+    assert "time limit" in check.detail
 
 
 def test_skip_missing_transforme_l_absence_en_saut(tmp_path):
@@ -91,7 +91,7 @@ def test_un_chainage_vers_un_libelle_inexistant_est_une_erreur_de_plugin(tmp_pat
     """Rupture de contrat cote plugin : la signaler comme un saut ferait passer
     `forge validate` au vert sans avoir lance la commande."""
     commands = [_python("consomme", "pass", stdin_from="jamais declaree")]
-    with pytest.raises(PluginError, match="jamais declaree"):
+    with pytest.raises(PluginError, match="declared nowhere"):
         run_commands("demo", commands, tmp_path)
 
 
@@ -116,7 +116,7 @@ def test_l_extrait_de_sortie_conserve_la_tete_ou_l_erreur_est_annoncee(tmp_path)
     check = run_command(_python("verbeux", code), tmp_path)
     assert check.status == "failed"
     assert "Error: values.yaml:3 unknown key" in check.detail
-    assert "ligne(s) omise(s)" in check.detail
+    assert "line(s) omitted" in check.detail
     assert not check.detail.splitlines()[0].startswith("  [...")
 
 
@@ -143,7 +143,7 @@ def test_le_rapport_resume_les_etats(tmp_path):
         [_python("ok", "pass"), Command(label="absent", tool="outil-qui-n-existe-pas")],
         tmp_path,
     )
-    assert report.summary().startswith("demo :")
+    assert report.summary().startswith("demo:")
     assert "1 ok" in report.summary()
     assert "1 missing" in report.summary()
 
@@ -162,13 +162,13 @@ def test_la_commande_s_execute_dans_le_repertoire_du_domaine(tmp_path):
 def test_probe_trouve_un_outil_du_path():
     status = tools.probe(PYTHON)
     assert status.available
-    assert "disponible" in status.describe()
+    assert "available" in status.describe()
 
 
 def test_probe_signale_un_outil_absent():
     status = tools.probe("outil-qui-n-existe-pas")
     assert not status.available
-    assert status.describe().endswith("absent")
+    assert status.describe().endswith("missing")
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ def test_un_seul_domaine_ne_declenche_aucun_controle():
 def test_deux_domaines_alignes_ne_produisent_aucun_constat():
     issues = compare_projections({"a": _projection(), "b": _projection()})
     assert issues == []
-    assert "aucun ecart" in format_issues(issues)
+    assert "no difference" in format_issues(issues)
 
 
 def test_un_nom_de_service_divergent_est_une_erreur():
@@ -202,7 +202,7 @@ def test_un_nom_de_service_divergent_est_une_erreur():
         {"a": _projection(), "b": _projection(service_name="autre")}
     )
     assert has_errors(issues)
-    assert "nom de service" in issues[0].message
+    assert "service name" in issues[0].message
 
 
 def test_un_environnement_materialise_par_un_seul_domaine_est_signale():
@@ -218,7 +218,7 @@ def test_un_environnement_materialise_par_un_seul_domaine_est_signale():
     assert not has_errors(issues)
     assert [issue.level for issue in issues] == ["warning"]
     assert "prod" in issues[0].message
-    assert "materialise par a" in issues[0].message
+    assert "materialised by a" in issues[0].message
     assert issues[0].hint
 
 
@@ -292,7 +292,7 @@ def test_le_format_des_constats_place_les_erreurs_avant_les_avertissements():
         }
     )
     rendu = format_issues(issues)
-    assert rendu.index("ERREUR") < rendu.index("AVERTIR")
+    assert rendu.index("ERROR") < rendu.index("WARNING")
 
 
 def test_aucune_projection_ne_produit_aucun_constat():

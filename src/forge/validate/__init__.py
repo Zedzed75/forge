@@ -1,1 +1,1 @@
-"""Validation : outils externes, execution, coherence inter-domaines."""
+"""Validation: external tools, execution, cross-domain consistency."""

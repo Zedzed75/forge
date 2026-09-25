@@ -1,15 +1,19 @@
-"""Fichiers de niveau depot ecrits par le coeur (decision DESIGN.md §8 Q6).
+"""Repository-level files written by the core (decision DESIGN.md §8 Q6).
 
-En monorepo, `forge.yml`, l'index `README.md` et `.gitattributes` n'appartiennent
-a aucun domaine : le coeur les ecrit lui-meme, en minimum non-domaine. Tout le
-reste — y compris le `Makefile` de Helm ou le `.gitignore` d'Ansible — reste dans
-le sous-repertoire de son domaine, qui doit rester autonome et supprimable.
+In a monorepo, `forge.yml`, the `README.md` index and `.gitattributes` belong to
+no domain: the core writes them itself, as a non-domain minimum. Everything else
+— including Helm's `Makefile` or Ansible's `.gitignore` — stays in its domain's
+subdirectory, which must remain self-contained and deletable.
 
-Ces trois fichiers sont les seuls que forge ecrit **sans passer par copier**.
-Consequence assumee, a connaitre : ils ne sont pas suivis par `copier update`,
-donc `forge update` ne les rafraichit pas — c'est `forge generate` qui le fait.
-`forge diff` les compare explicitement, pour ne jamais annoncer « a jour » sur
-quelque chose qu'il n'aurait pas regarde.
+These three files are the only ones forge writes **without going through
+copier**. That has a known, accepted consequence: they are not tracked by
+`copier update`, so `forge update` does not refresh them — `forge generate`
+does. `forge diff` compares them explicitly, so that it never reports "up to
+date" about something it did not look at.
+
+The strings written into the target below are generated output, not source
+prose: they stay French until the templates and the golden fixtures are
+translated together.
 """
 
 from __future__ import annotations
@@ -21,14 +25,14 @@ from forge.errors import RenderError
 from forge.plugins_api.types import DomainInfo
 from forge.spec.io import SPEC_FILENAME, dump_spec
 
-#: Contenu du `.gitattributes` de la cible : les comparaisons golden se font
-#: octet pour octet, aucune conversion de fin de ligne n'est tolerable.
+#: Content of the target's `.gitattributes`: the golden comparisons are made
+#: byte for byte, no line-ending conversion is tolerable.
 GITATTRIBUTES = """\
 # Fins de ligne normalisees : la sortie de forge est comparee octet pour octet.
 * text=auto eol=lf
 """
 
-#: Fichiers de niveau depot que le coeur produit, dans l'ordre d'ecriture.
+#: Repository-level files the core produces, in writing order.
 REPO_FILENAMES = (SPEC_FILENAME, "README.md", ".gitattributes")
 
 
@@ -64,13 +68,12 @@ def _readme(service: dict[str, Any], domains: list[DomainInfo]) -> str:
         "| --- | --- | --- |",
     ]
     for info in domains:
-        # Un domaine dont la sortie est la racine du depot — un pipeline de CI,
-        # que son outil ne lit qu'a un emplacement impose — n'a pas de
-        # sous-repertoire a montrer.
-        emplacement = (
+        # A domain whose output is the repository root — a CI pipeline, which its
+        # tool only reads at an imposed location — has no subdirectory to show.
+        location = (
             "racine du depot" if info.outdir in (".", "") else f"`{info.outdir}/`"
         )
-        lines.append(f"| {info.title} | {emplacement} | {info.summary} |")
+        lines.append(f"| {info.title} | {location} | {info.summary} |")
     lines += [
         "",
         "Chaque domaine est autonome : son `.copier-answers.yml` permet de le",
@@ -93,10 +96,10 @@ def _readme(service: dict[str, Any], domains: list[DomainInfo]) -> str:
 def repo_files_content(
     spec_data: dict[str, Any], domains: list[DomainInfo]
 ) -> dict[str, str]:
-    """Contenu attendu des fichiers de niveau depot, sans rien ecrire.
+    """Expected content of the repository-level files, writing nothing.
 
-    Sert a la fois a l'ecriture et a la comparaison (`forge diff`), pour que les
-    deux ne puissent pas diverger.
+    Serves both the writing and the comparison (`forge diff`), so the two cannot
+    diverge.
     """
     names = [info.name for info in domains]
     return {
@@ -107,7 +110,7 @@ def repo_files_content(
 
 
 def _existing_conflicts(target: Path, wanted: dict[str, str]) -> list[str]:
-    """Fichiers deja presents dont le contenu differe de ce qui serait ecrit."""
+    """Files already present whose content differs from what would be written."""
     conflicts: list[str] = []
     for name, content in wanted.items():
         path = target / name
@@ -131,26 +134,26 @@ def write_repo_files(
     force: bool = False,
     spec_path: Path | None = None,
 ) -> list[Path]:
-    """Ecrit les fichiers de niveau depot et retourne la liste des chemins ecrits.
+    """Write the repository-level files and return the list of written paths.
 
-    `spec_path` designe la specification source. Quand elle **est** le
-    `forge.yml` de la cible, il n'est pas reecrit : c'est la source de verite,
-    editee a la main, et une reserialisation detruirait ses commentaires.
+    `spec_path` designates the source specification. When it **is** the target's
+    `forge.yml`, it is not rewritten: it is the source of truth, hand-edited, and
+    re-serialising it would destroy its comments.
 
-    Sans `force`, un fichier existant dont le contenu differe n'est pas ecrase :
-    le coeur applique aux fichiers de niveau depot la meme regle que copier
-    applique aux fichiers de domaine.
+    Without `force`, an existing file whose content differs is not overwritten:
+    the core applies to repository-level files the same rule copier applies to
+    domain files.
     """
     from forge.render.copier_runner import ensure_directory
 
     target = Path(target)
-    ensure_directory(target, "repertoire cible")
+    ensure_directory(target, "target directory")
 
     wanted = repo_files_content(spec_data, domains)
     if spec_path is not None:
         try:
             same = Path(spec_path).resolve() == (target / SPEC_FILENAME).resolve()
-        except OSError:  # pragma: no cover - chemin invalide sur ce poste
+        except OSError:  # pragma: no cover - invalid path on this machine
             same = False
         if same:
             wanted.pop(SPEC_FILENAME, None)
@@ -160,10 +163,10 @@ def write_repo_files(
         if conflicts:
             listing = "\n".join(f"    {name}" for name in conflicts)
             raise RenderError(
-                f"{len(conflicts)} fichier(s) de niveau depot different(s) de ce que "
-                f"forge produirait dans {target} :\n{listing}\n"
-                "  relancez avec --force pour les ecraser, ou mettez vos "
-                "modifications de cote."
+                f"{len(conflicts)} repository-level file(s) differ from what forge "
+                f"would produce in {target}:\n{listing}\n"
+                "  rerun with --force to overwrite them, or set your changes "
+                "aside."
             )
 
     written: list[Path] = []
@@ -174,6 +177,6 @@ def write_repo_files(
         try:
             path.write_text(wanted[name], encoding="utf-8", newline="\n")
         except OSError as exc:
-            raise RenderError(f"ecriture impossible de {path} : {exc}") from exc
+            raise RenderError(f"cannot write {path}: {exc}") from exc
         written.append(path)
     return written

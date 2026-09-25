@@ -1,11 +1,11 @@
-"""Interface en ligne de commande de forge (DESIGN.md §7).
+"""forge's command line interface (DESIGN.md §7).
 
-La CLI ne porte aucune logique : elle lit des arguments, appelle
-`forge.pipeline` et met en forme des resultats. Toute erreur attendue derive de
-`ForgeError` et sort en code 1 avec un message, jamais une trace Python.
+The CLI carries no logic: it reads arguments, calls `forge.pipeline` and formats
+results. Every expected error derives from `ForgeError` and exits with code 1 and
+a message, never a Python traceback.
 
-La sortie n'est jamais coloree : elle est lue autant par des tests que par des
-humains, et `NO_COLOR` n'a donc rien a desactiver.
+The output is never coloured: it is read by tests as much as by humans, so
+`NO_COLOR` has nothing to turn off.
 """
 
 from __future__ import annotations
@@ -29,14 +29,14 @@ from forge import pipeline
 
 app = typer.Typer(
     name="forge",
-    help="Genere des projets IaC complets et commentes a partir d'un seul forge.yml.",
+    help="Generates complete, commented IaC projects from a single forge.yml.",
     add_completion=False,
     no_args_is_help=True,
 )
 
 
 def _split(value: str | None) -> list[str] | None:
-    """Decoupe une option `--only a,b` en liste, ou None si absente."""
+    """Split an `--only a,b` option into a list, or None if absent."""
     if value is None:
         return None
     names = [part.strip() for part in value.split(",") if part.strip()]
@@ -44,34 +44,34 @@ def _split(value: str | None) -> list[str] | None:
 
 
 def _echo_plan(manager: ForgeManager, result: pipeline.GenerationResult) -> None:
-    """Annonce ce qui va etre produit — ou pourquoi rien ne le sera.
+    """Announce what is about to be produced — or why nothing will be.
 
-    Les domaines sont un **choix**, jamais un lot : un projet peut tres bien
-    n'en demander qu'un. Encore faut-il que forge dise lequel, et qu'il ne
-    reponde pas par un projet vide sans explication quand aucun n'est demande.
+    The domains are a **choice**, never a bundle: a project may very well ask for
+    only one. But forge still has to say which one, and must not answer with an
+    empty project and no explanation when none is requested.
     """
     if not result.domains:
-        connus = ", ".join(manager.domain_names()) or "aucun"
+        known = ", ".join(manager.domain_names()) or "none"
         typer.echo(
-            "aucun domaine n'est demande par cette specification : seuls les "
-            "fichiers de niveau depot seront ecrits.\n"
-            f"  domaines disponibles : {connus}\n"
-            "  ajoutez la section correspondante a forge.yml pour en generer un "
-            "(par exemple une section `ansible:` ou `helm:`)."
+            "this specification requests no domain: only the repository-level "
+            "files will be written.\n"
+            f"  available domains: {known}\n"
+            "  add the matching section to forge.yml to generate one "
+            "(an `ansible:` or `helm:` section, for instance)."
         )
         return
-    verbe = "seraient produits" if result.dry_run else "produits"
-    typer.echo(f"domaine(s) {verbe} :")
-    for nom in result.domains:
-        info = manager.domain(nom).info
+    verb = "would be produced" if result.dry_run else "produced"
+    typer.echo(f"domain(s) {verb}:")
+    for name in result.domains:
+        info = manager.domain(name).info
         typer.echo(f"  {info.outdir}/  {info.title} — {info.summary}")
 
 
 def _echo_warnings(result: pipeline.GenerationResult) -> None:
-    """Affiche les constats non bloquants remontes par les plugins."""
+    """Print the non-blocking findings reported by the plugins."""
     for issue in result.warnings:
         scope = f" [{', '.join(issue.domains)}]" if issue.domains else ""
-        typer.echo(f"[AVERTIR]{scope} {issue.message}", err=True)
+        typer.echo(f"[WARNING]{scope} {issue.message}", err=True)
         if issue.hint:
             typer.echo(f"          -> {issue.hint}", err=True)
 
@@ -84,10 +84,10 @@ def _fail(message: str) -> None:
 @app.callback(invoke_without_command=True)
 def main(
     version: bool = typer.Option(
-        False, "--version", help="Affiche la version puis quitte."
+        False, "--version", help="Print the version and exit."
     ),
 ) -> None:
-    """Point d'entree commun a toutes les sous-commandes."""
+    """Entry point shared by every subcommand."""
     if version:
         typer.echo(f"forge {__version__}")
         raise typer.Exit()
@@ -108,17 +108,17 @@ def run_new(
     force: bool = False,
     dry_run: bool = False,
 ) -> pipeline.GenerationResult:
-    """Conduit l'entretien complet puis genere ; testable sans terminal."""
+    """Conduct the full interview then generate; testable without a terminal."""
     if only is not None:
         unknown = [name for name in only if name not in manager.domain_names()]
         if unknown:
-            known = ", ".join(manager.domain_names()) or "aucun"
+            known = ", ".join(manager.domain_names()) or "none"
             raise SpecValidationError(
-                f"domaine(s) inconnu(s) : {', '.join(unknown)} (enregistres : {known})"
+                f"unknown domain(s): {', '.join(unknown)} (registered: {known})"
             )
-    # La cible est verifiee avant l'entretien : apprendre qu'elle est invalide
-    # apres avoir repondu a une dizaine de questions serait inacceptable.
-    ensure_directory(Path(target), "repertoire cible")
+    # The target is checked before the interview: learning that it is invalid
+    # after answering a dozen questions would be unacceptable.
+    ensure_directory(Path(target), "target directory")
 
     service = ask_service(prompter)
     available = [
@@ -151,17 +151,17 @@ def run_new(
 
 @app.command("new")
 def cmd_new(
-    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire cible."),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Target directory."),
     spec_out: Optional[Path] = typer.Option(
-        None, "--spec-out", help="Ecrit aussi la spec a cet emplacement."
+        None, "--spec-out", help="Also write the spec to this location."
     ),
     only: Optional[str] = typer.Option(
-        None, "--only", help="Restreint aux domaines cites (liste separee par des virgules)."
+        None, "--only", help="Restrict to the named domains (comma-separated list)."
     ),
-    force: bool = typer.Option(False, "--force", help="Ecrase les fichiers existants."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="N'ecrit rien."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing files."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Write nothing."),
 ) -> None:
-    """Entretien interactif, puis ecriture de forge.yml et generation."""
+    """Interactive interview, then write forge.yml and generate."""
     manager = default_manager()
     try:
         result = run_new(
@@ -189,15 +189,15 @@ def cmd_new(
 @app.command("generate")
 def cmd_generate(
     spec: Optional[Path] = typer.Option(
-        None, "--spec", "-s", help=f"Specification a rejouer (defaut : {SPEC_FILENAME})."
+        None, "--spec", "-s", help=f"Specification to replay (default: {SPEC_FILENAME})."
     ),
-    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire cible."),
-    only: Optional[str] = typer.Option(None, "--only", help="Restreint aux domaines cites."),
-    ref: str = typer.Option(DEFAULT_REF, "--ref", help="Reference git du gabarit."),
-    force: bool = typer.Option(False, "--force", help="Ecrase les fichiers existants."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="N'ecrit rien."),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Target directory."),
+    only: Optional[str] = typer.Option(None, "--only", help="Restrict to the named domains."),
+    ref: str = typer.Option(DEFAULT_REF, "--ref", help="Git reference of the template."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing files."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Write nothing."),
 ) -> None:
-    """Regenere les domaines depuis une specification existante."""
+    """Regenerate the domains from an existing specification."""
     manager = default_manager()
     try:
         spec_path = pipeline.find_spec_file(spec, out)
@@ -228,14 +228,14 @@ def cmd_generate(
 
 @app.command("validate")
 def cmd_validate(
-    spec: Optional[Path] = typer.Option(None, "--spec", "-s", help="Specification a lire."),
-    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire du projet genere."),
-    only: Optional[str] = typer.Option(None, "--only", help="Restreint aux domaines cites."),
+    spec: Optional[Path] = typer.Option(None, "--spec", "-s", help="Specification to read."),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Directory of the generated project."),
+    only: Optional[str] = typer.Option(None, "--only", help="Restrict to the named domains."),
     skip_missing: bool = typer.Option(
-        False, "--skip-missing", help="Saute les verifications dont l'outil est absent."
+        False, "--skip-missing", help="Skip the checks whose tool is missing."
     ),
 ) -> None:
-    """Lance les validateurs de chaque domaine, puis les controles inter-domaines."""
+    """Run every domain's validators, then the cross-domain checks."""
     manager = default_manager()
     try:
         spec_path = pipeline.find_spec_file(spec, out)
@@ -252,14 +252,14 @@ def cmd_validate(
         for check in report.checks:
             typer.echo(f"  {check.line()}")
             if check.detail:
-                # `detail` est deja borne par OUTPUT_LINES : le retronquer ici
-                # effacerait justement la ligne qui explique l'echec.
+                # `detail` is already bounded by OUTPUT_LINES: re-truncating it
+                # here would erase the very line that explains the failure.
                 for line in check.detail.splitlines():
                     typer.echo(f"    {line}")
         if report.all_skipped:
             typer.echo(
-                f"  ATTENTION : aucune verification n'a tourne pour {report.domain} ; "
-                "ce domaine n'est pas valide, il n'a pas ete verifie."
+                f"  WARNING: no check ran for {report.domain}; "
+                "this domain is not valid, it has not been verified."
             )
     typer.echo(format_issues(result.issues))
     if not result.ok:
@@ -273,14 +273,14 @@ def cmd_validate(
 
 @app.command("update")
 def cmd_update(
-    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire du projet genere."),
-    only: Optional[str] = typer.Option(None, "--only", help="Restreint aux domaines cites."),
-    ref: str = typer.Option(DEFAULT_REF, "--ref", help="Reference git du gabarit."),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Directory of the generated project."),
+    only: Optional[str] = typer.Option(None, "--only", help="Restrict to the named domains."),
+    ref: str = typer.Option(DEFAULT_REF, "--ref", help="Git reference of the template."),
     conflict: str = typer.Option(
-        "inline", "--conflict", help="Strategie de conflit copier : inline ou rej."
+        "inline", "--conflict", help="copier conflict strategy: inline or rej."
     ),
 ) -> None:
-    """Applique les evolutions de gabarit a un projet deja genere."""
+    """Apply the template's evolutions to an already generated project."""
     manager = default_manager()
     try:
         updated = pipeline.update(
@@ -289,17 +289,17 @@ def cmd_update(
     except ForgeError as exc:
         _fail(str(exc))
         return
-    typer.echo(f"domaines mis a jour : {', '.join(updated) or 'aucun'}")
+    typer.echo(f"domains updated: {', '.join(updated) or 'none'}")
 
 
 @app.command("diff")
 def cmd_diff(
-    spec: Optional[Path] = typer.Option(None, "--spec", "-s", help="Specification a lire."),
-    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire du projet genere."),
-    only: Optional[str] = typer.Option(None, "--only", help="Restreint aux domaines cites."),
-    ref: str = typer.Option(DEFAULT_REF, "--ref", help="Reference git du gabarit."),
+    spec: Optional[Path] = typer.Option(None, "--spec", "-s", help="Specification to read."),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Directory of the generated project."),
+    only: Optional[str] = typer.Option(None, "--only", help="Restrict to the named domains."),
+    ref: str = typer.Option(DEFAULT_REF, "--ref", help="Git reference of the template."),
 ) -> None:
-    """Resume l'ecart entre la cible et un rendu neuf (jamais le diff integral)."""
+    """Summarise the difference between the target and a fresh render (never the full diff)."""
     manager = default_manager()
     try:
         spec_path = pipeline.find_spec_file(spec, out)
@@ -317,7 +317,7 @@ def cmd_diff(
         for name in entry.removed:
             typer.echo(f"  - {name}")
         for name, lines in entry.modified:
-            typer.echo(f"  ~ {name} ({lines} ligne(s))")
+            typer.echo(f"  ~ {name} ({lines} line(s))")
 
 
 # ---------------------------------------------------------------------------
@@ -328,50 +328,50 @@ def cmd_diff(
 @app.command("plugins")
 def cmd_plugins(
     spec: Optional[Path] = typer.Option(
-        None, "--spec", "-s", help="Specification servant a interroger les validateurs."
+        None, "--spec", "-s", help="Specification used to query the validators."
     ),
-    out: Path = typer.Option(Path("."), "--out", "-o", help="Repertoire du projet."),
+    out: Path = typer.Option(Path("."), "--out", "-o", help="Directory of the project."),
 ) -> None:
-    """Liste les domaines enregistres et l'etat de leurs outils externes."""
+    """List the registered domains and the state of their external tools."""
     manager = default_manager()
     domains = manager.domains()
     if not domains:
-        typer.echo("aucun domaine enregistre")
+        typer.echo("no registered domain")
         return
 
-    # Un plugin construit ses commandes a partir de la specification (une par
-    # environnement, par exemple). Sans elle, l'etat des outils est indisponible :
-    # forge le dit, au lieu d'avaler l'erreur et de laisser croire que le plugin
-    # ne declare aucun validateur.
+    # A plugin builds its commands from the specification (one per environment,
+    # for instance). Without it the state of the tools is unavailable: forge says
+    # so, instead of swallowing the error and letting the user believe the plugin
+    # declares no validator.
     model = None
     try:
         model = pipeline.load_spec(pipeline.find_spec_file(spec, out), manager)[1]
     except ForgeError:
         model = None
 
-    demandes = set(model.domain_names()) if model is not None else set()
+    requested = set(model.domain_names()) if model is not None else set()
     if model is not None:
         typer.echo(
-            f"specification lue : {len(demandes)} domaine(s) demande(s) sur "
-            f"{len(domains)} disponible(s).\n"
+            f"specification read: {len(requested)} domain(s) requested out of "
+            f"{len(domains)} available.\n"
         )
 
     for info in domains:
         if model is None:
-            etat = ""
-        elif info.name in demandes:
-            etat = "  [demande par la specification]"
+            state = ""
+        elif info.name in requested:
+            state = "  [requested by the specification]"
         else:
-            etat = "  [non demande — ajoutez une section pour le generer]"
-        typer.echo(f"{info.name} — {info.title} : {info.summary}{etat}")
-        typer.echo(f"  section forge.yml : {info.name}:    sortie : {info.outdir}/")
+            state = "  [not requested — add a section to generate it]"
+        typer.echo(f"{info.name} — {info.title}: {info.summary}{state}")
+        typer.echo(f"  forge.yml section: {info.name}:    output: {info.outdir}/")
         hooks = manager.domain(info.name)
         try:
             commands = hooks.validators(model, out / info.outdir)
         except (AttributeError, TypeError):
             typer.echo(
-                "  etat des outils indisponible sans specification "
-                "(lancez la commande dans un projet genere, ou passez --spec)"
+                "  tool state unavailable without a specification "
+                "(run the command inside a generated project, or pass --spec)"
             )
             continue
         seen: set[str] = set()
@@ -384,10 +384,10 @@ def cmd_plugins(
 
 @app.command("catalog")
 def cmd_catalog(
-    domain: str = typer.Argument(..., help="Domaine dont on consulte le catalogue."),
-    entry: Optional[str] = typer.Argument(None, help="Element precis a detailler."),
+    domain: str = typer.Argument(..., help="Domain whose catalogue is consulted."),
+    entry: Optional[str] = typer.Argument(None, help="Specific entry to detail."),
 ) -> None:
-    """Affiche le catalogue fourni par un plugin (roles, composants...)."""
+    """Print the catalogue provided by a plugin (roles, components...)."""
     manager = default_manager()
     try:
         entries = manager.domain(domain).catalog()
@@ -395,7 +395,7 @@ def cmd_catalog(
         _fail(str(exc))
         return
     if not entries:
-        typer.echo(f"le domaine {domain} ne publie pas de catalogue")
+        typer.echo(f"domain {domain} publishes no catalogue")
         return
     if entry is None:
         for item in entries:
@@ -407,9 +407,9 @@ def cmd_catalog(
             if item.details:
                 typer.echo(item.details)
             for option, description in sorted(item.options.items()):
-                typer.echo(f"  {option} : {description}")
+                typer.echo(f"  {option}: {description}")
             return
-    _fail(f"element inconnu dans le catalogue {domain} : {entry}")
+    _fail(f"unknown entry in the {domain} catalogue: {entry}")
 
 
 if __name__ == "__main__":  # pragma: no cover

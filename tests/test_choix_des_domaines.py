@@ -186,8 +186,8 @@ def test_une_specification_sans_aucun_domaine_le_dit_clairement(tmp_path):
     resultat = runner.invoke(app, ["generate", "-s", str(spec), "-o", str(cible)])
 
     assert resultat.exit_code == 0
-    assert "aucun domaine" in resultat.stdout
-    assert "domaines disponibles" in resultat.stdout
+    assert "no domain" in resultat.stdout
+    assert "available domains" in resultat.stdout
     # Tous les domaines livres sont proposes, pas seulement ceux d'alors.
     for nom in DOMAINES:
         assert nom in resultat.stdout
@@ -322,15 +322,15 @@ def test_plugins_distingue_les_domaines_demandes_des_autres(domaine):
     lignes = resultat.stdout.splitlines()
 
     ligne_demande = next(ligne for ligne in lignes if ligne.startswith(domaine))
-    assert "demande par la specification" in ligne_demande
+    assert "requested by the specification" in ligne_demande
 
     for autre in DOMAINES:
         if autre == domaine:
             continue
         ligne = next(ligne for ligne in lignes if ligne.startswith(autre))
-        assert "non demande" in ligne, f"{autre} : {ligne}"
+        assert "not requested" in ligne, f"{autre} : {ligne}"
 
-    assert f"1 domaine(s) demande(s) sur {len(DOMAINES)}" in resultat.stdout
+    assert f"1 domain(s) requested out of {len(DOMAINES)}" in resultat.stdout
 
 
 @pytest.mark.parametrize(
@@ -343,7 +343,7 @@ def test_validate_accepte_un_projet_mono_comme_multi_domaine(spec, tmp_path):
     _generer(spec, tmp_path)
     resultat = runner.invoke(app, ["validate", "-o", str(tmp_path), "--skip-missing"])
     assert resultat.exit_code == 0, resultat.stdout
-    assert "aucun ecart" in resultat.stdout
+    assert "no difference" in resultat.stdout
 
 
 @pytest.mark.parametrize("domaine", sorted(SPECS_MONO), ids=sorted(SPECS_MONO))
@@ -354,7 +354,7 @@ def test_diff_ne_voit_aucun_ecart_sur_un_projet_mono_domaine(domaine, tmp_path):
         app, ["diff", "-o", str(tmp_path), "-s", str(SPECS_MONO[domaine])]
     )
     assert resultat.exit_code == 0, resultat.stdout
-    assert "a jour" in resultat.stdout
+    assert "up to date" in resultat.stdout
 
 
 # ---------------------------------------------------------------------------

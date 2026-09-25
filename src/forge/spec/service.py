@@ -1,7 +1,7 @@
-"""Bloc `service:` — la part de la specification que tous les domaines voient.
+"""The `service:` block — the part of the specification every domain sees.
 
-C'est le seul modele metier du coeur : il ne decrit aucune technologie, juste
-l'identite du service et ses environnements (cf. DESIGN.md §3).
+It is the only business model in the core: it describes no technology, just the
+identity of the service and its environments (cf. DESIGN.md §3).
 """
 
 from __future__ import annotations
@@ -13,43 +13,43 @@ from forge.spec.types import DnsLabel, ForgeModel, Subdomain
 
 
 class Environment(ForgeModel):
-    """Un environnement de deploiement. L'ordre de declaration est significatif."""
+    """A deployment environment. Declaration order is meaningful."""
 
-    #: Nom court de l'environnement (dev, staging, prod). Sert de cle partout.
+    #: Short environment name (dev, staging, prod). Used as a key everywhere.
     name: DnsLabel
 
-    #: Domaine DNS de l'environnement, facultatif (ex. `staging.example.net`).
+    #: DNS domain of the environment, optional (e.g. `staging.example.net`).
     domain: Subdomain | None = None
 
-    #: Marque l'environnement de production : active les profils durcis des plugins.
+    #: Marks the production environment: turns on the plugins' hardened profiles.
     production: bool = False
 
 
 class ServiceSpec(ForgeModel):
-    """Identite du service, partagee par tous les domaines generes."""
+    """Service identity, shared by every generated domain."""
 
-    #: Nom du service : nom de projet, de chart et prefixe de ressource.
+    #: Service name: project name, chart name and resource prefix.
     name: DnsLabel
 
-    #: Description d'une ligne, reprise dans les en-tetes de fichiers generes.
+    #: One-line description, reused in the headers of generated files.
     description: str = Field(min_length=1)
 
-    #: Equipe ou personne responsable.
+    #: Team or person in charge.
     owner: str = Field(min_length=1)
 
-    #: Adresse de contact du responsable (facultative).
+    #: Contact address of the owner (optional).
     owner_email: str | None = None
 
-    #: Labels metier repris a l'identique par tous les domaines.
+    #: Business labels carried over as-is by every domain.
     labels: dict[str, str] = Field(default_factory=dict)
 
-    #: Environnements, dans l'ordre de promotion (dev -> staging -> prod).
+    #: Environments, in promotion order (dev -> staging -> prod).
     environments: list[Environment] = Field(min_length=1)
 
     @field_validator("environments")
     @classmethod
     def _unique_environment_names(cls, value: list[Environment]) -> list[Environment]:
-        require_unique((env.name for env in value), "noms d'environnement")
+        require_unique((env.name for env in value), "environment names")
         return value
 
     @model_validator(mode="after")
@@ -57,18 +57,18 @@ class ServiceSpec(ForgeModel):
         production = [env.name for env in self.environments if env.production]
         if len(production) > 1:
             raise ValueError(
-                "un seul environnement peut porter production: true "
-                f"(trouves : {', '.join(production)})"
+                "only one environment may carry production: true "
+                f"(found: {', '.join(production)})"
             )
         return self
 
     @property
     def environment_names(self) -> tuple[str, ...]:
-        """Noms des environnements, dans l'ordre de declaration."""
+        """Environment names, in declaration order."""
         return tuple(env.name for env in self.environments)
 
     def environment(self, name: str) -> Environment:
-        """Retourne l'environnement `name`, ou leve `KeyError`."""
+        """Return the `name` environment, or raise `KeyError`."""
         for env in self.environments:
             if env.name == name:
                 return env

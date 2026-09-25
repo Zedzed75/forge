@@ -137,7 +137,7 @@ def test_un_nom_de_service_divergent_serait_une_erreur(donnees):
     )
     constats = compare_projections(projections)
     assert any(constat.level == "error" for constat in constats)
-    assert any("nom de service" in constat.message for constat in constats)
+    assert any("service name" in constat.message for constat in constats)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ def test_validate_sort_en_zero_sur_un_projet_a_deux_domaines(tmp_path, donnees):
         app, ["validate", "-o", str(tmp_path), "--skip-missing"]
     )
     assert resultat.exit_code == 0, resultat.stdout
-    assert "aucun ecart" in resultat.stdout
+    assert "no difference" in resultat.stdout
 
 
 def test_diff_couvre_les_deux_domaines_et_la_racine(tmp_path, donnees):
@@ -169,7 +169,7 @@ def test_diff_couvre_les_deux_domaines_et_la_racine(tmp_path, donnees):
 
     resultat = runner.invoke(app, ["diff", "-o", str(tmp_path)])
     assert resultat.exit_code == 0, resultat.stdout
-    for rubrique in ("(racine)", "ansible", "helm"):
+    for rubrique in ("(root)", "ansible", "helm"):
         assert rubrique in resultat.stdout
 
 

@@ -1,8 +1,8 @@
-"""Hookspecs pluggy du projet (DESIGN.md §2.2).
+"""The project's pluggy hookspecs (DESIGN.md §2.2).
 
-Regle : aucun `firstresult=True` sur les hooks propres a un domaine — ils
-seraient silencieusement captes par le premier plugin enregistre. Le coeur
-adresse un domaine a la fois via `manager.domain(nom)` (DESIGN.md §2.3).
+Rule: no `firstresult=True` on domain-specific hooks — they would be silently
+captured by the first registered plugin. The core addresses one domain at a time
+through `manager.domain(name)` (DESIGN.md §2.3).
 """
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ from forge.plugins_api.types import (
     Projection,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - uniquement pour les annotations
+if TYPE_CHECKING:  # pragma: no cover - annotations only
     from pydantic import BaseModel
 
     from forge.interview.prompter import Prompter
     from forge.spec.service import ServiceSpec
 
-#: Nom du projet pluggy ; identique cote hookspec et hookimpl.
+#: pluggy project name; identical on the hookspec and hookimpl sides.
 PROJECT_NAME = "forge"
 
 hookspec = pluggy.HookspecMarker(PROJECT_NAME)
@@ -36,110 +36,110 @@ hookimpl = pluggy.HookimplMarker(PROJECT_NAME)
 
 @hookspec
 def forge_domain() -> DomainInfo:
-    """Identite du domaine. Seul hook obligatoire pour etre decouvert."""
+    """Identity of the domain. The only hook required to be discovered."""
 
 
 @hookspec
 def forge_spec_model() -> type[BaseModel]:
-    """Sous-modele pydantic validant la section <domaine> de forge.yml.
+    """Pydantic sub-model validating the <domain> section of forge.yml.
 
-    Le coeur assemble le modele racine a partir des sous-modeles enregistres :
-    chaque section est optionnelle, l'absence de section signifie « domaine non
-    genere ». Le coeur ne connait rien de son contenu.
+    The core assembles the root model from the registered sub-models: every
+    section is optional, and an absent section means "domain not generated". The
+    core knows nothing about its content.
     """
 
 
 @hookspec
 def forge_interview(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conduit l'entretien du domaine et retourne sa section de forge.yml.
+    """Conduct the domain interview and return its forge.yml section.
 
-    Le plugin pilote son questionnaire a travers le protocole `Prompter` fourni
-    par le coeur, jamais questionary directement : c'est ce qui rend l'entretien
-    rejouable en test. Retourne None si l'utilisateur decline le domaine.
+    The plugin drives its questionnaire through the `Prompter` protocol provided
+    by the core, never questionary directly: that is what makes the interview
+    replayable in tests. Returns None if the user declines the domain.
     """
 
 
 @hookspec
 def forge_template_subdir() -> str:
-    """Chemin du gabarit copier, relatif a la racine du depot forge.
+    """Path of the copier template, relative to the forge repository root.
 
-    Exemple : "src/forge/plugins/ansible/template". Passe a copier via
+    Example: "src/forge/plugins/ansible/template". Passed to copier through
     `_subdirectory` (DESIGN.md §5).
     """
 
 
 @hookspec
 def forge_answers(spec: Any, context: GenerationContext) -> dict[str, Any]:
-    """Projette la spec unifiee vers le dict `domain` passe a copier.
+    """Project the unified spec onto the `domain` dict passed to copier.
 
-    Sortie JSON-serialisable et deterministe : elle est ecrite telle quelle dans
-    `.copier-answers.yml` et rejouee par `copier update`.
+    The output is JSON-serialisable and deterministic: it is written as-is into
+    `.copier-answers.yml` and replayed by `copier update`.
 
-    `context` decrit **les autres domaines demandes par la specification**, dans
-    le vocabulaire du contrat : leur `DomainInfo`, leur `Projection`, leurs
-    `Command` de validation et de deploiement. Un plugin qui n'en a pas besoin
-    ne declare pas le parametre — pluggy n'appelle un hookimpl qu'avec les
-    arguments qu'il nomme, et les trois premiers domaines s'en passent.
+    `context` describes **the other domains requested by the specification**, in
+    the vocabulary of the contract: their `DomainInfo`, their `Projection`, and
+    their validation and deployment `Command`s. A plugin that does not need it
+    simply does not declare the parameter — pluggy calls a hookimpl only with the
+    arguments it names, and the first three domains do without it.
 
-    Il existe pour le domaine `pipeline`, dont la sortie depend des autres
-    sections : il doit engendrer un job par domaine present **sans connaitre
-    aucun domaine par son nom**. Le coeur n'ordonnance rien pour autant — il
-    transmet des faits qu'il calculait deja.
+    It exists for the `pipeline` domain, whose output depends on the other
+    sections: it must emit one job per domain present **without knowing any
+    domain by name**. The core still orchestrates nothing — it passes on facts it
+    was already computing.
     """
 
 
 @hookspec
 def forge_validators(spec: Any, outdir: Path) -> list[Command]:
-    """Commandes externes validant le domaine genere, dans l'ordre d'execution."""
+    """External commands validating the generated domain, in execution order."""
 
 
 @hookspec
 def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Commandes deployant ce domaine dans `environment` (facultatif).
+    """Commands deploying this domain into `environment` (optional).
 
-    Symetrique de `forge_validators`, et soumis a la meme regle : le plugin
-    decrit **quoi lancer**, jamais comment l'executer. La difference est qu'un
-    deploiement touche a une infrastructure reelle — le coeur ne les lance
-    jamais lui-meme. Elles n'existent que pour etre **ecrites** dans un pipeline
-    par le domaine `pipeline`, qui ne saurait pas les inventer.
+    Symmetrical to `forge_validators`, and subject to the same rule: the plugin
+    describes **what to run**, never how to run it. The difference is that a
+    deployment touches real infrastructure — the core never runs these itself.
+    They exist only to be **written** into a pipeline by the `pipeline` domain,
+    which could not invent them.
 
-    Un domaine qui ne l'implemente pas fait engendrer une etape a completer,
-    plutot qu'une commande devinee.
+    A domain that does not implement it causes a step to fill in to be emitted,
+    rather than a guessed command.
     """
 
 
 @hookspec
 def forge_projection(spec: Any) -> Projection:
-    """Ce que le domaine affirme produire, pour les controles inter-domaines."""
+    """What the domain claims to produce, for the cross-domain checks."""
 
 
 @hookspec
 def forge_check_spec(spec: Any) -> list[Issue]:
-    """Controles que le sous-modele du domaine ne peut pas faire lui-meme.
+    """Checks the domain sub-model cannot perform on its own.
 
-    Un sous-modele pydantic ne voit que **sa** section : il peut verifier que
-    les groupes qu'il cite existent, jamais que les environnements existent,
-    puisque ceux-ci sont declares dans le bloc partage `service:`.
+    A pydantic sub-model only sees **its** section: it can check that the groups
+    it names exist, never that the environments exist, since those are declared
+    in the shared `service:` block.
 
-    Le coeur appelle ce hook juste apres l'assemblage du modele, **avant tout
-    rendu** : une specification incoherente doit etre refusee au moment de la
-    generation, pas seulement au `forge validate` suivant. Un `Issue` de niveau
-    `error` arrete la generation ; un `warning` est affiche et laisse passer.
+    The core calls this hook right after assembling the model, **before any
+    rendering**: an inconsistent specification must be refused at generation
+    time, not only at the next `forge validate`. An `Issue` of level `error`
+    stops generation; a `warning` is printed and lets it through.
 
-    A distinguer de `forge_consistency`, qui porte sur le projet **deja ecrit**
-    et recoit donc les repertoires de sortie.
+    Not to be confused with `forge_consistency`, which covers the **already
+    written** project and therefore receives the output directories.
     """
 
 
 @hookspec
 def forge_consistency(spec: Any, outdirs: dict[str, Path]) -> list[Issue]:
-    """Controles supplementaires propres au plugin (echappatoire).
+    """Extra checks specific to the plugin (escape hatch).
 
-    Seul hook appele sur *tous* les plugins a la fois ; les resultats sont
-    concatenes. A n'utiliser que pour ce que `forge_projection` ne peut pas dire.
+    The only hook called on *all* plugins at once; the results are concatenated.
+    To be used only for what `forge_projection` cannot express.
     """
 
 
 @hookspec
 def forge_catalog() -> list[CatalogEntry] | None:
-    """Catalogue consultable via `forge catalog <domaine>` (facultatif)."""
+    """Catalogue browsable through `forge catalog <domain>` (optional)."""

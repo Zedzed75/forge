@@ -65,7 +65,7 @@ def test_plugins_sans_plugin_le_dit_clairement(monkeypatch):
     monkeypatch.setattr("forge.plugins_api.manager.BUILTIN_PLUGINS", ())
     result = runner.invoke(app, ["plugins"])
     assert result.exit_code == 0
-    assert "aucun domaine" in result.stdout
+    assert "no registered domain" in result.stdout
 
 
 def test_plugins_liste_les_domaines_livres():
@@ -162,14 +162,14 @@ def test_validate_passe_sur_un_projet_fraichement_genere(projet_demo, monkeypatc
     target, _, _ = projet_demo
     result = _invoke(["validate", "-o", str(target)], monkeypatch)
     assert result.exit_code == 0, result.stdout
-    assert "aucun ecart" in result.stdout
+    assert "no difference" in result.stdout
 
 
 def test_diff_ne_voit_aucun_ecart_juste_apres_generation(projet_demo, monkeypatch):
     target, _, _ = projet_demo
     result = _invoke(["diff", "-o", str(target)], monkeypatch)
     assert result.exit_code == 0, result.stdout
-    assert "a jour" in result.stdout
+    assert "up to date" in result.stdout
 
 
 def test_diff_signale_un_fichier_supprime_dans_la_cible(projet_demo, tmp_path, monkeypatch):
@@ -270,7 +270,7 @@ def test_update_rejoue_le_gabarit_sur_un_projet_genere(tmp_path, monkeypatch):
 def test_update_ignore_un_domaine_jamais_genere(tmp_path, monkeypatch):
     result = _invoke(["update", "-o", str(tmp_path)], monkeypatch)
     assert result.exit_code == 0
-    assert "aucun" in result.stdout
+    assert "none" in result.stdout
 
 
 def test_le_chemin_de_gabarit_du_plugin_est_celui_declare(tmp_path):

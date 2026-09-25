@@ -1,42 +1,43 @@
-"""Hierarchie d'erreurs commune au coeur et aux plugins.
+"""Error hierarchy shared by the core and the plugins.
 
-Fusion des deux hierarchies legacy (`ansible_forge.errors` et
-`helm_forge.errors`, cf. MIGRATION.md §5.1) : une seule implementation survit.
+Merge of the two legacy hierarchies (`ansible_forge.errors` and
+`helm_forge.errors`, cf. MIGRATION.md §5.1): a single implementation survives.
 
-Toute erreur attendue derive de `ForgeError` : la CLI l'attrape et affiche
-`str(e)` sans trace Python. Une exception qui n'en derive pas est un bug.
+Every expected error derives from `ForgeError`: the CLI catches it and prints
+`str(e)` with no Python traceback. An exception that does not derive from it is
+a bug.
 """
 
 from __future__ import annotations
 
 
 class ForgeError(Exception):
-    """Erreur attendue, presentable telle quelle a l'utilisateur."""
+    """An expected error, presentable to the user as it is."""
 
 
 class SpecFileError(ForgeError):
-    """Le fichier de specification est introuvable, illisible ou mal forme."""
+    """The specification file is missing, unreadable or malformed."""
 
 
 class SpecValidationError(ForgeError):
-    """Le contenu de la specification viole le modele assemble."""
+    """The specification content violates the assembled model."""
 
 
 class PluginError(ForgeError):
-    """Un plugin est mal declare, absent, ou viole le contrat de hook."""
+    """A plugin is misdeclared, missing, or violates the hook contract."""
 
 
 class RenderError(ForgeError):
-    """Le rendu copier a echoue."""
+    """The copier render failed."""
 
 
-# Deux classes ont ete retirees en phase 10, apres verification qu'aucun chemin
-# ne les levait :
+# Two classes were removed in phase 10, after checking that no code path raised
+# them:
 #
-# * `ToolMissingError` — `forge.validate.tools.missing_message()` compose le
-#   meme message, et le coeur signale un outil absent par un rapport de
-#   validation, jamais par une exception : une commande sautee n'interrompt pas
-#   les autres.
-# * `ValidationFailed` — `ValidationResult.ok` porte le verdict, et la CLI en
-#   deduit son code de sortie. Lever une exception aurait fait perdre le
-#   rapport, qui est justement ce que l'utilisateur veut lire.
+# * `ToolMissingError` — `forge.validate.tools.missing_message()` composes the
+#   same message, and the core reports a missing tool through a validation
+#   report, never through an exception: one skipped command does not interrupt
+#   the others.
+# * `ValidationFailed` — `ValidationResult.ok` carries the verdict and the CLI
+#   derives its exit code from it. Raising would have lost the report, which is
+#   precisely what the user wants to read.

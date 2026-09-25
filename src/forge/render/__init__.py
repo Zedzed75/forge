@@ -1,1 +1,1 @@
-"""Rendu : enveloppe copier, fichiers de niveau depot, comparaison."""
+"""Rendering: copier wrapper, repository-level files, comparison."""

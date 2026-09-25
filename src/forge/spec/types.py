@@ -1,7 +1,7 @@
-"""Types de champs partages par le coeur et les plugins.
+"""Field types shared by the core and the plugins.
 
-Portage de `helm_forge.models.validators` (MIGRATION.md §4) : `DnsLabel`,
-`Subdomain` et `SemVer` servent aussi au bloc `service:` partage, donc au coeur.
+Port of `helm_forge.models.validators` (MIGRATION.md §4): `DnsLabel`,
+`Subdomain` and `SemVer` also serve the shared `service:` block, hence the core.
 """
 
 from __future__ import annotations
@@ -19,33 +19,33 @@ from forge.spec.names import (
 
 
 def _dns_label(value: str) -> str:
-    return check_pattern(value, DNS_LABEL_RE, "un label DNS valide (a-z, 0-9, tirets)")
+    return check_pattern(value, DNS_LABEL_RE, "a valid DNS label (a-z, 0-9, hyphens)")
 
 
 def _subdomain(value: str) -> str:
-    return check_pattern(value, SUBDOMAIN_RE, "un nom de domaine DNS valide")
+    return check_pattern(value, SUBDOMAIN_RE, "a valid DNS domain name")
 
 
 def _semver(value: str) -> str:
-    return check_pattern(value, SEMVER_RE, "une version semantique (MAJEUR.MINEUR.CORRECTIF)")
+    return check_pattern(value, SEMVER_RE, "a semantic version (MAJOR.MINOR.PATCH)")
 
 
-#: Label DNS : nom de service, de chart, de namespace.
+#: DNS label: service, chart or namespace name.
 DnsLabel = Annotated[str, AfterValidator(_dns_label)]
 
-#: Nom de domaine complet : domaine d'environnement, hote d'Ingress.
+#: Fully qualified domain name: environment domain, Ingress host.
 Subdomain = Annotated[str, AfterValidator(_subdomain)]
 
-#: Version semantique.
+#: Semantic version.
 SemVer = Annotated[str, AfterValidator(_semver)]
 
 
 class ForgeModel(BaseModel):
-    """Base commune a tous les modeles de specification.
+    """Common base of every specification model.
 
-    `extra="forbid"` : une cle inconnue dans `forge.yml` est une faute de frappe,
-    jamais un silence. Doublon exact des deux `ForgeModel` legacy, fusionne ici
-    une bonne fois (MIGRATION.md §5.1).
+    `extra="forbid"`: an unknown key in `forge.yml` is a typo, never a silence.
+    Exact duplicate of the two legacy `ForgeModel` classes, merged here once and
+    for all (MIGRATION.md §5.1).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=False, validate_default=True)

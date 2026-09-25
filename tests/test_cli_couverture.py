@@ -145,8 +145,8 @@ def test_validate_sort_en_1_quand_un_controle_inter_domaines_echoue(tmp_path, mo
         plugins=f"{NORMAL},{DIVERGENT}",
     )
     assert result.exit_code == 1, result.stdout
-    assert "ERREUR" in result.stdout
-    assert "nom de service" in result.stdout
+    assert "ERROR" in result.stdout
+    assert "service name" in result.stdout
 
 
 def test_validate_sort_en_0_sur_un_simple_avertissement(tmp_path, monkeypatch):
@@ -157,7 +157,7 @@ def test_validate_sort_en_0_sur_un_simple_avertissement(tmp_path, monkeypatch):
         plugins=f"{NORMAL},{DESORDRE}",
     )
     assert result.exit_code == 0, result.stdout
-    assert "AVERTIR" in result.stdout
+    assert "WARNING" in result.stdout
 
 
 def test_validate_echoue_quand_un_outil_est_absent(tmp_path, monkeypatch):
@@ -168,7 +168,7 @@ def test_validate_echoue_quand_un_outil_est_absent(tmp_path, monkeypatch):
         plugins=FRAGILE,
     )
     assert result.exit_code == 1
-    assert "ABSENT" in result.stdout
+    assert "MISSING" in result.stdout
     assert "c'est le but du test" in result.stdout
 
 
@@ -180,8 +180,8 @@ def test_skip_missing_passe_mais_avertit_que_rien_n_a_ete_verifie(tmp_path, monk
         plugins=FRAGILE,
     )
     assert result.exit_code == 0, result.stdout
-    assert "SAUTE" in result.stdout
-    assert "ATTENTION" in result.stdout
+    assert "SKIPPED" in result.stdout
+    assert "WARNING" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +289,7 @@ def test_diff_compare_aussi_les_fichiers_de_niveau_depot(tmp_path, monkeypatch):
 
     result = _invoke(["diff", "-o", str(tmp_path)], monkeypatch)
     assert result.exit_code == 0, result.stdout
-    assert "(racine)" in result.stdout
+    assert "(root)" in result.stdout
     assert "README.md" in result.stdout
 
 
@@ -438,7 +438,7 @@ def test_update_refuse_un_gabarit_deplace_sans_commit(tmp_path, monkeypatch):
         newline="\n",
     )
 
-    with pytest.raises(RenderError, match="committez"):
+    with pytest.raises(RenderError, match="commit"):
         pipeline.update(manager, cible)
     # La correction a bien ete ecrite : c'est ce que l'utilisateur doit committer.
     assert gabarit.as_posix() in answers.read_text(encoding="utf-8")

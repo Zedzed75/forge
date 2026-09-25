@@ -1,4 +1,4 @@
-"""Contrat de plugin : types echanges, hookspecs et facade de gestion."""
+"""Plugin contract: exchanged types, hookspecs and the management facade."""
 
 from forge.plugins_api.types import (
     CatalogEntry,

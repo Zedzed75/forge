@@ -1,8 +1,8 @@
-"""Entretien du bloc `service:` — la seule partie conduite par le coeur.
+"""Interview for the `service:` block — the only part the core conducts itself.
 
-Les questions propres a un domaine appartiennent a son plugin, via le hook
-`forge_interview` (DESIGN.md §7). Ici, uniquement l'identite du service et ses
-environnements : ce que tous les domaines doivent voir de la meme facon.
+Domain-specific questions belong to the domain's plugin, through the
+`forge_interview` hook (DESIGN.md §7). Here, only the identity of the service and
+its environments: what every domain must see the same way.
 """
 
 from __future__ import annotations
@@ -12,32 +12,32 @@ from typing import Any
 from forge.interview.prompter import Prompter
 from forge.spec.names import DNS_LABEL_RE, SUBDOMAIN_RE
 
-#: Environnements proposes par defaut, dans l'ordre de promotion.
+#: Environments offered by default, in promotion order.
 DEFAULT_ENVIRONMENTS = "dev,staging,prod"
 
-#: Environnement considere comme la production si l'utilisateur ne dit rien.
+#: Environment treated as production when the user says nothing.
 DEFAULT_PRODUCTION = "prod"
 
 
 def _validate_dns_label(value: str) -> str | None:
     if not DNS_LABEL_RE.match(value.strip()):
-        return "attendu un label DNS : minuscules, chiffres et tirets internes"
+        return "expected a DNS label: lowercase letters, digits and internal hyphens"
     return None
 
 
 def _validate_non_empty(value: str) -> str | None:
-    return None if value.strip() else "valeur obligatoire"
+    return None if value.strip() else "value required"
 
 
 def _validate_environments(value: str) -> str | None:
     names = [part.strip() for part in value.split(",") if part.strip()]
     if not names:
-        return "au moins un environnement est requis"
+        return "at least one environment is required"
     if len(set(names)) != len(names):
-        return "noms d'environnement en double"
+        return "duplicate environment names"
     for name in names:
         if not DNS_LABEL_RE.match(name):
-            return f"{name!r} n'est pas un label DNS valide"
+            return f"{name!r} is not a valid DNS label"
     return None
 
 
@@ -45,45 +45,45 @@ def _validate_optional_domain(value: str) -> str | None:
     value = value.strip()
     if not value:
         return None
-    return None if SUBDOMAIN_RE.match(value) else "nom de domaine DNS invalide"
+    return None if SUBDOMAIN_RE.match(value) else "invalid DNS domain name"
 
 
 def ask_service(prompter: Prompter) -> dict[str, Any]:
-    """Conduit l'entretien du bloc `service:` et retourne sa section de spec."""
-    prompter.note("Identite du service")
+    """Conduct the `service:` block interview and return its spec section."""
+    prompter.note("Service identity")
     name = prompter.text(
-        "Nom du service (label DNS, sert de prefixe partout)",
-        default="mon-service",
+        "Service name (DNS label, used as a prefix everywhere)",
+        default="my-service",
         validate=_validate_dns_label,
     ).strip()
     description = prompter.text(
-        "Description en une ligne",
+        "One-line description",
         default=f"Service {name}",
         validate=_validate_non_empty,
     ).strip()
     owner = prompter.text(
-        "Equipe ou personne responsable",
-        default="Equipe Plateforme",
+        "Team or person in charge",
+        default="Platform Team",
         validate=_validate_non_empty,
     ).strip()
     owner_email = prompter.text(
-        "Adresse de contact (vide pour aucune)",
+        "Contact address (empty for none)",
         default="",
     ).strip()
 
-    prompter.note("Environnements (ordre de promotion : dev -> staging -> prod)")
+    prompter.note("Environments (promotion order: dev -> staging -> prod)")
     raw_envs = prompter.text(
-        "Environnements, separes par des virgules",
+        "Environments, comma-separated",
         default=DEFAULT_ENVIRONMENTS,
         validate=_validate_environments,
     )
     env_names = [part.strip() for part in raw_envs.split(",") if part.strip()]
 
     production = ""
-    if prompter.confirm("Un de ces environnements est-il la production ?", default=True):
+    if prompter.confirm("Is one of these environments production?", default=True):
         default_prod = DEFAULT_PRODUCTION if DEFAULT_PRODUCTION in env_names else env_names[-1]
         production = prompter.select(
-            "Environnement de production",
+            "Production environment",
             choices=[(name, name) for name in env_names],
             default=default_prod,
         )
@@ -91,7 +91,7 @@ def ask_service(prompter: Prompter) -> dict[str, Any]:
     environments: list[dict[str, Any]] = []
     for env_name in env_names:
         domain = prompter.text(
-            f"Domaine DNS de {env_name} (vide pour aucun)",
+            f"DNS domain of {env_name} (empty for none)",
             default="",
             validate=_validate_optional_domain,
         ).strip()
@@ -114,14 +114,14 @@ def ask_service(prompter: Prompter) -> dict[str, Any]:
 
 
 def ask_domains(prompter: Prompter, available: list[tuple[str, str]]) -> list[str]:
-    """Demande quels domaines generer parmi ceux enregistres."""
+    """Ask which domains to generate among those registered."""
     if not available:
         return []
     if len(available) == 1:
         name, label = available[0]
-        return [name] if prompter.confirm(f"Generer le domaine {label} ?", default=True) else []
+        return [name] if prompter.confirm(f"Generate the {label} domain?", default=True) else []
     return prompter.checkbox(
-        "Domaines a generer",
+        "Domains to generate",
         choices=available,
         default=[name for name, _ in available],
     )

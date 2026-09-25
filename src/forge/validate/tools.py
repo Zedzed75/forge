@@ -1,9 +1,9 @@
-"""Detection des outils externes (fusion des deux implementations legacy).
+"""Detection of external tools (merge of the two legacy implementations).
 
-`ansible_forge.verify.require_tools` et `helm_forge.validation.tools.require`
-faisaient la meme chose ; une seule version survit ici (MIGRATION.md §5.3). La
-nouveaute est le repli WSL : un outil declare `requires_linux` est cherche dans
-le PATH Windows **puis** dans la distribution WSL.
+`ansible_forge.verify.require_tools` and `helm_forge.validation.tools.require`
+did the same thing; a single version survives here (MIGRATION.md §5.3). What is
+new is the WSL fallback: a tool declared `requires_linux` is looked up in the
+Windows PATH **then** in the WSL distribution.
 """
 
 from __future__ import annotations
@@ -15,36 +15,36 @@ from functools import lru_cache
 
 from forge.validate import wsl
 
-#: Ou l'outil a ete trouve.
+#: Where the tool was found.
 NATIVE = "native"
 WSL = "wsl"
 
 
 @dataclass(frozen=True)
 class ToolStatus:
-    """Disponibilite d'un outil externe."""
+    """Availability of an external tool."""
 
-    #: Nom du binaire recherche.
+    #: Name of the binary looked for.
     name: str
 
-    #: `NATIVE`, `WSL`, ou None si introuvable.
+    #: `NATIVE`, `WSL`, or None if not found.
     location: str | None
 
-    #: Version rapportee par l'outil, sur une ligne, ou "" si indisponible.
+    #: Version reported by the tool, on one line, or "" if unavailable.
     version: str = ""
 
     @property
     def available(self) -> bool:
-        """Vrai si l'outil est utilisable, quel que soit le mode d'acces."""
+        """True if the tool is usable, whatever the access mode."""
         return self.location is not None
 
     def describe(self) -> str:
-        """Ligne d'etat lisible, pour `forge plugins`."""
+        """Readable status line, for `forge plugins`."""
         if not self.available:
-            return f"{self.name} : absent"
+            return f"{self.name}: missing"
         suffix = f" ({self.version})" if self.version else ""
         via = " via WSL" if self.location == WSL else ""
-        return f"{self.name} : disponible{via}{suffix}"
+        return f"{self.name}: available{via}{suffix}"
 
 
 def _native_version(name: str, args: tuple[str, ...]) -> str:
@@ -62,7 +62,7 @@ def _native_version(name: str, args: tuple[str, ...]) -> str:
 def probe(
     name: str, requires_linux: bool = False, version_args: tuple[str, ...] = ("--version",)
 ) -> ToolStatus:
-    """Cherche `name` nativement, puis dans WSL si l'outil exige Linux."""
+    """Look for `name` natively, then in WSL if the tool requires Linux."""
     if shutil.which(name):
         return ToolStatus(name=name, location=NATIVE, version=_native_version(name, version_args))
     if requires_linux and wsl.wsl_has_tool(name):
@@ -71,11 +71,11 @@ def probe(
 
 
 def missing_message(name: str, install_hint: str = "", requires_linux: bool = False) -> str:
-    """Message d'absence, avec la piste d'installation la plus utile."""
+    """Absence message, with the most useful installation lead."""
     hint = install_hint
     if not hint and requires_linux:
         hint = wsl.install_hint(name)
-    lines = [f"outil introuvable : {name}"]
+    lines = [f"tool not found: {name}"]
     if hint:
-        lines.append(f"  installation : {hint}")
+        lines.append(f"  installation: {hint}")
     return "\n".join(lines)

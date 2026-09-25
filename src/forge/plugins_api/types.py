@@ -1,7 +1,7 @@
-"""Types echanges entre le coeur et les plugins (DESIGN.md §2.1).
+"""Types exchanged between the core and the plugins (DESIGN.md §2.1).
 
-Tous immuables : un plugin ne peut pas modifier apres coup ce qu'il a declare,
-et le coeur peut les comparer / les hacher sans surprise.
+All immutable: a plugin cannot alter after the fact what it declared, and the
+core can compare or hash them without surprise.
 """
 
 from __future__ import annotations
@@ -13,31 +13,31 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class DomainInfo:
-    """Identite d'un domaine generable."""
+    """Identity of a generatable domain."""
 
-    #: Cle de section dans forge.yml et nom du plugin (ex. "ansible").
+    #: Section key in forge.yml and plugin name (e.g. "ansible").
     name: str
 
-    #: Libelle d'affichage (ex. "Ansible").
+    #: Display label (e.g. "Ansible").
     title: str
 
-    #: Resume d'une ligne, affiche par `forge plugins`.
+    #: One-line summary, printed by `forge plugins`.
     summary: str
 
-    #: Sous-repertoire de sortie dans la cible ; par defaut identique a `name`.
+    #: Output subdirectory in the target; defaults to `name`.
     outdir: str = ""
 
-    #: Rang de deploiement : **le plus petit part le premier**. Le socle avant
-    #: ce qui s'y pose — un namespace avant le chart qu'on y installe.
+    #: Deployment rank: **the smallest goes first**. The foundation before what
+    #: sits on it — a namespace before the chart installed into it.
     #:
-    #: Il existe parce qu'aucun tri generique ne pouvait le remplacer. L'ordre
-    #: alphabetique deployait le chart avant l'infrastructure qui accueille son
-    #: namespace ; l'ordre d'enregistrement aurait fait dependre un deploiement
-    #: reel de l'ordre d'une liste de modules. C'est une propriete du domaine,
-    #: donc le domaine la declare — le coeur se contente de trier.
+    #: It exists because no generic ordering could replace it. Alphabetical order
+    #: deployed the chart before the infrastructure hosting its namespace;
+    #: registration order would have made a real deployment depend on the order
+    #: of a list of modules. It is a property of the domain, so the domain
+    #: declares it — the core merely sorts.
     #:
-    #: Le defaut place un domaine apres l'infrastructure et la configuration de
-    #: machines : c'est le cas le plus frequent, celui d'une charge applicative.
+    #: The default puts a domain after infrastructure and machine configuration:
+    #: the most frequent case, that of an application workload.
     deploy_order: int = 50
 
     def __post_init__(self) -> None:
@@ -47,162 +47,162 @@ class DomainInfo:
 
 @dataclass(frozen=True)
 class Command:
-    """Une commande externe de validation declaree par un plugin."""
+    """An external validation command declared by a plugin."""
 
-    #: Libelle repris tel quel dans le rapport (ex. "helm lint (prod)").
+    #: Label reused as-is in the report (e.g. "helm lint (prod)").
     label: str
 
-    #: Binaire a localiser (ex. "helm", "ansible-lint").
+    #: Binary to locate (e.g. "helm", "ansible-lint").
     tool: str
 
-    #: Arguments, sans le binaire.
+    #: Arguments, without the binary.
     argv: tuple[str, ...] = ()
 
-    #: Repertoire d'execution ; defaut : le repertoire du domaine.
+    #: Working directory; defaults to the domain directory.
     cwd: Path | None = None
 
-    #: Libelle d'une commande dont stdout alimente le stdin de celle-ci.
+    #: Label of a command whose stdout feeds this one's stdin.
     stdin_from: str | None = None
 
-    #: Delai maximal d'execution, en secondes.
+    #: Maximum execution time, in seconds.
     timeout: int = 300
 
-    #: Variables d'environnement ajoutees a celles du processus, triees a
-    #: l'execution pour rester deterministes. Certains outils ne se configurent
-    #: que par ce canal — `ANSIBLE_COLLECTIONS_PATH`, `HELM_CACHE_HOME`… — et le
-    #: plugin est le seul a savoir lesquelles lui sont necessaires.
+    #: Environment variables added to those of the process, sorted at execution
+    #: time so they stay deterministic. Some tools can only be configured
+    #: through this channel — `ANSIBLE_COLLECTIONS_PATH`, `HELM_CACHE_HOME`… —
+    #: and the plugin is the only one that knows which it needs.
     env: tuple[tuple[str, str], ...] = ()
 
-    #: Message affiche si le binaire est absent du PATH.
+    #: Message printed when the binary is absent from the PATH.
     install_hint: str = ""
 
-    #: Autorise le repli WSL sous Windows (outil qui ne tourne pas nativement).
+    #: Allows the WSL fallback under Windows (tool that does not run natively).
     requires_linux: bool = False
 
 
 @dataclass(frozen=True)
 class Issue:
-    """Un constat de validation inter-domaines."""
+    """A cross-domain validation finding."""
 
-    #: "error" fait echouer `forge validate` ; "warning" est seulement signale.
+    #: "error" makes `forge validate` fail; "warning" is only reported.
     level: Literal["error", "warning"]
 
-    #: Phrase actionnable decrivant le probleme.
+    #: Actionable sentence describing the problem.
     message: str
 
-    #: Correction suggeree.
+    #: Suggested fix.
     hint: str = ""
 
-    #: Domaines concernes, pour situer le constat.
+    #: Domains involved, to situate the finding.
     domains: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class Projection:
-    """Ce qu'un domaine affirme produire, sans vocabulaire de domaine.
+    """What a domain claims to produce, with no domain vocabulary.
 
-    Le coeur compare les projections entre elles : deux domaines qui declarent
-    la meme facette doivent declarer la meme valeur. C'est ce mecanisme — et non
-    des regles « si ansible alors… » — qui implemente les controles
-    inter-domaines (DESIGN.md §2.1, decision Q4).
+    The core compares projections with one another: two domains declaring the
+    same facet must declare the same value. That mechanism — and not rules of the
+    form "if ansible then…" — is what implements the cross-domain checks
+    (DESIGN.md §2.1, decision Q4).
     """
 
-    #: Nom du service tel que ce domaine l'emploie.
+    #: Service name as this domain uses it.
     service_name: str
 
-    #: Environnements que ce domaine materialise, dans l'ordre.
+    #: Environments this domain materialises, in order.
     environments: tuple[str, ...]
 
-    #: Labels que ce domaine appose sur ce qu'il produit.
+    #: Labels this domain puts on what it produces.
     labels: dict[str, str] = field(default_factory=dict)
 
-    #: Facettes libres ; comparees seulement si deux domaines les declarent.
+    #: Free-form facets; compared only when two domains declare them.
     facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class CatalogEntry:
-    """Un element du catalogue d'un domaine (role Ansible, composant Helm...)."""
+    """An entry in a domain catalogue (Ansible role, Helm component...)."""
 
-    #: Identifiant employe dans forge.yml.
+    #: Identifier used in forge.yml.
     name: str
 
-    #: Resume d'une ligne.
+    #: One-line summary.
     summary: str
 
-    #: Description longue, affichee par `forge catalog <domaine> <element>`.
+    #: Long description, printed by `forge catalog <domain> <entry>`.
     details: str = ""
 
-    #: Options reconnues : nom -> description.
+    #: Recognised options: name -> description.
     options: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class DomainSummary:
-    """Ce qu'un domaine demande par la specification declare de lui-meme.
+    """What a domain requested by the specification declares about itself.
 
-    Assemble par le coeur a partir de hooks qui existaient deja — aucune
-    nouvelle connaissance n'y entre. Sert au domaine `pipeline`, qui doit
-    engendrer un job par domaine present **sans connaitre aucun domaine par son
-    nom** : il ne lit ici que du vocabulaire du contrat (`DomainInfo`,
-    `Command`, `Projection`).
+    Assembled by the core from hooks that already existed — no new knowledge
+    enters here. It serves the `pipeline` domain, which must emit one job per
+    domain present **without knowing any domain by name**: all it reads here is
+    contract vocabulary (`DomainInfo`, `Command`, `Projection`).
     """
 
-    #: Identite du domaine.
+    #: Identity of the domain.
     info: DomainInfo
 
-    #: Ce que le domaine affirme produire, ou None s'il ne le declare pas.
+    #: What the domain claims to produce, or None if it does not declare it.
     projection: Projection | None = None
 
-    #: Commandes de validation, chemins **relatifs a la racine du projet**.
+    #: Validation commands, paths **relative to the project root**.
     validators: tuple[Command, ...] = ()
 
-    #: Commandes de deploiement, par environnement, dans l'ordre de la
-    #: specification : `(("prod", (cmd, ...)), ...)`. Vide si le domaine ne
-    #: declare pas comment se deployer — auquel cas le pipeline genere une
-    #: etape a completer plutot que d'inventer une commande.
+    #: Deployment commands, per environment, in specification order:
+    #: `(("prod", (cmd, ...)), ...)`. Empty when the domain does not declare how
+    #: to deploy itself — in which case the pipeline generates a step to fill in
+    #: rather than a guessed command.
     deployments: tuple[tuple[str, tuple[Command, ...]], ...] = ()
 
     @property
     def name(self) -> str:
-        """Nom du domaine."""
+        """Name of the domain."""
         return self.info.name
 
     def tools(self) -> tuple[str, ...]:
-        """Outils externes cites par ce domaine, tries et dedoublonnes."""
-        cites = {commande.tool for commande in self.validators}
-        cites |= {
-            commande.tool for _, commandes in self.deployments for commande in commandes
+        """External tools named by this domain, sorted and deduplicated."""
+        named = {command.tool for command in self.validators}
+        named |= {
+            command.tool for _, commands in self.deployments for command in commands
         }
-        return tuple(sorted(cites))
+        return tuple(sorted(named))
 
 
 @dataclass(frozen=True)
 class GenerationContext:
-    """Vue du coeur sur les domaines demandes, passee a `forge_answers`.
+    """The core's view of the requested domains, passed to `forge_answers`.
 
-    Le coeur n'ordonnance rien : il transmet des faits qu'il calcule deja, dans
-    le vocabulaire du contrat. C'est le plugin qui decide quoi en faire.
+    The core orchestrates nothing: it passes on facts it already computes, in
+    the vocabulary of the contract. It is up to the plugin to decide what to do
+    with them.
     """
 
-    #: Domaines demandes par la specification, dans l'ordre d'enregistrement.
+    #: Domains requested by the specification, in registration order.
     domains: tuple[DomainSummary, ...] = ()
 
     def names(self) -> tuple[str, ...]:
-        """Noms des domaines demandes."""
-        return tuple(sommaire.name for sommaire in self.domains)
+        """Names of the requested domains."""
+        return tuple(summary.name for summary in self.domains)
 
     def get(self, name: str) -> DomainSummary | None:
-        """Sommaire du domaine `name`, ou None s'il n'est pas demande."""
-        for sommaire in self.domains:
-            if sommaire.name == name:
-                return sommaire
+        """Summary of domain `name`, or None if it is not requested."""
+        for summary in self.domains:
+            if summary.name == name:
+                return summary
         return None
 
     def others(self, name: str) -> tuple[DomainSummary, ...]:
-        """Tous les domaines demandes sauf `name`."""
-        return tuple(sommaire for sommaire in self.domains if sommaire.name != name)
+        """Every requested domain except `name`."""
+        return tuple(summary for summary in self.domains if summary.name != name)
 
     def tools(self) -> tuple[str, ...]:
-        """Outils externes cites par l'ensemble des domaines, tries."""
-        return tuple(sorted({outil for s in self.domains for outil in s.tools()}))
+        """External tools named by all the domains together, sorted."""
+        return tuple(sorted({tool for s in self.domains for tool in s.tools()}))

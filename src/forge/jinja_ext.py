@@ -1,27 +1,27 @@
-"""Extension Jinja2 chargee par copier (`_jinja_extensions` du copier.yml racine).
+"""Jinja2 extension loaded by copier (`_jinja_extensions` of the root copier.yml).
 
-copier n'accepte pas de filtres passes en Python : seule une extension
-importable peut enrichir son environnement (MIGRATION.md §2.2). Ce module
-concentre donc les filtres communs, issus de la fusion des deux tables legacy
-(MIGRATION.md §5.5) :
+copier does not accept filters passed in Python: only an importable extension can
+enrich its environment (MIGRATION.md §2.2). This module therefore concentrates
+the shared filters, coming from the merge of the two legacy tables
+(MIGRATION.md §5.5):
 
-* `yaml_scalar`, `yaml_assign`, `comment`, `lower_first`, `rule` — d'ansible-forge ;
-* `to_yaml`, `yaml_value`, `indent_block` — de helm-forge.
+* `yaml_scalar`, `yaml_assign`, `comment`, `lower_first`, `rule` — from ansible-forge;
+* `to_yaml`, `yaml_value`, `indent_block` — from helm-forge.
 
-Arbitrage des deux implementations divergentes :
+Arbitration of the two divergent implementations:
 
-* `yaml_scalar` : version ansible-forge retenue (elle accepte tout scalaire, pas
-  seulement les chaines ; rendu identique sur les chaines).
-* `comment` : version ansible-forge retenue (elle preserve l'indentation de la
-  ligne source et rend les lignes vides en `#`), completee par le parametre
-  `prefix` de helm-forge. Signature : `comment(text, indent=0, width=88,
-  prefix="# ")` ; les gabarits helm qui passaient la largeur en 2e position
-  devront la nommer (`| comment(width=76)`).
+* `yaml_scalar`: the ansible-forge version was kept (it accepts any scalar, not
+  only strings; identical rendering on strings).
+* `comment`: the ansible-forge version was kept (it preserves the indentation of
+  the source line and renders blank lines as `#`), completed by helm-forge's
+  `prefix` parameter. Signature: `comment(text, indent=0, width=88,
+  prefix="# ")`; the helm templates that passed the width positionally as the 2nd
+  argument have to name it (`| comment(width=76)`).
 
-Un plugin ajoute ses propres filtres sans toucher au coeur : il fournit un
-module `forge.plugins.<domaine>.jinja_ext` exposant `FILTERS` et/ou `GLOBALS`,
-que le runner copier declare via la variable d'environnement
-`FORGE_PLUGIN_JINJA` (cf. `forge.render.copier_runner`).
+A plugin adds its own filters without touching the core: it provides a module
+`forge.plugins.<domain>.jinja_ext` exposing `FILTERS` and/or `GLOBALS`, which the
+copier runner declares through the `FORGE_PLUGIN_JINJA` environment variable
+(cf. `forge.render.copier_runner`).
 """
 
 from __future__ import annotations
@@ -34,25 +34,25 @@ from typing import Any
 import yaml
 from jinja2.ext import Extension
 
-#: Largeur maximale d'une ligne de commentaire generee.
+#: Maximum width of a generated comment line.
 COMMENT_WIDTH = 88
 
-#: Largeur des filets de separation des en-tetes.
+#: Width of the separator rules in headers.
 RULE_WIDTH = 75
 
-#: Variable d'environnement listant les modules de filtres de plugin.
+#: Environment variable listing the plugin filter modules.
 PLUGIN_JINJA_ENV_VAR = "FORGE_PLUGIN_JINJA"
 
 
 class _BlockDumper(yaml.SafeDumper):
-    """Dumper YAML indentant les listes sous leur cle parente."""
+    """YAML dumper that indents lists under their parent key."""
 
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> Any:
         return super().increase_indent(flow, False)
 
 
 def _plain(value: Any) -> Any:
-    """Convertit recursivement les objets non natifs en types YAML surs."""
+    """Recursively convert non-native objects into safe YAML types."""
     if isinstance(value, dict):
         return {str(k): _plain(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -65,11 +65,11 @@ def _plain(value: Any) -> Any:
 
 
 def yaml_scalar(value: Any) -> str:
-    """Rend une valeur scalaire en YAML, avec les guillemets necessaires.
+    """Render a scalar value as YAML, with the quoting it needs.
 
-    Passe par le dump d'une paire cle/valeur : c'est PyYAML qui decide de la
-    citation, ce qui evite toute divergence avec le parseur cible. `api` reste
-    nu ; `1.36`, `true` ou `on` sont proteges.
+    It goes through dumping a key/value pair: PyYAML decides on the quoting,
+    which avoids any divergence with the target parser. `api` stays bare;
+    `1.36`, `true` or `on` are protected.
     """
     dumped = yaml.dump(
         {"_": _plain(value)},
@@ -83,16 +83,16 @@ def yaml_scalar(value: Any) -> str:
 
 
 def to_yaml(value: Any, indent: int = 0) -> str:
-    """Rend une valeur Python en YAML, prete a etre inseree dans un gabarit.
+    """Render a Python value as YAML, ready to be inserted into a template.
 
-    Scalaires sur une ligne, listes et dictionnaires en blocs indentes de
-    `indent` espaces. L'ordre des cles suit l'ordre d'insertion, jamais l'ordre
-    alphabetique : c'est ce qui rend le rendu reproductible.
+    Scalars on one line, lists and dicts as blocks indented by `indent` spaces.
+    Key order follows insertion order, never alphabetical order: that is what
+    makes the render reproducible.
     """
     if not isinstance(value, (list, tuple, dict)):
         return yaml_scalar(value)
     if not value:
-        # Collection vide : la forme en ligne est plus lisible qu'un bloc vide.
+        # Empty collection: the inline form reads better than an empty block.
         return "[]" if isinstance(value, (list, tuple)) else "{}"
     text = yaml.dump(
         _plain(value),
@@ -106,14 +106,13 @@ def to_yaml(value: Any, indent: int = 0) -> str:
 
 
 def yaml_value(value: Any, indent: int = 0) -> str:
-    """Rend une valeur destinee a figurer a droite d'une cle YAML.
+    """Render a value meant to sit to the right of a YAML key.
 
-    Une collection non vide ne peut pas rester sur la ligne de sa cle : YAML
-    refuse `drop: - ALL`. Le filtre bascule donc en bloc indente, tandis que
-    scalaires et collections vides restent en ligne. Il produit lui-meme le
-    separateur, espace ou saut de ligne ; le gabarit colle la balise au
-    deux-points (`drop:[[ items | yaml_value(8) ]]`) pour ne jamais laisser
-    d'espace en fin de ligne.
+    A non-empty collection cannot stay on its key's line: YAML refuses
+    `drop: - ALL`. The filter therefore switches to an indented block, while
+    scalars and empty collections stay inline. It produces the separator itself,
+    a space or a newline; the template sticks the tag to the colon
+    (`drop:[[ items | yaml_value(8) ]]`) so as never to leave a trailing space.
     """
     if isinstance(value, (list, tuple, dict)) and value:
         return "\n" + to_yaml(value, indent=indent)
@@ -121,9 +120,9 @@ def yaml_value(value: Any, indent: int = 0) -> str:
 
 
 def yaml_assign(value: Any, indent: int = 0) -> str:
-    """Variante de `yaml_value` qui bascule aussi les scalaires multi-lignes.
+    """Variant of `yaml_value` that also switches multi-line scalars.
 
-    A utiliser ainsi : `[[ name ]]:[[ value | yaml_assign(2) ]]`.
+    To be used like this: `[[ name ]]:[[ value | yaml_assign(2) ]]`.
     """
     if isinstance(value, (list, tuple, dict)) and not value:
         return " []" if isinstance(value, (list, tuple)) else " {}"
@@ -146,12 +145,12 @@ def yaml_assign(value: Any, indent: int = 0) -> str:
 def comment(
     text: str, indent: int = 0, width: int = COMMENT_WIDTH, prefix: str = "# "
 ) -> str:
-    """Transforme un texte en bloc de commentaires, replie a `width`.
+    """Turn a text into a block of comments, wrapped at `width`.
 
-    Les lignes vides du texte source deviennent des lignes `#` isolees, ce qui
-    permet d'ecrire des paragraphes dans les descriptions de catalogue.
-    L'indentation d'une ligne source est conservee : elle porte du sens dans les
-    exemples de commandes cites en en-tete de fichier.
+    Blank lines in the source text become lone `#` lines, which makes it possible
+    to write paragraphs in catalogue descriptions. The indentation of a source
+    line is preserved: it carries meaning in the command examples quoted in file
+    headers.
     """
     pad = " " * indent
     available = max(width - indent - len(prefix), 20)
@@ -170,10 +169,10 @@ def comment(
 
 
 def indent_block(text: str, spaces: int, first: bool = False) -> str:
-    """Indente un bloc de texte deja rendu.
+    """Indent an already rendered block of text.
 
-    `first` a faux laisse la premiere ligne intacte, cas courant ou le gabarit a
-    deja ecrit l'indentation de depart.
+    `first` left false leaves the first line untouched, the common case where the
+    template has already written the starting indentation.
     """
     if not text:
         return text
@@ -182,10 +181,10 @@ def indent_block(text: str, spaces: int, first: bool = False) -> str:
 
 
 def lower_first(text: str) -> str:
-    """Met la premiere lettre en minuscule, pour enchainer apres un deux-points.
+    """Lowercase the first letter, to continue after a colon.
 
-    N'affecte pas les textes commencant par un sigle ou un nom propre en
-    majuscules (`UTF8`, `Ansible`), reconnus a leur deuxieme lettre.
+    Leaves alone texts starting with an acronym or a proper noun in capitals
+    (`UTF8`, `Ansible`), recognised by their second letter.
     """
     if len(text) >= 2 and text[1].isupper():
         return text
@@ -193,11 +192,11 @@ def lower_first(text: str) -> str:
 
 
 def rule(width: int = RULE_WIDTH) -> str:
-    """Retourne un filet de separation en commentaire."""
+    """Return a separator rule as a comment."""
     return "# " + "-" * width
 
 
-#: Filtres exposes aux gabarits, sous le nom employe dans les `| filtre`.
+#: Filters exposed to the templates, under the name used in the `| filter` calls.
 FILTERS = {
     "yaml_scalar": yaml_scalar,
     "yaml_assign": yaml_assign,
@@ -208,14 +207,14 @@ FILTERS = {
     "lower_first": lower_first,
 }
 
-#: Fonctions globales exposees aux gabarits.
+#: Global functions exposed to the templates.
 GLOBALS = {
     "rule": rule,
 }
 
 
 def plugin_tables(dotted_paths: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Charge les tables `FILTERS`/`GLOBALS` des modules cites, dans l'ordre."""
+    """Load the `FILTERS`/`GLOBALS` tables of the named modules, in order."""
     filters: dict[str, Any] = {}
     globals_: dict[str, Any] = {}
     for dotted in (part.strip() for part in dotted_paths.split(",")):
@@ -228,7 +227,7 @@ def plugin_tables(dotted_paths: str) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 class ForgeExtension(Extension):
-    """Injecte les filtres de forge dans l'environnement Jinja2 de copier."""
+    """Inject forge's filters into copier's Jinja2 environment."""
 
     def __init__(self, environment: Any) -> None:
         super().__init__(environment)

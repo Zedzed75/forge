@@ -1,1 +1,1 @@
-"""Chargement, validation et assemblage de la specification `forge.yml`."""
+"""Loading, validation and assembly of the `forge.yml` specification."""
