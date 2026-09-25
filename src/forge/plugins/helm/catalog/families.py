@@ -1,13 +1,13 @@
-"""Les familles de ressources Kubernetes generables par le domaine Helm.
+"""The Kubernetes resource families the Helm domain can generate.
 
-L'ordre de ce module est **significatif** : il fixe l'ordre d'affichage de
-`forge catalog helm`, celui des slots de composants, et donc celui des fichiers
-generes. Ne pas le trier autrement sans regenerer les references.
+The order of this module is **significant**: it fixes the display order of
+`forge catalog helm`, that of the component slots, and therefore that of the
+generated files. Do not sort it differently without regenerating the references.
 
-Les `traps` de chaque famille sont mesures, pas supposes : ils viennent de ce
-que `kubeconform -strict` refuse, de ce que l'API Kubernetes rejette a
-l'application, et des versions d'API supprimees. Ils sont repris en commentaire
-dans les gabarits correspondants.
+Each family's `traps` are measured, not assumed: they come from what
+`kubeconform -strict` refuses, from what the Kubernetes API rejects on apply,
+and from removed API versions. They are echoed as comments in the corresponding
+templates.
 """
 
 from __future__ import annotations
@@ -18,29 +18,29 @@ DEPLOYMENT = ComponentFamily(
     name="deployment",
     kind="Deployment",
     api_version="apps/v1",
-    summary="Charge de travail sans etat, remplacable et repliquable",
+    summary="Stateless workload, replaceable and replicable",
     selection="kind",
     details=(
-        "Le cas courant : des pods interchangeables, remplaces par lots lors "
-        "d'une mise a jour. Porte les sondes, le contexte de securite, les "
-        "ressources et le placement."
+        "The common case: interchangeable pods, replaced in batches during an "
+        "update. Carries the probes, the security context, the resources and "
+        "the placement."
     ),
     values=(
-        ValueKey("enabled", "true", "Genere ou non ce composant"),
-        ValueKey("replicaCount", "1", "Nombre de pods ; surcharge par environnement"),
-        ValueKey("image.tag", '""', "Vide = appVersion du chart"),
+        ValueKey("enabled", "true", "Whether this component is generated"),
+        ValueKey("replicaCount", "1", "Number of pods; overridden per environment"),
+        ValueKey("image.tag", '""', "Empty = appVersion of the chart"),
         ValueKey(
             "resources.requests.cpu",
             '"100m"',
-            "Reservation CPU ; sans elle, l'autoscaling reste aveugle",
+            "CPU reservation; without it autoscaling stays blind",
         ),
     ),
     traps=(
-        "spec.selector est requis ET immuable : employer selectorLabels seul, "
-        "jamais labels, qui contient helm.sh/chart et app.kubernetes.io/version "
-        "— changeants a chaque release.",
-        "Quand l'autoscaling est actif, ne pas rendre `replicas` : Helm et le "
-        "HorizontalPodAutoscaler se battraient a chaque mise a jour.",
+        "spec.selector is required AND immutable: use selectorLabels alone, "
+        "never labels, which contains helm.sh/chart and "
+        "app.kubernetes.io/version — both change on every release.",
+        "When autoscaling is on, do not render `replicas`: Helm and the "
+        "HorizontalPodAutoscaler would fight on every update.",
     ),
 )
 
@@ -48,37 +48,37 @@ STATEFULSET = ComponentFamily(
     name="statefulset",
     kind="StatefulSet",
     api_version="apps/v1",
-    summary="Charge de travail a etat : identite reseau et volume stables par pod",
+    summary="Stateful workload: stable network identity and volume per pod",
     selection="kind",
     details=(
-        "Chaque pod garde son nom, son volume et son entree DNS d'un "
-        "redemarrage a l'autre. Exige un Service headless, que forge force."
+        "Each pod keeps its name, its volume and its DNS entry from one restart "
+        "to the next. Requires a headless Service, which forge forces."
     ),
     values=(
-        ValueKey("persistence.enabled", "true", "Volume persistant par pod"),
-        ValueKey("persistence.size", '"10Gi"', "Taille du volume, quantite Kubernetes"),
+        ValueKey("persistence.enabled", "true", "Persistent volume per pod"),
+        ValueKey("persistence.size", '"10Gi"', "Volume size, a Kubernetes quantity"),
         ValueKey(
             "persistence.storageClass",
             '""',
-            "Vide = classe par defaut du cluster",
-            'un nom de StorageClass, ou "" pour aucune',
+            "Empty = the cluster default class",
+            'a StorageClass name, or "" for none',
         ),
         ValueKey(
             "updateStrategy.type",
             '"RollingUpdate"',
-            "Strategie de mise a jour des pods",
+            "Pod update strategy",
             "RollingUpdate | OnDelete",
         ),
     ),
     requires=("service",),
     traps=(
-        "spec.serviceName est requis, et le Service vise doit reellement etre "
-        "headless (clusterIP: None).",
-        "volumeClaimTemplates est immuable : un `helm upgrade` qui change la "
-        "taille du volume echoue.",
-        "`storageClassName: \"\"` signifie « aucune classe », omettre la cle "
-        "signifie « celle par defaut » : n'emettre la cle que si elle est non vide.",
-        "Le nom du volumeClaimTemplate doit etre exactement celui du volumeMount.",
+        "spec.serviceName is required, and the Service it points at must really "
+        "be headless (clusterIP: None).",
+        "volumeClaimTemplates is immutable: a `helm upgrade` that changes the "
+        "volume size fails.",
+        "`storageClassName: \"\"` means \"no class\", omitting the key means "
+        "\"the default one\": only emit the key when it is non-empty.",
+        "The volumeClaimTemplate name must be exactly that of the volumeMount.",
     ),
 )
 
@@ -86,30 +86,30 @@ CRONJOB = ComponentFamily(
     name="cronjob",
     kind="CronJob",
     api_version="batch/v1",
-    summary="Tache planifiee recurrente, sans Service ni autoscaling",
+    summary="Recurring scheduled task, with no Service and no autoscaling",
     selection="kind",
     details=(
-        "Cree un Job a chaque echeance. N'a ni replicas, ni selecteur, ni "
-        "Service : recopier un Deployment y ferait echouer la validation."
+        "Creates a Job at every occurrence. It has no replicas, no selector and "
+        "no Service: copying a Deployment here would fail validation."
     ),
     values=(
-        ValueKey("cron.schedule", '"0 3 * * *"', "Planification, cron a cinq champs"),
+        ValueKey("cron.schedule", '"0 3 * * *"', "Schedule, five-field cron"),
         ValueKey(
             "cron.concurrencyPolicy",
             '"Forbid"',
-            "Que faire si l'execution precedente dure encore",
+            "What to do when the previous run is still going",
             "Allow | Forbid | Replace",
         ),
-        ValueKey("cron.timeZone", '""', "Fuseau IANA ; vide = cle omise"),
-        ValueKey("cron.suspend", "false", "Suspend les declenchements sans supprimer l'objet"),
+        ValueKey("cron.timeZone", '""', "IANA time zone; empty = key omitted"),
+        ValueKey("cron.suspend", "false", "Suspends the triggers without deleting the object"),
     ),
     traps=(
-        "batch/v1beta1 est supprimee depuis Kubernetes 1.25 : uniquement batch/v1.",
-        "L'imbrication est spec.jobTemplate.spec.template.spec — quatre niveaux. "
-        "Chaque `nindent` du bloc conteneur se decale de 8 par rapport a un Deployment.",
-        "restartPolicy est obligatoire et ne peut valoir que OnFailure ou Never : "
-        "`Always` passe le schema mais est refuse a l'application.",
-        "`timeZone: \"\"` est refuse par l'API : la cle doit etre absente si vide.",
+        "batch/v1beta1 has been removed since Kubernetes 1.25: batch/v1 only.",
+        "The nesting is spec.jobTemplate.spec.template.spec — four levels. "
+        "Every `nindent` of the container block shifts by 8 compared with a Deployment.",
+        "restartPolicy is mandatory and can only be OnFailure or Never: "
+        "`Always` passes the schema but is refused on apply.",
+        "`timeZone: \"\"` is refused by the API: the key must be absent when empty.",
     ),
 )
 
@@ -117,25 +117,25 @@ SERVICE = ComponentFamily(
     name="service",
     kind="Service",
     api_version="v1",
-    summary="Expose le composant a l'interieur du cluster, sous un nom stable",
+    summary="Exposes the component inside the cluster, under a stable name",
     selection="addon",
     details=(
-        "Point d'entree reseau du composant. La variante headless "
-        "(clusterIP: None) sert l'identite par pod d'un StatefulSet."
+        "Network entry point of the component. The headless variant "
+        "(clusterIP: None) serves the per-pod identity of a StatefulSet."
     ),
     values=(
         ValueKey(
             "service.type",
             '"ClusterIP"',
-            "Portee de l'exposition",
+            "Scope of the exposure",
             "ClusterIP | NodePort | LoadBalancer",
         ),
-        ValueKey("service.port", "80", "Port du Service ; le conteneur ecoute ailleurs"),
-        ValueKey("service.headless", "false", "Sans adresse de service, une entree DNS par pod"),
+        ValueKey("service.port", "80", "Service port; the container listens elsewhere"),
+        ValueKey("service.headless", "false", "No service address, one DNS entry per pod"),
     ),
     traps=(
-        "targetPort par NOM de port lie le Service au conteneur sans repeter le "
-        "numero ; le nom est limite a 15 caracteres.",
+        "targetPort by port NAME ties the Service to the container without "
+        "repeating the number; the name is limited to 15 characters.",
     ),
 )
 
@@ -143,39 +143,39 @@ INGRESS = ComponentFamily(
     name="ingress",
     kind="Ingress",
     api_version="networking.k8s.io/v1",
-    summary="Expose le Service en HTTP(S) sur un hote, par environnement",
+    summary="Exposes the Service over HTTP(S) on a host, per environment",
     selection="addon",
     details=(
-        "L'hote est derive par environnement : le domaine de l'environnement "
-        "l'emporte quand il est renseigne, sinon le domaine de base du "
-        "composant, avec ou sans infixe d'environnement selon le profil."
+        "The host is derived per environment: the environment domain wins when "
+        "it is set, otherwise the component base domain, with or without an "
+        "environment infix depending on the profile."
     ),
     values=(
-        ValueKey("ingress.enabled", "true", "Genere ou non l'Ingress"),
-        ValueKey("ingress.className", '"nginx"', "Controleur vise", "nginx | traefik"),
-        ValueKey("ingress.host", '""', "Hote ; pose par chaque values-<env>.yaml"),
+        ValueKey("ingress.enabled", "true", "Whether the Ingress is generated"),
+        ValueKey("ingress.className", '"nginx"', "Target controller", "nginx | traefik"),
+        ValueKey("ingress.host", '""', "Host; set by each values-<env>.yaml"),
         ValueKey(
             "ingress.pathType",
             '"Prefix"',
-            "Mode de comparaison du chemin",
+            "How the path is matched",
             "Exact | Prefix | ImplementationSpecific",
         ),
-        ValueKey("ingress.tls.enabled", "true", "Termine TLS pour cet hote"),
+        ValueKey("ingress.tls.enabled", "true", "Terminates TLS for this host"),
     ),
     requires=("service",),
     traps=(
-        "pathType est obligatoire sur chaque chemin : son absence est l'echec "
-        "kubeconform -strict le plus frequent.",
-        "backend.service.port veut exactement `number` OU `name`, jamais les deux.",
-        "Un `host:` vide rend null la ou le schema attend une chaine : garder le "
-        "champ sous condition.",
-        "tls[].hosts doit reprendre litteralement l'hote de la regle, sinon le "
-        "certificat ne couvre pas l'hote — invisible pour kubeconform, casse a "
-        "l'execution.",
-        "Ne jamais emettre a la fois ingressClassName et l'annotation "
-        "kubernetes.io/ingress.class.",
-        "Le bloc tls doit etre entierement absent — pas `tls: []` — quand TLS "
-        "est desactive.",
+        "pathType is mandatory on every path: its absence is the most frequent "
+        "kubeconform -strict failure.",
+        "backend.service.port wants exactly `number` OR `name`, never both.",
+        "An empty `host:` renders null where the schema expects a string: keep "
+        "the field behind a condition.",
+        "tls[].hosts must repeat the rule host literally, otherwise the "
+        "certificate does not cover the host — invisible to kubeconform, broken "
+        "at runtime.",
+        "Never emit both ingressClassName and the kubernetes.io/ingress.class "
+        "annotation.",
+        "The tls block must be entirely absent — not `tls: []` — when TLS is "
+        "disabled.",
     ),
 )
 
@@ -183,31 +183,31 @@ CONFIGMAP = ComponentFamily(
     name="configmap",
     kind="ConfigMap",
     api_version="v1",
-    summary="Configuration non sensible, injectee en variables ou montee en fichier",
+    summary="Non-sensitive configuration, injected as variables or mounted as a file",
     selection="addon",
     details=(
-        "Porte les cles declarees par le composant. Une modification declenche "
-        "un redemarrage des pods grace a une empreinte posee sur le modele de pod."
+        "Carries the keys declared by the component. A change triggers a pod "
+        "restart thanks to a checksum placed on the pod template."
     ),
     values=(
-        ValueKey("config.enabled", "true", "Genere ou non le ConfigMap"),
+        ValueKey("config.enabled", "true", "Whether the ConfigMap is generated"),
         ValueKey(
             "config.mountAs",
             '"env"',
-            "Mode d'injection dans le conteneur",
+            "How it is injected into the container",
             "env | file",
         ),
-        ValueKey("config.mountPath", '"/etc/<composant>"', "Employe seulement en mode file"),
-        ValueKey("config.data", "{}", "Cles de configuration ; valeurs toujours textuelles"),
+        ValueKey("config.mountPath", '"/etc/<component>"', "Used in file mode only"),
+        ValueKey("config.data", "{}", "Configuration keys; values are always textual"),
     ),
     traps=(
-        "Toutes les valeurs de `data` doivent etre des chaines : un entier "
-        "echoue en -strict. Passer systematiquement par `quote`.",
-        "`data:` sans contenu rend null et echoue : ecrire `{}` ou omettre la cle.",
-        "Sans empreinte `checksum/config` sur le modele de pod, une modification "
-        "de configuration ne declenche aucun redemarrage.",
-        "Le chemin cite dans l'empreinte doit correspondre exactement au nom de "
-        "fichier produit, sinon `helm template` echoue sur un modele introuvable.",
+        "Every value of `data` must be a string: an integer fails in -strict. "
+        "Always go through `quote`.",
+        "`data:` with no content renders null and fails: write `{}` or omit the key.",
+        "Without a `checksum/config` fingerprint on the pod template, a "
+        "configuration change triggers no restart at all.",
+        "The path quoted in the checksum must match the produced file name "
+        "exactly, otherwise `helm template` fails on a template it cannot find.",
     ),
 )
 
@@ -215,28 +215,28 @@ SECRET = ComponentFamily(
     name="secret",
     kind="Secret",
     api_version="v1",
-    summary="Emplacement de secret a valeurs vides : declare les cles attendues",
+    summary="Secret placeholder with empty values: declares the expected keys",
     selection="addon",
     details=(
-        "forge n'ecrit jamais de valeur secrete reelle — ni dans la "
-        "specification, ni dans les values, ni dans le manifeste. Le chart "
-        "declare les cles et sait referencer un Secret gere hors du chart."
+        "forge never writes a real secret value — not in the specification, not "
+        "in the values, not in the manifest. The chart declares the keys and "
+        "knows how to reference a Secret managed outside the chart."
     ),
     values=(
-        ValueKey("secret.enabled", "false", "Genere ou non le Secret"),
-        ValueKey("secret.create", "true", "Faux = referencer un Secret existant"),
-        ValueKey("secret.existingSecret", '""', "Nom d'un Secret gere hors du chart"),
-        ValueKey("secret.type", '"Opaque"', "Type de Secret", "Opaque, ou un type specialise"),
-        ValueKey("secret.mountAs", '"env"', "Mode d'injection", "env | file"),
+        ValueKey("secret.enabled", "false", "Whether the Secret is generated"),
+        ValueKey("secret.create", "true", "False = reference an existing Secret"),
+        ValueKey("secret.existingSecret", '""', "Name of a Secret managed outside the chart"),
+        ValueKey("secret.type", '"Opaque"', "Secret type", "Opaque, or a specialised type"),
+        ValueKey("secret.mountAs", '"env"', "How it is injected", "env | file"),
     ),
     traps=(
-        "`data` attend du base64, `stringData` du texte clair : melanger les "
-        "deux pour une meme cle fait silencieusement gagner `data`.",
-        "Un bloc `stringData:` vide rend null et echoue : emettre `{}` ou omettre.",
-        "Un type specialise impose ses cles (kubernetes.io/tls exige tls.crt et "
-        "tls.key) : ne pas les melanger.",
-        "`required` ferait echouer `helm template`, donc la validation et les "
-        "tests golden : la contrainte se documente en commentaire.",
+        "`data` expects base64, `stringData` plain text: mixing the two for the "
+        "same key silently lets `data` win.",
+        "An empty `stringData:` block renders null and fails: emit `{}` or omit it.",
+        "A specialised type imposes its keys (kubernetes.io/tls requires tls.crt "
+        "and tls.key): do not mix them.",
+        "`required` would fail `helm template`, hence validation and the golden "
+        "tests: the constraint is documented as a comment instead.",
     ),
 )
 
@@ -244,27 +244,27 @@ HPA = ComponentFamily(
     name="hpa",
     kind="HorizontalPodAutoscaler",
     api_version="autoscaling/v2",
-    summary="Ajuste le nombre de repliques sur l'utilisation CPU et memoire",
+    summary="Adjusts the replica count on CPU and memory usage",
     selection="addon",
     details=(
-        "Active par le profil d'environnement : desactive en developpement, "
-        "actif en production. Exige des `requests` sur le conteneur."
+        "Enabled by the environment profile: off in development, on in "
+        "production. Requires `requests` on the container."
     ),
     values=(
-        ValueKey("hpa.enabled", "false", "Active l'autoscaling ; pose par environnement"),
-        ValueKey("hpa.minReplicas", "2", "Plancher de repliques"),
-        ValueKey("hpa.maxReplicas", "5", "Plafond de repliques"),
-        ValueKey("hpa.targetCPUUtilizationPercentage", "80", "Cible d'utilisation CPU, en pourcent"),
+        ValueKey("hpa.enabled", "false", "Enables autoscaling; set per environment"),
+        ValueKey("hpa.minReplicas", "2", "Replica floor"),
+        ValueKey("hpa.maxReplicas", "5", "Replica ceiling"),
+        ValueKey("hpa.targetCPUUtilizationPercentage", "80", "Target CPU usage, as a percentage"),
     ),
     requires=("deployment",),
     traps=(
-        "autoscaling/v2beta1 et v2beta2 sont supprimees depuis 1.26 : uniquement "
-        "autoscaling/v2.",
-        "La forme des metriques n'est pas celle de v1 : un "
-        "`targetCPUUtilizationPercentage` au niveau de spec est un champ inconnu.",
-        "averageUtilization doit etre un entier : la chaine \"80\" echoue.",
-        "Sans `resources.requests` sur le conteneur, la metrique reste inconnue "
-        "et l'autoscaling ne fait rien — invisible pour les validateurs.",
+        "autoscaling/v2beta1 and v2beta2 have been removed since 1.26: "
+        "autoscaling/v2 only.",
+        "The shape of the metrics is not the v1 one: a "
+        "`targetCPUUtilizationPercentage` at spec level is an unknown field.",
+        "averageUtilization must be an integer: the string \"80\" fails.",
+        "Without `resources.requests` on the container the metric stays unknown "
+        "and autoscaling does nothing — invisible to the validators.",
     ),
 )
 
@@ -272,30 +272,30 @@ PDB = ComponentFamily(
     name="pdb",
     kind="PodDisruptionBudget",
     api_version="policy/v1",
-    summary="Garantit un minimum de pods disponibles pendant les interruptions",
+    summary="Guarantees a minimum of available pods during disruptions",
     selection="addon",
     details=(
-        "Protege le composant des drains de noeud et des mises a jour de "
-        "cluster. Active par le profil d'environnement."
+        "Protects the component from node drains and cluster upgrades. Enabled "
+        "by the environment profile."
     ),
     values=(
-        ValueKey("pdb.enabled", "false", "Active la garantie ; pose par environnement"),
+        ValueKey("pdb.enabled", "false", "Enables the guarantee; set per environment"),
         ValueKey(
             "pdb.minAvailable",
             "1",
-            "Pods disponibles au minimum",
-            "un entier, ou un pourcentage entre guillemets",
+            "Minimum available pods",
+            "an integer, or a quoted percentage",
         ),
     ),
     requires=("deployment",),
     traps=(
-        "policy/v1beta1 est supprimee depuis 1.25 : uniquement policy/v1.",
-        "minAvailable et maxUnavailable sont mutuellement exclusifs. "
-        "kubeconform ne modele pas cette exclusion : la garde est dans le gabarit.",
-        "Le selecteur doit viser le composant seul : trop large, il bloquerait "
-        "les evictions des autres composants du chart.",
-        "minAvailable: 1 avec une seule replique rend tout drain impossible : "
-        "d'ou la desactivation en developpement.",
+        "policy/v1beta1 has been removed since 1.25: policy/v1 only.",
+        "minAvailable and maxUnavailable are mutually exclusive. kubeconform "
+        "does not model that exclusion: the guard is in the template.",
+        "The selector must target the component alone: too broad, it would block "
+        "the evictions of the other components of the chart.",
+        "minAvailable: 1 with a single replica makes any drain impossible: hence "
+        "it being disabled in development.",
     ),
 )
 
@@ -303,28 +303,28 @@ SERVICEACCOUNT = ComponentFamily(
     name="serviceaccount",
     kind="ServiceAccount",
     api_version="v1",
-    summary="Identite dediee du composant, au lieu du compte par defaut",
+    summary="Dedicated identity for the component, instead of the default account",
     selection="addon",
     details=(
-        "Sans compte dedie, les pods tournent sous `default`, dont les droits "
-        "sont partages par tout le namespace. Les annotations portent les "
-        "identites federees des fournisseurs cloud."
+        "Without a dedicated account the pods run as `default`, whose rights are "
+        "shared by the whole namespace. The annotations carry the federated "
+        "identities of the cloud providers."
     ),
     values=(
-        ValueKey("serviceAccount.create", "true", "Cree le compte, ou reference un existant"),
-        ValueKey("serviceAccount.name", '""', "Vide = nom derive du composant"),
-        ValueKey("serviceAccount.annotations", "{}", "Identite federee du fournisseur cloud"),
+        ValueKey("serviceAccount.create", "true", "Creates the account, or references an existing one"),
+        ValueKey("serviceAccount.name", '""', "Empty = name derived from the component"),
+        ValueKey("serviceAccount.annotations", "{}", "Federated identity of the cloud provider"),
         ValueKey(
             "serviceAccount.automountServiceAccountToken",
             "false",
-            "Monte le jeton d'API dans les pods",
+            "Mounts the API token into the pods",
         ),
     ),
     traps=(
-        "Le workload doit poser serviceAccountName avec le helper dedie, sans "
-        "quoi les pods tournent sous `default`.",
-        "Si create vaut faux alors que le workload reference encore le nom, les "
-        "pods ne demarrent pas.",
+        "The workload must set serviceAccountName with the dedicated helper, "
+        "otherwise the pods run as `default`.",
+        "If create is false while the workload still references the name, the "
+        "pods do not start.",
     ),
 )
 
@@ -332,25 +332,25 @@ RBAC = ComponentFamily(
     name="rbac",
     kind="Role, RoleBinding",
     api_version="rbac.authorization.k8s.io/v1",
-    summary="Droits minimaux dans le namespace, lies au compte du composant",
+    summary="Minimal rights within the namespace, bound to the component account",
     selection="addon",
     details=(
-        "Genere avec l'addon `serviceaccount` : un Role n'a de sens qu'avec un "
-        "sujet. Aucune ressource de portee cluster n'est produite."
+        "Generated together with the `serviceaccount` addon: a Role only makes "
+        "sense with a subject. No cluster-scoped resource is produced."
     ),
     values=(
-        ValueKey("rbac.create", "false", "Cree le Role et son RoleBinding"),
-        ValueKey("rbac.rules", "[]", "Regles ; vide = ni Role ni RoleBinding"),
+        ValueKey("rbac.create", "false", "Creates the Role and its RoleBinding"),
+        ValueKey("rbac.rules", "[]", "Rules; empty = neither Role nor RoleBinding"),
     ),
     requires=("serviceaccount",),
     traps=(
-        "roleRef est immuable : changer le Role vise fait echouer tout "
-        "`helm upgrade`.",
-        "Un sujet de type ServiceAccount exige un `namespace` explicite.",
-        "apiGroups doit contenir la chaine vide pour les ressources du groupe "
-        "core (pods, configmaps, secrets).",
-        "Ne pas generer un Role a regles vides : valide au schema, mais inutile "
-        "et trompeur.",
+        "roleRef is immutable: changing the Role it points at makes every "
+        "`helm upgrade` fail.",
+        "A subject of kind ServiceAccount requires an explicit `namespace`.",
+        "apiGroups must contain the empty string for the resources of the core "
+        "group (pods, configmaps, secrets).",
+        "Do not generate a Role with empty rules: schema-valid, but useless and "
+        "misleading.",
     ),
 )
 
@@ -358,28 +358,29 @@ NETWORKPOLICY = ComponentFamily(
     name="networkpolicy",
     kind="NetworkPolicy",
     api_version="networking.k8s.io/v1",
-    summary="Restreint le trafic entrant et sortant des pods du composant",
+    summary="Restricts the ingress and egress traffic of the component pods",
     selection="addon",
     details=(
-        "Ferme par defaut, ouvert explicitement. La resolution DNS est "
-        "preservee : sans elle, le composant ne joint plus rien."
+        "Closed by default, opened explicitly. DNS resolution is preserved: "
+        "without it the component can no longer reach anything."
     ),
     values=(
-        ValueKey("networkPolicy.enabled", "false", "Applique la restriction"),
-        ValueKey("networkPolicy.allowFromSameNamespace", "true", "Trafic du meme namespace"),
-        ValueKey("networkPolicy.allowFromNamespaces", "[]", "Namespaces autorises, par nom"),
-        ValueKey("networkPolicy.allowDNS", "true", "Autorise la resolution DNS sortante"),
+        ValueKey("networkPolicy.enabled", "false", "Applies the restriction"),
+        ValueKey("networkPolicy.allowFromSameNamespace", "true", "Traffic from the same namespace"),
+        ValueKey("networkPolicy.allowFromNamespaces", "[]", "Allowed namespaces, by name"),
+        ValueKey("networkPolicy.allowDNS", "true", "Allows outgoing DNS resolution"),
     ),
     requires=("deployment",),
     traps=(
-        "podSelector est requis meme vide, et doit viser le composant seul.",
-        "policyTypes doit lister explicitement Ingress et/ou Egress ; declarer "
-        "Egress sans aucune regle coupe tout le sortant, DNS compris.",
-        "Une regle vide `- {}` autorise TOUT, alors que l'absence de regle "
-        "interdit tout : les deux se ressemblent, aucun validateur ne les separe.",
-        "namespaceSelector et podSelector dans le meme element de `from` sont un "
-        "ET ; dans deux elements, un OU. La difference tient a un tiret.",
-        "La regle entrante vise le port du conteneur, pas celui du Service.",
+        "podSelector is required even when empty, and must target the component "
+        "alone.",
+        "policyTypes must list Ingress and/or Egress explicitly; declaring "
+        "Egress with no rule at all cuts off everything outgoing, DNS included.",
+        "An empty rule `- {}` allows EVERYTHING, whereas the absence of a rule "
+        "forbids everything: the two look alike, and no validator tells them apart.",
+        "namespaceSelector and podSelector in the same `from` element are an AND; "
+        "in two elements, an OR. The difference is one dash.",
+        "The ingress rule targets the container port, not the Service one.",
     ),
 )
 
@@ -387,19 +388,19 @@ TEST_CONNECTION = ComponentFamily(
     name="test_connection",
     kind="Pod",
     api_version="v1",
-    summary="Test `helm test` : verifie que le premier composant expose repond",
+    summary="`helm test` test: checks that the first exposed component answers",
     selection="derive",
     details=(
-        "Un unique pod de test, vise le premier composant portant un Service "
-        "non headless. Genere seulement si les tests Helm sont demandes."
+        "A single test pod, targeting the first component carrying a non-headless "
+        "Service. Generated only when the Helm tests are requested."
     ),
     traps=(
-        "Le pod porte l'annotation helm.sh/hook: test ; sans elle, il serait "
-        "installe avec le chart au lieu d'etre lance par `helm test`.",
+        "The pod carries the helm.sh/hook: test annotation; without it, it would "
+        "be installed with the chart instead of being launched by `helm test`.",
     ),
 )
 
-#: Familles, dans l'ordre d'affichage et de generation. **Ordre significatif.**
+#: Families, in display and generation order. **Order is significant.**
 FAMILIES: tuple[ComponentFamily, ...] = (
     DEPLOYMENT,
     STATEFULSET,

@@ -1,1 +1,1 @@
-"""Catalogue des composants Helm : definition, registre et composants livres."""
+"""Helm component catalogue: definition, registry and shipped components."""

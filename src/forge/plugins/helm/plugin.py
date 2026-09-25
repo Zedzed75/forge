@@ -1,10 +1,9 @@
-"""Plugin de domaine Helm : implementation des hooks de forge.
+"""Helm domain plugin: implementation of the forge hooks.
 
-Ce module ne contient aucune logique : il branche le contrat de plugin
-(`DESIGN.md` §2.2) sur les modules qui font le travail — `spec` pour le modele,
-`answers` pour la projection vers copier, `validators` pour les commandes
-externes, `catalog` pour les familles de ressources, `interview` pour
-l'entretien.
+This module holds no logic: it wires the plugin contract (`DESIGN.md` §2.2) onto
+the modules that do the work — `spec` for the model, `answers` for the projection
+towards copier, `validators` for the external commands, `catalog` for the resource
+families, `interview` for the interview.
 """
 
 from __future__ import annotations
@@ -53,13 +52,13 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 @hookimpl
 def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Comment ce domaine se deploie. Le coeur ne l'execute jamais."""
+    """How this domain deploys itself. The core never runs it."""
     return validators_module.deploy_commands(spec, outdir, environment)
 
 
 @hookimpl
 def forge_check_spec(spec: Any) -> list[Issue]:
-    """Controles que le sous-modele ne peut pas faire : il ne voit pas `service:`."""
+    """Checks the sub-model cannot do: it does not see `service:`."""
     if getattr(spec, "helm", None) is None:
         return []
     return answers_module.cross_check(spec)
@@ -67,24 +66,23 @@ def forge_check_spec(spec: Any) -> list[Issue]:
 
 @hookimpl
 def forge_projection(spec: Any) -> Projection:
-    """Ce que le domaine Helm affirme produire.
+    """What the Helm domain claims to produce.
 
-    Les noms de facette appartiennent a un **vocabulaire partage** entre
-    domaines (cf. `forge.validate.consistency.FACET_VOCABULARY`) : `ingress_hosts`
-    designe les noms de domaine par lesquels le service est joignable de
-    l'exterieur, et non les machines d'un inventaire — Ansible declare
-    `inventory_hosts`, ce qui n'est pas la meme chose. Les avoir tous deux
-    nommes `hosts` produisait un faux positif sur toute specification a deux
-    domaines : c'est le premier defaut qu'a revele la rencontre de deux domaines
-    reels.
+    The facet names belong to a **vocabulary shared** between domains (cf.
+    `forge.validate.consistency.FACET_VOCABULARY`): `ingress_hosts` designates the
+    domain names the service is reachable under from the outside, and not the
+    machines of an inventory — Ansible declares `inventory_hosts`, which is not the
+    same thing. Having them both named `hosts` produced a false positive on every
+    two-domain specification: that is the first defect the meeting of two real
+    domains revealed.
     """
     projection = answers_module.build(spec)
-    hotes = sorted(
+    hosts = sorted(
         {
-            surcharge["ingress_host"]
+            override["ingress_host"]
             for env in projection["environments"]
-            for surcharge in env["components"].values()
-            if surcharge.get("ingress_host")
+            for override in env["components"].values()
+            if override.get("ingress_host")
         }
     )
     namespaces = sorted({env["namespace"] for env in projection["environments"]})
@@ -92,41 +90,41 @@ def forge_projection(spec: Any) -> Projection:
         service_name=spec.service.name,
         environments=tuple(env.name for env in spec.service.environments),
         labels=dict(spec.service.labels),
-        facets={"ingress_hosts": tuple(hotes), "namespaces": tuple(namespaces)},
+        facets={"ingress_hosts": tuple(hosts), "namespaces": tuple(namespaces)},
     )
 
 
 @hookimpl
 def forge_catalog() -> list[CatalogEntry]:
-    """Familles de ressources consultables par `forge catalog helm`."""
+    """Resource families browsable through `forge catalog helm`."""
     return [
         CatalogEntry(
-            name=famille.name,
-            summary=famille.summary,
-            details=_details(famille),
-            options=famille.option_descriptions(),
+            name=family.name,
+            summary=family.summary,
+            details=_details(family),
+            options=family.option_descriptions(),
         )
-        for famille in all_families()
+        for family in all_families()
     ]
 
 
-def _details(famille: Any) -> str:
-    """Description longue d'une famille : son role, puis ses pieges.
+def _details(family: Any) -> str:
+    """Long description of a family: its role, then its traps.
 
-    Les pieges sont affiches a l'utilisateur parce qu'ils expliquent des choix
-    du chart genere qui paraitraient arbitraires sans eux.
+    The traps are displayed to the user because they explain choices of the
+    generated chart that would look arbitrary without them.
     """
-    lignes = [
-        famille.details or famille.summary,
+    lines = [
+        family.details or family.summary,
         "",
-        f"Produit : {famille.kind} ({famille.api_version})",
+        f"Produces: {family.kind} ({family.api_version})",
     ]
-    if famille.requires:
-        lignes.append(f"Exige : {', '.join(famille.requires)}")
-    if famille.traps:
-        lignes += ["", "Points de vigilance :"]
-        lignes += [f"  - {piege}" for piege in famille.traps]
-    return "\n".join(lignes)
+    if family.requires:
+        lines.append(f"Requires: {', '.join(family.requires)}")
+    if family.traps:
+        lines += ["", "Points to watch:"]
+        lines += [f"  - {trap}" for trap in family.traps]
+    return "\n".join(lines)
 
 
 @hookimpl
