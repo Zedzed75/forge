@@ -1,7 +1,8 @@
 # MIGRATION.md — from the legacy to forge
 
 Single source of truth about the legacy code. To be consulted **instead of**
-re-reading `_legacy/`, which will be removed in phase 6.
+re-reading `_legacy/`, which was removed in phase 10 (see the closing section) —
+there is nothing left to re-read.
 
 Audit carried out on 2026-08-23 on `_legacy/ansible-forge` (HEAD `73c5b26`, 6
 commits) and `_legacy/helm-forge` (HEAD `e5d492c`, 3 commits).
@@ -342,6 +343,10 @@ environment, and without it `--syntax-check` fails on modules that
 `requirements.yml` nevertheless declares. To be picked up at the phase 4
 interface review: `DESIGN.md` §2.1 described `Command` without that field.
 
+The Helm divergences, continuing the table above:
+
+| # | Divergence | Domain | Reason |
+|---|---|---|---|
 | 13 | `charts/<chart>/README.md` still announces `helm-forge generate --spec forge.yml` (short form) | helm | the substitution of divergence 7 only covers the long form; byte parity requires keeping the legacy name. Helm twin of divergence 12. |
 | 14 | The Helm project `README.md` writes `forge generate --force`, a flag corresponding to no CLI option | helm | a mechanical result of the substitution applied to the expected content. Same family as 12 and 13. |
 | 15 | The ASCII tree of the Helm project `README.md` still lists `forge.yml` under `helm/` | helm | the specification moved up to the root (divergence 3), but the tree is frozen for parity. |
