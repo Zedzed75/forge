@@ -1,23 +1,26 @@
-"""Les alertes elles-memes : expression PromQL, et de quoi la mettre a l'epreuve.
+"""The alerts themselves: PromQL expression, and what it takes to test them.
 
-Chaque alerte porte **son propre test unitaire** : une serie temporelle
-synthetique, l'instant d'evaluation, et les libelles attendus. `promtool test
-rules` fait tourner l'un contre l'autre. Une regle d'alerte non testee est une
-regle dont personne ne sait si elle se declenche, et on ne l'apprend que le jour
-ou elle aurait du le faire.
+Every alert carries **its own unit test**: a synthetic time series, the
+evaluation instant, and the expected labels. `promtool test rules` runs one
+against the other. An untested alerting rule is a rule nobody knows fires or
+not, and that is only learnt the day it should have.
 
-Les jetons `@…@` sont remplaces a la projection (`derive.py`). Ni `str.format`
-ni `string.Template` ne conviennent ici : PromQL est plein d'accolades
-(`{job="x"}`) et les annotations sont plein de `$` (`{{ $labels.pod }}`). Un
-marqueur qui n'existe dans aucun des deux langages evite toute regle
-d'echappement.
+The `@…@` tokens are replaced at projection time (`derive.py`). Neither
+`str.format` nor `string.Template` fits here: PromQL is full of braces
+(`{job="x"}`) and the annotations are full of `$` (`{{ $labels.pod }}`). A marker
+that exists in neither language avoids any escaping rule.
 
-**Aucune metrique inventee.** `up` vient de Prometheus ; `container_*` de
-cAdvisor ; `kube_pod_container_status_restarts_total` de kube-state-metrics ;
-`probe_*` du blackbox exporter. Les noms propres a l'application — compteur de
-requetes, histogramme de duree — sont **configurables**, parce qu'ils dependent
-de la bibliotheque cliente employee et qu'en deviner un serait engendrer une
-alerte qui ne se declenchera jamais.
+**No invented metric.** `up` comes from Prometheus; `container_*` from cAdvisor;
+`kube_pod_container_status_restarts_total` from kube-state-metrics; `probe_*`
+from the blackbox exporter. The names specific to the application -- request
+counter, duration histogram -- are **configurable**, because they depend on the
+client library used and because guessing one would mean generating an alert that
+will never fire.
+
+NOTE ON THE ALERT NAMES. The `name` values below are French, and they are
+deliberately left as they are: they become the alert names of the generated rules,
+which Alertmanager routes, silences and runbooks match on by string. Renaming
+them is a breaking change for any existing installation, not a translation.
 """
 
 from __future__ import annotations
@@ -29,51 +32,52 @@ from forge.plugins.monitoring.enums import Severity
 
 @dataclass(frozen=True)
 class Alert:
-    """Une regle d'alerte, et le test unitaire qui la met a l'epreuve."""
+    """An alerting rule, and the unit test that puts it to the test."""
 
-    #: Suffixe du nom d'alerte. Le nom complet est `<Service><Suffixe>`.
+    #: Suffix of the alert name. The full name is `<Service><Suffix>`. Kept in
+    #: French on purpose: it is an identifier of the generated output.
     name: str
 
-    #: Expression PromQL, jetons `@…@` compris.
+    #: PromQL expression, `@…@` tokens included.
     expr: str
 
-    #: Duree pendant laquelle la condition doit tenir avant de declencher.
-    #: Sans elle, toute oscillation devient une alerte.
+    #: Duration the condition has to hold for before firing. Without it, any
+    #: oscillation becomes an alert.
     for_duration: str
 
-    #: Gravite portee par le label `severity`.
+    #: Severity carried by the `severity` label.
     severity: Severity
 
-    #: Phrase courte : ce qui ne va pas.
+    #: Short sentence: what is wrong.
     summary: str
 
-    #: Phrase longue : ou, depuis quand, et sous quel seuil. Peut employer
-    #: `{{ $labels.<nom> }}`, que le test resout mecaniquement.
+    #: Long sentence: where, since when, and under which threshold. May use
+    #: `{{ $labels.<name> }}`, which the test resolves mechanically.
     description: str
 
-    #: Champ de `ThresholdsSpec` qui alimente `@threshold@`, ou None.
+    #: Field of `ThresholdsSpec` that feeds `@threshold@`, or None.
     threshold_field: str | None = None
 
-    #: Valeur par defaut du seuil.
+    #: Default value of the threshold.
     threshold_default: float | int | None = None
 
-    #: Unite du seuil, pour les textes et le README.
+    #: Unit of the threshold, for the texts and the README.
     threshold_unit: str = ""
 
-    #: Series d'entree du test unitaire : (serie, valeurs), jetons compris.
+    #: Input series of the unit test: (series, values), tokens included.
     test_series: tuple[tuple[str, str], ...] = ()
 
-    #: Instant d'evaluation du test. Doit depasser `for_duration`.
+    #: Evaluation instant of the test. Must exceed `for_duration`.
     test_eval_time: str = "10m"
 
-    #: Libelles que l'expression laisse survivre, tels que le test les attend.
-    #: Une agregation `sum(...)` sans `by` n'en laisse aucun.
+    #: Labels the expression lets survive, as the test expects them. A `sum(...)`
+    #: aggregation with no `by` leaves none.
     test_result_labels: dict[str, str] = field(default_factory=dict)
 
-    #: Vrai si l'alerte a besoin d'un namespace Kubernetes.
+    #: True if the alert needs a Kubernetes namespace.
     needs_namespace: bool = False
 
-    #: Vrai si l'alerte a besoin d'une sonde blackbox.
+    #: True if the alert needs a blackbox probe.
     needs_probe: bool = False
 
 
@@ -83,10 +87,10 @@ AVAILABILITY_ALERTS: tuple[Alert, ...] = (
         expr='up{job="@job@"} == 0',
         for_duration="5m",
         severity=Severity.CRITICAL,
-        summary="La cible ne repond plus au collecteur",
+        summary="The target no longer answers the collector",
         description=(
-            "L'instance {{ $labels.instance }} du job {{ $labels.job }} ne "
-            "repond plus depuis 5 minutes."
+            "Instance {{ $labels.instance }} of job {{ $labels.job }} has not "
+            "answered for 5 minutes."
         ),
         test_series=(('up{job="@job@", instance="@instance@"}', "0+0x10"),),
         test_eval_time="6m",
@@ -105,25 +109,25 @@ ERROR_RATE_ALERTS: tuple[Alert, ...] = (
         ),
         for_duration="10m",
         severity=Severity.CRITICAL,
-        summary="Trop de reponses en erreur",
+        summary="Too many responses in error",
         description=(
-            "Plus de @threshold_pct@ % des reponses du service sont en erreur "
-            "serveur depuis 10 minutes."
+            "More than @threshold_pct@ % of the responses of the service have "
+            "been server errors for 10 minutes."
         ),
         threshold_field="error_rate",
         threshold_default=0.05,
         threshold_unit="proportion (0.05 = 5 %)",
-        # Les pas sont calcules a partir du seuil : une serie figee ne
-        # prouverait la regle que pour le seuil qui avait cours le jour ou on
-        # l'a ecrite. Le ratio vise (1 + seuil) / 2, donc strictement entre le
-        # seuil et 1, pour tout seuil admissible.
+        # The steps are computed from the threshold: a frozen series would only
+        # prove the rule for the threshold that was in force the day it was
+        # written. The ratio targets (1 + threshold) / 2, therefore strictly
+        # between the threshold and 1, for any admissible threshold.
         test_series=(
             ('@requests@{job="@job@", @status@="500"}', "0+1000x20"),
             ('@requests@{job="@job@", @status@="200"}', "0+@error_other_step@x20"),
         ),
         test_eval_time="15m",
-        # `sum(...)` sans `by` ne laisse survivre aucun libelle : l'alerte ne
-        # porte que ceux que la regle ajoute.
+        # `sum(...)` with no `by` lets no label survive: the alert only carries
+        # the ones the rule adds.
         test_result_labels={},
     ),
 )
@@ -138,19 +142,19 @@ LATENCY_ALERTS: tuple[Alert, ...] = (
         ),
         for_duration="10m",
         severity=Severity.WARNING,
-        summary="Le service repond trop lentement",
+        summary="The service answers too slowly",
         description=(
-            "Le quantile 95 du temps de reponse depasse @threshold@ seconde(s) "
-            "depuis 10 minutes."
+            "The 95th percentile of the response time has exceeded @threshold@ "
+            "second(s) for 10 minutes."
         ),
         threshold_field="latency_p95_seconds",
         threshold_default=1.0,
-        threshold_unit="secondes",
-        # Trois seaux cumulatifs, dont les bornes suivent le seuil : 10
-        # observations sous le seuil, 90 entre le seuil et son double, aucune
-        # au-dela. Le quantile 95 tombe dans le second seau et vaut, par
-        # interpolation, environ 1.94 fois le seuil — donc au-dessus, quel que
-        # soit le seuil.
+        threshold_unit="seconds",
+        # Three cumulative buckets, whose bounds follow the threshold: 10
+        # observations below the threshold, 90 between the threshold and its
+        # double, none beyond. The 95th percentile falls in the second bucket and
+        # is worth, by interpolation, about 1.94 times the threshold -- therefore
+        # above it, whatever the threshold.
         test_series=(
             ('@duration@_bucket{job="@job@", le="@threshold@"}', "0+10x20"),
             ('@duration@_bucket{job="@job@", le="@latency_high_le@"}', "0+100x20"),
@@ -172,17 +176,17 @@ SATURATION_ALERTS: tuple[Alert, ...] = (
         ),
         for_duration="10m",
         severity=Severity.WARNING,
-        summary="Un conteneur approche de sa limite memoire",
+        summary="A container is approaching its memory limit",
         description=(
-            "Le conteneur {{ $labels.container }} du pod {{ $labels.pod }} "
-            "depasse @threshold_pct@ % de sa limite memoire depuis 10 minutes. "
-            "Un depassement effectif provoque un OOMKill, pas un ralentissement."
+            "Container {{ $labels.container }} of pod {{ $labels.pod }} has "
+            "exceeded @threshold_pct@ % of its memory limit for 10 minutes. An "
+            "actual overrun causes an OOMKill, not a slowdown."
         ),
         threshold_field="memory_ratio",
         threshold_default=0.9,
-        threshold_unit="proportion de la limite (0.9 = 90 %)",
-        # La consommation visee est (1 + seuil) / 2 de la limite : strictement
-        # au-dessus du seuil, quel que soit celui-ci.
+        threshold_unit="proportion of the limit (0.9 = 90 %)",
+        # The targeted consumption is (1 + threshold) / 2 of the limit: strictly
+        # above the threshold, whatever it is.
         test_series=(
             (
                 "container_memory_working_set_bytes"
@@ -213,16 +217,17 @@ SATURATION_ALERTS: tuple[Alert, ...] = (
         ),
         for_duration="10m",
         severity=Severity.WARNING,
-        summary="Un pod consomme durablement beaucoup de CPU",
+        summary="A pod is durably consuming a lot of CPU",
         description=(
-            "Le pod {{ $labels.pod }} consomme plus de @threshold@ cœur(s) "
-            "depuis 10 minutes."
+            "Pod {{ $labels.pod }} has been consuming more than @threshold@ "
+            "core(s) for 10 minutes."
         ),
         threshold_field="cpu_cores",
         threshold_default=1.5,
-        threshold_unit="cœurs",
-        # Le pas du compteur vaut (seuil + 1) x 60 : la derivee depasse donc
-        # le seuil d'un cœur entier, quel que soit le seuil.
+        threshold_unit="cores",
+        # The step of the counter is (threshold + 1) x 60: the derivative
+        # therefore exceeds the threshold by a whole core, whatever the
+        # threshold.
         test_series=(
             (
                 "container_cpu_usage_seconds_total"
@@ -231,7 +236,7 @@ SATURATION_ALERTS: tuple[Alert, ...] = (
             ),
         ),
         test_eval_time="15m",
-        # `sum by (pod)` ne laisse survivre que `pod`.
+        # `sum by (pod)` only lets `pod` survive.
         test_result_labels={"pod": "@pod@"},
         needs_namespace=True,
     ),
@@ -248,16 +253,16 @@ RESTART_ALERTS: tuple[Alert, ...] = (
         ),
         for_duration="5m",
         severity=Severity.WARNING,
-        summary="Un conteneur redemarre en boucle",
+        summary="A container is restarting in a loop",
         description=(
-            "Le conteneur {{ $labels.container }} du pod {{ $labels.pod }} a "
-            "redemarre plus de @threshold@ fois en une heure."
+            "Container {{ $labels.container }} of pod {{ $labels.pod }} has "
+            "restarted more than @threshold@ times in one hour."
         ),
         threshold_field="restarts_per_hour",
         threshold_default=3,
-        threshold_unit="redemarrages par heure",
-        # Le pas est choisi pour que l'augmentation sur une heure vaille au
-        # moins le double du seuil.
+        threshold_unit="restarts per hour",
+        # The step is chosen so that the increase over one hour is worth at least
+        # twice the threshold.
         test_series=(
             (
                 "kube_pod_container_status_restarts_total"
@@ -281,11 +286,11 @@ PROBE_ALERTS: tuple[Alert, ...] = (
         expr='probe_success{job="@blackbox_job@"} == 0',
         for_duration="5m",
         severity=Severity.CRITICAL,
-        summary="Le service n'est plus joignable de l'exterieur",
+        summary="The service is no longer reachable from the outside",
         description=(
-            "La sonde externe sur {{ $labels.instance }} echoue depuis 5 "
-            "minutes. Le service peut tourner et rester injoignable : c'est "
-            "precisement ce que cette sonde voit et que les autres ne voient pas."
+            "The external probe on {{ $labels.instance }} has been failing for 5 "
+            "minutes. The service can be running and stay unreachable: that is "
+            "precisely what this probe sees and the others do not."
         ),
         test_series=(
             (
@@ -306,17 +311,17 @@ PROBE_ALERTS: tuple[Alert, ...] = (
         ),
         for_duration="15m",
         severity=Severity.WARNING,
-        summary="Un certificat TLS approche de son expiration",
+        summary="A TLS certificate is approaching its expiry",
         description=(
-            "Le certificat servi sur {{ $labels.instance }} expire dans moins "
-            "de @threshold@ jours. Un certificat expire ne previent pas : il "
-            "casse toutes les connexions d'un coup."
+            "The certificate served on {{ $labels.instance }} expires in less "
+            "than @threshold@ days. An expired certificate gives no warning: it "
+            "breaks every connection at once."
         ),
         threshold_field="certificate_days",
         threshold_default=21,
-        threshold_unit="jours avant expiration",
-        # La date d'expiration est placee a la moitie du seuil : l'alerte doit
-        # donc se declencher, quel que soit le nombre de jours demande.
+        threshold_unit="days before expiry",
+        # The expiry date is placed at half the threshold: the alert must
+        # therefore fire, whatever the number of days requested.
         test_series=(
             (
                 "probe_ssl_earliest_cert_expiry"
@@ -331,15 +336,17 @@ PROBE_ALERTS: tuple[Alert, ...] = (
 )
 
 
-#: Expression a **afficher** pour chaque alerte, sans sa comparaison au seuil.
+#: Expression to **display** for each alert, without its comparison to the
+#: threshold.
 #:
-#: Un tableau de bord qui trace la condition d'alerte ne montre qu'une courbe a
-#: deux valeurs : vrai ou faux. Ce qu'on veut voir, c'est la grandeur elle-meme
-#: et sa distance au seuil — d'ou cette seconde expression, qui est la premiere
-#: privee de sa derniere comparaison.
+#: A dashboard that plots the alerting condition only shows a curve with two
+#: values: true or false. What one wants to see is the quantity itself and its
+#: distance to the threshold -- hence this second expression, which is the first
+#: one deprived of its last comparison.
 #:
-#: Indexee par nom d'alerte : une alerte absente de cette table est tracee par
-#: son expression complete, ce qui reste juste, seulement moins lisible.
+#: Indexed by alert name: an alert absent from this table is plotted by its full
+#: expression, which stays correct, only less readable. The keys are the French
+#: alert names, and must stay exactly in step with the `name` values above.
 PANEL_EXPRESSIONS: dict[str, str] = {
     "CibleInjoignable": 'up{job="@job@"}',
     "TauxErreurEleve": (
