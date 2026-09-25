@@ -281,6 +281,23 @@ def collections(ansible: Any) -> list[dict[str, str]]:
     ]
 
 
+def galaxy_requirements(ansible: Any) -> tuple[str, ...]:
+    """Les memes collections, au format qu'`ansible-galaxy` prend en argument.
+
+    Exemple : `("ansible.posix:>=2.2.2,<3.0.0", ...)`. C'est la forme publiee
+    par la projection du plugin (`forge_projection`) et consommee par le domaine
+    `pipeline` pour provisionner ses jobs : une chaine opaque, que le
+    consommateur recopie sans avoir a savoir ce qu'est une collection Galaxy.
+
+    Elle derive de la meme table que `collections` : la version d'une collection
+    reste autorisee **une seule fois**, dans `catalog/collections.py`.
+    """
+    return tuple(
+        f"{besoin.name}:{besoin.version}"
+        for besoin in collection_requirements_for(ansible.ordered_used_roles())
+    )
+
+
 def tooling() -> dict[str, str]:
     """Versions des outils Ansible, pour le workflow que le projet emporte.
 

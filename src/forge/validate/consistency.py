@@ -24,14 +24,42 @@ MIN_DECLARERS = 2
 #: d'Ingress, et `forge validate` echouait sur un projet parfaitement coherent.
 #:
 #: Un plugin qui declare une facette hors de ce vocabulaire n'est compare a
-#: personne : c'est sans danger, mais sans effet non plus. Pour qu'une facette
-#: serve, il faut l'ajouter ici **et** s'accorder sur son sens.
+#: personne. Pour qu'une facette serve a la comparaison, il faut l'ajouter ici
+#: **et** s'accorder sur son sens.
 FACET_VOCABULARY: dict[str, str] = {
     "ingress_hosts": "noms de domaine par lesquels le service est joignable de l'exterieur",
     "inventory_hosts": "machines nommees dans un inventaire de configuration",
     "namespaces": "cloisons logiques dans lesquelles le service est deploye",
     "groups": "regroupements de machines partageant un role",
 }
+
+#: **Facettes publiees.**
+#:
+#: Une projection sert a deux choses, et les confondre coute cher. La premiere
+#: est la comparaison ci-dessus : deux domaines qui declarent la meme facette
+#: doivent en dire la meme valeur. La seconde est la **publication** : un
+#: domaine expose un fait que quelqu'un d'autre doit lire — le provisionneur du
+#: pipeline, par exemple — sans que le coeur ait a connaitre ni l'un ni l'autre.
+#:
+#: Ces deux usages s'excluent. Comparer une publication produit le faux positif
+#: que `hosts` a produit en phase 5, en pire : deux domaines qui installent des
+#: collections Galaxy n'ont **aucune raison** d'installer les memes, et exiger
+#: qu'ils s'accordent condamnerait une specification parfaitement saine.
+#:
+#: Une facette publiee est donc declaree ici, jamais dans le vocabulaire
+#: compare. Le nom reste un espace de noms partage : deux domaines qui publient
+#: `galaxy_collections` publient bien la meme sorte de chose, et leurs valeurs
+#: se reunissent au lieu de se contredire.
+PUBLISHED_FACETS: dict[str, str] = {
+    "galaxy_collections": (
+        "dependances installables par `ansible-galaxy collection install`, "
+        "nom et intervalle de versions compris"
+    ),
+}
+
+#: Noms de facette reconnus, toutes vocations confondues. Un plugin qui declare
+#: autre chose s'est trompe de nom : un test le refuse.
+KNOWN_FACETS: dict[str, str] = {**FACET_VOCABULARY, **PUBLISHED_FACETS}
 
 
 def _sorted_domains(projections: dict[str, Projection]) -> list[str]:

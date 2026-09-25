@@ -13,6 +13,7 @@ from typing import Any
 
 from forge.interview.prompter import Prompter
 from forge.plugins.ansible import answers as answers_module
+from forge.plugins.ansible import derive
 from forge.plugins.ansible import validators as validators_module
 from forge.plugins.ansible.catalog.registry import all_roles
 from forge.plugins.ansible.spec import AnsibleSpec
@@ -63,6 +64,14 @@ def forge_projection(spec: Any) -> Projection:
     `forge.validate.consistency.FACET_VOCABULARY`). Helm declare des hotes lui
     aussi, mais ce sont des noms de domaine d'Ingress : les confondre produisait
     un faux positif sur toute specification a deux domaines.
+
+    `galaxy_collections` n'est pas dans ce vocabulaire, et ne doit pas y entrer :
+    deux domaines qui installent des collections n'ont aucune raison d'installer
+    les memes, et les comparer produirait un faux positif. La facette sert de
+    **publication** — le domaine dit ce que ses dependances exigent, et un
+    provisionneur le lit sans avoir a importer le domaine. C'est ce qui permet
+    au domaine `pipeline` d'installer les collections avec leur version sans
+    recopier la table de `catalog/collections.py` (DESIGN.md §8 Q10).
     """
     ansible: AnsibleSpec = spec.ansible
     materialises = tuple(
@@ -85,6 +94,7 @@ def forge_projection(spec: Any) -> Projection:
         facets={
             "inventory_hosts": tuple(hotes),
             "groups": tuple(groupe.name for groupe in ansible.groups),
+            "galaxy_collections": derive.galaxy_requirements(ansible),
         },
     )
 

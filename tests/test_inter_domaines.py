@@ -22,7 +22,12 @@ from forge.cli import app
 from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager
 from forge.spec.assembly import validate_spec
 from forge.spec.io import load_spec_data, save_spec
-from forge.validate.consistency import FACET_VOCABULARY, compare_projections
+from forge.validate.consistency import (
+    FACET_VOCABULARY,
+    KNOWN_FACETS,
+    PUBLISHED_FACETS,
+    compare_projections,
+)
 from tests.conftest import REPO_ROOT
 
 runner = CliRunner()
@@ -75,17 +80,43 @@ def test_une_specification_coherente_ne_produit_aucun_constat(donnees):
     assert compare_projections(_projections(donnees)) == []
 
 
-def test_les_facettes_des_deux_domaines_appartiennent_au_vocabulaire(donnees):
-    """Le nom d'une facette est un espace de noms partage : hors vocabulaire,
-    elle n'est comparee a personne."""
+def test_les_facettes_des_deux_domaines_sont_toutes_declarees(donnees):
+    """Le nom d'une facette est un espace de noms partage : hors des deux
+    registres, elle n'est ni comparee ni lue par personne."""
     declarees = {
         facette
         for projection in _projections(donnees).values()
         for facette in projection.facets
     }
-    assert declarees <= set(FACET_VOCABULARY), (
-        f"facettes hors vocabulaire : {sorted(declarees - set(FACET_VOCABULARY))}"
+    assert declarees <= set(KNOWN_FACETS), (
+        f"facettes inconnues : {sorted(declarees - set(KNOWN_FACETS))}"
     )
+
+
+def test_une_facette_publiee_n_est_jamais_comparee():
+    """Les deux vocations d'une projection s'excluent.
+
+    Comparer une publication redonnerait le faux positif de `hosts`, en pire :
+    deux domaines qui installent des collections Galaxy n'ont aucune raison
+    d'installer les memes, et exiger qu'ils s'accordent condamnerait une
+    specification saine.
+    """
+    assert set(FACET_VOCABULARY) & set(PUBLISHED_FACETS) == set()
+
+
+def test_les_collections_publiees_portent_toutes_une_version(donnees):
+    """La facette lue par le provisionneur du pipeline : jamais un nom nu.
+
+    C'est le seul canal par lequel une collection Galaxy parvient au pipeline ;
+    une valeur sans intervalle y reintroduirait l'installation libre que ZED-7
+    a supprimee du `requirements.yml`.
+    """
+    publiees = _projections(donnees)["ansible"].facets["galaxy_collections"]
+    assert publiees, "le cas de reference applique des roles a collections"
+    for valeur in publiees:
+        nom, _, contrainte = valeur.partition(":")
+        assert "." in nom, valeur
+        assert contrainte.startswith(">=") and ",<" in contrainte, valeur
 
 
 def test_les_deux_sortes_d_hotes_ne_sont_pas_confondues(donnees):

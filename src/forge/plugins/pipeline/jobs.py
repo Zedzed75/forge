@@ -179,8 +179,32 @@ def steps_for(commands: tuple[Command, ...]) -> list[Step]:
     return etapes
 
 
+def provisioning_facts(context: GenerationContext) -> dict[str, tuple[str, ...]]:
+    """Facettes de projection reunies, pour les recettes qui en dependent.
+
+    Une recette d'installation n'invente pas les dependances du projet genere :
+    elle nomme la facette ou les lire, et ce sont les domaines demandes qui les
+    publient (cf. `tools.FacetInstall`). Ce module ne fait que rassembler, sans
+    savoir ce que chaque facette designe — la regle de la phase 8 tient : aucun
+    nom de domaine ici.
+
+    Reunion, et non choix d'un domaine : deux domaines qui declarent la meme
+    facette veulent tous deux voir leurs valeurs installees. Le tri et le
+    dedoublonnage gardent la sortie deterministe.
+    """
+    reunies: dict[str, set[str]] = {}
+    for sommaire in context.domains:
+        if sommaire.projection is None:
+            continue
+        for nom, valeurs in sommaire.projection.facets.items():
+            reunies.setdefault(nom, set()).update(valeurs)
+    return {nom: tuple(sorted(valeurs)) for nom, valeurs in sorted(reunies.items())}
+
+
 def install_step(
-    noms: tuple[str, ...], provider: str
+    noms: tuple[str, ...],
+    provider: str,
+    facts: dict[str, tuple[str, ...]] | None = None,
 ) -> tuple[Step | None, list[str], list[str]]:
     """Etape d'installation des outils, et le partage connus / inconnus.
 
@@ -188,8 +212,13 @@ def install_step(
     facon : chaque `run:` de GitHub est un shell neuf, et seul un ecrit dans
     `$GITHUB_ENV` survit a l'etape suivante ; un job GitLab est un seul shell,
     ou un `export` suffit.
+
+    `facts` porte ce que les domaines publient (`provisioning_facts`) : une
+    recette qui declare une `FacetInstall` y prend les dependances qu'elle ne
+    nomme pas elle-meme. Une facette absente laisse simplement la ligne de cote.
     """
     connus, inconnus = tools.resolve(noms)
+    faits = facts or {}
     lignes: list[str] = []
     paquets = tools.system_packages(connus)
     if paquets:
@@ -200,6 +229,11 @@ def install_step(
     exports: dict[str, str] = {}
     for recette in connus:
         lignes.extend(recette.steps)
+        if recette.from_facet is not None:
+            valeurs = faits.get(recette.from_facet.facet, ())
+            if valeurs:
+                cites = " ".join(shlex.quote(valeur) for valeur in valeurs)
+                lignes.append(recette.from_facet.line.format(items=cites))
         exports.update(recette.exports)
     for cle, valeur in sorted(exports.items()):
         if provider == "github":
@@ -228,11 +262,16 @@ def install_step(
 
 
 def _job_for_commands(
-    key: str, name: str, kind: JobKind, commands: tuple[Command, ...], provider: str
+    key: str,
+    name: str,
+    kind: JobKind,
+    commands: tuple[Command, ...],
+    provider: str,
+    facts: dict[str, tuple[str, ...]],
 ) -> Job:
     """Job installant ce qu'il faut, puis lancant `commands` dans l'ordre."""
     noms = tuple(sorted({commande.tool for commande in commands}))
-    installation, connus, inconnus = install_step(noms, provider)
+    installation, connus, inconnus = install_step(noms, provider, facts)
     etapes = [installation] if installation else []
     etapes += steps_for(commands)
     return Job(
@@ -252,6 +291,7 @@ def validate_jobs(context: GenerationContext, provider: str) -> list[Job]:
     autre du point de vue de ce module, et l'exclure serait le seul endroit ou
     il se traiterait a part.
     """
+    faits = provisioning_facts(context)
     jobs: list[Job] = []
     for sommaire in context.domains:
         if not sommaire.validators:
@@ -263,6 +303,7 @@ def validate_jobs(context: GenerationContext, provider: str) -> list[Job]:
                 kind=JobKind.VALIDATE,
                 commands=sommaire.validators,
                 provider=provider,
+                facts=faits,
             )
         )
     return jobs
@@ -337,6 +378,7 @@ def deploy_jobs(
     pouvait deviner.
     """
     ordonnes = sorted(context.domains, key=lambda s: (s.info.deploy_order, s.name))
+    faits = provisioning_facts(context)
     jobs: list[Job] = []
     precedent: str | None = None
     for nom in environments:
@@ -354,6 +396,7 @@ def deploy_jobs(
             kind=JobKind.DEPLOY,
             commands=tuple(commandes),
             provider=provider,
+            facts=faits,
         )
         job.environment = nom
         job.default_branch_only = True

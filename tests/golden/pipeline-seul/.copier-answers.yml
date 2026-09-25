@@ -71,11 +71,11 @@ domain:
             run: &id008
             - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get
                 install -y -qq --no-install-recommends python3-pip; fi
-            - python3 -m pip install --quiet yamllint
+            - python3 -m pip install --quiet 'yamllint==1.38.0'
             script:
             - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get
                 install -y -qq --no-install-recommends python3-pip; fi
-            - python3 -m pip install --quiet yamllint
+            - python3 -m pip install --quiet 'yamllint==1.38.0'
             workdir: ''
         -   env: &id009
                 NO_COLOR: '1'
@@ -143,7 +143,7 @@ domain:
             script:
             - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get
                 install -y -qq --no-install-recommends python3-pip; fi
-            - python3 -m pip install --quiet yamllint
+            - python3 -m pip install --quiet 'yamllint==1.38.0'
             workdir: ''
         -   env: *id009
             name: yamllint

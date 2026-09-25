@@ -390,6 +390,97 @@ def test_les_versions_des_outils_sont_figees():
             assert "latest/download" not in ligne, recette.name
 
 
+# ---------------------------------------------------------------------------
+# Ce qu'un domaine publie, le pipeline l'installe sans le connaitre
+# ---------------------------------------------------------------------------
+
+
+def _avec_ansible() -> dict:
+    """Specification minimale ou le pipeline rencontre le domaine Ansible.
+
+    Aucun cas de reference ne reunit les deux — c'est d'ailleurs pourquoi le
+    defaut de ZED-8 a survecu a huit phases : la table du pipeline recopiait
+    trois collections sans version, et aucun golden ne montrait la ligne.
+    """
+    donnees = _base(provider="github")
+    donnees["ansible"] = {
+        "os_family": "debian",
+        "groups": [
+            {
+                "name": "bases",
+                "description": "Bases de donnees",
+                "roles": ["common", "postgresql"],
+            }
+        ],
+        "hosts": {"prod": {"bases": [{"name": "db-01", "ansible_host": "10.0.0.1"}]}},
+    }
+    return donnees
+
+
+def _etape_d_installation(donnees: dict, cle: str) -> list[str]:
+    """Lignes de shell de l'etape « Installer les outils » du job `cle`."""
+    projection = _projection(donnees)
+    job = next(j for j in projection["jobs"] if j["key"] == cle)
+    etape = next(e for e in job["steps"] if e["name"] == "Installer les outils")
+    return etape["run"]
+
+
+def test_le_pipeline_installe_les_collections_que_le_domaine_publie():
+    """La liste n'est plus recopiee : elle vient de la projection du domaine.
+
+    Le pipeline ne connait ni le nom des collections ni leur version — il lit
+    une facette et recopie des chaines opaques. C'est ce qui permet a la table
+    de `catalog/collections.py` de rester le seul endroit ou une version de
+    collection est autorisee (DESIGN.md §8 Q10).
+    """
+    donnees = _avec_ansible()
+    spec = validate_spec(donnees, _manager())
+    publiees = _manager().context(spec).get("ansible").projection.facets[
+        "galaxy_collections"
+    ]
+
+    lignes = _etape_d_installation(donnees, "valider-ansible")
+    galaxy = [ligne for ligne in lignes if "ansible-galaxy" in ligne]
+    assert len(galaxy) == 1, lignes
+    for publiee in publiees:
+        assert publiee in galaxy[0], publiee
+
+
+def test_aucune_collection_n_est_installee_sans_version():
+    """Le defaut exact de ZED-8 : `ansible-galaxy collection install <nom>` nu.
+
+    Une collection sans contrainte installe ce que Galaxy sert ce jour-la, et le
+    pipeline genere change de verdict un matin sans qu'une ligne du depot ait
+    bouge — ce que `community.postgresql` 5.0.0 a deja fait.
+    """
+    lignes = _etape_d_installation(_avec_ansible(), "valider-ansible")
+    galaxy = next(ligne for ligne in lignes if "ansible-galaxy" in ligne)
+    for morceau in galaxy.split():
+        if "." in morceau and not morceau.startswith("-") and "/" not in morceau:
+            assert ":" in morceau, f"collection sans version : {morceau}"
+
+
+def test_les_outils_ansible_du_pipeline_sont_epingles():
+    """`pip install ansible-core` tout nu etait la seconde moitie du defaut."""
+    lignes = _etape_d_installation(_avec_ansible(), "valider-ansible")
+    pips = [ligne for ligne in lignes if "pip install" in ligne]
+    assert pips
+    for ligne in pips:
+        assert "==" in ligne, ligne
+
+
+def test_une_facette_absente_n_installe_rien_de_devine():
+    """Un domaine tiers peut declarer `ansible-playbook` sans rien publier.
+
+    L'installation se reduit alors a l'outil lui-meme : le pipeline n'invente
+    pas une liste de dependances, et n'echoue pas non plus — un projet qui ne
+    s'appuie que sur les modules livres n'a rien a installer.
+    """
+    etape, connus, inconnus = jobs.install_step(("ansible-playbook",), "github")
+    assert connus == ["ansible-playbook"] and inconnus == []
+    assert not any("ansible-galaxy" in ligne for ligne in etape.run)
+
+
 @pytest.mark.parametrize(
     ("chemin", "outil"), [(SPEC_GITHUB, "actionlint"), (SPEC_GITLAB, "yamllint")], ids=["github", "gitlab"]
 )

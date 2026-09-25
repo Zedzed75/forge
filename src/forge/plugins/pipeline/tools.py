@@ -13,22 +13,69 @@ ici. Un outil **absent de la table** n'est jamais devine : le pipeline engendre
 une etape a completer, nommement, et le README du domaine le signale.
 
 Les versions sont figees. Un pipeline qui installe « la derniere version » de ses
-outils change de comportement un matin sans qu'on ait rien commit.
+outils change de comportement un matin sans qu'on ait rien commit. **Sans
+exception** : une seule ligne sans version suffit a rendre le pipeline
+irreproductible, et c'est toujours celle-la qu'on oublie.
+
+Une version d'outil est donc ecrite ici, et une seconde fois dans le workflow du
+domaine qui lance le meme outil sur sa propre sortie. Duplication assumee — un
+outil appartient au provisionnement d'une machine, et deux machines n'ont pas a
+en etre a la meme version — mais jamais divergence silencieuse : un test echoue
+des que les deux tables cessent de dire la meme chose (DESIGN.md §8 Q10).
+
+Ce qui n'est **pas** duplique, c'est ce que le projet genere declare comme
+dependance. Les collections Galaxy ne sont pas des outils du runner : leur
+version est autorisee une seule fois, par le domaine qui les nomme, et parvient
+ici par la projection de ce domaine (`FacetInstall`). Cette table ne les cite
+pas.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-#: Versions figees des outils installes par telechargement direct.
+#: Versions figees des outils installes par le pipeline genere. Une recette
+#: d'`INSTALLS` doit citer au moins un numero pris ici : un test refuse celle
+#: qui n'en cite aucun, c'est-a-dire celle qui installe « la derniere version ».
 VERSIONS: dict[str, str] = {
+    "ansible-core": "2.19.13",
+    "ansible-lint": "26.9.0",
     "helm": "3.16.3",
     "kubeconform": "0.6.7",
     "terraform": "1.9.8",
     "tflint": "0.59.1",
     "actionlint": "1.7.7",
     "promtool": "3.6.0",
+    "yamllint": "1.38.0",
 }
+
+
+@dataclass(frozen=True)
+class FacetInstall:
+    """Dependances qu'une recette installe sans les connaitre elle-meme.
+
+    Certains outils n'installent pas qu'eux-memes : `ansible-playbook` n'est
+    utile qu'avec les collections Galaxy dont les roles se servent. Ces
+    collections appartiennent au **domaine** qui les declare, avec leur version ;
+    les recopier ici en ferait une seconde source de verite, qui finirait par
+    contredire la premiere — elle l'a deja fait.
+
+    La recette ne nomme donc que la **facette de projection** ou les trouver. Le
+    domaine les publie (`forge_projection`), le pipeline les recoit comme des
+    chaines opaques et les passe a la commande sans savoir ce qu'elles
+    designent. Aucune des deux moities ne connait l'autre par son nom.
+
+    Une facette absente ou vide n'est pas une erreur : un projet qui ne s'appuie
+    que sur les modules livres avec l'outil n'a aucune dependance a installer.
+    La ligne est alors simplement omise.
+    """
+
+    #: Nom de la facette lue dans les projections des domaines demandes.
+    facet: str
+
+    #: Ligne de shell installant les dependances. `{items}` y recoit les valeurs
+    #: de la facette, citees et separees par des espaces.
+    line: str
 
 
 @dataclass(frozen=True)
@@ -49,6 +96,9 @@ class ToolInstall:
 
     #: Variables d'environnement a poser une fois l'outil installe.
     exports: dict[str, str] = field(default_factory=dict)
+
+    #: Dependances fournies par un domaine plutot que par cette table.
+    from_facet: FacetInstall | None = None
 
 
 def _release(url: str, binaire: str, archive: str) -> tuple[str, ...]:
@@ -72,17 +122,28 @@ INSTALLS: tuple[ToolInstall, ...] = (
         name="ansible-playbook",
         summary="execute les playbooks Ansible",
         steps=(
-            "python3 -m pip install --quiet ansible-core",
-            "ansible-galaxy collection install community.general ansible.posix "
-            'community.postgresql -p "$HOME/.ansible/collections"',
+            f"python3 -m pip install --quiet 'ansible-core=={VERSIONS['ansible-core']}'",
         ),
         requires=("python3-pip",),
         exports={"ANSIBLE_COLLECTIONS_PATH": "$HOME/.ansible/collections"},
+        # Les collections ne sont pas nommees ici : le domaine qui les declare
+        # dit lesquelles, et dans quelle version. Cette table ne le sait pas.
+        from_facet=FacetInstall(
+            facet="galaxy_collections",
+            line=(
+                "ansible-galaxy collection install {items} "
+                '-p "$HOME/.ansible/collections"'
+            ),
+        ),
     ),
     ToolInstall(
         name="ansible-lint",
         summary="verifie les bonnes pratiques Ansible",
-        steps=("python3 -m pip install --quiet ansible-core ansible-lint",),
+        steps=(
+            "python3 -m pip install --quiet "
+            f"'ansible-core=={VERSIONS['ansible-core']}' "
+            f"'ansible-lint=={VERSIONS['ansible-lint']}'",
+        ),
         requires=("python3-pip",),
         exports={"ANSIBLE_COLLECTIONS_PATH": "$HOME/.ansible/collections"},
     ),
@@ -143,7 +204,7 @@ INSTALLS: tuple[ToolInstall, ...] = (
     ToolInstall(
         name="yamllint",
         summary="verifie la forme d'un fichier YAML",
-        steps=("python3 -m pip install --quiet yamllint",),
+        steps=(f"python3 -m pip install --quiet 'yamllint=={VERSIONS['yamllint']}'",),
         requires=("python3-pip",),
     ),
     ToolInstall(
