@@ -1,96 +1,96 @@
-# DESIGN.md — architecture de forge
+# DESIGN.md — forge architecture
 
-Livrable de la phase 1. Toutes les affirmations sur le comportement de copier
-ont été **vérifiées expérimentalement** (copier 9.17.2) ; les constats bruts
-sont consignés dans `MIGRATION.md` §2.
+Phase 1 deliverable. Every statement about copier's behaviour has been
+**verified experimentally** (copier 9.17.2); the raw findings are recorded in
+`MIGRATION.md` §2.
 
 ---
 
-## 1. Vue d'ensemble
+## 1. Overview
 
 ```
-forge.yml  ──►  cœur : chargement + validation (pydantic assemblé depuis les plugins)
+forge.yml  ──►  core: loading + validation (pydantic assembled from the plugins)
                   │
-                  ├─ pour chaque domaine retenu ──► hook forge_answers ──► copier.run_copy
-                  │        (src = racine du dépôt forge, _subdirectory = gabarit du plugin)
+                  ├─ for each selected domain ──► forge_answers hook ──► copier.run_copy
+                  │        (src = forge repository root, _subdirectory = plugin template)
                   │                                          │
                   │                                          ▼
-                  │                                  <cible>/<domaine>/…
+                  │                                  <target>/<domain>/…
                   │                                  + .copier-answers.yml
                   │
-                  ├─ forge validate ──► hook forge_validators ──► runner du cœur (subprocess/WSL)
-                  ├─ forge validate ──► hook forge_projection  ──► contrôles inter-domaines (cœur)
-                  └─ forge update   ──► copier.run_update par domaine
+                  ├─ forge validate ──► forge_validators hook ──► core runner (subprocess/WSL)
+                  ├─ forge validate ──► forge_projection hook  ──► cross-domain checks (core)
+                  └─ forge update   ──► copier.run_update per domain
 ```
 
-Le cœur ne connaît que : des specs, un répertoire de gabarit, un dict de données,
-des commandes externes et des projections. Il n'a aucune notion de SSH, de rôle,
-de namespace ou de chart.
+The core knows only: specs, a template directory, a data dict, external commands
+and projections. It has no notion of SSH, of a role, of a namespace or of a
+chart.
 
 ---
 
-## 2. Contrat de plugin (pluggy)
+## 2. Plugin contract (pluggy)
 
-### 2.1 Types échangés
+### 2.1 Exchanged types
 
 ```python
 # forge/plugins_api/types.py
 
 @dataclass(frozen=True)
 class DomainInfo:
-    """Identité d'un domaine généré."""
-    name: str          # "ansible" — clé de section dans forge.yml et nom de plugin
-    title: str         # "Ansible" — affichage
-    summary: str       # une ligne, pour `forge plugins`
-    outdir: str        # sous-répertoire de sortie, par défaut == name
+    """Identity of a generated domain."""
+    name: str          # "ansible" — section key in forge.yml and plugin name
+    title: str         # "Ansible" — display
+    summary: str       # one line, for `forge plugins`
+    outdir: str        # output subdirectory, defaults to == name
 
 @dataclass(frozen=True)
 class Command:
-    """Une commande de validation externe déclarée par un plugin."""
-    label: str                       # "helm lint (prod)" — repris tel quel dans le rapport
-    tool: str                        # binaire à localiser ("helm", "ansible-lint")
-    argv: list[str]                  # arguments, sans le binaire
-    cwd: Path | None = None          # défaut : répertoire du domaine
-    env: tuple[tuple[str, str], ...] = ()  # variables d'environnement (phase 3, R1)
-    stdin_from: str | None = None    # label d'une commande dont stdout alimente ce stdin
+    """An external validation command declared by a plugin."""
+    label: str                       # "helm lint (prod)" — reused as-is in the report
+    tool: str                        # binary to locate ("helm", "ansible-lint")
+    argv: list[str]                  # arguments, without the binary
+    cwd: Path | None = None          # default: the domain's directory
+    env: tuple[tuple[str, str], ...] = ()  # environment variables (phase 3, R1)
+    stdin_from: str | None = None    # label of a command whose stdout feeds this stdin
     timeout: int = 300
-    install_hint: str = ""           # message affiché si le binaire est absent
-    requires_linux: bool = False     # autorise le repli WSL sous Windows
+    install_hint: str = ""           # message shown if the binary is absent
+    requires_linux: bool = False     # allows the WSL fallback under Windows
 
 @dataclass(frozen=True)
 class Issue:
-    """Un constat de validation inter-domaines."""
+    """A cross-domain validation finding."""
     level: Literal["error", "warning"]
-    message: str                     # phrase actionnable
-    hint: str = ""                   # correction suggérée
-    domains: tuple[str, ...] = ()    # domaines concernés
+    message: str                     # actionable sentence
+    hint: str = ""                   # suggested correction
+    domains: tuple[str, ...] = ()    # domains concerned
 
 @dataclass(frozen=True)
 class Projection:
-    """Ce qu'un domaine affirme avoir produit, exprimé sans vocabulaire de domaine.
+    """What a domain claims to have produced, expressed without domain vocabulary.
 
-    Le cœur compare les projections entre elles : deux domaines qui déclarent la
-    même facette doivent déclarer la même valeur. C'est ce mécanisme — et non des
-    règles « si ansible alors… » — qui implémente les contrôles inter-domaines.
+    The core compares projections with one another: two domains declaring the
+    same facet must declare the same value. It is this mechanism — and not
+    "if ansible then…" rules — that implements the cross-domain checks.
     """
     service_name: str
-    environments: tuple[str, ...]   # ceux que le domaine MATÉRIALISE (phase 5),
-                                    # pas une recopie de service.environments
+    environments: tuple[str, ...]   # the ones the domain MATERIALISES (phase 5),
+                                    # not a copy of service.environments
     labels: dict[str, str] = field(default_factory=dict)
     facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    # ex. ansible → {"inventory_hosts": (...), "groups": (...)}
-    #     helm    → {"namespaces": (...), "ingress_hosts": (...)}
+    # e.g. ansible → {"inventory_hosts": (...), "groups": (...)}
+    #      helm    → {"namespaces": (...), "ingress_hosts": (...)}
     #
-    # Le nom d'une facette appartient à un VOCABULAIRE PARTAGÉ entre domaines
-    # (`forge.validate.consistency.FACET_VOCABULARY`) : deux domaines qui
-    # emploient le même nom affirment parler de la même chose. Une facette hors
-    # vocabulaire n'est comparée à personne.
+    # A facet name belongs to a VOCABULARY SHARED between domains
+    # (`forge.validate.consistency.FACET_VOCABULARY`): two domains that use the
+    # same name assert that they are talking about the same thing. A facet
+    # outside the vocabulary is compared to nobody.
     #
-    # Corrigé en phase 5 : cette section proposait `hosts` pour les deux
-    # domaines, en supposant que même nom = même sens. Ansible entendait par là
-    # ses machines d'inventaire, Helm ses hôtes d'Ingress — et `forge validate`
-    # échouait sur toute spécification à deux domaines. C'est le premier défaut
-    # qu'a révélé la rencontre de deux domaines réels.
+    # Corrected in phase 5: this section proposed `hosts` for both domains,
+    # assuming that same name = same meaning. Ansible meant its inventory
+    # machines by it, Helm its Ingress hosts — and `forge validate` failed on
+    # every two-domain specification. It is the first defect that the meeting
+    # of two real domains revealed.
 ```
 
 ### 2.2 Hookspecs
@@ -101,135 +101,135 @@ hookspec = pluggy.HookspecMarker("forge")
 
 @hookspec
 def forge_domain() -> DomainInfo:
-    """Identité du domaine. Seul hook obligatoire pour être découvert."""
+    """Domain identity. The only hook required to be discovered."""
 
 @hookspec
 def forge_spec_model() -> type[BaseModel]:
-    """Sous-modèle pydantic validant la section <domaine> de forge.yml.
+    """Pydantic submodel validating the <domain> section of forge.yml.
 
-    Le cœur assemble le modèle racine à partir des sous-modèles enregistrés :
-    chaque section est optionnelle, l'absence de section signifie « domaine non
-    généré ». Aucune connaissance du contenu côté cœur.
+    The core assembles the root model from the registered submodels: every
+    section is optional, an absent section means "domain not generated". No
+    knowledge of the content on the core side.
     """
 
 @hookspec
 def forge_interview(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conduit l'entretien du domaine et retourne sa section de forge.yml.
+    """Conducts the domain's interview and returns its forge.yml section.
 
-    Le plugin pilote son propre questionnaire à travers le protocole `Prompter`
-    fourni par le cœur (text/confirm/select/checkbox/note), jamais questionary
-    directement : c'est ce qui rend l'entretien rejouable en test.
-    Retourne None si l'utilisateur décline le domaine.
+    The plugin drives its own questionnaire through the `Prompter` protocol
+    provided by the core (text/confirm/select/checkbox/note), never questionary
+    directly: that is what makes the interview replayable in tests.
+    Returns None if the user declines the domain.
     """
 
 @hookspec
 def forge_template_subdir() -> str:
-    """Chemin du gabarit copier, relatif à la racine du dépôt forge.
+    """Path of the copier template, relative to the forge repository root.
 
-    Exemple : "src/forge/plugins/ansible/template".
-    Passé à copier via `_subdirectory` (cf. §5).
+    Example: "src/forge/plugins/ansible/template".
+    Passed to copier through `_subdirectory` (see §5).
     """
 
 @hookspec
 def forge_answers(spec: ForgeSpec) -> dict[str, Any]:
-    """Projette la spec unifiée vers le dict `domain` passé à copier.
+    """Projects the unified spec into the `domain` dict passed to copier.
 
-    Sortie JSON-sérialisable et **déterministe** (ordre des clés figé) : elle est
-    écrite telle quelle dans `.copier-answers.yml` et rejouée par `copier update`.
+    Output JSON-serialisable and **deterministic** (fixed key order): it is
+    written as-is into `.copier-answers.yml` and replayed by `copier update`.
     """
 
 @hookspec
 def forge_validators(spec: ForgeSpec, outdir: Path) -> list[Command]:
-    """Commandes externes validant le domaine généré, dans l'ordre d'exécution."""
+    """External commands validating the generated domain, in execution order."""
 
 @hookspec
 def forge_projection(spec: ForgeSpec) -> Projection:
-    """Ce que le domaine affirme produire, pour les contrôles inter-domaines."""
+    """What the domain claims to produce, for the cross-domain checks."""
 
 @hookspec
 def forge_check_spec(spec: ForgeSpec) -> list[Issue]:
-    """Contrôles croisés sur la **spécification**, avant tout rendu.
+    """Cross-checks on the **specification**, before any render.
 
-    Un sous-modèle de plugin ne voit que sa section : il ne peut pas vérifier
-    seul ce qui touche au bloc partagé `service:`. Le cœur appelle ce hook juste
-    après l'assemblage du modèle ; un `Issue` de niveau `error` arrête la
-    génération, un `warning` est affiché et laisse passer.
+    A plugin submodel only sees its own section: on its own it cannot verify
+    what touches the shared `service:` block. The core calls this hook right
+    after assembling the model; an `Issue` at level `error` stops generation, a
+    `warning` is displayed and lets it through.
 
-    Ajouté à la revue d'interface de la phase 4 (arbitrage R2) : sans lui, une
-    spécification incohérente était générée sans broncher et l'erreur ne
-    sortait qu'au `forge validate` suivant.
+    Added at the phase 4 interface review (arbitration R2): without it, an
+    inconsistent specification was generated without flinching and the error
+    only came out at the next `forge validate`.
     """
 
 
 @hookspec
 def forge_consistency(spec: ForgeSpec, outdirs: dict[str, Path]) -> list[Issue]:
-    """Contrôles supplémentaires propres au plugin (échappatoire).
+    """Additional plugin-specific checks (escape hatch).
 
-    Seul hook appelé sur **tous** les plugins à la fois ; les résultats sont
-    concaténés. À n'utiliser que pour ce que `forge_projection` ne peut pas dire.
+    The only hook called on **all** the plugins at once; the results are
+    concatenated. To be used only for what `forge_projection` cannot say.
     """
 
 @hookspec
 def forge_catalog() -> list[CatalogEntry] | None:
-    """Catalogue consultable via `forge catalog <domaine>` (facultatif)."""
+    """Catalogue browsable through `forge catalog <domain>` (optional)."""
 ```
 
-### 2.3 Appel des hooks — point d'attention pluggy
+### 2.3 Calling the hooks — a pluggy gotcha
 
-`pm.hook.forge_answers(...)` appelle **tous** les plugins et retourne une liste.
-Or forge a besoin d'adresser **un** domaine à la fois. Le cœur encapsule donc
-`pm.subset_hook_caller()` dans une façade :
+`pm.hook.forge_answers(...)` calls **all** the plugins and returns a list. But
+forge needs to address **one** domain at a time. The core therefore wraps
+`pm.subset_hook_caller()` in a façade:
 
 ```python
-manager.domains()            # -> list[DomainInfo], trié par nom (déterminisme)
-manager.domain("ansible")    # -> DomainHooks : .spec_model() .answers(spec) .validators(...) …
+manager.domains()            # -> list[DomainInfo], sorted by name (determinism)
+manager.domain("ansible")    # -> DomainHooks: .spec_model() .answers(spec) .validators(...) …
 ```
 
-Aucun `firstresult=True` sur les hooks propres à un domaine : ils seraient
-silencieusement captés par le premier plugin enregistré. Seul `forge_consistency`
-est consommé en mode « tous les plugins ».
+No `firstresult=True` on the domain-specific hooks: they would be silently
+captured by the first registered plugin. Only `forge_consistency` is consumed in
+"all the plugins" mode.
 
-### 2.4 Enregistrement
+### 2.4 Registration
 
-Phase 2 : les plugins internes (`demo`, puis `ansible`, `helm`) sont enregistrés
-en dur dans `forge/plugins_api/manager.py`. La découverte par entry-points
-(`pm.load_setuptools_entrypoints("forge")`) est ajoutée plus tard sans changer le
-contrat. **Ajouter un domaine ne doit toucher aucun fichier du cœur** hormis cette
-liste d'enregistrement.
+Phase 2: the internal plugins (`demo`, then `ansible`, `helm`) are registered
+hard-coded in `forge/plugins_api/manager.py`. Discovery through entry points
+(`pm.load_setuptools_entrypoints("forge")`) is added later without changing the
+contract. **Adding a domain must not touch any core file** other than that
+registration list.
 
 ---
 
-## 3. Format de `forge.yml`
+## 3. `forge.yml` format
 
-Une section partagée `service:`, une section optionnelle par plugin. Un domaine
-absent n'est pas généré.
+One shared `service:` section, one optional section per plugin. An absent domain
+is not generated.
 
 ```yaml
 ---
 forge_version: 1
 
 # ---------------------------------------------------------------------------
-# Bloc partagé : ce que tous les domaines doivent voir de la même façon.
+# Shared block: what all the domains must see in the same way.
 # ---------------------------------------------------------------------------
 service:
-  name: shop                      # DNS label : sert de nom de projet, de chart et de préfixe
-  description: "Boutique en ligne"
-  owner: "Equipe Plateforme"
-  owner_email: "plateforme@example.com"
-  labels:                         # labels métier, repris par tous les domaines
+  name: shop                      # DNS label: used as project name, chart name and prefix
+  description: "Online storefront"
+  owner: "Platform Team"
+  owner_email: "platform@example.com"
+  labels:                         # business labels, picked up by every domain
     app.kubernetes.io/part-of: commerce
     tier: frontend
-  environments:                   # ordre significatif : dev -> staging -> prod
+  environments:                   # order is significant: dev -> staging -> prod
     - name: dev
-      domain: dev.example.net     # domaine DNS de l'environnement (facultatif)
+      domain: dev.example.net     # DNS domain of the environment (optional)
     - name: staging
       domain: staging.example.net
     - name: prod
       domain: example.net
-      production: true            # active les profils durcis des plugins
+      production: true            # turns on the plugins' hardened profiles
 
 # ---------------------------------------------------------------------------
-# Domaine Ansible
+# Ansible domain
 # ---------------------------------------------------------------------------
 ansible:
   os_family: debian               # debian | redhat
@@ -243,12 +243,12 @@ ansible:
     write_ci: false
   groups:
     - name: webservers
-      description: "Serveurs web frontaux"
+      description: "Front-end web servers"
       roles: [common, users, ssh_hardening, firewall, nginx]
     - name: dbservers
-      description: "Serveurs de base de données"
+      description: "Database servers"
       roles: [common, users, ssh_hardening, firewall, postgresql]
-  hosts:                          # par environnement, puis par groupe
+  hosts:                          # per environment, then per group
     dev:
       webservers:
         - {name: web-dev-01, ansible_host: 192.168.56.11}
@@ -260,14 +260,14 @@ ansible:
         - {name: web-prod-02, ansible_host: 10.0.1.12}
       dbservers:
         - {name: db-prod-01, ansible_host: 10.0.2.11}
-  roles:                          # options des rôles ; complété par les défauts du catalogue
+  roles:                          # role options; completed by the catalogue defaults
     - name: nginx
       options:
         nginx_server_name: shop.example.net
         nginx_document_root: /var/www/shop
 
 # ---------------------------------------------------------------------------
-# Domaine Helm
+# Helm domain
 # ---------------------------------------------------------------------------
 helm:
   kubernetes:
@@ -289,27 +289,27 @@ helm:
       kind: deployment
       addons: [configmap]
   secrets:
-    strategy: placeholder         # jamais de valeur réelle générée
+    strategy: placeholder         # never a real value generated
   extras:
     makefile: true
     helm_tests: true
 
 # ---------------------------------------------------------------------------
-# Domaine Terraform (phase 7)
+# Terraform domain (phase 7)
 # ---------------------------------------------------------------------------
-# Le socle sur lequel les autres domaines se posent : le cloisonnement, son
-# budget, l'identité qui y déploie. Pas la charge applicative — c'est Helm.
+# The foundation the other domains sit on: the partitioning, its budget, the
+# identity that deploys into it. Not the application workload — that is Helm.
 terraform:
-  terraform_version: "~> 1.9"     # contrainte, jamais une version nue
+  terraform_version: "~> 1.9"     # a constraint, never a bare version
   namespace_strategy: per_env     # same | per_env | custom
-  resources:                      # familles retenues ; le reste n'est pas généré
+  resources:                      # selected families; the rest is not generated
     - namespace
     - quota
     - service_account
   backend:
     kind: s3                      # local | s3 | gcs | azurerm | http
-    config:                       # aucune clé secrète : le modèle les refuse
-      bucket: etats-terraform
+    config:                       # no secret key: the model refuses them
+      bucket: terraform-states
       region: eu-west-3
   kubernetes:
     auth: kubeconfig              # kubeconfig | in_cluster
@@ -325,135 +325,135 @@ terraform:
 
 ```yaml
 # ---------------------------------------------------------------------------
-# Domaine monitoring (phase 9)
+# monitoring domain (phase 9)
 # ---------------------------------------------------------------------------
-# Domaine autonome : il ne lit aucune autre section. Ce qu'il surveille est
-# déclaré ici, et la cohérence avec les autres domaines passe par les facettes.
+# A self-contained domain: it reads no other section. What it watches is
+# declared here, and consistency with the other domains goes through facets.
 monitoring:
   scrape:
-    interval: 30s                 # le délai doit rester sous l'intervalle
+    interval: 30s                 # the timeout must stay under the interval
     timeout: 10s
     metrics_path: /metrics
-  metrics:                        # noms propres à la bibliothèque cliente
+  metrics:                        # names specific to the client library
     requests_total: http_requests_total
     request_duration_seconds: http_request_duration_seconds
     status_label: status
-  rules:                          # familles retenues ; le reste n'est pas généré
+  rules:                          # selected families; the rest is not generated
     - availability
     - error_rate
     - probe
   environments:
     prod:
-      namespace: boutique-prod
+      namespace: storefront-prod
       targets: ["api-1.example.net:9090"]
-      probe_urls: ["https://boutique.example.net"]
+      probe_urls: ["https://storefront.example.net"]
       thresholds: { error_rate: 0.02, certificate_days: 30 }
   extras:
     makefile: true
     dashboard: true
 ```
 
-Une configuration de collecte et un jeu de règles **par environnement** : les
-seuils diffèrent, le namespace observé aussi. Chaque règle d'alerte est livrée
-avec le test unitaire qui prouve qu'elle se déclenche — ce n'est pas une option.
+One scrape configuration and one rule set **per environment**: the thresholds
+differ, and so does the observed namespace. Every alerting rule is delivered
+with the unit test that proves it fires — that is not an option.
 
 ```yaml
 # ---------------------------------------------------------------------------
-# Domaine pipeline (phase 8)
+# pipeline domain (phase 8)
 # ---------------------------------------------------------------------------
-# Le seul domaine dont la sortie dépend des AUTRES sections, et le seul dont la
-# sortie est la racine du dépôt : un fichier de CI n'existe que là où son outil
-# le lit.
+# The only domain whose output depends on the OTHER sections, and the only one
+# whose output is the repository root: a CI file exists only where the tool
+# that reads it looks.
 pipeline:
   provider: github              # github | gitlab
-  runner: ""                    # vide : défaut propre à l'outil choisi
+  runner: ""                    # empty: default specific to the chosen tool
   trigger:
     branches: [main]
     on_pull_request: true
-  build:                        # absent : aucun job de construction
+  build:                        # absent: no build job
     context: .
     dockerfile: Dockerfile
     registry: ghcr.io
-    image: acme/boutique
-  deploy:                       # absent : le pipeline se limite à valider
-    environments: [dev, prod]   # vide : tous
+    image: acme/storefront
+  deploy:                       # absent: the pipeline limits itself to validating
+    environments: [dev, prod]   # empty: all of them
     manual_for_production: true
     sequential: true
 ```
 
-Rien ici ne dit **quels domaines valider** ni **quelles commandes lancer** :
-ceux-là sont ceux que la spécification demande, et chaque domaine déclare ses
-propres commandes (`forge_validators`, `forge_deploy`). Le cœur transmet ces
-faits par un `GenerationContext` ; il n'ordonnance rien.
+Nothing here says **which domains to validate** or **which commands to run**:
+those are the ones the specification asks for, and every domain declares its own
+commands (`forge_validators`, `forge_deploy`). The core passes those facts along
+through a `GenerationContext`; it schedules nothing.
 
-La clé d'état (`key`, `prefix`) n'est **pas** demandée à la spécification : elle
-est dérivée par environnement, pour que deux racines n'écrivent jamais le même
-état. Le domaine Terraform déclare la facette `namespaces`, la même que Helm :
-c'est là que les deux domaines doivent s'accorder, et `forge validate` le
-vérifie sans qu'aucune règle « si terraform alors helm » n'existe dans le cœur.
+The state key (`key`, `prefix`) is **not** asked of the specification: it is
+derived per environment, so that two roots never write the same state. The
+Terraform domain declares the `namespaces` facet, the same one as Helm: that is
+where the two domains must agree, and `forge validate` checks it without any
+"if terraform then helm" rule existing in the core.
 
-### 3.1 Correspondance avec les specs legacy
+### 3.1 Correspondence with the legacy specs
 
-| Champ legacy | Origine | Cible dans `forge.yml` |
+| Legacy field | Origin | Target in `forge.yml` |
 |---|---|---|
 | `project_name` | ansible | `service.name` |
 | `description`, `author` | ansible | `service.description`, `service.owner` |
 | `environments[].name` | ansible | `service.environments[].name` |
 | `environments[].hosts` | ansible | `ansible.hosts.<env>` |
 | `environments[].group_vars` | ansible | `ansible.group_vars.<env>` |
-| `groups`, `roles`, `options`, `os_family`, `remote_user`, `become`, `ssh_port`, `python_interpreter` | ansible | section `ansible:` à l'identique |
-| `spec_version` | ansible | `forge_version` (unifié) |
+| `groups`, `roles`, `options`, `os_family`, `remote_user`, `become`, `ssh_port`, `python_interpreter` | ansible | `ansible:` section, identical |
+| `spec_version` | ansible | `forge_version` (unified) |
 | `app.name` | helm | `service.name` |
 | `app.description`, `app.maintainer_*` | helm | `service.description`, `service.owner`, `service.owner_email` |
 | `app.chart_version`, `app.app_version` | helm | `helm.chart_version`, `helm.app_version` |
 | `environments[].name` | helm | `service.environments[].name` |
-| `environments[].namespace`, `.log_level`, `.components`, `.extra_values` | helm | `helm.environments.<env>` (surcharges) |
-| `kubernetes`, `layout`, `namespace_strategy`, `create_namespace`, `image`, `components`, `secrets`, `extras` | helm | section `helm:` à l'identique |
-| `schema_version` | helm | `forge_version` (unifié) |
+| `environments[].namespace`, `.log_level`, `.components`, `.extra_values` | helm | `helm.environments.<env>` (overrides) |
+| `kubernetes`, `layout`, `namespace_strategy`, `create_namespace`, `image`, `components`, `secrets`, `extras` | helm | `helm:` section, identical |
+| `schema_version` | helm | `forge_version` (unified) |
 
-Convertisseur : **non nécessaire en production** (aucun `forge.yml` legacy n'existe
-hors des dépôts d'origine), mais un helper **de test** `tests/legacy_spec.py`
-convertira les 5 specs ansible et les 2 specs helm pour alimenter les
-instantanés de parité des phases 3 et 4.
+Converter: **not needed in production** (no legacy `forge.yml` exists outside
+the original repositories), but a **test** helper `tests/legacy_spec.py` will
+convert the 5 ansible specs and the 2 helm specs to feed the parity snapshots of
+phases 3 and 4.
 
 ---
 
-## 4. Arborescence générée (monorepo deux domaines)
+## 4. Generated tree (two-domain monorepo)
 
 ```
-<cible>/
-├── forge.yml                    # copie de la spec (rejouabilité) — écrite par le cœur
-├── README.md                    # index des domaines — écrit par le cœur (cf. §8 Q6)
-├── .gitattributes               # eol=lf, indispensable aux comparaisons golden
+<target>/
+├── forge.yml                    # copy of the spec (replayability) — written by the core
+├── README.md                    # domain index — written by the core (see §8 Q6)
+├── .gitattributes               # eol=lf, indispensable to the golden comparisons
 ├── ansible/
 │   ├── .copier-answers.yml      # _commit, _src_path, plugin, service, domain
 │   ├── ansible.cfg
 │   ├── requirements.yml
 │   ├── inventories/<env>/hosts.yml
-│   ├── inventories/<env>/group_vars/{all,<groupe>}.yml
-│   ├── inventories/<env>/host_vars/<hôte>.yml
-│   ├── group_vars/<groupe>.yml
-│   ├── playbooks/{site,ping,<groupe>}.yml
-│   └── roles/<rôle>/{tasks,handlers,defaults,vars,meta,templates,README.md}
+│   ├── inventories/<env>/group_vars/{all,<group>}.yml
+│   ├── inventories/<env>/host_vars/<host>.yml
+│   ├── group_vars/<group>.yml
+│   ├── playbooks/{site,ping,<group>}.yml
+│   └── roles/<role>/{tasks,handlers,defaults,vars,meta,templates,README.md}
 └── helm/
     ├── .copier-answers.yml
     ├── Makefile
     └── charts/<service>/
         ├── Chart.yaml, values.yaml, values-<env>.yaml, README.md, .helmignore
-        └── templates/{_helpers.tpl, NOTES.txt, <composant>-<ressource>.yaml, tests/}
+        └── templates/{_helpers.tpl, NOTES.txt, <component>-<resource>.yaml, tests/}
 ```
 
-Chaque domaine est autonome : son `.copier-answers.yml` permet de le mettre à jour
-seul (`forge update --only helm`).
+Every domain is self-contained: its `.copier-answers.yml` allows it to be
+updated on its own (`forge update --only helm`).
 
 ---
 
-## 5. Invocation de copier
+## 5. Invoking copier
 
-### 5.1 `copier.yml` racine (unique, à la racine du dépôt forge)
+### 5.1 Root `copier.yml` (single, at the forge repository root)
 
 ```yaml
-_subdirectory: "[[ template_subdir ]]"     # fourni par le hook forge_template_subdir
+_subdirectory: "[[ template_subdir ]]"     # provided by the forge_template_subdir hook
 _answers_file: .copier-answers.yml
 _templates_suffix: .jinja
 _jinja_extensions:
@@ -469,8 +469,8 @@ _envops:
   lstrip_blocks: true
   keep_trailing_newline: true
 
-# Questions déclarées : SEULES les questions déclarées sont enregistrées dans le
-# fichier de réponses, donc seules elles survivent à `copier update`.
+# Declared questions: ONLY the declared questions are recorded in the answers
+# file, so only they survive `copier update`.
 plugin:          {type: str}
 template_subdir: {type: str}
 forge_version:   {type: int, default: 1}
@@ -478,20 +478,19 @@ service:         {type: json}
 domain:          {type: json}
 ```
 
-Un seul `copier.yml`, donc des délimiteurs `[[ ]]` **pour tous les plugins** — y
-compris Ansible (cf. §8 Q1). Les gabarits accèdent à `[[ service.name ]]`,
-`[[ domain.groups ]]`, etc.
+A single `copier.yml`, hence a single set of delimiters `[[ ]]` **for all the
+plugins** — Ansible included (see §8 Q1). The templates access
+`[[ service.name ]]`, `[[ domain.groups ]]`, and so on.
 
-Chaque gabarit de plugin contient obligatoirement
-`[[ _copier_conf.answers_file ]].jinja` (sinon aucun fichier de réponses n'est
-écrit et l'update est impossible).
+Every plugin template must contain `[[ _copier_conf.answers_file ]].jinja`
+(otherwise no answers file is written and the update is impossible).
 
-### 5.2 Génération
+### 5.2 Generation
 
 ```python
 run_copy(
-    src_path=str(template_root),               # racine du dépôt forge (dépôt git)
-    dst_path=str(target / domain.outdir),      # <cible>/ansible
+    src_path=str(template_root),               # forge repository root (git repository)
+    dst_path=str(target / domain.outdir),      # <target>/ansible
     data={
         "plugin": domain.name,
         "template_subdir": hooks.template_subdir(),
@@ -499,25 +498,25 @@ run_copy(
         "service": spec.service.model_dump(mode="json"),
         "domain": hooks.answers(spec),
     },
-    defaults=True,      # obligatoire : sinon prompt interactif -> plantage sous Git Bash
-    unsafe=True,        # requis dès qu'on déclare _jinja_extensions
+    defaults=True,      # mandatory: otherwise an interactive prompt -> crash under Git Bash
+    unsafe=True,        # required as soon as _jinja_extensions is declared
     quiet=True,
     overwrite=force,
-    vcs_ref=ref,        # "HEAD" par défaut : inclut les gabarits non committés
+    vcs_ref=ref,        # "HEAD" by default: includes the uncommitted templates
 )
 ```
 
-`template_root` est résolu dans cet ordre : `$FORGE_TEMPLATE_SRC`, puis la racine
-git contenant `forge/__init__.py`, puis l'URL de publication (usage installé).
+`template_root` is resolved in this order: `$FORGE_TEMPLATE_SRC`, then the git
+root containing `forge/__init__.py`, then the publication URL (installed usage).
 
-Sous Windows, le cœur enveloppe tout appel copier avec
-`GIT_CONFIG_COUNT=1 / GIT_CONFIG_KEY_0=core.longpaths / GIT_CONFIG_VALUE_0=true` :
-les noms de chemin porteurs de `yield` dépassent sinon la limite dans le clone
-temporaire de copier.
+Under Windows, the core wraps every copier call with
+`GIT_CONFIG_COUNT=1 / GIT_CONFIG_KEY_0=core.longpaths / GIT_CONFIG_VALUE_0=true`:
+path names carrying `yield` otherwise go past the limit in copier's temporary
+clone.
 
-### 5.3 Multiplicité des fichiers — la balise `yield`
+### 5.3 File multiplicity — the `yield` tag
 
-Le `planner.py` legacy disparaît au profit de chemins de gabarit :
+The legacy `planner.py` disappears in favour of template paths:
 
 ```
 inventories/[% yield e from domain.envs %][[ e.name ]][% endyield %]/hosts.yml.jinja
@@ -526,224 +525,227 @@ roles/[% yield r from domain.roles %][[ r.name ]][% endyield %]/tasks/main.yml.j
 charts/[[ service.name ]]/values-[% yield e from domain.envs %][[ e.name ]][% endyield %].yaml.jinja
 ```
 
-Règles (vérifiées) : une seule balise `yield` par **segment** de chemin ;
-imbrication possible entre segments, la variable du segment parent restant
-disponible ; interdite dans le contenu d'un fichier ; un segment rendu vide
-supprime le fichier (`[% if %]` = filtre de fichier).
+Rules (verified): a single `yield` tag per path **segment**; nesting possible
+between segments, the parent segment's variable staying available; forbidden
+inside a file's content; a segment rendered empty deletes the file (`[% if %]`
+= file filter).
 
-Conséquence pour les rôles Ansible : les gabarits communs à tous les rôles
-(`meta`, `README`) s'écrivent une fois sous un `yield` de rôle ; les fichiers
-spécifiques à un rôle (ex. `firewall/tasks/ufw.yml`) sont filtrés par
-`[% if r.name == 'firewall' %]`, ou rangés dans un sous-arbre conditionnel.
-**Arbitrage à faire en phase 3 sur un rôle réel avant de convertir les 7.**
+Consequence for the Ansible roles: the templates common to all the roles
+(`meta`, `README`) are written once under a role `yield`; the files specific to
+one role (e.g. `firewall/tasks/ufw.yml`) are filtered by
+`[% if r.name == 'firewall' %]`, or filed under a conditional subtree.
+**Arbitration to be made in phase 3 on a real role before converting the 7.**
 
 ### 5.4 `forge update`
 
 ```python
-# 1. réécrire _src_path (absolu, donc lié au poste d'origine) vers template_root
-# 2. puis :
+# 1. rewrite _src_path (absolute, hence tied to the originating workstation) to template_root
+# 2. then:
 run_update(dst_path=str(target / domain.outdir),
            defaults=True, overwrite=True, unsafe=True,
            conflict="inline", vcs_ref=ref)
 ```
 
-Vérifié : une évolution de gabarit est fusionnée à trois branches dans un fichier
-édité à la main, les deux modifications étant conservées. `_commit` passe d'un tag
-à l'autre. `--only` restreint aux domaines demandés.
+Verified: a template evolution is three-way merged into a hand-edited file, both
+modifications being preserved. `_commit` moves from one tag to the other.
+`--only` restricts to the requested domains.
 
-Prérequis : le répertoire cible est un dépôt git (copier l'exige pour la fusion),
-et le gabarit doit être **committé** si `--ref` désigne un tag.
+Prerequisites: the target directory is a git repository (copier requires it for
+the merge), and the template must be **committed** if `--ref` designates a tag.
 
 ### 5.5 `forge diff`
 
-Rendu dans un répertoire temporaire (`run_copy` vers un tmpdir, jamais `pretend`,
-qui n'écrit rien), puis comparaison structurelle avec la cible :
-fichiers ajoutés / supprimés / modifiés, et nombre de lignes changées. Résumé
-seulement — aucun diff intégral affiché (règle d'économie de contexte).
+Rendered into a temporary directory (`run_copy` into a tmpdir, never `pretend`,
+which writes nothing), then structurally compared with the target: files added /
+removed / modified, and the number of changed lines. Summary only — no full diff
+displayed (context economy rule).
 
 ---
 
 ## 6. Validation
 
-1. **Validateurs de domaine** : `forge_validators(spec, outdir) -> list[Command]`,
-   exécutés par le runner du cœur (subprocess, timeout, capture, chaînage stdin
-   via `stdin_from`, rapport `Report`/`Check` repris de helm-forge).
-2. **Outil absent** : message d'installation (`install_hint`), pas de trace Python.
-   Sortie en échec explicite, ou `SKIP` signalé si `--skip-missing`.
-3. **Repli WSL** : sous Windows, une commande `requires_linux=True` est relancée
-   via `wsl.exe -d <distro>`, le projet étant recopié hors du montage Windows
-   (Ansible refuse un `ansible.cfg` world-writable). Portage direct de
+1. **Domain validators**: `forge_validators(spec, outdir) -> list[Command]`, run
+   by the core's runner (subprocess, timeout, capture, stdin chaining through
+   `stdin_from`, `Report`/`Check` reporting taken over from helm-forge).
+2. **Missing tool**: installation message (`install_hint`), no Python traceback.
+   Explicit failure exit, or `SKIP` reported if `--skip-missing`.
+3. **WSL fallback**: under Windows, a `requires_linux=True` command is relaunched
+   through `wsl.exe -d <distro>`, the project being copied outside the Windows
+   mount (Ansible refuses a world-writable `ansible.cfg`). Direct port of
    `tests/ansible_tools.py`.
-4. **Contrôles inter-domaines** (cœur, domaine-agnostiques) : comparaison des
-   `Projection` — `service_name` identique partout, `environments` identiques,
-   `labels` non contradictoires, puis toute `facet` déclarée par au moins deux
-   domaines (ex. `hosts` déclaré par ansible et par helm via les hôtes d'Ingress).
-5. **Échappatoire** : `forge_consistency` pour ce que les projections ne
-   capturent pas.
+4. **Cross-domain checks** (core, domain-agnostic): comparison of the
+   `Projection`s — `service_name` identical everywhere, `environments`
+   identical, `labels` not contradictory, then every `facet` declared by at
+   least two domains (e.g. `hosts` declared by ansible and by helm through the
+   Ingress hosts).
+5. **Escape hatch**: `forge_consistency` for what the projections do not
+   capture.
 
 ---
 
-## 7. Surface CLI
+## 7. CLI surface
 
-| Commande | Rôle |
+| Command | Role |
 |---|---|
-| `forge new [-o DIR] [--spec-out forge.yml] [--only a,b] [--force] [--dry-run]` | entretien (bloc `service:` par le cœur, puis `forge_interview` par domaine), écriture de `forge.yml`, génération |
-| `forge generate [-s forge.yml] [-o DIR] [--only …] [--ref REF] [--force] [--dry-run]` | régénère depuis une spec existante |
-| `forge validate [-s forge.yml] [-o DIR] [--only …] [--skip-missing]` | validateurs par domaine + contrôles inter-domaines |
-| `forge update [-o DIR] [--only …] [--ref REF] [--conflict inline\|rej]` | `copier update` par domaine |
-| `forge diff [-s forge.yml] [-o DIR] [--only …]` | écart entre la cible et un rendu neuf (résumé) |
-| `forge plugins` | domaines enregistrés, sections reconnues, état des outils externes |
-| `forge catalog <domaine> [élément]` | catalogue fourni par le plugin (rôles, composants) |
+| `forge new [-o DIR] [--spec-out forge.yml] [--only a,b] [--force] [--dry-run]` | interview (`service:` block by the core, then `forge_interview` per domain), writing of `forge.yml`, generation |
+| `forge generate [-s forge.yml] [-o DIR] [--only …] [--ref REF] [--force] [--dry-run]` | regenerates from an existing spec |
+| `forge validate [-s forge.yml] [-o DIR] [--only …] [--skip-missing]` | per-domain validators + cross-domain checks |
+| `forge update [-o DIR] [--only …] [--ref REF] [--conflict inline\|rej]` | `copier update` per domain |
+| `forge diff [-s forge.yml] [-o DIR] [--only …]` | gap between the target and a fresh render (summary) |
+| `forge plugins` | registered domains, recognised sections, state of the external tools |
+| `forge catalog <domain> [item]` | catalogue provided by the plugin (roles, components) |
 | `forge --version` | version |
 
-Conventions communes : `--only` accepte une liste de domaines (erreur explicite
-sur un domaine inconnu), `--dry-run` n'écrit rien, sortie non colorée si
-`NO_COLOR` est défini.
+Common conventions: `--only` accepts a list of domains (explicit error on an
+unknown domain), `--dry-run` writes nothing, output is not coloured if
+`NO_COLOR` is defined.
 
 ---
 
-## 8. Questions ouvertes — **arbitrees le 2026-08-23**
+## 8. Open questions — **arbitrated on 2026-08-23**
 
-> Les huit questions ont ete tranchees. Q1, Q5, Q6 et Q7 par reponse explicite ;
-> Q2, Q3, Q4 et Q8 retenues telles que recommandees, sans objection. Cette
-> section est desormais un releve de decisions : ne pas la rouvrir sans raison
-> nouvelle. Q9 en est une, apparue en production le 2026-09-24 et arbitree le
-> jour meme : elle s'ajoute a la suite, elle ne rouvre aucune des huit.
+> The eight questions have been settled. Q1, Q5, Q6 and Q7 by an explicit
+> answer; Q2, Q3, Q4 and Q8 kept as recommended, without objection. This section
+> is from now on a record of decisions: do not reopen it without a new reason.
+> Q9 is one, which appeared in production on 2026-09-24 and was arbitrated the
+> same day: it is added after them, it reopens none of the eight.
 
-**Q1. Délimiteurs des gabarits Ansible.** Le legacy utilise `{{ }}` plus des
-helpers `j()`/`jstr()` et 6 blocs `{% raw %}` pour émettre du Jinja destiné à
-Ansible. Un `copier.yml` unique impose un seul jeu de délimiteurs.
-→ **DECISION : `[[ ]]` pour tous les plugins.** Les gabarits Ansible
-écrivent alors `{{ ma_variable }}` littéralement, `j()`/`jstr()` et les `{% raw %}`
-disparaissent. Simplification nette, au prix d'une conversion mécanique des
-51 gabarits en phase 3. *(Alternative : un dépôt de gabarit par plugin, donc
-plusieurs `copier.yml` — mais alors plus de `_subdirectory` unique et une
-mécanique d'update par plugin plus lourde.)*
+**Q1. Delimiters of the Ansible templates.** The legacy uses `{{ }}` plus
+`j()`/`jstr()` helpers and 6 `{% raw %}` blocks to emit Jinja destined for
+Ansible. A single `copier.yml` imposes a single set of delimiters.
+→ **DECISION: `[[ ]]` for all the plugins.** The Ansible templates then write
+`{{ my_variable }}` literally, `j()`/`jstr()` and the `{% raw %}` disappear. A
+clear simplification, at the price of a mechanical conversion of the 51
+templates in phase 3. *(Alternative: one template repository per plugin, hence
+several `copier.yml` — but then no single `_subdirectory` and a heavier
+per-plugin update mechanism.)*
 
-**Q2. Emplacement du gabarit et `copier update`.** Vérifié : un `src_path`
-pointant un sous-répertoire d'un dépôt git n'est pas reconnu comme gabarit
-versionné → update impossible.
-→ **DECISION : `copier.yml` unique à la racine du dépôt forge, avec
-`_subdirectory` fourni en donnée.** Validé de bout en bout (copy + update +
-fusion d'une édition manuelle).
+**Q2. Template location and `copier update`.** Verified: a `src_path` pointing
+at a subdirectory of a git repository is not recognised as a versioned template
+→ update impossible.
+→ **DECISION: a single `copier.yml` at the forge repository root, with
+`_subdirectory` supplied as data.** Validated end to end (copy + update + merge
+of a manual edit).
 
-**Q3. Forme des données passées à copier.** Trois questions déclarées
-(`plugin`, `service`, `domain`, plus `template_subdir` et `forge_version`) plutôt
-qu'une question par champ métier.
-→ **DECISION : la forme à cinq clés.** Seules les questions déclarées
-survivent à l'update ; un dict `domain` unique évite de dupliquer le schéma
-pydantic dans `copier.yml`, au prix d'un `.copier-answers.yml` plus verbeux
-(lisible, versionné, et c'est précisément ce qu'on veut relire).
+**Q3. Shape of the data passed to copier.** Three declared questions (`plugin`,
+`service`, `domain`, plus `template_subdir` and `forge_version`) rather than one
+question per business field.
+→ **DECISION: the five-key shape.** Only the declared questions survive the
+update; a single `domain` dict avoids duplicating the pydantic schema in
+`copier.yml`, at the price of a more verbose `.copier-answers.yml` (readable,
+versioned, and that is precisely what we want to re-read).
 
-**Q4. Contrôles inter-domaines.** Deux options : des règles écrites dans le cœur
-(qui deviendrait alors domaine-dépendant), ou des projections déclarées par les
-plugins et comparées par le cœur.
-→ **DECISION : `forge_projection` + comparaison générique**, avec
-`forge_consistency` comme échappatoire. Le cœur reste agnostique, et un troisième
-plugin (Terraform…) hérite des contrôles sans toucher au cœur.
+**Q4. Cross-domain checks.** Two options: rules written in the core (which would
+then become domain-dependent), or projections declared by the plugins and
+compared by the core.
+→ **DECISION: `forge_projection` + generic comparison**, with
+`forge_consistency` as the escape hatch. The core stays agnostic, and a third
+plugin (Terraform…) inherits the checks without touching the core.
 
-**Q5. Convertisseur de specs legacy.** Aucun `forge.yml` legacy n'existe hors des
-dépôts d'origine (5 specs ansible + 2 specs helm, toutes dans `tests/`).
-→ **DECISION : pas de commande `forge import` livrée.** Confirme : aucun
-`forge.yml` legacy n'existe hors des depots d'origine. Un helper de test
-(`tests/legacy_spec.py`) convertit les 7 specs pour alimenter les instantanes de
-parite des phases 3 et 4.
+**Q5. Legacy spec converter.** No legacy `forge.yml` exists outside the original
+repositories (5 ansible specs + 2 helm specs, all in `tests/`).
+→ **DECISION: no `forge import` command shipped.** Confirmed: no legacy
+`forge.yml` exists outside the original repositories. A test helper
+(`tests/legacy_spec.py`) converts the 7 specs to feed the parity snapshots of
+phases 3 and 4.
 
-**Q6. Fichiers de niveau dépôt** (`README.md`, `Makefile`, `.gitignore`,
-`.gitattributes` à la racine de la cible). Le legacy helm les génère depuis son
-gabarit `project/` ; en monorepo ils n'appartiennent à aucun domaine.
-→ **DECISION : le cœur écrit un minimum non-domaine** (`forge.yml`,
-`README.md` listant les domaines, `.gitattributes`) ; le `Makefile` helm et le
-`.gitignore` Ansible restent **dans leur sous-répertoire de domaine**
-(`helm/Makefile`), ce qui garde chaque domaine autonome et supprimable.
+**Q6. Repository-level files** (`README.md`, `Makefile`, `.gitignore`,
+`.gitattributes` at the root of the target). The helm legacy generates them from
+its `project/` template; in a monorepo they belong to no domain.
+→ **DECISION: the core writes a non-domain minimum** (`forge.yml`, a `README.md`
+listing the domains, `.gitattributes`); the helm `Makefile` and the Ansible
+`.gitignore` stay **in their domain subdirectory** (`helm/Makefile`), which keeps
+every domain self-contained and deletable.
 
-> **Conséquences constatées en phase 2** — ces trois fichiers sont les seuls que
-> forge écrit sans passer par copier, ce qui est une exception assumée à la règle
-> « le rendu passe toujours par copier » :
-> - ils ne sont pas suivis par `copier update`, donc `forge update` ne les
->   rafraîchit pas ; c'est `forge generate` qui les remet à jour ;
-> - `forge diff` les compare donc **explicitement** (rubrique `(racine)`), pour
->   ne jamais annoncer « à jour » sur ce qu'il n'aurait pas regardé ;
-> - `forge.yml` de la cible est la **source de vérité éditée à la main** : quand
->   la spécification lue *est* celle de la cible, elle n'est pas réécrite, sans
->   quoi la resérialisation détruirait les commentaires de l'équipe ;
-> - `README.md` et `.gitattributes` obéissent à la même règle que les fichiers de
->   domaine : pas d'écrasement d'un fichier modifié sans `--force` ;
-> - l'index liste les domaines **de la spécification**, jamais ceux du dernier
->   `--only` : un `forge generate --only ansible` ne doit pas faire disparaître
->   `helm/` du README d'un projet où la section `helm:` existe toujours.
+> **Consequences observed in phase 2** — these three files are the only ones
+> forge writes without going through copier, which is an assumed exception to the
+> "rendering always goes through copier" rule:
+> - they are not tracked by `copier update`, so `forge update` does not refresh
+>   them; it is `forge generate` that brings them up to date;
+> - `forge diff` therefore compares them **explicitly** (`(root)` heading), so as
+>   never to announce "up to date" about something it would not have looked at;
+> - the target's `forge.yml` is the **hand-edited source of truth**: when the
+>   specification read *is* the target's own, it is not rewritten, since
+>   re-serialising it would destroy the team's comments;
+> - `README.md` and `.gitattributes` obey the same rule as the domain files: no
+>   overwriting of a modified file without `--force`;
+> - the index lists the domains **of the specification**, never those of the last
+>   `--only`: a `forge generate --only ansible` must not make `helm/` disappear
+>   from the README of a project where the `helm:` section still exists.
 
-**Q7. Validation sous Windows.** Constat : ni ansible-core, ni ansible-lint, ni
-helm, ni kubeconform ne sont installés côté Windows ; helm 4.2.4 et kubeconform
-0.8.0 sont présents dans WSL Debian ; ansible-lint n'est installé nulle part.
-→ **DECISION : runner du cœur avec repli WSL** (portage de
-`tests/ansible_tools.py`). **`pipx install ansible-core ansible-lint` dans WSL
-Debian est a ma charge, au debut de la phase 3** (tache inscrite dans PLAN.md) ;
-la CI GitHub (Linux) reste l'autorite.
+**Q7. Validation under Windows.** Finding: neither ansible-core, nor
+ansible-lint, nor helm, nor kubeconform are installed on the Windows side; helm
+4.2.4 and kubeconform 0.8.0 are present in WSL Debian; ansible-lint is installed
+nowhere.
+→ **DECISION: core runner with a WSL fallback** (port of
+`tests/ansible_tools.py`). **`pipx install ansible-core ansible-lint` in WSL
+Debian is on me, at the start of phase 3** (task recorded in PLAN.md); the
+GitHub CI (Linux) remains the authority.
 
-**Q8. Gestion du dépôt et des versions de gabarit.** `copier update` compare des
-références git : par défaut le **dernier tag**. En développement, `--ref HEAD`
-inclut les gabarits non committés (vérifié).
-→ **DECISION : `--ref HEAD` par défaut** (le rendu suit l'arbre de travail,
-les tests golden aussi), tags `vX.Y.Z` posés à chaque phase pour offrir des points
-d'update stables aux projets générés.
+**Q8. Managing the repository and the template versions.** `copier update`
+compares git references: by default the **latest tag**. In development,
+`--ref HEAD` includes the uncommitted templates (verified).
+→ **DECISION: `--ref HEAD` by default** (the render follows the working tree,
+and so do the golden tests), `vX.Y.Z` tags placed at each phase to offer stable
+update points to the generated projects.
 
-**Q9. Versions des collections Galaxy du projet généré** — *question ouverte
-après coup, arbitrée le 2026-09-24.* `requirements.yml` nommait les collections
-sans aucune contrainte : `ansible-galaxy collection install -r requirements.yml`
-installait ce que Galaxy servait ce jour-là. La CI de forge a pris la panne en
-premier — `community.postgresql` 5.0.0 a supprimé `postgresql_set`, et un commit
-vieux de trois semaines est passé au rouge — mais la même exposition était livrée
-à chaque projet généré. « Même spécification, même sortie » ne dit rien tant que
-la sortie nomme des dépendances sans version.
-→ **DECISION : plancher *et* plafond de majeure**, autorisés une seule fois par
-collection dans `plugins/ansible/catalog/collections.py`.
-- **Par collection, jamais par rôle.** Deux rôles qui dépendent de la même
-  collection ne doivent pas pouvoir se contredire ; un `RoleDefinition` ne nomme
-  donc qu'un nom de collection. Un rôle qui nomme une collection absente de la
-  table casse l'import du plugin, pas le projet de l'utilisateur.
-- **Le plafond, et pas seulement le plancher.** Un plancher documente ce dont les
-  gabarits ont besoin, mais ne protège de rien : la casse vient toujours d'une
-  majeure publiée *après* la génération. *(Alternative écartée : plancher seul,
-  moins d'entretien pour forge, mais l'incident se reproduit tel quel chez
-  l'utilisateur, ce qui est précisément ce qu'on refuse de livrer.)*
-- **Conséquence assumée : forge doit suivre les majeures.** Sans montée de
-  version régulière, les projets générés vieillissent. La procédure est celle des
-  outils épinglés dans `.github/workflows/ci.yml` : monter la version validée en
-  CI, monter `max_major`, corriger les gabarits si la majeure a retiré quelque
-  chose, livrer la montée dans son propre commit. Un intervalle reste **élargi
-  par l'utilisateur à sa main** : `requirements.yml` est un fichier de son
-  projet, et l'en-tête généré le dit.
-- **Le plancher n'est jamais deviné.** Quand on sait ce qu'exigent les gabarits,
-  il le dit (`community.postgresql >= 3.13.0` pour `postgresql_alter_system`).
-  Sinon c'est la version validée en CI, avec la raison écrite dans le fichier
-  généré : forge ne prétend pas savoir ce qu'il n'a pas testé, et le plancher se
-  descend le jour où quelqu'un vérifie.
+**Q9. Galaxy collection versions of the generated project** — *a question opened
+after the fact, arbitrated on 2026-09-24.* `requirements.yml` named the
+collections without any constraint whatsoever:
+`ansible-galaxy collection install -r requirements.yml` installed whatever
+Galaxy served that day. forge's CI took the breakage first —
+`community.postgresql` 5.0.0 removed `postgresql_set`, and a three-week-old
+commit went red — but the same exposure was delivered to every generated
+project. "Same specification, same output" says nothing as long as the output
+names dependencies without a version.
+→ **DECISION: a floor *and* a major ceiling**, allowed once per collection in
+`plugins/ansible/catalog/collections.py`.
+- **Per collection, never per role.** Two roles that depend on the same
+  collection must not be able to contradict each other; a `RoleDefinition`
+  therefore names only a collection name. A role naming a collection absent from
+  the table breaks the plugin import, not the user's project.
+- **The ceiling, and not only the floor.** A floor documents what the templates
+  need, but protects against nothing: the breakage always comes from a major
+  published *after* generation. *(Alternative rejected: floor only, less upkeep
+  for forge, but the incident reproduces itself as-is at the user's, which is
+  precisely what we refuse to ship.)*
+- **Assumed consequence: forge has to follow the majors.** Without a regular
+  version bump, the generated projects grow old. The procedure is the one for the
+  tools pinned in `.github/workflows/ci.yml`: raise the version validated in CI,
+  raise `max_major`, fix the templates if the major removed something, ship the
+  bump in its own commit. A range stays **widenable by the user at their own
+  hand**: `requirements.yml` is a file of their project, and the generated header
+  says so.
+- **The floor is never guessed.** When we know what the templates require, it
+  says so (`community.postgresql >= 3.13.0` for `postgresql_alter_system`).
+  Otherwise it is the version validated in CI, with the reason written in the
+  generated file: forge does not claim to know what it has not tested, and the
+  floor comes down the day someone verifies it.
 
-> **Reste exposé, hors de cette décision** — cette décision ne porte que sur les
-> **collections** nommées par `requirements.yml`. Deux installations d'outils
-> restent sans version dans ce que forge génère : `pip install --upgrade
-> ansible-core ansible-lint` dans le workflow `.github/workflows/ansible-lint.yml`
-> du projet Ansible, et la table `plugins/pipeline/tools.py`, où `ansible-core`,
-> `ansible-lint` **et les trois collections** sont encore libres et où la liste
-> des collections est recopiée. La première se pin en trois lignes ; la seconde
-> demande que `pipeline` apprenne les versions du domaine
-> `ansible` sans l'importer — donc une projection, donc une décision à part.
+> **Still exposed, outside this decision** — this decision bears only on the
+> **collections** named by `requirements.yml`. Two tool installations remain
+> without a version in what forge generates: `pip install --upgrade
+> ansible-core ansible-lint` in the `.github/workflows/ansible-lint.yml` workflow
+> of the Ansible project, and the `plugins/pipeline/tools.py` table, where
+> `ansible-core`, `ansible-lint` **and the three collections** are still free and
+> where the collection list is copied over. The first pins in three lines; the
+> second requires that `pipeline` learn the `ansible` domain's versions without
+> importing it — hence a projection, hence a separate decision.
 
 ---
 
-## 9. Arborescence du dépôt forge
+## 9. Tree of the forge repository
 
-*Constatée après la phase 10, et non plus prévue.*
+*Observed after phase 10, and no longer planned.*
 
 ```
 forge/
 ├── CLAUDE.md  PLAN.md  MIGRATION.md  DESIGN.md  README.md
-├── copier.yml                     # gabarit racine unique (§5.1)
-├── partials/header.jinja          # macros partagées par les gabarits
+├── copier.yml                     # single root template (§5.1)
+├── partials/header.jinja          # macros shared by the templates
 ├── pyproject.toml                 # uv, python >=3.11
 ├── .gitattributes                 # * text=auto eol=lf
-├── examples/                      # cinq spécifications, toutes testées
+├── examples/                      # five specifications, all tested
 ├── src/forge/
 │   ├── cli.py  errors.py  jinja_ext.py  pipeline.py
 │   ├── spec/         io.py  service.py  assembly.py  names.py  types.py
@@ -752,7 +754,7 @@ forge/
 │   ├── render/       copier_runner.py  scaffold.py  diff.py
 │   ├── validate/     runner.py  tools.py  wsl.py  consistency.py
 │   └── plugins/
-│       ├── demo/        plugin.py  template/        # tests du cœur uniquement
+│       ├── demo/        plugin.py  template/        # core tests only
 │       ├── ansible/     plugin.py  spec.py  catalog/  interview.py  validators.py  template/
 │       ├── helm/        plugin.py  spec.py  catalog/  interview.py  validators.py  template/
 │       ├── terraform/   plugin.py  spec.py  catalog/  interview.py  validators.py  template/  hcl.py
@@ -764,20 +766,20 @@ forge/
     └── test_*.py
 ```
 
-### Écarts avec ce que ce document prévoyait
+### Divergences from what this document planned
 
-| Ajout | Pourquoi |
+| Addition | Why |
 | --- | --- |
-| `pipeline.py` | pour que `cli.py` ne porte aucune logique : les opérations sont appelables sans terminal |
-| `interview/service_flow.py`, `render/scaffold.py`, `render/diff.py` | responsabilité unique, et limite de 600 lignes |
-| `plugins_api/checks.py` | quatre domaines réécrivaient le même contrôle « environnement inconnu » ; il ne parle que de `service.environments`, donc il reste agnostique |
-| `plugins/terraform/hcl.py` | `terraform fmt` aligne le `=` de lignes consécutives : un gabarit ne peut pas aligner des clés dont il ignore la longueur, la projection si |
-| `plugins/monitoring/render.py` | une annotation d'alerte et l'annotation attendue par son test unitaire sont calculées ensemble, sans quoi elles divergent |
-| `plugins/pipeline/jobs.py`, `tools.py` | dériver des jobs d'un `GenerationContext`, et savoir installer les outils que les commandes citent — la seule table du projet qui nomme des binaires |
-| `partials/` à la racine | macros partagées entre gabarits, résolues par le chargeur Jinja de copier |
+| `pipeline.py` | so that `cli.py` carries no logic: the operations are callable without a terminal |
+| `interview/service_flow.py`, `render/scaffold.py`, `render/diff.py` | single responsibility, and the 600-line limit |
+| `plugins_api/checks.py` | four domains were rewriting the same "unknown environment" check; it only speaks of `service.environments`, so it stays agnostic |
+| `plugins/terraform/hcl.py` | `terraform fmt` aligns the `=` of consecutive lines: a template cannot align keys whose length it does not know, the projection can |
+| `plugins/monitoring/render.py` | an alert annotation and the annotation expected by its unit test are computed together, otherwise they diverge |
+| `plugins/pipeline/jobs.py`, `tools.py` | deriving jobs from a `GenerationContext`, and knowing how to install the tools the commands name — the only table in the project that names binaries |
+| `partials/` at the root | macros shared between templates, resolved by copier's Jinja loader |
 
-`tests/parity/` a existé pendant tout le portage puis a été retiré en phase 10,
-avec `_legacy/` (cf. `MIGRATION.md`, section de clôture).
+`tests/parity/` existed throughout the port then was removed in phase 10, along
+with `_legacy/` (see `MIGRATION.md`, closing section).
 
-Limite de 600 lignes par fichier (CLAUDE.md global) : le plus gros fichier de
-`src/` en compte 420 ; le plus gros module de test, 468.
+600-line-per-file limit (global CLAUDE.md): the largest file in `src/` has 420;
+the largest test module, 468.
