@@ -1,2 +1,2 @@
-# Fins de ligne normalisees : la sortie de forge est comparee octet pour octet.
+# Normalised line endings: forge's output is compared byte for byte.
 * text=auto eol=lf
