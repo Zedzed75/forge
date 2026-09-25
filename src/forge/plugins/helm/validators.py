@@ -1,20 +1,20 @@
-"""Commandes de validation du chart Helm genere.
+"""Validation commands for the generated Helm chart.
 
-Portage de la partie « quoi lancer » de `helm_forge.validation.runner`
-(MIGRATION.md §4) : l'execution, le delai, la detection d'outil manquant, le
-chainage de stdin et le rapport appartiennent au coeur
-(`forge.validate.runner`). Ici, uniquement la liste des commandes.
+Port of the "what to run" part of `helm_forge.validation.runner`
+(MIGRATION.md §4): execution, timeout, missing-tool detection, stdin chaining and
+reporting belong to the core (`forge.validate.runner`). Here, only the list of
+commands.
 
-Trois verifications par environnement, dans cet ordre :
+Three checks per environment, in this order:
 
-1. `helm lint` — coherence du chart et de ses values ;
-2. `helm template` — le chart se rend reellement ;
-3. `kubeconform -strict` — les manifestes rendus sont conformes aux schemas de
-   l'API Kubernetes de la version visee.
+1. `helm lint` — coherence of the chart and of its values;
+2. `helm template` — the chart actually renders;
+3. `kubeconform -strict` — the rendered manifests conform to the schemas of the
+   targeted Kubernetes API version.
 
-La troisieme lit le **rendu** de la deuxieme : c'est le `stdin_from` du contrat
-`Command`. Si `helm template` echoue, le coeur saute `kubeconform` plutot que de
-le lancer sur une entree vide — il n'aurait rien a valider.
+The third reads the **rendering** of the second: that is the `stdin_from` of the
+`Command` contract. When `helm template` fails, the core skips `kubeconform`
+rather than running it on an empty input — it would have nothing to validate.
 """
 
 from __future__ import annotations
@@ -25,28 +25,28 @@ from typing import Any
 
 from forge.plugins_api.types import Command
 
-#: Delai maximal accorde a une commande, en secondes.
+#: Maximum time granted to a command, in seconds.
 TIMEOUT = 300
 
-#: Message d'installation commun aux deux outils.
+#: Installation message common to both tools.
 INSTALL_HINT = (
-    "installez helm (https://helm.sh/docs/intro/install/) et kubeconform "
-    "(https://github.com/yannh/kubeconform). Sous Windows, le pont WSL les "
-    "cherche dans /opt/forge-tools/bin ; un lien symbolique suffit."
+    "install helm (https://helm.sh/docs/intro/install/) and kubeconform "
+    "(https://github.com/yannh/kubeconform). On Windows, the WSL bridge looks for "
+    "them in /opt/forge-tools/bin; a symbolic link is enough."
 )
 
-#: Variable d'environnement designant un cache de schemas kubeconform local.
-#: `kubeconform` telecharge sinon les schemas a chaque execution : en CI sans
-#: acces reseau, ou sur un poste hors ligne, la validation echouerait pour une
-#: raison sans rapport avec le chart.
+#: Environment variable pointing at a local kubeconform schema cache.
+#: `kubeconform` otherwise downloads the schemas on every run: in CI without
+#: network access, or on an offline workstation, validation would fail for a reason
+#: unrelated to the chart.
 SCHEMAS_ENV_VAR = "FORGE_KUBECONFORM_SCHEMAS"
 
 
 def _values(chart: str, env_name: str) -> tuple[str, ...]:
-    """Options `--values`, dans l'ordre de priorite de Helm.
+    """`--values` options, in Helm's order of precedence.
 
-    Les valeurs communes d'abord, la surcharge d'environnement ensuite : Helm
-    applique les fichiers de gauche a droite, le dernier gagne.
+    The common values first, the environment override next: Helm applies the files
+    left to right, and the last one wins.
     """
     return (
         "--values",
@@ -56,8 +56,8 @@ def _values(chart: str, env_name: str) -> tuple[str, ...]:
     )
 
 
-def _environnement() -> tuple[tuple[str, str], ...]:
-    """Variables d'environnement passees aux outils."""
+def _environment() -> tuple[tuple[str, str], ...]:
+    """Environment variables passed to the tools."""
     variables: dict[str, str] = {"NO_COLOR": "1"}
     schemas = os.environ.get(SCHEMAS_ENV_VAR, "")
     if schemas:
@@ -66,11 +66,11 @@ def _environnement() -> tuple[tuple[str, str], ...]:
 
 
 def _namespaces(spec: Any) -> dict[str, str]:
-    """Namespace derive de chaque environnement, indexe par nom.
+    """Derived namespace of each environment, indexed by name.
 
-    La derivation appartient a `derive.py` ; on la relit ici plutot que de la
-    refaire, pour que `helm template` s'execute dans le namespace que le chart
-    annonce lui-meme. Calcule une seule fois, pas une fois par environnement.
+    The derivation belongs to `derive.py`; we read it back here rather than redo
+    it, so that `helm template` runs in the namespace the chart announces itself.
+    Computed once, not once per environment.
     """
     from forge.plugins.helm import answers
 
@@ -81,38 +81,38 @@ def _namespaces(spec: Any) -> dict[str, str]:
 
 
 def commands(spec: Any, outdir: Path) -> list[Command]:
-    """Commandes validant le chart genere, dans l'ordre d'execution."""
+    """Commands validating the generated chart, in execution order."""
     helm = spec.helm
     chart = f"charts/{spec.service.name}"
     version = getattr(helm.kubernetes, "full_version", None) or f"{helm.kubernetes.version}.0"
-    env_commun = _environnement()
+    shared_env = _environment()
     namespaces = _namespaces(spec)
 
-    liste: list[Command] = []
+    commands_list: list[Command] = []
     for env in spec.service.environments:
-        valeurs = _values(chart, env.name)
-        rendu = f"helm template ({env.name})"
-        liste.append(
+        values = _values(chart, env.name)
+        render = f"helm template ({env.name})"
+        commands_list.append(
             Command(
                 label=f"helm lint ({env.name})",
                 tool="helm",
-                # `--kube-version` n'est pas un detail : sans lui, helm evalue le
-                # chart contre la version de Kubernetes que **son binaire** a par
-                # defaut, qui change a chaque version de helm. Un chart declarant
-                # `kubeVersion: >=1.34.0-0` passait sur un poste et echouait en CI
-                # pour cette seule raison — et, plus grave, `.Capabilities` etait
-                # renseigne avec la mauvaise version.
-                argv=("lint", chart, "--kube-version", version, *valeurs),
+                # `--kube-version` is not a detail: without it, helm evaluates the
+                # chart against the Kubernetes version **its binary** defaults to,
+                # which changes with every helm release. A chart declaring
+                # `kubeVersion: >=1.34.0-0` passed on a workstation and failed in
+                # CI for that reason alone — and, more seriously, `.Capabilities`
+                # was filled in with the wrong version.
+                argv=("lint", chart, "--kube-version", version, *values),
                 cwd=outdir,
                 timeout=TIMEOUT,
-                env=env_commun,
+                env=shared_env,
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
         )
-        liste.append(
+        commands_list.append(
             Command(
-                label=rendu,
+                label=render,
                 tool="helm",
                 argv=(
                     "template",
@@ -120,21 +120,21 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                     chart,
                     "--namespace",
                     namespaces.get(env.name, spec.service.name),
-                    # Meme raison que pour `helm lint`, et consequence plus
-                    # directe : c'est cette version qui alimente
-                    # `.Capabilities.KubeVersion` dans les gabarits rendus.
+                    # Same reason as for `helm lint`, with a more direct
+                    # consequence: it is this version that feeds
+                    # `.Capabilities.KubeVersion` in the rendered templates.
                     "--kube-version",
                     version,
-                    *valeurs,
+                    *values,
                 ),
                 cwd=outdir,
                 timeout=TIMEOUT,
-                env=env_commun,
+                env=shared_env,
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
         )
-        liste.append(
+        commands_list.append(
             Command(
                 label=f"kubeconform -strict ({env.name})",
                 tool="kubeconform",
@@ -149,29 +149,29 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                 ),
                 cwd=outdir,
                 timeout=TIMEOUT,
-                env=env_commun,
-                stdin_from=rendu,
+                env=shared_env,
+                stdin_from=render,
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
         )
-    return liste
+    return commands_list
 
 
-#: Delai laisse a `helm upgrade --wait` avant de considerer le deploiement en
-#: echec. Helm attend que chaque ressource soit prete ; sans borne, un pipeline
-#: reste bloque sur un pod qui ne demarrera jamais.
+#: Time left to `helm upgrade --wait` before the deployment is considered failed.
+#: Helm waits for every resource to become ready; without a bound, a pipeline stays
+#: stuck on a pod that will never start.
 DEPLOY_TIMEOUT = "10m"
 
 
 def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Commandes deployant le chart dans `environment` (hook `forge_deploy`).
+    """Commands deploying the chart into `environment` (`forge_deploy` hook).
 
-    Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+    The core never runs them: they are written into a pipeline.
 
-    `--atomic` implique `--wait` et **defait** la release si le deploiement
-    echoue : sans lui, un `upgrade` rate laisse la release dans un etat
-    intermediaire, et le deploiement suivant echoue pour une raison sans rapport.
+    `--atomic` implies `--wait` and **rolls the release back** when the deployment
+    fails: without it, a failed `upgrade` leaves the release in an intermediate
+    state, and the next deployment fails for an unrelated reason.
     """
     helm = spec.helm
     chart = f"charts/{spec.service.name}"
@@ -199,7 +199,7 @@ def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
             argv=tuple(argv),
             cwd=outdir,
             timeout=TIMEOUT,
-            env=_environnement(),
+            env=_environment(),
             install_hint=INSTALL_HINT,
             requires_linux=True,
         )
