@@ -1,14 +1,13 @@
-"""Providers Terraform employes par les familles du catalogue.
+"""Terraform providers used by the families of the catalogue.
 
-Une seule table, pour que `required_providers` du module et celui de chaque
-racine d'environnement declarent exactement les memes sources et les memes
-contraintes de version. Deux declarations divergentes ne produisent pas
-d'erreur : Terraform resout l'intersection, et l'ecart ne se voit qu'au jour ou
-elle devient vide.
+A single table, so that the `required_providers` of the module and that of each
+environment root declare exactly the same sources and the same version
+constraints. Two diverging declarations produce no error: Terraform resolves the
+intersection, and the divergence is only seen the day it becomes empty.
 
-Les contraintes sont en `~>` : elles autorisent les correctifs et les versions
-mineures, jamais un changement majeur. Une contrainte sans borne haute laisse
-une version majeure future casser le projet sans qu'on ait rien change.
+The constraints are in `~>`: they allow the patches and the minor versions,
+never a major change. A constraint with no upper bound lets a future major
+version break the project without anything having been changed.
 """
 
 from __future__ import annotations
@@ -18,51 +17,51 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Provider:
-    """Un provider tel que declare dans un bloc `required_providers`."""
+    """A provider as declared in a `required_providers` block."""
 
-    #: Nom local du provider dans la configuration (`kubernetes`, `random`...).
+    #: Local name of the provider in the configuration (`kubernetes`, `random`...).
     name: str
 
-    #: Adresse dans le registre (`hashicorp/kubernetes`).
+    #: Address in the registry (`hashicorp/kubernetes`).
     source: str
 
-    #: Contrainte de version.
+    #: Version constraint.
     version: str
 
-    #: Raison de sa presence, reprise en commentaire dans le fichier genere.
+    #: Reason for its presence, taken up as a comment in the generated file.
     reason: str
 
 
-#: Table indexee par nom local. L'ordre est alphabetique : c'est celui dans
-#: lequel `terraform fmt` laisse les entrees de `required_providers`, et il rend
-#: la sortie deterministe quel que soit l'ordre des familles retenues.
+#: Table indexed by local name. The order is alphabetical: it is the one in
+#: which `terraform fmt` leaves the entries of `required_providers`, and it makes
+#: the output deterministic whatever the order of the retained families.
 PROVIDERS: dict[str, Provider] = {
     "kubernetes": Provider(
         name="kubernetes",
         source="hashicorp/kubernetes",
         version="~> 2.32",
-        reason="pose les objets Kubernetes qui accueillent le service",
+        reason="sets up the Kubernetes objects that host the service",
     ),
     "random": Provider(
         name="random",
         source="hashicorp/random",
         version="~> 3.6",
-        reason="engendre les mots de passe, jamais ecrits dans la specification",
+        reason="generates the passwords, never written in the specification",
     ),
     "tls": Provider(
         name="tls",
         source="hashicorp/tls",
         version="~> 4.0",
-        reason="fabrique les certificats auto-signes des environnements de travail",
+        reason="builds the self-signed certificates of the working environments",
     ),
 }
 
 
 def resolve(names: set[str]) -> list[Provider]:
-    """Providers correspondant a `names`, tries par nom local.
+    """Providers matching `names`, sorted by local name.
 
-    Leve `KeyError` sur un nom inconnu : une famille qui reclame un provider
-    absent de la table est une erreur de programmation du plugin, pas une
-    erreur de l'utilisateur.
+    Raises `KeyError` on an unknown name: a family that demands a provider
+    absent from the table is a programming error of the plugin, not an error of
+    the user.
     """
-    return [PROVIDERS[nom] for nom in sorted(names)]
+    return [PROVIDERS[name] for name in sorted(names)]

@@ -38,23 +38,23 @@ OUTPUT_VALUES: dict[str, str] = {
     "tls_secret_name": "kubernetes_secret.tls.metadata[0].name",
 }
 
-#: Sortie presente quelles que soient les familles retenues : c'est par elle que
-#: le reste de la chaine — un chart Helm, un pipeline — apprend ou deployer.
+#: Output present whatever the retained families: it is through it that the rest
+#: of the chain -- a Helm chart, a pipeline -- learns where to deploy.
 BASE_OUTPUTS: dict[str, str] = {
-    "namespace": "Namespace dans lequel le service est deploye.",
+    "namespace": "Namespace the service is deployed in.",
 }
 
-#: Variables propres a la racine d'environnement : elles configurent le
-#: provider, pas le module. Le module, lui, ne sait pas comment on joint le
-#: cluster — c'est la separation qui rend le module reutilisable.
+#: Variables specific to the environment root: they configure the provider, not
+#: the module. The module does not know how the cluster is reached -- it is that
+#: separation that makes the module reusable.
 ROOT_ONLY_VARIABLES: tuple[Variable, ...] = (
     Variable(
         name="kube_config_path",
         type="string",
         description=(
-            "Chemin du fichier kubeconfig employe pour joindre le cluster. "
-            "Propre a la machine : laissez la valeur par defaut et surchargez-la "
-            "par TF_VAR_kube_config_path si besoin."
+            "Path of the kubeconfig file used to reach the cluster. Specific "
+            "to the machine: leave the default value and override it through "
+            "TF_VAR_kube_config_path if needed."
         ),
         default="~/.kube/config",
     ),
@@ -62,9 +62,9 @@ ROOT_ONLY_VARIABLES: tuple[Variable, ...] = (
         name="kube_context",
         type="string",
         description=(
-            "Contexte kubeconfig vise. Ne le laissez jamais vide : sans "
-            "contexte explicite, Terraform applique sur le contexte courant de "
-            "la machine, quel qu'il soit."
+            "Targeted kubeconfig context. Never leave it empty: with no "
+            "explicit context, Terraform applies on the current context of the "
+            "machine, whatever it is."
         ),
         default="",
         per_environment=True,
