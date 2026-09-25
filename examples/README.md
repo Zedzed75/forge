@@ -1,91 +1,90 @@
-# Exemples
+# Examples
 
-**Un projet n'a pas besoin de tout.** Il peut n'avoir besoin que d'un chart
-Helm, ou que de rôles et de playbooks Ansible, ou que d'un socle Terraform. Ce
-répertoire montre les six cas, et c'est le choix de l'utilisateur qui les
-distingue — rien d'autre.
+**A project does not need everything.** It may need only a Helm chart, or only
+Ansible roles and playbooks, or only a Terraform foundation. This directory
+shows the six cases, and what tells them apart is the user's choice — nothing
+else.
 
-| Exemple | Produit | Pour qui |
+| Example | Produces | For whom |
 | --- | --- | --- |
-| [`ansible-seul.yml`](ansible-seul.yml) | `ansible/` | des machines à configurer, aucun conteneur |
-| [`helm-seul.yml`](helm-seul.yml) | `helm/` | un cluster qui existe déjà, un service à empaqueter |
-| [`terraform-seul.yml`](terraform-seul.yml) | `terraform/` | une équipe plateforme qui prépare le terrain |
-| [`monitoring-seul.yml`](monitoring-seul.yml) | `monitoring/` | un service déjà déployé, dont il manque de savoir quand il va mal |
-| [`pipeline-seul.yml`](pipeline-seul.yml) | `.github/workflows/` | un dépôt qui n'a besoin que d'une chaîne d'intégration |
-| [`socle-et-chart.yml`](socle-et-chart.yml) | `terraform/` **et** `helm/` | le socle et ce qui s'y pose, ensemble |
+| [`ansible-seul.yml`](ansible-seul.yml) | `ansible/` | machines to configure, no container |
+| [`helm-seul.yml`](helm-seul.yml) | `helm/` | a cluster that already exists, a service to package |
+| [`terraform-seul.yml`](terraform-seul.yml) | `terraform/` | a platform team preparing the ground |
+| [`monitoring-seul.yml`](monitoring-seul.yml) | `monitoring/` | an already deployed service, missing only the knowledge of when it goes wrong |
+| [`pipeline-seul.yml`](pipeline-seul.yml) | `.github/workflows/` | a repository that needs nothing but a CI chain |
+| [`socle-et-chart.yml`](socle-et-chart.yml) | `terraform/` **and** `helm/` | the foundation and what sits on it, together |
 
 ```bash
-forge generate -s examples/helm-seul.yml -o /tmp/boutique
+forge generate -s examples/helm-seul.yml -o /tmp/storefront
 ```
 
-## Comment se fait le choix
+## How the choice is made
 
-Trois façons, et elles se combinent :
+Three ways, and they combine:
 
-**1. Une section absente ne génère rien.** C'est le mécanisme de base, sans
-exception. `ansible-seul.yml` ne contient pas de section `helm:` : aucun chart
-n'est produit. Il n'y a pas d'option à passer, pas de drapeau à désactiver.
+**1. An absent section generates nothing.** That is the basic mechanism, with no
+exception. `ansible-seul.yml` contains no `helm:` section: no chart is produced.
+There is no option to pass, no flag to turn off.
 
-**2. `--only` restreint une exécution.** Sur un projet qui déclare deux
-domaines, pour n'en régénérer qu'un :
+**2. `--only` restricts one run.** On a project declaring two domains, to
+regenerate just one of them:
 
 ```bash
-forge generate -s examples/socle-et-chart.yml -o /tmp/inventaire --only helm
+forge generate -s examples/socle-et-chart.yml -o /tmp/inventory --only helm
 ```
 
-`--only` restreint toujours, il n'ajoute jamais : demander un domaine que la
-spécification ne déclare pas ne le fait pas apparaître.
+`--only` always restricts, it never adds: asking for a domain the specification
+does not declare will not make it appear.
 
-**3. L'entretien demande lesquels produire.** `forge new` pose la question avant
-d'écrire quoi que ce soit, et n'interroge ensuite que sur les domaines retenus.
+**3. The interview asks which ones to produce.** `forge new` asks the question
+before writing anything, and then only asks about the domains you kept.
 
 ```bash
-forge new -o /tmp/mon-service
+forge new -o /tmp/my-service
 ```
 
-## Savoir ce qui va sortir, avant que ça sorte
+## Knowing what will come out, before it comes out
 
 ```bash
 forge plugins -s examples/helm-seul.yml
 ```
 
-dit, pour cette spécification, quels domaines sont demandés et lesquels ne le
-sont pas. Et `forge generate --dry-run` annonce ce qu'il produirait sans rien
-écrire.
+says, for that specification, which domains are requested and which are not. And
+`forge generate --dry-run` announces what it would produce without writing
+anything.
 
-Si une spécification ne déclare aucun domaine, forge ne produit pas un projet
-vide en silence : il dit lesquels sont disponibles et comment en demander un.
+If a specification declares no domain, forge does not silently produce an empty
+project: it says which ones are available and how to ask for one.
 
-## Le pipeline est le domaine qui les fédère
+## The pipeline is the domain that federates the others
 
-Le domaine `pipeline` est le seul dont la sortie **dépend des autres sections**.
-Il engendre un job de validation par domaine déclaré, avec les commandes que
-chaque domaine annonce lui-même et l'installation des outils qu'elles exigent.
+The `pipeline` domain is the only one whose output **depends on the other
+sections**. It emits one validation job per declared domain, with the commands
+each domain announces itself and the installation of the tools they require.
 
-Ajoutez une section `helm:` à [`pipeline-seul.yml`](pipeline-seul.yml) et un job
-« Valider Helm » apparaît, sans qu'une ligne de gabarit change. Il n'invente rien
-pour autant : un domaine qui ne dit pas comment se déployer est **nommé** dans le
-fichier engendré, pas deviné.
+Add a `helm:` section to [`pipeline-seul.yml`](pipeline-seul.yml) and a
+"Validate Helm" job appears, without a single template line changing. It invents
+nothing for all that: a domain that does not say how to deploy itself is
+**named** in the emitted file, not guessed.
 
-C'est aussi le seul domaine dont la sortie est la racine du dépôt — un fichier de
-CI n'existe que là où son outil le lit.
+It is also the only domain whose output is the repository root — a CI file only
+exists where its tool reads it.
 
-## Ajouter un domaine à un projet existant
+## Adding a domain to an existing project
 
-Ajoutez sa section à `forge.yml`, puis :
+Add its section to `forge.yml`, then:
 
 ```bash
 forge generate --only terraform
 ```
 
-Les domaines déjà générés ne sont pas touchés. À l'inverse, retirer une section
-n'efface rien : forge n'a jamais supprimé de fichier que vous avez pu modifier —
-`forge diff` vous montre l'écart, la suppression reste la vôtre.
+The already generated domains are left untouched. Conversely, removing a section
+erases nothing: forge has never deleted a file you may have edited — `forge
+diff` shows you the difference, the deletion stays yours.
 
-## Ces exemples sont testés
+## These examples are tested
 
-`tests/test_choix_des_domaines.py` génère chacun de ces fichiers et vérifie
-qu'il produit exactement les domaines qu'il déclare, ni plus ni moins. Il
-vérifie aussi qu'**un exemple mono-domaine existe pour chaque domaine livré** :
-un domaine ajouté sans le sien fait échouer la suite. Un exemple périmé n'est
-pas possible ici.
+`tests/test_choix_des_domaines.py` generates each of these files and checks that
+it produces exactly the domains it declares, no more and no less. It also checks
+that **a single-domain example exists for every shipped domain**: a domain added
+without one makes the suite fail. A stale example is not possible here.

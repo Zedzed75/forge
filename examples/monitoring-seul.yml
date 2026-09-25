@@ -1,25 +1,24 @@
 # ---------------------------------------------------------------------------
-# Exemple : un service qui n'a besoin QUE de supervision.
+# Example: a service that needs NOTHING BUT monitoring.
 # ---------------------------------------------------------------------------
-# Le service existe deja, il est deploye par d'autres moyens, et ce qui manque
-# c'est de savoir quand il va mal. Le domaine monitoring ne lit aucune autre
-# section : ce qu'il surveille est declare ici, et nulle part ailleurs.
+# The service already exists, it is deployed by other means, and what is
+# missing is knowing when it goes wrong. The monitoring domain reads no other
+# section: what it watches is declared here, and nowhere else.
 #
-#   forge generate -s examples/monitoring-seul.yml -o /tmp/paiement
+#   forge generate -s examples/monitoring-seul.yml -o /tmp/payments
 #
-# Produit `monitoring/` et rien d'autre.
+# Produces `monitoring/` and nothing else.
 #
-# Chaque regle d'alerte est accompagnee d'un test unitaire joue par
-# `promtool test rules` : c'est la seule verification qui prouve qu'une alerte
-# se declenche reellement. Une regle irreprochable peut citer une metrique qui
-# n'existe pas et rester muette pour toujours.
+# Every alerting rule comes with a unit test played by `promtool test rules`:
+# that is the only check proving an alert actually fires. A flawless-looking
+# rule can name a metric that does not exist and stay silent forever.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
-  name: paiement
-  description: "Service de paiement"
-  owner: "Equipe Transactions"
+  name: payments
+  description: "Payment service"
+  owner: "Transactions Team"
   owner_email: transactions@example.net
   environments:
     - name: staging
@@ -30,21 +29,21 @@ service:
 
 monitoring:
   scrape:
-    # Le delai doit rester sous l'intervalle, sans quoi les collectes se
-    # chevauchent. Le modele le refuse.
+    # The timeout must stay below the interval, otherwise scrapes overlap. The
+    # model refuses it.
     interval: 15s
     timeout: 10s
     metrics_path: /metrics
 
   metrics:
-    # Ces noms dependent de la bibliotheque cliente de l'application. Se
-    # tromper produit une regle valide et definitivement muette.
+    # These names depend on the application's client library. Getting them wrong
+    # produces a valid and permanently silent rule.
     requests_total: http_requests_total
     request_duration_seconds: http_request_duration_seconds
     status_label: status
 
-  # Familles retenues. Le choix vaut aussi A L'INTERIEUR d'un domaine : une
-  # famille absente d'ici ne produit ni regle, ni test.
+  # Selected families. The choice also applies INSIDE a domain: a family absent
+  # from here produces neither rule nor test.
   rules:
     - availability
     - error_rate
@@ -54,20 +53,20 @@ monitoring:
   environments:
     staging:
       targets:
-        - paiement-staging.example.net:9090
+        - payments-staging.example.net:9090
       probe_urls:
-        - https://paiement.staging.example.net
+        - https://payments.staging.example.net
       thresholds:
-        # Plus permissif hors production : on veut savoir, pas etre reveille.
+        # More permissive outside production: we want to know, not to be woken.
         error_rate: 0.15
         latency_p95_seconds: 3
 
     prod:
       targets:
-        - paiement-1.example.net:9090
-        - paiement-2.example.net:9090
+        - payments-1.example.net:9090
+        - payments-2.example.net:9090
       probe_urls:
-        - https://paiement.example.net
+        - https://payments.example.net
       thresholds:
         error_rate: 0.01
         latency_p95_seconds: 0.5

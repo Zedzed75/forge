@@ -1,23 +1,22 @@
 # ---------------------------------------------------------------------------
-# Exemple : un service qui n'a besoin QUE d'Ansible.
+# Example: a service that needs NOTHING BUT Ansible.
 # ---------------------------------------------------------------------------
-# Des machines à configurer, aucun conteneur, aucune infrastructure à créer.
-# C'est un besoin complet et fréquent — pas une version dégradée de quoi que ce
-# soit.
+# Machines to configure, no container, no infrastructure to create. That is a
+# complete and frequent need — not a degraded version of anything.
 #
-#   forge generate -s examples/ansible-seul.yml -o /tmp/passerelle
+#   forge generate -s examples/ansible-seul.yml -o /tmp/gateway
 #
-# Produit `ansible/` et rien d'autre : ni chart Helm, ni socle Terraform. Les
-# sections `helm:` et `terraform:` sont absentes, donc ces domaines ne sont pas
-# générés. C'est le seul mécanisme, et il n'a pas d'exception.
+# Produces `ansible/` and nothing else: no Helm chart, no Terraform foundation.
+# The `helm:` and `terraform:` sections are absent, so those domains are not
+# generated. That is the only mechanism, and it has no exception.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
-  name: passerelle
-  description: "Passerelle applicative en frontal des services internes"
-  owner: "Equipe Plateforme"
-  owner_email: plateforme@example.net
+  name: gateway
+  description: "Application gateway fronting the internal services"
+  owner: "Platform Team"
+  owner_email: platform@example.net
   environments:
     - name: staging
       domain: staging.example.net
@@ -26,39 +25,39 @@ service:
       production: true
 
 ansible:
-  # Famille de système des machines visées : détermine le gestionnaire de
-  # paquets et les chemins employés par les rôles.
+  # System family of the target machines: determines the package manager and the
+  # paths the roles use.
   os_family: debian
 
-  # Compte de connexion SSH. Jamais root : les rôles élèvent les privilèges
-  # tâche par tâche, ce qui rend visible ce qui en a réellement besoin.
+  # SSH login account. Never root: the roles escalate privileges task by task,
+  # which makes visible what actually needs them.
   remote_user: deploy
   ssh_port: 22
 
   options:
-    # Aucun secret réel n'est jamais écrit par forge. `use_vault: true` fait
-    # générer la plomberie ansible-vault, pas des valeurs.
+    # forge never writes a real secret. `use_vault: true` generates the
+    # ansible-vault plumbing, not values.
     use_vault: false
     write_lint_config: true
     write_ci: false
 
   groups:
     - name: gateways
-      description: "Passerelles exposées à l'extérieur"
+      description: "Gateways exposed to the outside"
       roles:
         - common
         - ssh_hardening
         - nginx
 
     - name: databases
-      description: "Bases de données PostgreSQL"
+      description: "PostgreSQL databases"
       roles:
         - common
         - postgresql
 
-  # Les machines, environnement par environnement. Un environnement déclaré
-  # dans `service:` mais absent ici produit un inventaire vide — `forge
-  # validate` le signale plutôt que de le laisser passer en silence.
+  # The machines, environment by environment. An environment declared in
+  # `service:` but absent here produces an empty inventory — `forge validate`
+  # reports it rather than letting it through in silence.
   hosts:
     staging:
       gateways:

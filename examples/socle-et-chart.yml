@@ -1,31 +1,30 @@
 # ---------------------------------------------------------------------------
-# Exemple : deux domaines ensemble, parce que ce projet-là en a besoin.
+# Example: two domains together, because this project needs both.
 # ---------------------------------------------------------------------------
-# Terraform crée le namespace et son budget ; Helm y déploie le service. C'est
-# UN usage possible, pas l'usage normal — comparez avec les trois exemples
-# mono-domaine à côté.
+# Terraform creates the namespace and its budget; Helm deploys the service into
+# it. This is ONE possible use, not the normal use — compare it with the
+# single-domain examples next to it.
 #
-#   forge generate -s examples/socle-et-chart.yml -o /tmp/inventaire
-#   forge validate -o /tmp/inventaire
+#   forge generate -s examples/socle-et-chart.yml -o /tmp/inventory
+#   forge validate -o /tmp/inventory
 #
-# Ce que le second domaine apporte : `forge validate` compare ce que chaque
-# domaine affirme produire. Les deux déclarent ici la facette `namespaces` —
-# Terraform le crée, Helm y déploie. S'ils cessaient de s'accorder sur son nom,
-# le chart viserait un namespace que personne ne crée, et forge le dirait.
-# Aucune règle « si terraform alors helm » n'existe dans le cœur : la
-# comparaison est générique.
+# What the second domain adds: `forge validate` compares what each domain claims
+# to produce. Both declare the `namespaces` facet here — Terraform creates it,
+# Helm deploys into it. If they stopped agreeing on its name, the chart would
+# target a namespace nobody creates, and forge would say so. No "if terraform
+# then helm" rule exists in the core: the comparison is generic.
 #
-# Pour ne régénérer qu'un des deux :
+# To regenerate only one of the two:
 #
-#   forge generate -s examples/socle-et-chart.yml -o /tmp/inventaire --only helm
+#   forge generate -s examples/socle-et-chart.yml -o /tmp/inventory --only helm
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
-  name: inventaire
-  description: "Service d'inventaire du catalogue"
-  owner: "Equipe Logistique"
-  owner_email: logistique@example.net
+  name: inventory
+  description: "Catalogue inventory service"
+  owner: "Logistics Team"
+  owner_email: logistics@example.net
   labels:
     tier: backend
   environments:
@@ -45,13 +44,13 @@ terraform:
   backend:
     kind: gcs
     config:
-      bucket: etats-terraform-logistique
+      bucket: terraform-states-logistics
   kubernetes:
     auth: kubeconfig
     context_per_environment: true
   environments:
     prod:
-      kube_context: logistique-prod
+      kube_context: logistics-prod
       quota:
         cpu: "8"
         memory: 16Gi
@@ -62,15 +61,14 @@ helm:
   app_version: "2026.08.1"
   kubernetes:
     version: "1.34"
-  # La même stratégie que Terraform : c'est ce qui fait que les deux domaines
-  # nomment le même namespace. `forge validate` le vérifie plutôt que de le
-  # supposer.
+  # The same strategy as Terraform: that is what makes both domains name the
+  # same namespace. `forge validate` checks it rather than assuming it.
   namespace_strategy: per_env
   image:
     registry: ghcr.io
-    repository: acme/inventaire
+    repository: acme/inventory
     strategy: appVersion
-    pull_secret_name: inventaire-registry
+    pull_secret_name: inventory-registry
   components:
     - name: api
       kind: deployment
