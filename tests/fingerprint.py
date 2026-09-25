@@ -53,6 +53,26 @@ Files are classified into four kinds, and each kind keeps a different thing.
       or `handlers/`, the items of a playbook's `tasks`/`pre_tasks`/
       `post_tasks`/`handlers`, and recursively the items of `block`, `rescue`
       and `always`.
+    * a GitHub Actions step label -- `jobs.<id>.steps[].name` in a file sitting
+      directly in `.github/workflows/` -- is replaced by a constant, for the
+      same reason and under the same discipline: it is recognised by *position*,
+      never as a key called `name` somewhere under `.github/`. A step label is
+      pure display text; nothing in a workflow can reference a step by it, since
+      `steps.<id>.outputs` and `needs:` go through the step `id:` and the job
+      key. Rewording a label therefore cannot change what the workflow runs. The
+      two `name:` keys standing right next to it are left verbatim, and are
+      load-bearing: `jobs.<id>.name` is the check name a branch-protection rule
+      matches a required status check against, and the workflow-level `name:` is
+      what `github.workflow`, a `workflow_run` trigger and a README badge URL
+      refer to.
+
+      GitLab CI deliberately gets nothing equivalent, because it has nothing
+      equivalent. A `.gitlab-ci.yml` has no display-label key at all: a job *is*
+      its top-level mapping key, and `stage:`, `needs:` and `extends:` reference
+      jobs by that key. The closest thing to a label is the key itself, an
+      identifier that must stay verbatim. Translating a GitLab pipeline touches
+      its comments and nothing else, so there is nothing to loosen -- the
+      absence is the decision, not an oversight.
     * an Ansible `notify:` or handler `listen:` value is replaced by a constant
       too. It is not data: it is the handler name repeated, so leaving it
       verbatim would make a *correctly* translated handler pair trip the
@@ -192,6 +212,11 @@ _HANDLER_REFERENCE_KEYS = frozenset({"notify", "listen"})
 #: Keys of an Ansible play whose value is a sequence of tasks.
 _PLAY_TASK_KEYS = frozenset({"tasks", "pre_tasks", "post_tasks", "handlers"})
 
+#: Where GitHub reads workflows. It does not recurse into subdirectories, so a
+#: workflow is a file sitting *directly* in `.github/workflows/` -- which is
+#: exactly the positional precision the `steps[].name` rule needs.
+_GITHUB_WORKFLOW_DIRECTORY = (".github", "workflows")
+
 #: Dotfiles that hold YAML without saying so in a suffix.
 _STRUCTURED_NAMES = frozenset({".yamllint", ".ansible-lint"})
 
@@ -298,12 +323,21 @@ def classify(root: Path, relative: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _ansible_position(relative: Path) -> str | None:
-    """Whether this file's top-level sequence holds tasks, plays, or neither."""
-    parts = set(relative.parts)
-    if {"tasks", "handlers"} & parts:
+def _document_position(relative: Path) -> str | None:
+    """What the path says about how to read this document, or None for nothing.
+
+    The three answers are the three places in this project where a `name` is a
+    label rather than an identifier. The GitHub one is tested first because it
+    is the most specific: it pins two consecutive path segments and the file's
+    own suffix, where the Ansible ones only look for a segment anywhere.
+    """
+    parts = relative.parts
+    if parts[-3:-1] == _GITHUB_WORKFLOW_DIRECTORY and relative.suffix in (".yml", ".yaml"):
+        return "github_workflow"
+    names = set(parts)
+    if {"tasks", "handlers"} & names:
         return "tasks"
-    if "playbooks" in parts:
+    if "playbooks" in names:
         return "plays"
     return None
 
@@ -375,11 +409,58 @@ def _normalise_plays(items: Any) -> Any:
     return result
 
 
+def _normalise_step(item: Any) -> Any:
+    """One step of a GitHub Actions job: its `name` is a display label."""
+    if not isinstance(item, dict):
+        return _normalise_any(item)
+    step: dict[Any, Any] = {}
+    for key, value in item.items():
+        if key in ("name", *PROSE_KEYS) and isinstance(value, str):
+            step[key] = PROSE
+        else:
+            # `with:` is descended into generically, so a `name:` passed as an
+            # argument to an action -- `actions/upload-artifact`, for one -- is
+            # compared verbatim like any other input.
+            step[key] = _normalise_any(value)
+    return step
+
+
+def _normalise_job(job: Any) -> Any:
+    """One job of a workflow: only the items of its `steps` sequence are steps."""
+    if not isinstance(job, dict):
+        return _normalise_any(job)
+    result: dict[Any, Any] = {}
+    for key, value in job.items():
+        if key == "steps" and isinstance(value, list):
+            result[key] = [_normalise_step(item) for item in value]
+        else:
+            # `jobs.<id>.name` lands here on purpose: it is the check name, and
+            # a branch-protection rule matches it as a string.
+            result[key] = _normalise_any(value)
+    return result
+
+
+def _normalise_workflow(document: Any) -> Any:
+    """A GitHub Actions workflow: descend to `jobs.<id>.steps[]` and nowhere else."""
+    if not isinstance(document, dict):
+        return _normalise_any(document)
+    result: dict[Any, Any] = {}
+    for key, value in document.items():
+        if key == "jobs" and isinstance(value, dict):
+            result[key] = {job_id: _normalise_job(job) for job_id, job in value.items()}
+        else:
+            # Including the workflow-level `name:`, which is an identifier.
+            result[key] = _normalise_any(value)
+    return result
+
+
 def _normalise_document(document: Any, position: str | None) -> Any:
     if position == "tasks":
         return _normalise_tasks(document)
     if position == "plays":
         return _normalise_plays(document)
+    if position == "github_workflow":
+        return _normalise_workflow(document)
     return _normalise_any(document)
 
 
@@ -405,7 +486,7 @@ def _structured_canonical(text: str, relative: Path) -> str | None:
         documents = list(yaml.safe_load_all(text))
     except yaml.YAMLError:
         return None
-    position = _ansible_position(relative)
+    position = _document_position(relative)
     normalised = [_normalise_document(document, position) for document in documents]
     return json.dumps(_plain(normalised), indent=2, sort_keys=True, ensure_ascii=False)
 

@@ -10,7 +10,7 @@
     "README.md": "- prose 7f48ecaf1d79d6d1",
     "ansible/.ansible-lint": "- structured a95bf90cbd012a1b",
     "ansible/.copier-answers.yml": "- structured 5fffba57ea94a461",
-    "ansible/.github/workflows/ansible-lint.yml": "- structured b0630c5c1b028a7b",
+    "ansible/.github/workflows/ansible-lint.yml": "- structured 1dc5b99fa9bc3c91",
     "ansible/.gitignore": "- text e975bb0aab12f5d1",
     "ansible/.yamllint": "- structured b78e6035e58a0c88",
     "ansible/README.md": "- prose 307bddf8ca0ac8ec",
