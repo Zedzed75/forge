@@ -24,8 +24,8 @@ image: debian:trixie-slim
 # stage by this exact string, so they are identifiers of the generated file
 # rather than prose.
 stages:
-  - valider
-  - construire
+  - validate
+  - build
 
 # One run per branch: a push that replaces another cancels the previous one
 # rather than queueing behind it.
@@ -38,8 +38,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH == "main"
     - when: never
 
-valider-pipeline:
-  stage: valider
+validate-pipeline:
+  stage: validate
   script:
     # Install the tools
     - if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq --no-install-recommends python3-pip; fi
@@ -47,10 +47,10 @@ valider-pipeline:
     # yamllint
     - 'NO_COLOR=1 yamllint --format parsable -d ''{extends: default, rules: {line-length: disable, comments-indentation: disable, document-start: disable, truthy: {check-keys: false}}}'' .gitlab-ci.yml'
 
-construire:
-  stage: construire
+build:
+  stage: build
   needs:
-    - valider-pipeline
+    - validate-pipeline
   rules:
     # Only starts from the default branch: a merge request publishes nothing and
     # deploys nothing.

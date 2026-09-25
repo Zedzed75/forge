@@ -36,12 +36,12 @@ image: [[ domain.runner | yaml_scalar ]]
 # stage by this exact string, so they are identifiers of the generated file
 # rather than prose.
 stages:
-  - valider
+  - validate
 [% if domain.build_job %]
-  - construire
+  - build
 [% endif %]
 [% if domain.deploy_jobs %]
-  - deployer
+  - deploy
 [% endif %]
 
 # One run per branch: a push that replaces another cancels the previous one
@@ -64,8 +64,10 @@ workflow:
 [% for job in domain.jobs %]
 
 [[ job.key ]]:
-  stage: [% if job.kind == "validate" %]valider[% elif job.kind == "build" %]construire[% else %]deployer[% endif %]
-
+[# L'etage porte le nom de la nature du job : `JobKind` enumere exactement les
+   trois etages declares plus haut, donc le rendre directement evite qu'une
+   correspondance ecrite ici a la main les laisse deriver. #]
+  stage: [[ job.kind ]]
 [% if job.needs %]
   needs:
 [% for prerequisite in job.needs %]

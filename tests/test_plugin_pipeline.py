@@ -100,10 +100,10 @@ def test_a_domain_never_seen_gets_its_validation_job():
     projection = _projection(given, UNKNOWN_PLUGIN)
 
     keys = [job["key"] for job in projection["validate_jobs"]]
-    assert "valider-unknown" in keys
+    assert "validate-unknown" in keys
 
-    job = next(j for j in projection["jobs"] if j["key"] == "valider-unknown")
-    assert job["name"] == "Valider Unknown Domain"
+    job = next(j for j in projection["jobs"] if j["key"] == "validate-unknown")
+    assert job["name"] == "Validate Unknown Domain"
     labels = [step["name"] for step in job["steps"]]
     assert "unknown render" in labels and "unknown check" in labels
 
@@ -119,7 +119,7 @@ def test_an_unknown_tool_is_never_guessed():
     projection = _projection(given, UNKNOWN_PLUGIN)
 
     assert UNKNOWN_TOOL in projection["unknown_tools"]
-    job = next(j for j in projection["jobs"] if j["key"] == "valider-unknown")
+    job = next(j for j in projection["jobs"] if j["key"] == "validate-unknown")
     installation = job["steps"][0]
     assert UNKNOWN_TOOL in " ".join(installation["run"])
     assert "exit 1" in installation["run"]
@@ -162,7 +162,7 @@ def test_no_workstation_path_enters_the_pipeline(monkeypatch):
     assert "/workstation/path" not in rendered
     assert "/opt/somewhere" not in rendered, "the path declared by `unknown` must be dropped"
     # What remains is behaviour configuration, valid anywhere.
-    job = next(j for j in projection["jobs"] if j["key"] == "valider-unknown")
+    job = next(j for j in projection["jobs"] if j["key"] == "validate-unknown")
     assert job["steps"][1]["env"] == {"NO_COLOR": "1"}
 
 
@@ -208,7 +208,7 @@ def test_the_stdin_chaining_becomes_a_file_redirection():
     given["unknown"] = {"enabled": True}
     projection = _projection(given, UNKNOWN_PLUGIN)
 
-    job = next(j for j in projection["jobs"] if j["key"] == "valider-unknown")
+    job = next(j for j in projection["jobs"] if j["key"] == "validate-unknown")
     lines = [line for step in job["steps"] for line in step["run"]]
     source = next(line for line in lines if "render" in line)
     consumer = next(line for line in lines if "check" in line)

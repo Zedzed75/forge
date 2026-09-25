@@ -16,14 +16,14 @@ domain:
     build_job:
         default_branch_only: true
         environment: ''
-        key: construire
+        key: build
         kind: build
         manual: false
-        name: Construire l'image
+        name: Build the image
         needs: &id001
-        - valider-helm
-        - valider-pipeline
-        - valider-terraform
+        - validate-helm
+        - validate-pipeline
+        - validate-terraform
         steps:
         -   env: &id002
                 FORGE_IMAGE_TAG: ${{ github.sha }}
@@ -49,15 +49,15 @@ domain:
     deploy_jobs:
     -   default_branch_only: true
         environment: dev
-        key: deployer-dev
+        key: deploy-dev
         kind: deploy
         manual: false
-        name: Déployer dev
+        name: Deploy dev
         needs: &id006
-        - valider-helm
-        - valider-pipeline
-        - valider-terraform
-        - construire
+        - validate-helm
+        - validate-pipeline
+        - validate-terraform
+        - build
         steps:
         -   env: &id007 {}
             name: Install the tools
@@ -118,16 +118,16 @@ domain:
         unknown_tools: &id016 []
     -   default_branch_only: true
         environment: prod
-        key: deployer-prod
+        key: deploy-prod
         kind: deploy
         manual: true
-        name: Déployer prod
+        name: Deploy prod
         needs: &id017
-        - valider-helm
-        - valider-pipeline
-        - valider-terraform
-        - construire
-        - deployer-dev
+        - validate-helm
+        - validate-pipeline
+        - validate-terraform
+        - build
+        - deploy-dev
         steps:
         -   env: &id018 {}
             name: Install the tools
@@ -220,10 +220,10 @@ domain:
     jobs:
     -   default_branch_only: false
         environment: ''
-        key: valider-helm
+        key: validate-helm
         kind: validate
         manual: false
-        name: Valider Helm
+        name: Validate Helm
         needs: &id028 []
         steps:
         -   env: &id029 {}
@@ -315,10 +315,10 @@ domain:
         unknown_tools: &id044 []
     -   default_branch_only: false
         environment: ''
-        key: valider-pipeline
+        key: validate-pipeline
         kind: validate
         manual: false
-        name: Valider Pipeline
+        name: Validate Pipeline
         needs: &id045 []
         steps:
         -   env: &id046 {}
@@ -349,10 +349,10 @@ domain:
         unknown_tools: &id051 []
     -   default_branch_only: false
         environment: ''
-        key: valider-terraform
+        key: validate-terraform
         kind: validate
         manual: false
-        name: Valider Terraform
+        name: Validate Terraform
         needs: &id052 []
         steps:
         -   env: &id053 {}
@@ -448,10 +448,10 @@ domain:
         unknown_tools: &id068 []
     -   default_branch_only: true
         environment: ''
-        key: construire
+        key: build
         kind: build
         manual: false
-        name: Construire l'image
+        name: Build the image
         needs: *id001
         steps:
         -   env: *id002
@@ -468,10 +468,10 @@ domain:
         unknown_tools: *id005
     -   default_branch_only: true
         environment: dev
-        key: deployer-dev
+        key: deploy-dev
         kind: deploy
         manual: false
-        name: Déployer dev
+        name: Deploy dev
         needs: *id006
         steps:
         -   env: *id007
@@ -512,10 +512,10 @@ domain:
         unknown_tools: *id016
     -   default_branch_only: true
         environment: prod
-        key: deployer-prod
+        key: deploy-prod
         kind: deploy
         manual: true
-        name: Déployer prod
+        name: Deploy prod
         needs: *id017
         steps:
         -   env: *id018
@@ -577,10 +577,10 @@ domain:
     validate_jobs:
     -   default_branch_only: false
         environment: ''
-        key: valider-helm
+        key: validate-helm
         kind: validate
         manual: false
-        name: Valider Helm
+        name: Validate Helm
         needs: *id028
         steps:
         -   env: *id029
@@ -643,10 +643,10 @@ domain:
         unknown_tools: *id044
     -   default_branch_only: false
         environment: ''
-        key: valider-pipeline
+        key: validate-pipeline
         kind: validate
         manual: false
-        name: Valider Pipeline
+        name: Validate Pipeline
         needs: *id045
         steps:
         -   env: *id046
@@ -669,10 +669,10 @@ domain:
         unknown_tools: *id051
     -   default_branch_only: false
         environment: ''
-        key: valider-terraform
+        key: validate-terraform
         kind: validate
         manual: false
-        name: Valider Terraform
+        name: Validate Terraform
         needs: *id052
         steps:
         -   env: *id053
