@@ -1,8 +1,8 @@
 {#
-  Règles sudo des comptes déclarés dans users_accounts avec sudo: true.
-  Rendu par Ansible (rôle users) et validé par visudo avant installation.
+  sudo rules of the accounts declared in users_accounts with sudo: true.
+  Rendered by Ansible (users role) and validated by visudo before install.
 #}
-# Fichier géré par Ansible - toute modification manuelle sera écrasée.
+# File managed by Ansible - any manual change will be overwritten.
 {% for name in users_sudo_accounts %}
 {{ name }} ALL=(ALL) NOPASSWD:ALL
 {% endfor %}

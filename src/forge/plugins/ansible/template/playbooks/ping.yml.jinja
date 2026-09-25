@@ -1,21 +1,21 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "playbooks/ping.yml — test de connectivité",
+     "playbooks/ping.yml — connectivity test",
      [
-       "Vérifie qu'Ansible atteint et authentifie toutes les machines de",
-       "l'inventaire, sans rien modifier. À exécuter avant toute autre chose :",
+       "Checks that Ansible reaches and authenticates against every machine of",
+       "the inventory, without changing anything. Run it before anything else:",
        "  ansible-playbook -i inventories/<env> playbooks/ping.yml",
      ]) ]]
-- name: Vérifier la connectivité de toutes les machines
+- name: Check the connectivity of every machine
   hosts: all
-  # Aucune escalade de privilèges : le test doit rester purement passif.
+  # No privilege escalation: the test must stay purely passive.
   become: false
-  # Inutile de collecter les faits pour un simple test de connexion.
+  # No need to gather facts for a plain connection test.
   gather_facts: false
 
   tasks:
-    - name: Répondre au test de connectivité Ansible
+    - name: Answer the Ansible connectivity test
       ansible.builtin.ping:
       tags:
         - ping

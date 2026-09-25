@@ -1,17 +1,17 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "playbooks/site.yml — point d'entrée du projet " ~ service.name,
+     "playbooks/site.yml — entry point of the " ~ service.name ~ " project",
      [
-       "Applique la configuration de tous les groupes, dans l'ordre ci-dessous.",
-       "Exécution complète sur un environnement :",
+       "Applies the configuration of every group, in the order below.",
+       "Full run against one environment:",
        "  ansible-playbook -i inventories/<env> playbooks/site.yml",
-       "Pour ne traiter qu'un seul groupe, exécutez directement son playbook,",
-       "par exemple playbooks/" ~ domain.groups[0].name ~ ".yml.",
+       "To handle a single group, run its playbook directly,",
+       "for instance playbooks/" ~ domain.groups[0].name ~ ".yml.",
      ]) ]]
 [% for group in domain.groups %]
-# [[ group.description or ("Machines du groupe " ~ group.name) ]]
-- name: Configurer le groupe « [[ group.name ]] »
+# [[ group.description or ("Machines of the " ~ group.name ~ " group") ]]
+- name: Configure the "[[ group.name ]]" group
   ansible.builtin.import_playbook: [[ group.name ]].yml
 
 [% endfor %]

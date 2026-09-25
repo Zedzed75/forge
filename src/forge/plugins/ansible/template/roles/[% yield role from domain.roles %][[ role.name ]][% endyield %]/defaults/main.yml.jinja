@@ -1,12 +1,12 @@
 [% from "partials/header.jinja" import file_header, var_doc %]
 ---
 [[ file_header(
-     "roles/" ~ role.name ~ "/defaults/main.yml — valeurs par défaut du rôle",
+     "roles/" ~ role.name ~ "/defaults/main.yml — default values of the role",
      [
        role.summary,
-       "Ces valeurs ont la précédence la plus faible : n'importe quel fichier",
-       "group_vars ou host_vars les surcharge. Modifiez-les de préférence là-bas",
-       "plutôt qu'ici, afin de garder le rôle réutilisable tel quel.",
+       "These values have the lowest precedence: any group_vars or host_vars",
+       "file overrides them. Prefer changing them there rather than here, so",
+       "that the role stays reusable as it is.",
      ]) ]]
 [% for option in role.options %]
 [[ var_doc(option.description, option.allowed) ]]

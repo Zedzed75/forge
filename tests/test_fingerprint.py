@@ -176,8 +176,8 @@ def test_a_comment_only_edit_leaves_the_fingerprint_untouched(tree):
     _edit(
         tree,
         "ansible/roles/ssh_hardening/templates/hardening.conf.j2",
-        "# Port d'écoute du serveur.",
         "# Listening port of the server.",
+        "# The port the server listens on.",
     )
     _edit(tree, "ansible/ansible.cfg", "# ansible.cfg", "# the Ansible configuration")
 
@@ -213,15 +213,15 @@ def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
     _edit(
         tree,
         "ansible/roles/postgresql/meta/main.yml",
-        "description: 'Serveur PostgreSQL",
         "description: 'PostgreSQL server",
+        "description: 'Postgres database server",
     )
     # An Ansible task name with no handler behind it: pure prose.
     _edit(
         tree,
         TASKS,
-        "- name: Installer PostgreSQL et ses dépendances",
         "- name: Install PostgreSQL and its dependencies",
+        "- name: Install the PostgreSQL packages",
     )
     _unchanged(tree, reference)
 
@@ -233,8 +233,8 @@ def test_a_handler_and_its_notify_translated_together_keep_the_fingerprint(tree)
     the same handler. The fingerprint must see nothing.
     """
     reference = fp.fingerprint(tree)
-    _edit(tree, HANDLERS, "- name: Recharger PostgreSQL", "- name: Reload PostgreSQL")
-    _edit(tree, TASKS, "notify: Recharger PostgreSQL", "notify: Reload PostgreSQL")
+    _edit(tree, HANDLERS, "- name: Reload PostgreSQL", "- name: Reload the PostgreSQL service")
+    _edit(tree, TASKS, "notify: Reload PostgreSQL", "notify: Reload the PostgreSQL service")
     _unchanged(tree, reference)
 
 
@@ -253,7 +253,7 @@ def test_a_handler_translated_without_its_notify_breaks_the_fingerprint(tree):
     changed".
     """
     reference = fp.fingerprint(tree)
-    _edit(tree, HANDLERS, "- name: Recharger PostgreSQL", "- name: Reload PostgreSQL")
+    _edit(tree, HANDLERS, "- name: Reload PostgreSQL", "- name: Reload the PostgreSQL service")
 
     report = _changed(tree, reference)
     assert any("UNRESOLVED" in line for line in report), report
@@ -263,7 +263,7 @@ def test_a_handler_translated_without_its_notify_breaks_the_fingerprint(tree):
 def test_a_notify_translated_without_its_handler_breaks_the_fingerprint(tree):
     """The same breakage from the other side."""
     reference = fp.fingerprint(tree)
-    _edit(tree, RULES, "notify: Recharger le pare-feu", "notify: Reload the firewall")
+    _edit(tree, RULES, "notify: Reload the firewall", "notify: Reload the firewall service")
 
     report = _changed(tree, reference)
     assert any("UNRESOLVED" in line for line in report), report
@@ -278,9 +278,9 @@ def test_two_handlers_swapped_break_only_the_correspondence(tree):
     resolves to the handler that restarts. Nothing but this section could see it.
     """
     reference = fp.fingerprint(tree)
-    _edit(tree, HANDLERS, "- name: Recharger PostgreSQL", "- name: PLACEHOLDER")
-    _edit(tree, HANDLERS, "- name: Redémarrer PostgreSQL", "- name: Recharger PostgreSQL")
-    _edit(tree, HANDLERS, "- name: PLACEHOLDER", "- name: Redémarrer PostgreSQL")
+    _edit(tree, HANDLERS, "- name: Reload PostgreSQL", "- name: PLACEHOLDER")
+    _edit(tree, HANDLERS, "- name: Restart PostgreSQL", "- name: Reload PostgreSQL")
+    _edit(tree, HANDLERS, "- name: PLACEHOLDER", "- name: Restart PostgreSQL")
 
     report = _changed(tree, reference)
     assert all("ansible_handler_links" in line for line in report), report
@@ -480,7 +480,7 @@ def test_an_ansible_task_name_is_normalised_but_a_manifest_name_is_not(tmp_path)
     (tree / "roles" / "x" / "tasks").mkdir(parents=True)
     (tree / "roles" / "x" / "tasks" / "main.yml").write_text(
         "---\n"
-        "- name: Installer le paquet\n"
+        "- name: Install the package\n"
         "  ansible.builtin.package:\n"
         "    name: nginx\n"
         "  block: []\n",
@@ -493,8 +493,8 @@ def test_an_ansible_task_name_is_normalised_but_a_manifest_name_is_not(tmp_path)
 
     # The same document outside a tasks/ directory keeps its `name`.
     (tree / "elsewhere.yml").write_text(
-        "---\n- name: Installer le paquet\n  ansible.builtin.package:\n    name: nginx\n",
+        "---\n- name: Install the package\n  ansible.builtin.package:\n    name: nginx\n",
         encoding="utf-8",
     )
     _, canonical = fp.canonical_text(tree, Path("elsewhere.yml"))
-    assert yaml.safe_load(canonical)[0][0]["name"] == "Installer le paquet"
+    assert yaml.safe_load(canonical)[0][0]["name"] == "Install the package"

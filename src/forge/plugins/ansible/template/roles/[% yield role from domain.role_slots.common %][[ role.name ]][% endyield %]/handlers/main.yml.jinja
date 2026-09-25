@@ -1,12 +1,12 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/common/handlers/main.yml — handlers du rôle common",
+     "roles/common/handlers/main.yml — handlers of the common role",
      [
-       "Les handlers ne s'exécutent qu'une fois, en fin de play, et uniquement",
-       "si une tâche les a notifiés.",
+       "Handlers run only once, at the end of the play, and only if a task has",
+       "notified them.",
      ]) ]]
-- name: Redémarrer le service de synchronisation horaire
+- name: Restart the time synchronisation service
   ansible.builtin.service:
     name: "{{ common_ntp_service }}"
     state: restarted

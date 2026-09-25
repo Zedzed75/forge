@@ -1,8 +1,8 @@
 {#
-  Hôte virtuel principal du projet.
-  Rendu par Ansible (rôle nginx) depuis les variables nginx_*.
+  Main virtual host of the project.
+  Rendered by Ansible (nginx role) from the nginx_* variables.
 #}
-# Fichier géré par Ansible - toute modification manuelle sera écrasée.
+# File managed by Ansible - any manual change will be overwritten.
 
 server {
     listen {{ nginx_listen_port }};
@@ -10,7 +10,7 @@ server {
     server_name {{ nginx_server_name }};
 
 {% if nginx_enable_https %}
-    # HTTPS activé : tout le trafic en clair est redirigé.
+    # HTTPS enabled: all cleartext traffic is redirected.
     location / {
         return 301 https://$host$request_uri;
     }
@@ -37,7 +37,7 @@ server {
         try_files $uri $uri/ =404;
     }
 
-    # Les fichiers cachés ne sont jamais servis.
+    # Hidden files are never served.
     location ~ /\. {
         deny all;
     }

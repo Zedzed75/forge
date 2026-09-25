@@ -1,22 +1,22 @@
 [% from "partials/header.jinja" import file_header, section %]
 ---
 [[ file_header(
-     "inventories/" ~ env.name ~ "/group_vars/" ~ group.name ~ ".yml — variables du groupe « " ~ group.name ~ " » en « " ~ env.name ~ " »",
+     "inventories/" ~ env.name ~ "/group_vars/" ~ group.name ~ ".yml — variables of the \"" ~ group.name ~ "\" group in \"" ~ env.name ~ "\"",
      [
-       "Couche de précédence la plus élevée avant les variables de machine :",
-       "elle ne concerne que le groupe « " ~ group.name ~ " » dans l'environnement « " ~ env.name ~ " ».",
+       "Highest precedence layer before the machine variables:",
+       "it only concerns the \"" ~ group.name ~ "\" group in the \"" ~ env.name ~ "\" environment.",
      ]) ]]
 [% if group.variables %]
-[[ section("Surcharges du groupe pour cet environnement") ]]
+[[ section("Group overrides for this environment") ]]
 [% for item in group.variables %]
 [[ item.description | comment ]]
 [[ item.name ]]:[[ item.value | yaml_assign(2) ]]
 
 [% endfor %]
 [% else %]
-[[ section("Surcharges du groupe pour cet environnement") ]]
-# Aucune surcharge définie pour ce groupe dans cet environnement.
-# Les valeurs effectives viennent, par précédence croissante, de
-# roles/<rôle>/defaults/main.yml, group_vars/all.yml, group_vars/[[ group.name ]].yml
-# puis inventories/[[ env.name ]]/group_vars/all.yml.
+[[ section("Group overrides for this environment") ]]
+# No override defined for this group in this environment.
+# The effective values come, by increasing precedence, from
+# roles/<role>/defaults/main.yml, group_vars/all.yml, group_vars/[[ group.name ]].yml
+# then inventories/[[ env.name ]]/group_vars/all.yml.
 [% endif %]

@@ -1,7 +1,7 @@
 {#
-  Bannière affichée à la connexion SSH.
-  Rendue par Ansible sur chaque machine (rôle common, tâche « Déployer la
-  bannière MOTD du projet »).
+  Banner displayed on SSH login.
+  Rendered by Ansible on every machine (common role, task "Deploy the MOTD
+  banner of the project").
 #}
 ===============================================================================
  {{ project_name }}
@@ -9,10 +9,10 @@
  {{ project_description }}
 {% endif %}
 ===============================================================================
- Machine  : {{ inventory_hostname }}
- Groupes  : {{ group_names | join(', ') }}
- Système  : {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+ Machine : {{ inventory_hostname }}
+ Groups  : {{ group_names | join(', ') }}
+ System  : {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
 ===============================================================================
- Cette machine est configurée par Ansible.
- Toute modification manuelle sera écrasée à la prochaine exécution.
+ This machine is configured by Ansible.
+ Any manual change will be overwritten on the next run.
 ===============================================================================

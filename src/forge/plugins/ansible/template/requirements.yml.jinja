@@ -1,27 +1,27 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "requirements.yml — dépendances Galaxy du projet",
+     "requirements.yml — Galaxy dependencies of the project",
      [
-       "Installez-les avant la première exécution :",
+       "Install them before the first run:",
        "  ansible-galaxy collection install -r requirements.yml",
-       "Les rôles du projet sont livrés dans roles/ et ne sont donc pas listés ici.",
+       "The roles of the project are shipped in roles/ and are therefore not listed here.",
        "",
-       "Chaque dépendance porte un intervalle de versions, plancher et plafond.",
-       "Sans plafond, cette commande installerait ce que Galaxy sert le jour où vous la lancez. Une majeure publiée après la génération de ce projet peut avoir supprimé un module que les rôles ci-dessous utilisent, et le projet casserait alors sans qu'une seule de ses lignes ait bougé.",
-       "Élargir un intervalle reste votre droit ; la conséquence est alors pour vous.",
+       "Every dependency carries a version range, a floor and a ceiling.",
+       "Without a ceiling, this command would install whatever Galaxy serves on the day you run it. A major released after this project was generated may have removed a module the roles below use, and the project would then break without a single one of its lines having moved.",
+       "Widening a range remains your right; the consequence is then yours.",
      ]) ]]
 [% if domain.collections %]
 collections:
 [% for collection in domain.collections %]
-  # Requise par le rôle : [[ domain.collection_users[collection.name] | join(', ') ]]
-[[ ("Plancher : " ~ collection.reason) | comment(2) ]]
-[[ ("Plafond : la majeure suivant la " ~ collection.validated ~ ", version contre laquelle forge valide les projets générés.") | comment(2) ]]
+  # Required by the role: [[ domain.collection_users[collection.name] | join(', ') ]]
+[[ ("Floor: " ~ collection.reason) | comment(2) ]]
+[[ ("Ceiling: the major following " ~ collection.validated ~ ", the version forge validates the generated projects against.") | comment(2) ]]
   - name: [[ collection.name ]]
     version: "[[ collection.version ]]"
 [% endfor %]
 [% else %]
-# Aucun rôle sélectionné ne nécessite de collection externe :
-# tout repose sur les modules ansible.builtin.
+# No selected role needs an external collection:
+# everything relies on the ansible.builtin modules.
 collections: []
 [% endif %]

@@ -1,13 +1,13 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/docker/tasks/repository_redhat.yml — dépôt Docker sur RHEL et dérivés",
+     "roles/docker/tasks/repository_redhat.yml — Docker repository on RHEL and derivatives",
      [
-       "Le dépôt CentOS de Docker convient à toute la famille RHEL : les",
-       "variables $releasever et $basearch sont résolues par le gestionnaire de",
-       "paquets lui-même.",
+       "Docker's CentOS repository suits the whole RHEL family: the",
+       "$releasever and $basearch variables are resolved by the package",
+       "manager itself.",
      ]) ]]
-- name: Déclarer le dépôt Docker
+- name: Declare the Docker repository
   ansible.builtin.yum_repository:
     name: "{{ 'docker-ce-' ~ docker_channel }}"
     description: "{{ 'Docker CE ' ~ docker_channel }}"

@@ -1,20 +1,20 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/ssh_hardening/tasks/main.yml — durcissement du serveur OpenSSH",
+     "roles/ssh_hardening/tasks/main.yml — hardening of the OpenSSH server",
      [
-       "Les directives sont déposées dans un fichier séparé de",
-       "/etc/ssh/sshd_config.d/ : la configuration livrée par la distribution",
-       "reste intacte et le durcissement se retire en supprimant un seul",
-       "fichier. Chaque écriture est validée par « sshd -t » : une erreur de",
-       "syntaxe ne peut pas couper l'accès SSH à la machine.",
+       "The directives are written to a separate file under",
+       "/etc/ssh/sshd_config.d/: the configuration shipped by the distribution",
+       "stays intact and the hardening is removed by deleting a single file.",
+       "Every write is validated by \"sshd -t\": a syntax error cannot cut off",
+       "SSH access to the machine.",
      ]) ]]
-- name: Installer le serveur OpenSSH
+- name: Install the OpenSSH server
   ansible.builtin.package:
     name: "{{ ssh_hardening_package }}"
     state: present
 
-- name: Créer le répertoire des fichiers de configuration additionnels
+- name: Create the directory of the additional configuration files
   ansible.builtin.file:
     path: "{{ ssh_hardening_dropin_dir }}"
     state: directory
@@ -22,7 +22,7 @@
     group: root
     mode: "0755"
 
-- name: S'assurer que sshd lit les fichiers de configuration additionnels
+- name: Make sure sshd reads the additional configuration files
   ansible.builtin.lineinfile:
     path: "{{ ssh_hardening_config_file }}"
     line: "{{ 'Include ' ~ ssh_hardening_dropin_dir ~ '/*.conf' }}"
@@ -32,9 +32,9 @@
     group: root
     mode: "0644"
     validate: /usr/sbin/sshd -t -f %s
-  notify: Redémarrer le service SSH
+  notify: Restart the SSH service
 
-- name: Déployer les directives de durcissement
+- name: Deploy the hardening directives
   ansible.builtin.template:
     src: hardening.conf.j2
     dest: "{{ ssh_hardening_dropin_dir ~ '/' ~ ssh_hardening_dropin_file }}"
@@ -42,9 +42,9 @@
     group: root
     mode: "0600"
     validate: /usr/sbin/sshd -t -f %s
-  notify: Redémarrer le service SSH
+  notify: Restart the SSH service
 
-- name: Activer et démarrer le service SSH
+- name: Enable and start the SSH service
   ansible.builtin.service:
     name: "{{ ssh_hardening_service }}"
     state: started

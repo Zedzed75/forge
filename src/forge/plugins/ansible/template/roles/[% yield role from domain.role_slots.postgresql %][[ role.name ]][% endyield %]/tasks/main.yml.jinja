@@ -1,39 +1,39 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/postgresql/tasks/main.yml — serveur PostgreSQL",
+     "roles/postgresql/tasks/main.yml — PostgreSQL server",
      [
-       "Ordre d'exécution : paquets, initialisation du cluster (RedHat),",
-       "démarrage du service, réglages du serveur, rôles, bases puis règles",
-       "d'authentification. Les rôles sont créés avant les bases car une base",
-       "référence son propriétaire.",
-       "Les mots de passe proviennent du vault : chaque entrée de",
-       "postgresql_db_users nomme la variable qui le contient.",
+       "Order of execution: packages, cluster initialisation (RedHat), service",
+       "start, server settings, roles, databases, then authentication rules.",
+       "The roles are created before the databases because a database",
+       "references its owner.",
+       "The passwords come from the vault: every entry of postgresql_db_users",
+       "names the variable that holds it.",
      ]) ]]
-- name: Installer PostgreSQL et ses dépendances
+- name: Install PostgreSQL and its dependencies
   ansible.builtin.package:
     name: "{{ postgresql_packages }}"
     state: present
 
-- name: Initialiser le cluster PostgreSQL
+- name: Initialise the PostgreSQL cluster
   ansible.builtin.command:
     cmd: /usr/bin/postgresql-setup --initdb
     creates: "{{ postgresql_config_dir ~ '/PG_VERSION' }}"
   when: ansible_facts['os_family'] == 'RedHat'
 
-- name: Activer et démarrer le service PostgreSQL
+- name: Enable and start the PostgreSQL service
   ansible.builtin.service:
     name: "{{ postgresql_service }}"
     state: started
     enabled: true
 
-# Requiert community.postgresql >= 3.13.0 : `postgresql_alter_system` y est
-# apparu, et a remplacé `postgresql_set` supprimé en 5.0.0. Le module écrit
-# dans postgresql.auto.conf puis recharge la configuration ; les paramètres
-# qui exigent un redémarrage passent par le handler ci-dessous.
-# `value` est obligatoire et typé chaîne, d'où le `| string` appliqué aux
-# valeurs numériques dans vars/main.yml.
-- name: Appliquer les réglages du serveur
+# Requires community.postgresql >= 3.13.0: `postgresql_alter_system` appeared
+# there, and replaced `postgresql_set`, removed in 5.0.0. The module writes to
+# postgresql.auto.conf then reloads the configuration; the parameters that
+# require a restart go through the handler below.
+# `value` is mandatory and typed as a string, hence the `| string` applied to
+# the numeric values in vars/main.yml.
+- name: Apply the server settings
   community.postgresql.postgresql_alter_system:
     param: "{{ item.name }}"
     value: "{{ item.value }}"
@@ -42,9 +42,9 @@
   loop: "{{ postgresql_settings }}"
   loop_control:
     label: "{{ item.name }}"
-  notify: Redémarrer PostgreSQL
+  notify: Restart PostgreSQL
 
-- name: Créer les rôles de connexion
+- name: Create the login roles
   community.postgresql.postgresql_user:
     name: "{{ item.name }}"
     password: "{{ lookup('vars', item.password_var) }}"
@@ -56,7 +56,7 @@
     label: "{{ item.name }}"
   no_log: true
 
-- name: Créer les bases de données
+- name: Create the databases
   community.postgresql.postgresql_db:
     name: "{{ item.name }}"
     owner: "{{ item.owner | default(omit, true) }}"
@@ -68,7 +68,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Accorder les privilèges déclarés
+- name: Grant the declared privileges
   community.postgresql.postgresql_privs:
     database: "{{ item.privileges.split(':')[0] }}"
     privs: "{{ item.privileges.split(':')[1] }}"
@@ -81,7 +81,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Déclarer les règles d'authentification supplémentaires
+- name: Declare the additional authentication rules
   community.postgresql.postgresql_pg_hba:
     dest: "{{ postgresql_config_dir ~ '/pg_hba.conf' }}"
     contype: "{{ item.split()[0] }}"
@@ -91,4 +91,4 @@
     method: "{{ item.split()[4] }}"
     state: present
   loop: "{{ postgresql_hba_entries }}"
-  notify: Recharger PostgreSQL
+  notify: Reload PostgreSQL

@@ -1,13 +1,13 @@
 [% from "partials/header.jinja" import file_header %]
-[[ file_header(".gitignore — fichiers à ne jamais versionner") ]]
-# Mot de passe du vault : ne doit jamais entrer dans l'historique Git.
+[[ file_header(".gitignore — files that must never be committed") ]]
+# Vault password: must never enter the Git history.
 .vault_pass
 *.vault_pass
 
-# Fichiers de reprise générés par ansible en cas d'échec.
+# Retry files written by ansible when a run fails.
 *.retry
 
-# Artefacts locaux.
+# Local artefacts.
 .venv/
 __pycache__/
 *.log

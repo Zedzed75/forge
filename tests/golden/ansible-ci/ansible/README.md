@@ -2,25 +2,25 @@
 
 Passerelle applicative
 
-**Responsable :** Equipe Plateforme
+**Maintainer:** Equipe Plateforme
 
-> Ce projet a été généré à partir de `forge.yml`, à la racine du dépôt. Pour
-> le régénérer à l'identique : `forge generate --only ansible`.
+> This project was generated from `forge.yml`, at the root of the repository. To
+> regenerate it identically: `forge generate --only ansible`.
 
-## Prérequis
+## Requirements
 
-- Un nœud de contrôle Linux ou macOS avec `ansible-core` >= 2.15
-- Un accès SSH par clé publique aux machines cibles, avec le compte
-  `deploy` sur le port 22
-- Un accès `sudo` sur les machines cibles
+- A Linux or macOS control node with `ansible-core` >= 2.15
+- Public-key SSH access to the target machines, with the `deploy`
+  account on port 22
+- `sudo` access on the target machines
 
-Installation des dépendances :
+Installing the dependencies:
 
 ```bash
 ansible-galaxy collection install -r requirements.yml
 ```
 
-## Arborescence
+## Layout
 
 ```text
 passerelle/
@@ -81,53 +81,53 @@ passerelle/
 └── requirements.yml
 ```
 
-## Environnements
+## Environments
 
-| Environnement | Inventaire | Machines |
+| Environment | Inventory | Machines |
 |---|---|---|
 | `prod` | `inventories/prod` | 1 |
 
-L'environnement `prod` est celui déclaré par défaut dans
-`ansible.cfg` ; les autres se ciblent avec `-i`.
+The `prod` environment is the one declared as the default in
+`ansible.cfg`; the others are targeted with `-i`.
 
-## Groupes et rôles
+## Groups and roles
 
-| Groupe | Description | Rôles appliqués |
+| Group | Description | Roles applied |
 |---|---|---|
 | `gateways` | Passerelles exposées | common, ssh_hardening |
 
-| Rôle | Objet |
+| Role | Purpose |
 |---|---|
-| [`common`](roles/common/README.md) | Socle système : paquets de base, fuseau horaire, synchronisation NTP, bannière MOTD. |
-| [`ssh_hardening`](roles/ssh_hardening/README.md) | Durcissement OpenSSH : connexion root, authentification par mot de passe, limites. |
+| [`common`](roles/common/README.md) | System baseline: base packages, time zone, NTP synchronisation, MOTD banner. |
+| [`ssh_hardening`](roles/ssh_hardening/README.md) | OpenSSH hardening: root login, password authentication, limits. |
 
-## Commandes courantes
+## Common commands
 
-Vérifier la connectivité avant tout :
+Check connectivity before anything else:
 
 ```bash
 ansible-playbook -i inventories/prod playbooks/ping.yml
 ```
 
-Voir ce qui serait modifié, sans rien appliquer :
+See what would change, without applying anything:
 
 ```bash
 ansible-playbook -i inventories/prod playbooks/site.yml --check --diff
 ```
 
-Appliquer la configuration complète :
+Apply the full configuration:
 
 ```bash
 ansible-playbook -i inventories/prod playbooks/site.yml
 ```
 
-Ne traiter qu'un seul groupe :
+Handle a single group only:
 
 ```bash
 ansible-playbook -i inventories/prod playbooks/gateways.yml
 ```
 
-Contrôler la qualité du projet :
+Check the quality of the project:
 
 ```bash
 ansible-playbook -i inventories/prod playbooks/site.yml --syntax-check
@@ -135,39 +135,39 @@ ansible-lint
 yamllint .
 ```
 
-## Précédence des variables
+## Variable precedence
 
-De la précédence la plus faible à la plus forte :
+From the weakest precedence to the strongest:
 
-1. `roles/<rôle>/defaults/main.yml` — valeurs par défaut du rôle
-2. `group_vars/all.yml` — valeurs communes au projet
-3. `group_vars/<groupe>.yml` — valeurs communes au groupe
-4. `inventories/<env>/group_vars/all/main.yml` — valeurs de l'environnement
-5. `inventories/<env>/group_vars/<groupe>.yml` — groupe dans cet environnement
-6. `inventories/<env>/host_vars/<machine>.yml` — machine précise
-7. `roles/<rôle>/vars/main.yml` — variables internes du rôle, non surchargeables
+1. `roles/<role>/defaults/main.yml` — role defaults
+2. `group_vars/all.yml` — values shared by the project
+3. `group_vars/<group>.yml` — values shared by the group
+4. `inventories/<env>/group_vars/all/main.yml` — values of the environment
+5. `inventories/<env>/group_vars/<group>.yml` — the group in that environment
+6. `inventories/<env>/host_vars/<machine>.yml` — one precise machine
+7. `roles/<role>/vars/main.yml` — internal role variables, not overridable
 
-Placez chaque valeur au niveau le plus général qui convienne : une valeur
-définie dans `host_vars` est invisible depuis le reste du projet.
+Put every value at the most general level that fits: a value defined in
+`host_vars` is invisible from the rest of the project.
 
 ## Secrets
 
-Aucun fichier de vault n'a été généré pour ce projet. Si vous ajoutez des
-secrets, chiffrez-les avec `ansible-vault` et ne les versionnez jamais en clair.
+No vault file was generated for this project. If you add secrets, encrypt them
+with `ansible-vault` and never commit them in cleartext.
 
-## Régénérer le projet
+## Regenerating the project
 
-`forge.yml` décrit entièrement ce projet. Modifiez-le puis relancez :
+`forge.yml` describes this project entirely. Edit it, then run again:
 
 ```bash
 forge generate --only ansible --force
 ```
 
-Les fichiers générés portent tous un en-tête le rappelant : vos modifications
-manuelles y seraient perdues.
+Every generated file carries a header saying so: your manual edits would be
+lost there.
 
-Pour ne recevoir que les évolutions du gabarit **sans** perdre vos
-modifications, préférez :
+To receive only the evolutions of the template **without** losing your changes,
+prefer:
 
 ```bash
 forge update --only ansible

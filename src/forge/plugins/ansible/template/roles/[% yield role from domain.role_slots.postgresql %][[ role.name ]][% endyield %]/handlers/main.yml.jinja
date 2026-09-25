@@ -1,17 +1,17 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/postgresql/handlers/main.yml — handlers du rôle postgresql",
+     "roles/postgresql/handlers/main.yml — handlers of the postgresql role",
      [
-       "Un changement de pg_hba.conf ne demande qu'un rechargement ; un",
-       "changement de paramètre du serveur peut exiger un redémarrage complet.",
+       "A change to pg_hba.conf only asks for a reload; a change to a server",
+       "parameter may require a full restart.",
      ]) ]]
-- name: Recharger PostgreSQL
+- name: Reload PostgreSQL
   ansible.builtin.service:
     name: "{{ postgresql_service }}"
     state: reloaded
 
-- name: Redémarrer PostgreSQL
+- name: Restart PostgreSQL
   ansible.builtin.service:
     name: "{{ postgresql_service }}"
     state: restarted

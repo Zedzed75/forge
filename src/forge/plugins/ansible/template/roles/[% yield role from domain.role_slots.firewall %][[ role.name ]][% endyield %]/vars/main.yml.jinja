@@ -1,37 +1,37 @@
 [% from "partials/header.jinja" import file_header, var_doc %]
 ---
 [[ file_header(
-     "roles/firewall/vars/main.yml — variables internes du rôle firewall",
+     "roles/firewall/vars/main.yml — internal variables of the firewall role",
      [
-       "Résolution du backend « auto » et traduction de la politique par défaut",
-       "vers la cible de zone attendue par firewalld.",
+       "Resolution of the \"auto\" backend, and translation of the default policy",
+       "into the zone target firewalld expects.",
      ]) ]]
 [[ var_doc(
-     "Backend choisi lorsque firewall_backend vaut « auto », selon la famille d'OS.",
-     "Dictionnaire indexé par ansible_facts['os_family'].") ]]
+     "Backend chosen when firewall_backend is \"auto\", per OS family.",
+     "Dictionary indexed by ansible_facts['os_family'].") ]]
 firewall_default_backend_map:
   Debian: ufw
   RedHat: firewalld
 
 [[ var_doc(
-     "Cible de zone firewalld correspondant à chaque politique par défaut.",
-     "Dictionnaire indexé par la valeur de firewall_default_incoming_policy.") ]]
+     "firewalld zone target matching each default policy.",
+     "Dictionary indexed by the value of firewall_default_incoming_policy.") ]]
 firewall_zone_target_map:
   deny: DROP
   reject: '%%REJECT%%'
   allow: ACCEPT
 
 [[ var_doc(
-     "Zone firewalld dans laquelle les règles sont posées.",
-     "Nom d'une zone firewalld existante.") ]]
+     "firewalld zone the rules are set in.",
+     "Name of an existing firewalld zone.") ]]
 firewall_zone: public
 
 [[ var_doc(
-     "Backend de pare-feu réellement utilisé sur la machine courante.",
-     "Calculée automatiquement ; ne pas surcharger.") ]]
+     "Firewall backend actually used on the current machine.",
+     "Computed automatically; do not override.") ]]
 firewall_effective_backend: "{{ firewall_default_backend_map[ansible_facts['os_family']] if firewall_backend == 'auto' else firewall_backend }}"
 
 [[ var_doc(
-     "Cible de zone firewalld déduite de la politique par défaut.",
-     "Calculée automatiquement ; ne pas surcharger.") ]]
+     "firewalld zone target derived from the default policy.",
+     "Computed automatically; do not override.") ]]
 firewall_zone_target: "{{ firewall_zone_target_map[firewall_default_incoming_policy] }}"

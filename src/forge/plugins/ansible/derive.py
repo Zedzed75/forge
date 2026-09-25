@@ -25,10 +25,12 @@ from forge.plugins.ansible.catalog.registry import (
     role_names,
 )
 
-#: Commentaire pose sur les variables libres saisies par l'utilisateur.
-#: Texte repris **mot pour mot** du legacy (`planner.UNDOCUMENTED`) : il apparait
-#: dans des dizaines de fichiers generes, la moindre retouche casse la parite.
-UNDOCUMENTED = "TODO : décrire le rôle de cette variable et ses valeurs admises."
+#: Comment placed on the free-form variables the user typed in.
+#: The text used to be copied **word for word** from the legacy
+#: (`planner.UNDOCUMENTED`), which forbade touching it: the parity snapshots
+#: compared the two outputs. Those snapshots went away with `_legacy/` in
+#: phase 10, and the constraint with them.
+UNDOCUMENTED = "TODO: describe what this variable does and its allowed values."
 
 #: Plateformes Galaxy declarees dans `meta/main.yml`, par famille d'OS.
 #: Portage de `role_planner.PLATFORMS` (clefs converties en chaines : le dict
@@ -38,94 +40,94 @@ PLATFORMS: dict[str, tuple[str, ...]] = {
     "redhat": ("EL", "Fedora"),
 }
 
-#: Variables internes documentees dans le README de chaque role.
-#: Portage litteral de `role_planner.INTERNAL_VARS` : ces textes sont ecrits
-#: dans les fichiers generes, ils gardent donc leurs accents.
+#: Internal variables documented in the README of each role.
+#: Port of `role_planner.INTERNAL_VARS`: these texts are written into the
+#: generated files, so they follow the language of the output.
 INTERNAL_VARS: dict[str, tuple[dict[str, str], ...]] = {
     "users": (
         {
             "name": "users_sudoers_file",
-            "description": "nom du fichier déposé dans /etc/sudoers.d",
+            "description": "name of the file written to /etc/sudoers.d",
         },
         {
             "name": "users_secondary_groups",
-            "description": "groupes secondaires déduits de users_accounts",
+            "description": "secondary groups derived from users_accounts",
         },
         {
             "name": "users_sudo_accounts",
-            "description": "comptes présents disposant d'un accès sudo",
+            "description": "present accounts that have sudo access",
         },
     ),
     "ssh_hardening": (
         {
             "name": "ssh_hardening_dropin_dir",
-            "description": "répertoire des fichiers de configuration additionnels de sshd",
+            "description": "directory of the additional configuration files of sshd",
         },
         {
             "name": "ssh_hardening_service",
-            "description": "nom du service SSH, résolu selon la famille d'OS",
+            "description": "name of the SSH service, resolved per OS family",
         },
     ),
     "firewall": (
         {
             "name": "firewall_effective_backend",
-            "description": "backend réellement utilisé, une fois « auto » résolu",
+            "description": "backend actually used, once \"auto\" is resolved",
         },
         {
             "name": "firewall_zone",
-            "description": "zone firewalld dans laquelle les règles sont posées",
+            "description": "firewalld zone the rules are set in",
         },
         {
             "name": "firewall_zone_target",
-            "description": "cible de zone firewalld déduite de la politique par défaut",
+            "description": "firewalld zone target derived from the default policy",
         },
     ),
     "nginx": (
         {
             "name": "nginx_user",
-            "description": "compte système des workers, résolu selon la famille d'OS",
+            "description": "system account of the workers, resolved per OS family",
         },
         {
             "name": "nginx_config_dir",
-            "description": "répertoire de configuration de nginx",
+            "description": "configuration directory of nginx",
         },
         {
             "name": "nginx_default_site_path",
-            "description": "site par défaut de la distribution, vide si absent",
+            "description": "default site of the distribution, empty if there is none",
         },
     ),
     "docker": (
         {
             "name": "docker_apt_arch",
-            "description": "architecture APT déduite de l'architecture de la machine",
+            "description": "APT architecture derived from the architecture of the machine",
         },
         {
             "name": "docker_packages",
-            "description": "liste finale des paquets, plugin Compose inclus si demandé",
+            "description": "final list of the packages, Compose plugin included if requested",
         },
     ),
     "postgresql": (
         {
             "name": "postgresql_config_dir",
-            "description": "répertoire de postgresql.conf et pg_hba.conf, selon la famille d'OS",
+            "description": "directory of postgresql.conf and pg_hba.conf, per OS family",
         },
         {
             "name": "postgresql_settings",
-            "description": "paramètres appliqués au serveur, construits depuis les options",
+            "description": "parameters applied to the server, built from the options",
         },
         {
             "name": "postgresql_users_with_password",
-            "description": "rôles disposant d'une variable de mot de passe renseignée",
+            "description": "roles that have a password variable filled in",
         },
     ),
     "common": (
         {
             "name": "common_ntp_package",
-            "description": "paquet de synchronisation horaire résolu selon la famille d'OS",
+            "description": "time synchronisation package resolved per OS family",
         },
         {
             "name": "common_ntp_service",
-            "description": "service de synchronisation horaire résolu selon la famille d'OS",
+            "description": "time synchronisation service resolved per OS family",
         },
     ),
 }
@@ -385,10 +387,10 @@ def vault_secrets(ansible: Any, env_name: str) -> list[dict[str, str]]:
                     {
                         "name": variable,
                         "description": (
-                            f"Mot de passe du rôle PostgreSQL « {utilisateur.get('name', '?')} » "
-                            f"en environnement « {env_name} »."
+                            f"Password of the \"{utilisateur.get('name', '?')}\" PostgreSQL "
+                            f"role in the \"{env_name}\" environment."
                         ),
-                        "placeholder": "CHANGEZ-MOI",
+                        "placeholder": "CHANGE-ME",
                     }
                 )
     if not secrets:
@@ -396,10 +398,10 @@ def vault_secrets(ansible: Any, env_name: str) -> list[dict[str, str]]:
             {
                 "name": "vault_example_secret",
                 "description": (
-                    "Exemple de secret. Remplacez-le par les vôtres, un par ligne, "
-                    "chacun précédé d'un commentaire."
+                    "Example secret. Replace it with your own, one per line, each one "
+                    "preceded by a comment."
                 ),
-                "placeholder": "CHANGEZ-MOI",
+                "placeholder": "CHANGE-ME",
             }
         )
     return secrets

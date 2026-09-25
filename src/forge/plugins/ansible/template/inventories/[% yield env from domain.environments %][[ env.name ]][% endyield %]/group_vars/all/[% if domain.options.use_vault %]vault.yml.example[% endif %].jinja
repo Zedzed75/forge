@@ -1,23 +1,23 @@
 [% from "partials/header.jinja" import file_header, section %]
 ---
 [[ file_header(
-     "inventories/" ~ env.name ~ "/group_vars/vault.yml.example — modèle de secrets",
+     "inventories/" ~ env.name ~ "/group_vars/vault.yml.example — secrets template",
      [
-       "MODÈLE EN CLAIR : ne contient que des valeurs factices.",
-       "Procédure :",
+       "CLEARTEXT TEMPLATE: holds placeholder values only.",
+       "Procedure:",
        "  1. cp vault.yml.example vault.yml",
-       "  2. remplacez les valeurs factices par les vraies",
+       "  2. replace the placeholder values with the real ones",
        "  3. ansible-vault encrypt vault.yml",
-       "  4. exécutez vos playbooks avec --ask-vault-pass (ou --vault-password-file)",
-       "Le fichier vault.yml chiffré peut être versionné ; jamais le mot de passe.",
-       "Convention : toute variable secrète est préfixée par « vault_ » et référencée",
-       "depuis une variable non secrète, afin de garder les vaults lisibles.",
+       "  4. run your playbooks with --ask-vault-pass (or --vault-password-file)",
+       "The encrypted vault.yml file may be committed; the password, never.",
+       "Convention: every secret variable is prefixed with \"vault_\" and referenced",
+       "from a non-secret variable, so that the vaults stay readable.",
      ]) ]]
-[[ section("Secrets de l'environnement « " ~ env.name ~ " »") ]]
+[[ section("Secrets of the \"" ~ env.name ~ "\" environment") ]]
 [% for item in env.vault_secrets %]
 [[ item.description | comment ]]
 [[ item.name ]]: [[ item.placeholder | yaml_scalar ]]
 
 [% endfor %]
-# Ajoutez ici les autres secrets de l'environnement, un par ligne, chacun
-# précédé d'un commentaire indiquant son usage.
+# Add the other secrets of the environment here, one per line, each one
+# preceded by a comment stating what it is used for.

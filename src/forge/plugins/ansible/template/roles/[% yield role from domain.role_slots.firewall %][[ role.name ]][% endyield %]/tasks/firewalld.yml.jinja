@@ -1,23 +1,23 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/firewall/tasks/firewalld.yml — pare-feu firewalld (RedHat et dérivés)",
+     "roles/firewall/tasks/firewalld.yml — firewalld firewall (RedHat and derivatives)",
      [
-       "Les règles sont posées à la fois en mémoire (immediate) et sur disque",
-       "(permanent) afin de survivre à un redémarrage sans recharge manuelle.",
+       "The rules are set both in memory (immediate) and on disk (permanent) so",
+       "that they survive a reboot without a manual reload.",
      ]) ]]
-- name: Installer firewalld
+- name: Install firewalld
   ansible.builtin.package:
     name: firewalld
     state: present
 
-- name: Activer et démarrer firewalld
+- name: Enable and start firewalld
   ansible.builtin.service:
     name: firewalld
     state: "{{ 'started' if firewall_enabled else 'stopped' }}"
     enabled: "{{ firewall_enabled }}"
 
-- name: Ouvrir les ports TCP autorisés
+- name: Open the allowed TCP ports
   ansible.posix.firewalld:
     port: "{{ item ~ '/tcp' }}"
     zone: "{{ firewall_zone }}"
@@ -27,7 +27,7 @@
   loop: "{{ firewall_allowed_tcp_ports }}"
   when: firewall_enabled | bool
 
-- name: Ouvrir les ports UDP autorisés
+- name: Open the allowed UDP ports
   ansible.posix.firewalld:
     port: "{{ item ~ '/udp' }}"
     zone: "{{ firewall_zone }}"
@@ -37,11 +37,11 @@
   loop: "{{ firewall_allowed_udp_ports }}"
   when: firewall_enabled | bool
 
-- name: Appliquer la politique par défaut de la zone
+- name: Apply the default policy of the zone
   ansible.posix.firewalld:
     zone: "{{ firewall_zone }}"
     target: "{{ firewall_zone_target }}"
     permanent: true
     state: present
   when: firewall_enabled | bool
-  notify: Recharger le pare-feu
+  notify: Reload the firewall

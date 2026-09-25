@@ -1,13 +1,13 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/docker/tasks/repository_debian.yml — dépôt Docker sur Debian et Ubuntu",
+     "roles/docker/tasks/repository_debian.yml — Docker repository on Debian and Ubuntu",
      [
-       "La clé de signature est déposée dans /etc/apt/keyrings puis référencée",
-       "par l'option signed-by du dépôt : la clé n'est donc valable que pour ce",
-       "dépôt, et non pour l'ensemble des sources APT.",
+       "The signing key is written to /etc/apt/keyrings and then referenced by",
+       "the signed-by option of the repository: the key is therefore valid for",
+       "that repository only, and not for every APT source.",
      ]) ]]
-- name: Installer les prérequis du dépôt Docker
+- name: Install the prerequisites of the Docker repository
   ansible.builtin.apt:
     name:
       - ca-certificates
@@ -16,7 +16,7 @@
     state: present
     update_cache: true
 
-- name: Créer le répertoire des clés de dépôt
+- name: Create the directory of the repository keys
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
@@ -24,7 +24,7 @@
     group: root
     mode: "0755"
 
-- name: Télécharger la clé de signature du dépôt Docker
+- name: Download the signing key of the Docker repository
   ansible.builtin.get_url:
     url: "{{ 'https://download.docker.com/linux/' ~ ansible_facts['distribution'] | lower ~ '/gpg' }}"
     dest: /etc/apt/keyrings/docker.asc
@@ -32,7 +32,7 @@
     group: root
     mode: "0644"
 
-- name: Déclarer le dépôt Docker
+- name: Declare the Docker repository
   ansible.builtin.apt_repository:
     repo: >-
       deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc]

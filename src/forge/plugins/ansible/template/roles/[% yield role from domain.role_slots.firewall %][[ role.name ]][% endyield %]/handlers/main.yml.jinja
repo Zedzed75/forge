@@ -1,12 +1,12 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/firewall/handlers/main.yml — handlers du rôle firewall",
+     "roles/firewall/handlers/main.yml — handlers of the firewall role",
      [
-       "Un seul handler couvre les deux implémentations : ufw comme firewalld",
-       "exposent une action « reload » via leur unité systemd.",
+       "A single handler covers both implementations: ufw and firewalld alike",
+       "expose a \"reload\" action through their systemd unit.",
      ]) ]]
-- name: Recharger le pare-feu
+- name: Reload the firewall
   ansible.builtin.service:
     name: "{{ firewall_effective_backend }}"
     state: reloaded

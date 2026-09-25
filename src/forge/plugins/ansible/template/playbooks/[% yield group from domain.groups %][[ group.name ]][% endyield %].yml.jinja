@@ -1,20 +1,20 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "playbooks/" ~ group.name ~ ".yml — configuration du groupe « " ~ group.name ~ " »",
+     "playbooks/" ~ group.name ~ ".yml — configuration of the \"" ~ group.name ~ "\" group",
      [
-       group.description or ("Applique les rôles du projet aux machines du groupe " ~ group.name ~ "."),
-       "Exécution ciblée :",
+       group.description or ("Applies the roles of the project to the machines of the " ~ group.name ~ " group."),
+       "Targeted run:",
        "  ansible-playbook -i inventories/<env> playbooks/" ~ group.name ~ ".yml",
-       "Exécution partielle par étiquette :",
+       "Partial run by tag:",
        "  ansible-playbook -i inventories/<env> playbooks/" ~ group.name ~ ".yml --tags " ~ group.roles[0].tags[0],
      ]) ]]
-- name: Appliquer la configuration du groupe « [[ group.name ]] »
+- name: Apply the configuration of the "[[ group.name ]]" group
   hosts: [[ group.name ]]
-  # Escalade de privilèges : la plupart des tâches système l'exigent.
+  # Privilege escalation: most system tasks require it.
   become: [[ 'true' if domain.become else 'false' ]]
-  # La collecte des faits est nécessaire aux rôles qui adaptent leur
-  # comportement à la distribution détectée.
+  # Fact gathering is needed by the roles that adapt their behaviour to the
+  # detected distribution.
   gather_facts: true
 
   roles:

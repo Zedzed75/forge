@@ -1,20 +1,19 @@
 [% from "partials/header.jinja" import file_header %]
 ---
 [[ file_header(
-     "roles/nginx/tasks/main.yml — serveur web nginx",
+     "roles/nginx/tasks/main.yml — nginx web server",
      [
-       "Ordre d'exécution : installation, configuration globale, racine des",
-       "documents, hôte virtuel, retrait du site par défaut, activation du",
-       "service. Les fichiers de configuration sont validés par « nginx -t »",
-       "avant d'être installés : une erreur de syntaxe n'interrompt pas le",
-       "service en place.",
+       "Order of execution: installation, global configuration, document root,",
+       "virtual host, removal of the default site, service activation. The",
+       "configuration files are validated by \"nginx -t\" before being installed:",
+       "a syntax error does not interrupt the service already in place.",
      ]) ]]
-- name: Installer nginx
+- name: Install nginx
   ansible.builtin.package:
     name: nginx
     state: present
 
-- name: Créer la racine des documents
+- name: Create the document root
   ansible.builtin.file:
     path: "{{ nginx_document_root }}"
     state: directory
@@ -22,7 +21,7 @@
     group: "{{ nginx_user }}"
     mode: "0755"
 
-- name: Déployer la configuration globale de nginx
+- name: Deploy the global nginx configuration
   ansible.builtin.template:
     src: nginx.conf.j2
     dest: "{{ nginx_config_dir ~ '/nginx.conf' }}"
@@ -30,27 +29,27 @@
     group: root
     mode: "0644"
     validate: nginx -t -c %s
-  notify: Recharger nginx
+  notify: Reload nginx
 
-- name: Déployer l'hôte virtuel principal
+- name: Deploy the main virtual host
   ansible.builtin.template:
     src: vhost.conf.j2
     dest: "{{ nginx_config_dir ~ '/conf.d/' ~ nginx_server_name ~ '.conf' }}"
     owner: root
     group: root
     mode: "0644"
-  notify: Recharger nginx
+  notify: Reload nginx
 
-- name: Désactiver le site par défaut de la distribution
+- name: Disable the default site of the distribution
   ansible.builtin.file:
     path: "{{ nginx_default_site_path }}"
     state: absent
   when:
     - nginx_remove_default_site | bool
     - nginx_default_site_path | length > 0
-  notify: Recharger nginx
+  notify: Reload nginx
 
-- name: Activer et démarrer le service nginx
+- name: Enable and start the nginx service
   ansible.builtin.service:
     name: nginx
     state: started
