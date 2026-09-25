@@ -1,18 +1,17 @@
-"""Entretien du domaine Terraform.
+"""Interview for the Terraform domain.
 
-Ecrit contre le protocole `Prompter` du coeur, jamais contre questionary : c'est
-ce qui rend l'entretien rejouable par `tests/scripted_prompter.py`.
+Written against the core `Prompter` protocol, never against questionary: that is
+what makes the interview replayable by `tests/scripted_prompter.py`.
 
-L'ordre des questions suit celui de la decision reelle : d'abord **ce que
-Terraform pose** (les familles), parce que tout le reste en depend ; ensuite
-**ou vit l'etat**, qui est le choix de securite ; enfin **comment on joint le
-cluster**. Les questions sans objet ne sont pas posees : un backend `local` ne
-demande aucune cle, une authentification dans le cluster ne demande aucun
-kubeconfig.
+The order of the questions follows the order of the real decision: first **what
+Terraform lays down** (the families), because everything else depends on it;
+then **where the state lives**, which is the security choice; finally **how the
+cluster is joined**. Questions without an object are not asked: a `local`
+backend asks for no key, in-cluster authentication asks for no kubeconfig.
 
-Conformement a l'arbitrage R7 (PLAN.md), retourner `None` ne signifie pas que
-l'utilisateur refuse le domaine — le coeur le lui a deja demande — mais qu'il
-n'y a rien a generer : ici, aucune famille retenue.
+Per arbitration R7 (PLAN.md), returning `None` does not mean that the user
+declines the domain — the core has already asked that — but that there is
+nothing to generate: here, no family retained.
 """
 
 from __future__ import annotations
@@ -31,158 +30,158 @@ from forge.plugins.terraform.enums import (
 from forge.spec.names import DNS_LABEL_RE
 from forge.spec.service import ServiceSpec
 
-#: Version de Terraform proposee par defaut. Bornee sur la majeure : une
-#: contrainte sans borne haute laisse une version 2 future casser le projet.
+#: Terraform version offered by default. Bounded on the major: a constraint
+#: without an upper bound lets a future version 2 break the project.
 DEFAULT_VERSION = "~> 1.9"
 
-#: Libelles des strategies de namespace, dans l'ordre propose.
+#: Labels of the namespace strategies, in the order offered.
 NAMESPACE_CHOICES: list[tuple[str, str]] = [
     (
         NamespaceStrategy.PER_ENV.value,
-        "un namespace par environnement (<service>-<env>) — recommande",
+        "one namespace per environment (<service>-<env>) — recommended",
     ),
-    (NamespaceStrategy.SAME.value, "un seul namespace pour tous les environnements"),
-    (NamespaceStrategy.CUSTOM.value, "je nomme moi-meme chaque namespace"),
+    (NamespaceStrategy.SAME.value, "a single namespace for every environment"),
+    (NamespaceStrategy.CUSTOM.value, "I name each namespace myself"),
 ]
 
-#: Libelles des backends, dans l'ordre propose.
+#: Labels of the backends, in the order offered.
 BACKEND_CHOICES: list[tuple[str, str]] = [
-    (BackendKind.LOCAL.value, "local — fichier dans le repertoire de travail (decouverte)"),
-    (BackendKind.S3.value, "s3 — bucket S3 ou compatible"),
-    (BackendKind.GCS.value, "gcs — bucket Google Cloud Storage"),
-    (BackendKind.AZURERM.value, "azurerm — compte de stockage Azure"),
-    (BackendKind.HTTP.value, "http — service implementant l'API d'etat (GitLab, Atlantis)"),
+    (BackendKind.LOCAL.value, "local — file in the working directory (discovery)"),
+    (BackendKind.S3.value, "s3 — S3 or S3-compatible bucket"),
+    (BackendKind.GCS.value, "gcs — Google Cloud Storage bucket"),
+    (BackendKind.AZURERM.value, "azurerm — Azure storage account"),
+    (BackendKind.HTTP.value, "http — service implementing the state API (GitLab, Atlantis)"),
 ]
 
-#: Libelles des modes d'authentification.
+#: Labels of the authentication modes.
 AUTH_CHOICES: list[tuple[str, str]] = [
-    (KubernetesAuth.KUBECONFIG.value, "kubeconfig — un fichier et un contexte nomme"),
-    (KubernetesAuth.IN_CLUSTER.value, "in_cluster — Terraform tourne dans le cluster vise"),
+    (KubernetesAuth.KUBECONFIG.value, "kubeconfig — a file and a named context"),
+    (KubernetesAuth.IN_CLUSTER.value, "in_cluster — Terraform runs inside the target cluster"),
 ]
 
 
 def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conduit l'entretien et retourne la section `terraform:` de forge.yml."""
+    """Conduct the interview and return the `terraform:` section of forge.yml."""
     prompter.note(
-        "Terraform pose le socle : le namespace, son budget, l'identite qui y "
-        "deploie. La charge applicative, elle, appartient au domaine Helm."
+        "Terraform lays the foundation: the namespace, its budget, the identity "
+        "that deploys into it. The application workload belongs to the Helm domain."
     )
 
-    familles = _ask_families(prompter)
-    if not familles:
-        prompter.note("Aucune famille retenue : le domaine terraform n'est pas genere.")
+    families = _ask_families(prompter)
+    if not families:
+        prompter.note("No family retained: the terraform domain is not generated.")
         return None
 
     section: dict[str, Any] = {
         "terraform_version": prompter.text(
-            "Contrainte de version Terraform", default=DEFAULT_VERSION
+            "Terraform version constraint", default=DEFAULT_VERSION
         ),
-        "resources": familles,
+        "resources": families,
     }
 
-    strategie = prompter.select(
-        "Comment nommer les namespaces ?", NAMESPACE_CHOICES, NamespaceStrategy.PER_ENV.value
+    strategy = prompter.select(
+        "How should the namespaces be named?", NAMESPACE_CHOICES, NamespaceStrategy.PER_ENV.value
     )
-    section["namespace_strategy"] = strategie
+    section["namespace_strategy"] = strategy
 
     backend = _ask_backend(prompter)
     if backend:
         section["backend"] = backend
 
-    acces = _ask_kubernetes(prompter)
-    if acces:
-        section["kubernetes"] = acces
+    access = _ask_kubernetes(prompter)
+    if access:
+        section["kubernetes"] = access
 
-    environnements = _ask_environments(prompter, service, strategie)
-    if environnements:
-        section["environments"] = environnements
+    environments = _ask_environments(prompter, service, strategy)
+    if environments:
+        section["environments"] = environments
 
     section["extras"] = {
         "makefile": prompter.confirm(
-            "Ajouter un Makefile de raccourcis (make plan ENV=prod) ?", default=True
+            "Add a Makefile of shortcuts (make plan ENV=prod)?", default=True
         ),
         "tflint_config": prompter.confirm(
-            "Ajouter un fichier .tflint.hcl ?", default=True
+            "Add a .tflint.hcl file?", default=True
         ),
     }
     return section
 
 
 def _ask_families(prompter: Prompter) -> list[str]:
-    """Familles de ressources retenues."""
-    choix = [(famille.name, f"{famille.name} — {famille.summary}") for famille in all_families()]
+    """Resource families retained."""
+    choices = [(family.name, f"{family.name} — {family.summary}") for family in all_families()]
     return prompter.checkbox(
-        "Que Terraform doit-il poser ?", choix, [ResourceFamily.NAMESPACE.value]
+        "What should Terraform lay down?", choices, [ResourceFamily.NAMESPACE.value]
     )
 
 
 def _ask_backend(prompter: Prompter) -> dict[str, Any]:
-    """Backend d'etat et ses cles obligatoires.
+    """State backend and its mandatory keys.
 
-    Aucune cle secrete n'est demandee : le modele les refuserait, et un fichier
-    genere ne porte jamais de secret.
+    No secret key is asked for: the model would refuse them, and a generated
+    file never carries a secret.
     """
-    kind = prompter.select("Ou conserver l'etat Terraform ?", BACKEND_CHOICES, BackendKind.LOCAL.value)
+    kind = prompter.select("Where should the Terraform state be kept?", BACKEND_CHOICES, BackendKind.LOCAL.value)
     if kind == BackendKind.LOCAL.value:
         prompter.note(
-            "Etat local : ni verrou ni chiffrement. A ne pas garder pour un "
-            "environnement partage."
+            "Local state: neither lock nor encryption. Not to be kept for a "
+            "shared environment."
         )
         return {}
 
     config: dict[str, str] = {}
-    for cle in REQUIRED_BACKEND_KEYS[kind]:
-        if cle in ("key", "prefix"):
-            # Derivees par environnement : les demander produirait un etat
-            # partage entre environnements, exactement ce qu'il faut eviter.
+    for key in REQUIRED_BACKEND_KEYS[kind]:
+        if key in ("key", "prefix"):
+            # Derived per environment: asking for them would produce a state
+            # shared between environments, exactly what must be avoided.
             continue
-        config[cle] = prompter.text(f"backend {kind} : {cle}", validate=_non_vide)
+        config[key] = prompter.text(f"backend {kind}: {key}", validate=_non_empty)
     return {"kind": kind, "config": config}
 
 
 def _ask_kubernetes(prompter: Prompter) -> dict[str, Any]:
-    """Acces au cluster."""
+    """Cluster access."""
     auth = prompter.select(
-        "Comment Terraform joint-il le cluster ?", AUTH_CHOICES, KubernetesAuth.KUBECONFIG.value
+        "How does Terraform join the cluster?", AUTH_CHOICES, KubernetesAuth.KUBECONFIG.value
     )
     if auth == KubernetesAuth.IN_CLUSTER.value:
         return {"auth": auth}
 
-    chemin = prompter.text("Chemin du kubeconfig", default="~/.kube/config")
-    par_env = prompter.confirm(
-        "Un contexte kubeconfig different par environnement ?", default=True
+    path = prompter.text("Path of the kubeconfig", default="~/.kube/config")
+    per_env = prompter.confirm(
+        "A different kubeconfig context per environment?", default=True
     )
-    acces: dict[str, Any] = {}
-    if chemin != "~/.kube/config":
-        acces["config_path"] = chemin
-    if not par_env:
-        acces["context_per_environment"] = False
-    return acces
+    access: dict[str, Any] = {}
+    if path != "~/.kube/config":
+        access["config_path"] = path
+    if not per_env:
+        access["context_per_environment"] = False
+    return access
 
 
 def _ask_environments(
-    prompter: Prompter, service: ServiceSpec, strategie: str
+    prompter: Prompter, service: ServiceSpec, strategy: str
 ) -> dict[str, Any]:
-    """Surcharges par environnement. Seule la strategie `custom` en exige."""
-    if strategie != NamespaceStrategy.CUSTOM.value:
+    """Per-environment overrides. Only the `custom` strategy requires them."""
+    if strategy != NamespaceStrategy.CUSTOM.value:
         return {}
     return {
         env.name: {
             "namespace": prompter.text(
-                f"Namespace de l'environnement '{env.name}'",
+                f"Namespace of environment '{env.name}'",
                 default=f"{service.name}-{env.name}",
-                validate=_label_dns,
+                validate=_dns_label,
             )
         }
         for env in service.environments
     }
 
 
-def _non_vide(valeur: str) -> str | None:
-    return None if valeur.strip() else "Une valeur est necessaire."
+def _non_empty(value: str) -> str | None:
+    return None if value.strip() else "A value is required."
 
 
-def _label_dns(valeur: str) -> str | None:
-    if not DNS_LABEL_RE.match(valeur):
-        return "Un label DNS : minuscules, chiffres et tirets."
+def _dns_label(value: str) -> str | None:
+    if not DNS_LABEL_RE.match(value):
+        return "A DNS label: lowercase letters, digits and hyphens."
     return None

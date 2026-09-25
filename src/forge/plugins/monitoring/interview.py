@@ -1,13 +1,12 @@
-"""Entretien du domaine monitoring.
+"""Interview for the monitoring domain.
 
-L'ordre des questions suit celui de la decision : d'abord **ce qu'on surveille**
-(les familles de regles), puis **ou** (les cibles, par environnement), puis les
-annexes. Les questions sans objet ne sont pas posees — on ne demande d'URL a
-sonder que si la famille `probe` est retenue.
+The order of the questions follows the order of the decision: first **what is
+watched** (the rule families), then **where** (the targets, per environment),
+then the extras. Questions without an object are not asked — a URL to probe is
+only asked for when the `probe` family is retained.
 
-Conformement a l'arbitrage R7 (PLAN.md), retourner `None` signifie « il n'y a
-rien a generer », pas « l'utilisateur refuse le domaine » : ici, aucune famille
-de regles retenue.
+Per arbitration R7 (PLAN.md), returning `None` means "there is nothing to
+generate", not "the user declines the domain": here, no rule family retained.
 """
 
 from __future__ import annotations
@@ -22,134 +21,134 @@ from forge.spec.service import ServiceSpec
 
 
 def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conduit l'entretien et retourne la section `monitoring:` de forge.yml."""
+    """Conduct the interview and return the `monitoring:` section of forge.yml."""
     prompter.note(
-        "La supervision se decrit elle-meme : elle ne lit aucune autre section. "
-        "Ce qu'elle surveille, vous le declarez ici."
+        "Monitoring describes itself: it reads no other section. What it "
+        "watches, you declare here."
     )
 
-    familles = _ask_families(prompter)
-    if not familles:
-        prompter.note("Aucune famille retenue : le domaine monitoring n'est pas genere.")
+    families = _ask_families(prompter)
+    if not families:
+        prompter.note("No family retained: the monitoring domain is not generated.")
         return None
 
-    section: dict[str, Any] = {"rules": familles}
+    section: dict[str, Any] = {"rules": families}
 
-    metriques = _ask_metrics(prompter, familles)
-    if metriques:
-        section["metrics"] = metriques
+    metrics = _ask_metrics(prompter, families)
+    if metrics:
+        section["metrics"] = metrics
 
-    environnements = _ask_environments(prompter, service, familles)
-    if environnements:
-        section["environments"] = environnements
+    environments = _ask_environments(prompter, service, families)
+    if environments:
+        section["environments"] = environments
 
     prompter.note(
-        "Les tests unitaires des alertes sont engendres dans tous les cas : une "
-        "regle non testee est une regle dont personne ne sait si elle se declenche."
+        "The alert unit tests are generated in every case: an untested rule is a "
+        "rule nobody knows will fire."
     )
     section["extras"] = {
-        "dashboard": prompter.confirm("Engendrer un tableau de bord Grafana ?", default=True),
-        "makefile": prompter.confirm("Ajouter un Makefile de raccourcis ?", default=True),
+        "dashboard": prompter.confirm("Generate a Grafana dashboard?", default=True),
+        "makefile": prompter.confirm("Add a Makefile of shortcuts?", default=True),
     }
     return section
 
 
 def _ask_families(prompter: Prompter) -> list[str]:
-    """Familles de regles retenues."""
-    choix = [(famille.name, f"{famille.name} — {famille.summary}") for famille in all_families()]
+    """Rule families retained."""
+    choices = [(family.name, f"{family.name} — {family.summary}") for family in all_families()]
     return prompter.checkbox(
-        "Que faut-il surveiller ?", choix, [RuleFamily.AVAILABILITY.value]
+        "What should be watched?", choices, [RuleFamily.AVAILABILITY.value]
     )
 
 
-def _ask_metrics(prompter: Prompter, familles: list[str]) -> dict[str, Any]:
-    """Noms des metriques applicatives, seulement si une famille en depend.
+def _ask_metrics(prompter: Prompter, families: list[str]) -> dict[str, Any]:
+    """Names of the application metrics, only when a family depends on them.
 
-    Les metriques d'infrastructure (`up`, `container_*`, `probe_*`) ne sont pas
-    demandees : leur nom est fixe, et le faire saisir inviterait a le changer
-    pour un nom qui n'existe pas.
+    The infrastructure metrics (`up`, `container_*`, `probe_*`) are not asked
+    for: their names are fixed, and having them typed in would invite changing
+    one for a name that does not exist.
     """
-    besoin = {RuleFamily.ERROR_RATE.value, RuleFamily.LATENCY.value} & set(familles)
-    if not besoin:
+    needed = {RuleFamily.ERROR_RATE.value, RuleFamily.LATENCY.value} & set(families)
+    if not needed:
         return {}
 
     prompter.note(
-        "Ces noms dependent de la bibliotheque cliente de l'application. Se "
-        "tromper produit une regle valide et definitivement muette."
+        "These names depend on the application's client library. Getting one "
+        "wrong produces a valid and permanently silent rule."
     )
-    metriques: dict[str, Any] = {}
-    if RuleFamily.ERROR_RATE.value in familles:
-        compteur = prompter.text("Compteur de requetes", default="http_requests_total")
-        if compteur != "http_requests_total":
-            metriques["requests_total"] = compteur
-        libelle = prompter.text("Libelle portant le code de statut", default="status")
-        if libelle != "status":
-            metriques["status_label"] = libelle
-    if RuleFamily.LATENCY.value in familles:
-        histogramme = prompter.text(
-            "Histogramme du temps de reponse (sans le suffixe _bucket)",
+    metrics: dict[str, Any] = {}
+    if RuleFamily.ERROR_RATE.value in families:
+        counter = prompter.text("Request counter", default="http_requests_total")
+        if counter != "http_requests_total":
+            metrics["requests_total"] = counter
+        label = prompter.text("Label carrying the status code", default="status")
+        if label != "status":
+            metrics["status_label"] = label
+    if RuleFamily.LATENCY.value in families:
+        histogram = prompter.text(
+            "Response time histogram (without the _bucket suffix)",
             default="http_request_duration_seconds",
         )
-        if histogramme != "http_request_duration_seconds":
-            metriques["request_duration_seconds"] = histogramme
-    return metriques
+        if histogram != "http_request_duration_seconds":
+            metrics["request_duration_seconds"] = histogram
+    return metrics
 
 
 def _ask_environments(
-    prompter: Prompter, service: ServiceSpec, familles: list[str]
+    prompter: Prompter, service: ServiceSpec, families: list[str]
 ) -> dict[str, Any]:
-    """Ce qui est surveille dans chaque environnement."""
-    besoin_namespace = bool(
-        {RuleFamily.SATURATION.value, RuleFamily.RESTARTS.value} & set(familles)
+    """What is watched in each environment."""
+    needs_namespace = bool(
+        {RuleFamily.SATURATION.value, RuleFamily.RESTARTS.value} & set(families)
     )
-    besoin_sonde = RuleFamily.PROBE.value in familles
+    needs_probe = RuleFamily.PROBE.value in families
 
-    environnements: dict[str, Any] = {}
+    environments: dict[str, Any] = {}
     for env in service.environments:
-        prompter.note(f"Environnement « {env.name} » :")
-        entree: dict[str, Any] = {}
+        prompter.note(f"Environment '{env.name}':")
+        entry: dict[str, Any] = {}
 
-        cibles = prompter.text(
-            "  Cibles collectees, separees par des virgules (hote:port)",
+        targets = prompter.text(
+            "  Scraped targets, comma-separated (host:port)",
             default="",
-            validate=_cibles,
+            validate=_validate_targets,
         )
-        if cibles.strip():
-            entree["targets"] = [morceau.strip() for morceau in cibles.split(",") if morceau.strip()]
+        if targets.strip():
+            entry["targets"] = [part.strip() for part in targets.split(",") if part.strip()]
 
-        if besoin_namespace:
-            namespace = prompter.text("  Namespace Kubernetes observe", default=service.name)
+        if needs_namespace:
+            namespace = prompter.text("  Kubernetes namespace watched", default=service.name)
             if namespace != service.name:
-                entree["namespace"] = namespace
+                entry["namespace"] = namespace
 
-        if besoin_sonde:
-            defaut = f"https://{service.name}.{env.domain}" if env.domain else ""
+        if needs_probe:
+            default_url = f"https://{service.name}.{env.domain}" if env.domain else ""
             urls = prompter.text(
-                "  URL sondees de l'exterieur, separees par des virgules",
-                default=defaut,
-                validate=_urls,
+                "  URLs probed from the outside, comma-separated",
+                default=default_url,
+                validate=_validate_urls,
             )
             if urls.strip():
-                entree["probe_urls"] = [
-                    morceau.strip() for morceau in urls.split(",") if morceau.strip()
+                entry["probe_urls"] = [
+                    part.strip() for part in urls.split(",") if part.strip()
                 ]
 
-        if entree:
-            environnements[env.name] = entree
-    return environnements
+        if entry:
+            environments[env.name] = entry
+    return environments
 
 
-def _cibles(valeur: str) -> str | None:
-    """Valide une liste de cibles `hote:port` separees par des virgules."""
-    for morceau in (part.strip() for part in valeur.split(",")):
-        if morceau and not TARGET_RE.match(morceau):
-            return f"'{morceau}' n'est pas une cible 'hote:port'."
+def _validate_targets(value: str) -> str | None:
+    """Validate a comma-separated list of `host:port` targets."""
+    for part in (item.strip() for item in value.split(",")):
+        if part and not TARGET_RE.match(part):
+            return f"'{part}' is not a 'host:port' target."
     return None
 
 
-def _urls(valeur: str) -> str | None:
-    """Valide une liste d'URL separees par des virgules."""
-    for morceau in (part.strip() for part in valeur.split(",")):
-        if morceau and not PROBE_URL_RE.match(morceau):
-            return f"'{morceau}' n'est pas une URL http:// ou https://."
+def _validate_urls(value: str) -> str | None:
+    """Validate a comma-separated list of URLs."""
+    for part in (item.strip() for item in value.split(",")):
+        if part and not PROBE_URL_RE.match(part):
+            return f"'{part}' is not an http:// or https:// URL."
     return None
