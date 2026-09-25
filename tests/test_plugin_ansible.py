@@ -8,9 +8,6 @@ checked. Non-regression is now held by `tests/golden/` alone.
 
 This module covers what neither of them says: the refusals, the messages, and
 the guards specific to the domain.
-
-The plugin's own messages are still French: the domains are translated with
-their templates, so the `match=` patterns below quote them as they are.
 """
 
 from __future__ import annotations
@@ -70,19 +67,19 @@ def _spec_data(**overrides) -> dict:
 
 def test_a_group_name_with_a_hyphen_is_refused():
     """Ansible forbids the hyphen in a group name."""
-    with pytest.raises(SpecValidationError, match="tirets sont interdits"):
+    with pytest.raises(SpecValidationError, match="hyphens are forbidden"):
         validate_spec(
             _spec_data(**{"ansible.groups": [{"name": "web-servers"}]}), _manager()
         )
 
 
 def test_a_reserved_group_name_is_refused():
-    with pytest.raises(SpecValidationError, match="reserve par Ansible"):
+    with pytest.raises(SpecValidationError, match="reserved by Ansible"):
         validate_spec(_spec_data(**{"ansible.groups": [{"name": "all"}]}), _manager())
 
 
 def test_an_unknown_role_is_refused():
-    with pytest.raises(SpecValidationError, match="Role inconnu"):
+    with pytest.raises(SpecValidationError, match="Unknown role"):
         validate_spec(
             _spec_data(**{"ansible.groups": [{"name": "g", "roles": ["kubernetes"]}]}),
             _manager(),
@@ -90,14 +87,14 @@ def test_an_unknown_role_is_refused():
 
 
 def test_a_group_without_a_role_is_refused():
-    with pytest.raises(SpecValidationError, match="au moins un role"):
+    with pytest.raises(SpecValidationError, match="at least one role"):
         validate_spec(
             _spec_data(**{"ansible.groups": [{"name": "g", "roles": []}]}), _manager()
         )
 
 
 def test_hosts_naming_an_unknown_group_are_refused():
-    with pytest.raises(SpecValidationError, match="groupes inconnus"):
+    with pytest.raises(SpecValidationError, match="unknown groups"):
         validate_spec(
             _spec_data(**{"ansible.hosts": {"prod": {"absent": []}}}), _manager()
         )
@@ -109,12 +106,12 @@ def test_a_host_declared_twice_in_an_environment_is_refused():
     data["ansible"]["hosts"]["prod"]["autres"] = [
         {"name": "gw-01", "ansible_host": "10.0.0.2"}
     ]
-    with pytest.raises(SpecValidationError, match="plusieurs fois"):
+    with pytest.raises(SpecValidationError, match="more than once"):
         validate_spec(data, _manager())
 
 
 def test_an_invalid_free_variable_name_is_refused():
-    with pytest.raises(SpecValidationError, match="Nom de variable invalide"):
+    with pytest.raises(SpecValidationError, match="Invalid variable name"):
         validate_spec(
             _spec_data(
                 **{"ansible.groups": [{"name": "g", "roles": ["common"], "vars": {"Ma-Var": 1}}]}
@@ -172,7 +169,7 @@ def test_an_environment_name_with_a_hyphen_is_reported():
     spec = validate_spec(data, _manager())
     issues = answers_module.cross_check(spec)
     assert any("pre-prod" in issue.message for issue in issues)
-    assert any("souligne" in issue.hint for issue in issues)
+    assert any("underscores" in issue.hint for issue in issues)
 
 
 def test_a_sound_specification_produces_no_finding():
@@ -239,7 +236,7 @@ def test_every_catalogue_collection_carries_a_version_constraint():
 
 def test_a_collection_outside_the_table_is_refused():
     """The refusal is a specification error, not a bare KeyError."""
-    with pytest.raises(SpecValidationError, match="sans contrainte de version"):
+    with pytest.raises(SpecValidationError, match="without a version constraint"):
         catalog_collections.requirement_for("community.inventee")
 
 
