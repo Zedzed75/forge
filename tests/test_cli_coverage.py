@@ -249,8 +249,7 @@ def test_generate_refuses_to_overwrite_a_modified_file_without_force(tmp_path, m
         monkeypatch,
     )
     assert force.exit_code == 0, force.stdout
-    # Generated content: still French until the templates are translated.
-    assert "Domaine demo" in target.read_text(encoding="utf-8")
+    assert "Domain demo" in target.read_text(encoding="utf-8")
 
 
 def test_generate_preserves_the_comments_of_the_target_s_forge_yml(tmp_path, monkeypatch):

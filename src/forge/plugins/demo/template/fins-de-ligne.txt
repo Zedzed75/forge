@@ -1,7 +1,7 @@
-Fichier temoin des fins de ligne.
+Witness file for line endings.
 
-Il est volontairement stocke en CRLF dans le depot de gabarit (voir
-l'exception dans .gitattributes) et n'est pas rendu par Jinja : il est
-copie tel quel. La suite de tests verifie qu'il ressort en LF, ce qui
-prouve que la normalisation de sortie s'applique bien a un rendu copier
-reel, et pas seulement en test unitaire.
+It is deliberately stored as CRLF in the template repository (see the
+exception in .gitattributes) and it is not rendered by Jinja: it is
+copied as is. The test suite checks that it comes out as LF, which
+proves that output normalisation really applies to a real copier
+render, and not only in a unit test.
