@@ -4,7 +4,7 @@
 # The cluster already exists, the namespace is provided by the platform team,
 # there is no machine to configure. What is left is packaging the service.
 #
-#   forge generate -s examples/helm-seul.yml -o /tmp/storefront
+#   forge generate -s examples/helm-only.yml -o /tmp/storefront
 #
 # Produces `helm/` and nothing else. The `ansible:` and `terraform:` sections
 # are absent, so those domains are not generated.

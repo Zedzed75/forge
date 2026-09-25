@@ -7,15 +7,15 @@ else.
 
 | Example | Produces | For whom |
 | --- | --- | --- |
-| [`ansible-seul.yml`](ansible-seul.yml) | `ansible/` | machines to configure, no container |
-| [`helm-seul.yml`](helm-seul.yml) | `helm/` | a cluster that already exists, a service to package |
-| [`terraform-seul.yml`](terraform-seul.yml) | `terraform/` | a platform team preparing the ground |
-| [`monitoring-seul.yml`](monitoring-seul.yml) | `monitoring/` | an already deployed service, missing only the knowledge of when it goes wrong |
-| [`pipeline-seul.yml`](pipeline-seul.yml) | `.github/workflows/` | a repository that needs nothing but a CI chain |
-| [`socle-et-chart.yml`](socle-et-chart.yml) | `terraform/` **and** `helm/` | the foundation and what sits on it, together |
+| [`ansible-only.yml`](ansible-only.yml) | `ansible/` | machines to configure, no container |
+| [`helm-only.yml`](helm-only.yml) | `helm/` | a cluster that already exists, a service to package |
+| [`terraform-only.yml`](terraform-only.yml) | `terraform/` | a platform team preparing the ground |
+| [`monitoring-only.yml`](monitoring-only.yml) | `monitoring/` | an already deployed service, missing only the knowledge of when it goes wrong |
+| [`pipeline-only.yml`](pipeline-only.yml) | `.github/workflows/` | a repository that needs nothing but a CI chain |
+| [`foundation-and-chart.yml`](foundation-and-chart.yml) | `terraform/` **and** `helm/` | the foundation and what sits on it, together |
 
 ```bash
-forge generate -s examples/helm-seul.yml -o /tmp/storefront
+forge generate -s examples/helm-only.yml -o /tmp/storefront
 ```
 
 ## How the choice is made
@@ -23,14 +23,14 @@ forge generate -s examples/helm-seul.yml -o /tmp/storefront
 Three ways, and they combine:
 
 **1. An absent section generates nothing.** That is the basic mechanism, with no
-exception. `ansible-seul.yml` contains no `helm:` section: no chart is produced.
+exception. `ansible-only.yml` contains no `helm:` section: no chart is produced.
 There is no option to pass, no flag to turn off.
 
 **2. `--only` restricts one run.** On a project declaring two domains, to
 regenerate just one of them:
 
 ```bash
-forge generate -s examples/socle-et-chart.yml -o /tmp/inventory --only helm
+forge generate -s examples/foundation-and-chart.yml -o /tmp/inventory --only helm
 ```
 
 `--only` always restricts, it never adds: asking for a domain the specification
@@ -46,7 +46,7 @@ forge new -o /tmp/my-service
 ## Knowing what will come out, before it comes out
 
 ```bash
-forge plugins -s examples/helm-seul.yml
+forge plugins -s examples/helm-only.yml
 ```
 
 says, for that specification, which domains are requested and which are not. And
@@ -62,7 +62,7 @@ The `pipeline` domain is the only one whose output **depends on the other
 sections**. It emits one validation job per declared domain, with the commands
 each domain announces itself and the installation of the tools they require.
 
-Add a `helm:` section to [`pipeline-seul.yml`](pipeline-seul.yml) and a
+Add a `helm:` section to [`pipeline-only.yml`](pipeline-only.yml) and a
 "Validate Helm" job appears, without a single template line changing. It invents
 nothing for all that: a domain that does not say how to deploy itself is
 **named** in the emitted file, not guessed.

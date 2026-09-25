@@ -5,7 +5,7 @@
 # it. This is ONE possible use, not the normal use — compare it with the
 # single-domain examples next to it.
 #
-#   forge generate -s examples/socle-et-chart.yml -o /tmp/inventory
+#   forge generate -s examples/foundation-and-chart.yml -o /tmp/inventory
 #   forge validate -o /tmp/inventory
 #
 # What the second domain adds: `forge validate` compares what each domain claims
@@ -16,7 +16,7 @@
 #
 # To regenerate only one of the two:
 #
-#   forge generate -s examples/socle-et-chart.yml -o /tmp/inventory --only helm
+#   forge generate -s examples/foundation-and-chart.yml -o /tmp/inventory --only helm
 # ---------------------------------------------------------------------------
 forge_version: 1
 

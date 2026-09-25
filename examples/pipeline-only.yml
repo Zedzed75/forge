@@ -4,7 +4,7 @@
 # The service is deployed some other way, but it needs a CI that builds the
 # image and validates what gets committed.
 #
-#   forge generate -s examples/pipeline-seul.yml -o /tmp/gateway
+#   forge generate -s examples/pipeline-only.yml -o /tmp/gateway
 #
 # Produces `.github/workflows/ci.yml` at the root — a CI file only exists where
 # its tool reads it — and nothing else.

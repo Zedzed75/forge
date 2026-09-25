@@ -264,8 +264,8 @@ Ce qui a ete fait :
 - Un cas mono-domaine parametre par domaine : generation, contenu reel de la
   cible, `forge validate`, `forge diff`, `forge plugins`. Terraform y entre, ce
   qui n'etait pas le cas.
-- `examples/` livre : `ansible-seul.yml`, `helm-seul.yml`,
-  `terraform-seul.yml`, `socle-et-chart.yml`, et un README qui explique les
+- `examples/` livre : `ansible-only.yml`, `helm-only.yml`,
+  `terraform-only.yml`, `foundation-and-chart.yml`, et un README qui explique les
   trois facons de choisir. **Chaque exemple est genere par la suite de tests** —
   un exemple perime est impossible.
 - README recentre : « Un projet n'a pas besoin de tout », tableau des trois

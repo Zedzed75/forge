@@ -16,11 +16,11 @@ playbooks Ansible. Un troisieme, que d'un socle Terraform, ou que de regles
 d'alerte. **C'est vous qui choisissez**, et forge ne produit rien d'autre.
 
 ```bash
-forge generate -s examples/helm-seul.yml       -o /tmp/boutique    # helm/ seul
-forge generate -s examples/ansible-seul.yml    -o /tmp/passerelle  # ansible/ seul
-forge generate -s examples/terraform-seul.yml  -o /tmp/socle       # terraform/ seul
-forge generate -s examples/monitoring-seul.yml -o /tmp/paiement    # monitoring/ seul
-forge generate -s examples/pipeline-seul.yml   -o /tmp/ci          # une chaine de CI seule
+forge generate -s examples/helm-only.yml       -o /tmp/boutique    # helm/ seul
+forge generate -s examples/ansible-only.yml    -o /tmp/passerelle  # ansible/ seul
+forge generate -s examples/terraform-only.yml  -o /tmp/socle       # terraform/ seul
+forge generate -s examples/monitoring-only.yml -o /tmp/paiement    # monitoring/ seul
+forge generate -s examples/pipeline-only.yml   -o /tmp/ci          # une chaine de CI seule
 ```
 
 Ces six exemples sont commites et testes : voir [`examples/`](examples/).
