@@ -86,9 +86,9 @@ FAMILY_LABELS: Final[dict[str, str]] = {
     "hpa": "HorizontalPodAutoscaler",
     "pdb": "PodDisruptionBudget",
     "serviceaccount": "ServiceAccount",
-    "rbac": "Role et RoleBinding",
+    "rbac": "Role and RoleBinding",
     "networkpolicy": "NetworkPolicy",
-    "test_connection": "Test de connexion",
+    "test_connection": "Connection test",
 }
 
 #: Chemin, relatif au chart, du test execute par `helm test`. Contrairement aux
