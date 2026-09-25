@@ -249,10 +249,15 @@ def test_a_github_actions_step_label_edit_leaves_the_fingerprint_untouched(workf
     cannot change what the workflow runs. Six such labels tripped the
     fingerprint in the Ansible translation for zero signal, which is what this
     rule exists to stop.
+
+    The two labels edited here were French until the `pipeline` domain was
+    translated, which is what this rule was raised to make cheap. The edit is now
+    English to English: the property under test is that *any* relabelling is
+    absorbed, not that a French one is.
     """
     reference = fp.fingerprint(workflow_tree)
-    _edit(workflow_tree, WORKFLOW, "- name: Récupérer le dépôt", "- name: Check out the repository")
-    _edit(workflow_tree, WORKFLOW, "- name: Installer les outils", "- name: Install the tools")
+    _edit(workflow_tree, WORKFLOW, "- name: Check out the repository", "- name: Fetch the repository")
+    _edit(workflow_tree, WORKFLOW, "- name: Install the tools", "- name: Install the required tools")
     _unchanged(workflow_tree, reference)
 
 
