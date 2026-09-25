@@ -4,7 +4,7 @@ The only domain of the project that reads what the others declare. The whole
 question is **how**: it must know no domain by name, and receive from the core
 facts in the vocabulary of the contract — `DomainInfo`, `Command`, `Projection`.
 
-The witness of that promise is `tests/domaines_factices/inconnu.py`: a domain the
+The witness of that promise is `tests/fake_domains/unknown.py`: a domain the
 plugin has never seen, with a tool its installation table does not know. If it
 emits a correct job for it without a line changing, the promise holds; otherwise
 it held by accident.
@@ -31,13 +31,13 @@ from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager
 from forge.spec.assembly import validate_spec
 from forge.spec.io import load_spec_data
 from tests.conftest import SPECS_DIR
-from tests.domaines_factices.inconnu import UNKNOWN_TOOL
+from tests.fake_domains.unknown import UNKNOWN_TOOL
 
 SPEC_GITHUB = SPECS_DIR / "pipeline-github.yml"
 SPEC_GITLAB = SPECS_DIR / "pipeline-seul.yml"
 
 #: Fake domain the pipeline plugin has never seen.
-UNKNOWN_PLUGIN = "tests.domaines_factices.inconnu"
+UNKNOWN_PLUGIN = "tests.fake_domains.unknown"
 
 
 def _manager(*extras: str) -> ForgeManager:

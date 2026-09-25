@@ -28,14 +28,14 @@ from tests.conftest import DEMO_PLUGIN, REPO_ROOT, SPECS_DIR, build_project, loa
 runner = CliRunner()
 
 #: Modules of the fake domains, importable through `FORGE_PLUGINS`.
-OTHER = "tests.domaines_factices.autre"
-NORMAL = "tests.domaines_factices.normal"
-DIVERGENT = "tests.domaines_factices.divergent"
-DISORDER = "tests.domaines_factices.desordre"
-FRAGILE = "tests.domaines_factices.outil_absent"
+OTHER = "tests.fake_domains.other"
+NORMAL = "tests.fake_domains.normal"
+DIVERGENT = "tests.fake_domains.divergent"
+DISORDER = "tests.fake_domains.disorder"
+FRAGILE = "tests.fake_domains.missing_tool"
 
 #: Fake domain whose package provides no filter module.
-ISOLATED = "tests.domaine_isole"
+ISOLATED = "tests.isolated_domain"
 
 #: Keys of forge.yml that are not domain sections.
 CORE_KEYS = ("forge_version", "service")

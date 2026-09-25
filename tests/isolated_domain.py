@@ -1,6 +1,6 @@
 """Fake domain whose package provides **no** filter module at all.
 
-It lives at the root of `tests/` — and not in `tests/domaines_factices/`, which
+It lives at the root of `tests/` — and not in `tests/fake_domains/`, which
 does have a `jinja_ext` — in order to exercise the case of a plugin that does
 not enrich copier's Jinja environment.
 """
@@ -11,7 +11,7 @@ from typing import Any
 
 from forge.plugins_api.hookspecs import hookimpl
 from forge.plugins_api.types import DomainInfo
-from tests.domaines_factices import TrivialSection
+from tests.fake_domains import TrivialSection
 
 
 @hookimpl
