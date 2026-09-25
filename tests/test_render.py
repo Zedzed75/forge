@@ -1,4 +1,4 @@
-"""Tests du rendu : normalisation, fichiers de niveau depot, comparaison."""
+"""Rendering tests: normalisation, repository-level files, comparison."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from forge.render.diff import diff_trees
 
 
 @pytest.mark.parametrize(
-    ("brut", "attendu"),
+    ("raw", "expected"),
     [
         ("a\r\nb\r\n", "a\nb\n"),
         ("a\rb", "a\nb\n"),
@@ -33,133 +33,135 @@ from forge.render.diff import diff_trees
         ("", ""),
     ],
 )
-def test_normalise_text_convertit_les_fins_de_ligne_et_termine_par_un_saut(brut, attendu):
-    assert normalise_text(brut) == attendu
+def test_normalise_text_converts_line_endings_and_ends_with_one_newline(raw, expected):
+    assert normalise_text(raw) == expected
 
 
 @pytest.mark.parametrize(
-    "contenu",
+    "content",
     [
-        "conf: |\n  trailing = ok   \n  autre\n",   # espaces de fin significatifs
-        "desc: 'para1\n\n\n  para2'\n",             # ligne vide = saut litteral
-        "bloc: |\n  a\n\n\n  b\n",                  # lignes vides dans un bloc
+        "conf: |\n  trailing = ok   \n  other\n",   # meaningful trailing spaces
+        "desc: 'para1\n\n\n  para2'\n",             # blank line = literal newline
+        "block: |\n  a\n\n\n  b\n",                 # blank lines inside a block
     ],
 )
-def test_normalise_text_ne_touche_pas_au_contenu(contenu):
-    """La normalisation ne doit rien changer d'autre que les fins de ligne.
+def test_normalise_text_does_not_touch_the_content(content):
+    """Normalisation must change nothing but the line endings.
 
-    Le rstrip par ligne et l'ecrasement des lignes vides, herites du legacy,
-    modifiaient la VALEUR des scalaires YAML : dans un scalaire quote une ligne
-    vide encode un saut de ligne, et dans un bloc `|` les espaces de fin font
-    partie de la donnee.
+    The per-line rstrip and the collapsing of blank lines, inherited from the
+    legacy tools, modified the VALUE of YAML scalars: in a quoted scalar a blank
+    line encodes a newline, and in a `|` block the trailing spaces are part of
+    the data.
     """
-    assert normalise_text(contenu) == contenu
+    assert normalise_text(content) == content
 
 
-def test_normalise_text_preserve_la_valeur_yaml_relue():
-    """Verification de bout en bout : ce que YAML relit ne doit pas changer."""
-    contenu = "note: 'para1\n\n\n  para2'\n"
-    assert yaml.safe_load(normalise_text(contenu)) == yaml.safe_load(contenu)
+def test_normalise_text_preserves_the_reparsed_yaml_value():
+    """End-to-end check: what YAML reads back must not change."""
+    content = "note: 'para1\n\n\n  para2'\n"
+    assert yaml.safe_load(normalise_text(content)) == yaml.safe_load(content)
 
 
-def test_normalise_tree_epargne_le_fichier_de_reponses(tmp_path):
+def test_normalise_tree_spares_the_answers_file(tmp_path):
     (tmp_path / ".copier-answers.yml").write_bytes(b"a\r\nb\r\n")
-    (tmp_path / "fichier.yml").write_bytes(b"a\r\nb\r\n")
+    (tmp_path / "file.yml").write_bytes(b"a\r\nb\r\n")
     assert normalise_tree(tmp_path) == 1
     assert (tmp_path / ".copier-answers.yml").read_bytes() == b"a\r\nb\r\n"
-    assert (tmp_path / "fichier.yml").read_bytes() == b"a\nb\n"
+    assert (tmp_path / "file.yml").read_bytes() == b"a\nb\n"
 
 
-def test_normalise_tree_convertit_reellement_les_crlf(tmp_path):
-    """Piege evite : `read_text` traduit deja les CRLF, la lecture doit etre binaire."""
-    cible = tmp_path / "fichier.txt"
-    cible.write_bytes(b"ligne 1\r\nligne 2\r\n")
+def test_normalise_tree_really_converts_crlf(tmp_path):
+    """Trap avoided: `read_text` already translates CRLF, the read must be binary."""
+    target = tmp_path / "file.txt"
+    target.write_bytes(b"line 1\r\nline 2\r\n")
     assert normalise_tree(tmp_path) == 1
-    assert b"\r" not in cible.read_bytes()
+    assert b"\r" not in target.read_bytes()
 
 
-def test_normalise_tree_laisse_intact_un_fichier_deja_propre(tmp_path):
-    (tmp_path / "fichier.yml").write_bytes(b"cle: valeur   \n\n\nautre: 1\n")
+def test_normalise_tree_leaves_an_already_clean_file_alone(tmp_path):
+    (tmp_path / "file.yml").write_bytes(b"key: value   \n\n\nother: 1\n")
     assert normalise_tree(tmp_path) == 0
 
 
-def test_normalise_tree_ignore_un_binaire(tmp_path):
+def test_normalise_tree_ignores_a_binary_file(tmp_path):
     (tmp_path / "image.bin").write_bytes(b"\x00\x01\x02\xff")
     assert normalise_tree(tmp_path) == 0
     assert (tmp_path / "image.bin").read_bytes() == b"\x00\x01\x02\xff"
 
 
 # ---------------------------------------------------------------------------
-# Racine de gabarit
+# Template root
 # ---------------------------------------------------------------------------
 
 
-def test_la_racine_de_gabarit_porte_le_copier_yml():
+def test_the_template_root_carries_the_copier_yml():
     assert (template_root() / "copier.yml").is_file()
 
 
-def test_une_racine_forcee_sans_copier_yml_est_refusee(tmp_path, monkeypatch):
+def test_a_forced_root_without_copier_yml_is_refused(tmp_path, monkeypatch):
     monkeypatch.setenv("FORGE_TEMPLATE_SRC", str(tmp_path))
     with pytest.raises(RenderError, match="copier.yml"):
         template_root()
 
 
-def test_rewrite_src_path_delie_le_projet_de_son_poste_d_origine(tmp_path):
+def test_rewrite_src_path_unties_the_project_from_its_original_machine(tmp_path):
     answers = tmp_path / ".copier-answers.yml"
     answers.write_text(
-        "_commit: v1\n_src_path: C:\\ailleurs\\forge\ndomain: {}\n", encoding="utf-8"
+        "_commit: v1\n_src_path: C:\\elsewhere\\forge\ndomain: {}\n", encoding="utf-8"
     )
-    rewrite_src_path(answers, Path("/nouvelle/racine"))
-    contenu = answers.read_text(encoding="utf-8")
-    assert "_src_path: /nouvelle/racine" in contenu
-    assert "_commit: v1" in contenu
+    rewrite_src_path(answers, Path("/new/root"))
+    content = answers.read_text(encoding="utf-8")
+    assert "_src_path: /new/root" in content
+    assert "_commit: v1" in content
 
 
-def test_rewrite_src_path_ne_touche_a_rien_si_la_racine_est_deja_la_bonne(tmp_path):
-    """Recrire une valeur equivalente salirait la cible, et copier refuse un depot sale."""
+def test_rewrite_src_path_touches_nothing_if_the_root_is_already_right(tmp_path):
+    """Rewriting an equivalent value would dirty the target, and copier refuses a dirty repository."""
     answers = tmp_path / ".copier-answers.yml"
-    origine = f"_src_path: {tmp_path}\n"
-    answers.write_text(origine, encoding="utf-8")
+    original = f"_src_path: {tmp_path}\n"
+    answers.write_text(original, encoding="utf-8")
     rewrite_src_path(answers, tmp_path)
-    assert answers.read_text(encoding="utf-8") == origine
+    assert answers.read_text(encoding="utf-8") == original
 
 
-def test_rewrite_src_path_ignore_un_fichier_absent(tmp_path):
-    rewrite_src_path(tmp_path / "absent.yml", Path("/x"))  # ne doit pas lever
+def test_rewrite_src_path_ignores_a_missing_file(tmp_path):
+    rewrite_src_path(tmp_path / "absent.yml", Path("/x"))  # must not raise
 
 
 # ---------------------------------------------------------------------------
-# Fichiers de niveau depot
+# Repository-level files
 # ---------------------------------------------------------------------------
 
 
-def test_le_coeur_ecrit_le_minimum_non_domaine(tmp_path, spec_data):
+def test_the_core_writes_the_non_domain_minimum(tmp_path, spec_data):
     infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
     written = scaffold.write_repo_files(tmp_path, spec_data, infos)
-    noms = {path.name for path in written}
-    assert noms == {"forge.yml", "README.md", ".gitattributes"}
+    names = {path.name for path in written}
+    assert names == {"forge.yml", "README.md", ".gitattributes"}
     assert "eol=lf" in (tmp_path / ".gitattributes").read_text(encoding="utf-8")
 
 
-def test_le_coeur_refuse_d_ecraser_un_fichier_de_depot_modifie(tmp_path, spec_data):
-    """Meme regle que copier applique aux fichiers de domaine : pas d'ecrasement muet."""
+def test_the_core_refuses_to_overwrite_a_modified_repository_file(tmp_path, spec_data):
+    """Same rule copier applies to domain files: no silent overwrite."""
     infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
     scaffold.write_repo_files(tmp_path, spec_data, infos)
-    (tmp_path / "README.md").write_text("redige a la main\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("written by hand\n", encoding="utf-8")
 
     with pytest.raises(RenderError, match="README.md"):
         scaffold.write_repo_files(tmp_path, spec_data, infos)
-    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "redige a la main\n"
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "written by hand\n"
 
     scaffold.write_repo_files(tmp_path, spec_data, infos, force=True)
+    # The generated README is still French: it is output, translated with the
+    # templates and the golden fixtures.
     assert "Domaines generes" in (tmp_path / "README.md").read_text(encoding="utf-8")
 
 
-def test_le_forge_yml_source_de_la_cible_n_est_pas_reecrit(tmp_path, spec_data):
-    """Reserialiser la spec detruirait les commentaires que l'equipe y a mis."""
+def test_the_target_s_source_forge_yml_is_not_rewritten(tmp_path, spec_data):
+    """Re-serialising the spec would destroy the comments the team put in it."""
     infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
     spec_path = tmp_path / "forge.yml"
-    original = "# NOTE MAISON : ne pas toucher\nforge_version: 1\n"
+    original = "# HOUSE NOTE: do not touch\nforge_version: 1\n"
     spec_path.write_text(original, encoding="utf-8")
 
     written = scaffold.write_repo_files(
@@ -169,14 +171,14 @@ def test_le_forge_yml_source_de_la_cible_n_est_pas_reecrit(tmp_path, spec_data):
     assert spec_path.read_text(encoding="utf-8") == original
 
 
-def test_une_cible_qui_est_un_fichier_donne_une_erreur_lisible(tmp_path, spec_data):
-    fichier = tmp_path / "rapport.txt"
-    fichier.write_text("x", encoding="utf-8")
+def test_a_target_that_is_a_file_gives_a_readable_error(tmp_path, spec_data):
+    file_path = tmp_path / "report.txt"
+    file_path.write_text("x", encoding="utf-8")
     with pytest.raises(RenderError, match="is not a directory"):
-        scaffold.write_repo_files(fichier, spec_data, [])
+        scaffold.write_repo_files(file_path, spec_data, [])
 
 
-def test_le_readme_indexe_les_domaines(tmp_path, spec_data):
+def test_the_readme_indexes_the_domains(tmp_path, spec_data):
     infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
     scaffold.write_repo_files(tmp_path, spec_data, infos)
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
@@ -186,44 +188,44 @@ def test_le_readme_indexe_les_domaines(tmp_path, spec_data):
 
 
 # ---------------------------------------------------------------------------
-# Comparaison d'arborescences
+# Tree comparison
 # ---------------------------------------------------------------------------
 
 
-def _ecrire(root: Path, chemins: dict[str, str]) -> Path:
-    for nom, contenu in chemins.items():
-        path = root / nom
+def _write(root: Path, paths: dict[str, str]) -> Path:
+    for name, content in paths.items():
+        path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(contenu, encoding="utf-8", newline="\n")
+        path.write_text(content, encoding="utf-8", newline="\n")
     return root
 
 
-def test_deux_arborescences_identiques_ne_montrent_aucun_ecart(tmp_path):
-    a = _ecrire(tmp_path / "a", {"x.yml": "1\n"})
-    b = _ecrire(tmp_path / "b", {"x.yml": "1\n"})
-    ecart = diff_trees("demo", a, b)
-    assert ecart.empty
-    assert ecart.summary().endswith("up to date")
+def test_two_identical_trees_show_no_difference(tmp_path):
+    a = _write(tmp_path / "a", {"x.yml": "1\n"})
+    b = _write(tmp_path / "b", {"x.yml": "1\n"})
+    difference = diff_trees("demo", a, b)
+    assert difference.empty
+    assert difference.summary().endswith("up to date")
 
 
-def test_le_diff_classe_ajouts_suppressions_et_modifications(tmp_path):
-    a = _ecrire(tmp_path / "a", {"garde.yml": "1\n", "parti.yml": "x\n"})
-    b = _ecrire(tmp_path / "b", {"garde.yml": "2\n", "nouveau.yml": "y\n"})
-    ecart = diff_trees("demo", a, b)
-    assert ecart.added == ["nouveau.yml"]
-    assert ecart.removed == ["parti.yml"]
-    assert ecart.modified == [("garde.yml", 1)]
-    assert not ecart.empty
+def test_the_diff_sorts_additions_removals_and_modifications(tmp_path):
+    a = _write(tmp_path / "a", {"kept.yml": "1\n", "gone.yml": "x\n"})
+    b = _write(tmp_path / "b", {"kept.yml": "2\n", "new.yml": "y\n"})
+    difference = diff_trees("demo", a, b)
+    assert difference.added == ["new.yml"]
+    assert difference.removed == ["gone.yml"]
+    assert difference.modified == [("kept.yml", 1)]
+    assert not difference.empty
 
 
-def test_le_diff_ignore_le_fichier_de_reponses(tmp_path):
-    a = _ecrire(tmp_path / "a", {".copier-answers.yml": "_commit: 1\n"})
-    b = _ecrire(tmp_path / "b", {".copier-answers.yml": "_commit: 2\n"})
+def test_the_diff_ignores_the_answers_file(tmp_path):
+    a = _write(tmp_path / "a", {".copier-answers.yml": "_commit: 1\n"})
+    b = _write(tmp_path / "b", {".copier-answers.yml": "_commit: 2\n"})
     assert diff_trees("demo", a, b).empty
 
 
-def test_le_diff_ne_cite_jamais_le_contenu_des_fichiers(tmp_path):
-    a = _ecrire(tmp_path / "a", {"secret.yml": "motdepasse\n"})
-    b = _ecrire(tmp_path / "b", {"secret.yml": "autre\n"})
-    resume = diff_trees("demo", a, b).summary()
-    assert "motdepasse" not in resume and "autre" not in resume
+def test_the_diff_never_quotes_the_content_of_the_files(tmp_path):
+    a = _write(tmp_path / "a", {"secret.yml": "password\n"})
+    b = _write(tmp_path / "b", {"secret.yml": "other\n"})
+    summary = diff_trees("demo", a, b).summary()
+    assert "password" not in summary and "other" not in summary

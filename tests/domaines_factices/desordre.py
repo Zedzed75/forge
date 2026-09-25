@@ -1,8 +1,7 @@
-"""Domaine factice qui ordonne les environnements a l'envers.
+"""Fake domain that orders the environments backwards.
 
-Il declenche un controle inter-domaines de niveau **avertissement** : le pendant
-de `divergent`, pour verifier qu'un avertissement ne fait pas echouer
-`forge validate`.
+It triggers a cross-domain check at **warning** level: the counterpart of
+`divergent`, to check that a warning does not make `forge validate` fail.
 """
 
 from __future__ import annotations
@@ -11,19 +10,19 @@ from typing import Any
 
 from forge.plugins_api.hookspecs import hookimpl
 from forge.plugins_api.types import DomainInfo, Projection
-from tests.domaines_factices import SectionTriviale
+from tests.domaines_factices import TrivialSection
 
 
 @hookimpl
 def forge_domain() -> DomainInfo:
     return DomainInfo(
-        name="desordre", title="Desordre", summary="Domaine factice mal ordonne"
+        name="desordre", title="Desordre", summary="Badly ordered fake domain"
     )
 
 
 @hookimpl
-def forge_spec_model() -> type[SectionTriviale]:
-    return SectionTriviale
+def forge_spec_model() -> type[TrivialSection]:
+    return TrivialSection
 
 
 @hookimpl

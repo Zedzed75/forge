@@ -1,8 +1,8 @@
-"""Fixtures communes et harnais golden.
+"""Shared fixtures and the golden harness.
 
-Le plugin `demo` sert de domaine de reference : il n'est pas enregistre en
-production, les tests le declarent explicitement. C'est lui qui exerce les
-mecanismes reels (yield imbriques, filtres de plugin, filtrage de fichier).
+The `demo` plugin serves as the reference domain: it is not registered in
+production, the tests declare it explicitly. It is the one exercising the real
+mechanisms (nested yields, plugin filters, file filtering).
 """
 
 from __future__ import annotations
@@ -19,18 +19,18 @@ from forge.plugins_api.manager import ForgeManager
 from forge.spec.assembly import validate_spec
 from forge.spec.io import load_spec_data
 
-#: Module du plugin de demonstration, tel que `FORGE_PLUGINS` l'attend.
+#: Module of the demonstration plugin, as `FORGE_PLUGINS` expects it.
 DEMO_PLUGIN = "forge.plugins.demo.plugin"
 
-#: Racine du depot forge, qui porte le copier.yml unique.
+#: Root of the forge repository, which carries the single copier.yml.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-#: Specs de reference et arborescences golden correspondantes.
+#: Reference specs and their matching golden trees.
 SPECS_DIR = REPO_ROOT / "tests" / "specs"
 GOLDEN_DIR = REPO_ROOT / "tests" / "golden"
 
-#: Lignes du fichier de reponses qui varient d'une machine et d'un rendu a
-#: l'autre : elles sont neutralisees avant comparaison golden.
+#: Lines of the answers file that vary from one machine and one render to the
+#: next: they are neutralised before the golden comparison.
 _VOLATILE_ANSWERS = (
     (re.compile(r"^_commit:.*$", re.MULTILINE), "_commit: <commit>"),
     (re.compile(r"^_src_path:.*$", re.MULTILINE), "_src_path: <src>"),
@@ -40,9 +40,6 @@ _VOLATILE_ANSWERS = (
 # ---------------------------------------------------------------------------
 # Fail-closed validators
 # ---------------------------------------------------------------------------
-# Comments in this module are in English: test infrastructure, no French
-# precedent, and no effect on generated output.
-#
 # The project's central claim is "the generated project passes its own real
 # validators". Seven integration tests assert it, and each of them used to skip
 # when its tool was missing. That is right on a Windows workstation, where
@@ -103,7 +100,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--regen-golden",
         action="store_true",
         default=False,
-        help="Reecrit les references golden au lieu de les comparer.",
+        help="Rewrites the golden references instead of comparing against them.",
     )
     # Deliberately a separate flag from --regen-golden. Re-blessing the golden
     # trees is routine after an intended template change; re-blessing a
@@ -119,7 +116,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 @pytest.fixture
 def regen_golden(request: pytest.FixtureRequest) -> bool:
-    """Vrai si la campagne demande la re-benediction des references."""
+    """True when the run is asked to re-bless the golden references."""
     return bool(request.config.getoption("--regen-golden"))
 
 
@@ -131,7 +128,7 @@ def regen_fingerprints(request: pytest.FixtureRequest) -> bool:
 
 @pytest.fixture
 def manager() -> ForgeManager:
-    """Gestionnaire ne contenant que le plugin de demonstration."""
+    """Manager holding nothing but the demonstration plugin."""
     instance = ForgeManager()
     instance.register_module(DEMO_PLUGIN)
     return instance
@@ -139,13 +136,18 @@ def manager() -> ForgeManager:
 
 @pytest.fixture
 def demo_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Declare le plugin demo pour les appels passant par `default_manager()`."""
+    """Declare the demo plugin for calls that go through `default_manager()`."""
     monkeypatch.setenv("FORGE_PLUGINS", DEMO_PLUGIN)
 
 
 @pytest.fixture
 def spec_data() -> dict[str, Any]:
-    """Specification minimale valide, modifiable par chaque test."""
+    """Minimal valid specification, which each test may modify.
+
+    The sample values are the ones the reference specs and the golden trees use.
+    They stay as they are until the templates and the fixtures are translated
+    together; changing them here alone would make the two drift apart.
+    """
     return {
         "forge_version": 1,
         "service": {
@@ -171,32 +173,32 @@ def spec_data() -> dict[str, Any]:
 
 @pytest.fixture
 def spec(spec_data: dict[str, Any], manager: ForgeManager):
-    """Instance validee correspondant a `spec_data`."""
+    """Validated instance matching `spec_data`."""
     return validate_spec(spec_data, manager)
 
 
 # ---------------------------------------------------------------------------
-# Harnais golden
+# Golden harness
 # ---------------------------------------------------------------------------
 
 
 def spec_files() -> list[Path]:
-    """Specs de reference, triees : l'ordre des cas de test est deterministe."""
+    """Reference specs, sorted: the order of the test cases is deterministic."""
     return sorted(SPECS_DIR.glob("*.yml"))
 
 
 def load_case(path: Path, manager: ForgeManager) -> tuple[dict[str, Any], Any]:
-    """Charge une spec de reference et la valide."""
+    """Load a reference spec and validate it."""
     data = load_spec_data(path)
     return data, validate_spec(data, manager)
 
 
 def stable_text(path: Path) -> str:
-    """Contenu d'un fichier genere, debarrasse de ce qui varie par machine.
+    """Content of a generated file, stripped of what varies per machine.
 
-    Lecture en **octets** : `read_text` traduit les CRLF en LF a la lecture, ce
-    qui rendrait la comparaison golden aveugle a une regression de fins de ligne
-    — precisement ce que la normalisation est censee garantir.
+    Read as **bytes**: `read_text` translates CRLF to LF while reading, which
+    would blind the golden comparison to a line-ending regression — precisely
+    what the normalisation is supposed to guarantee.
     """
     text = path.read_bytes().decode("utf-8")
     if path.name == ".copier-answers.yml":
@@ -206,7 +208,7 @@ def stable_text(path: Path) -> str:
 
 
 def tree_files(root: Path) -> list[str]:
-    """Chemins relatifs de tous les fichiers de `root`, tries."""
+    """Relative paths of every file under `root`, sorted."""
     return sorted(
         path.relative_to(root).as_posix()
         for path in root.rglob("*")
@@ -215,7 +217,7 @@ def tree_files(root: Path) -> list[str]:
 
 
 def bless(source: Path, destination: Path) -> None:
-    """Remplace l'arborescence golden `destination` par `source`."""
+    """Replace the golden tree `destination` with `source`."""
     if destination.exists():
         shutil.rmtree(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -226,11 +228,11 @@ def bless(source: Path, destination: Path) -> None:
 
 
 def template_is_dirty() -> bool:
-    """Vrai si le depot de gabarit porte des modifications non committees.
+    """True if the template repository carries uncommitted changes.
 
-    `copier update` compare deux references git : un projet rendu depuis un
-    arbre de travail sale reference un commit temporaire, introuvable ensuite.
-    Les tests de mise a jour sont donc ignores tant que le depot n'est pas propre.
+    `copier update` compares two git references: a project rendered from a dirty
+    working tree references a temporary commit, unreachable afterwards. The
+    update tests are therefore skipped until the repository is clean.
     """
     import subprocess
 
@@ -266,7 +268,7 @@ def render_all_plugins(spec_path: Path, target: Path) -> Path:
 
 
 def build_project(target: Path, spec_name: str = "demo-complet") -> tuple[Any, ForgeManager]:
-    """Genere un projet de demonstration dans `target` (rendu copier reel)."""
+    """Generate a demonstration project into `target` (a real copier render)."""
     from forge import pipeline
 
     instance = ForgeManager()
@@ -277,18 +279,18 @@ def build_project(target: Path, spec_name: str = "demo-complet") -> tuple[Any, F
 
 
 @pytest.fixture(scope="session")
-def projet_demo(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Any, ForgeManager]:
-    """Projet genere une seule fois pour la session : le rendu copier est lent."""
-    target = tmp_path_factory.mktemp("projet-demo")
+def demo_project(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Any, ForgeManager]:
+    """Project generated once per session: the copier render is slow."""
+    target = tmp_path_factory.mktemp("demo-project")
     model, instance = build_project(target)
     return target, model, instance
 
 
 @pytest.fixture(autouse=True)
 def _clean_forge_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Isole chaque test des variables d'environnement de la session."""
+    """Isolate each test from the session's environment variables."""
     for name in ("FORGE_PLUGINS", "FORGE_TEMPLATE_SRC", "FORGE_PLUGIN_JINJA"):
         monkeypatch.delenv(name, raising=False)
-    # `monkeypatch` restaure la valeur d'origine en fin de test : aucune fuite
-    # d'etat d'un test vers le suivant, contrairement a un os.environ direct.
+    # `monkeypatch` restores the original value at the end of the test: no state
+    # leaks from one test to the next, unlike a direct os.environ write.
     monkeypatch.setenv("PYTHONIOENCODING", "utf-8")

@@ -1,17 +1,20 @@
-"""Domaine Terraform — le premier ecrit de zero.
+"""The Terraform domain — the first one written from scratch.
 
-Aucun generateur legacy a porter, donc **aucun instantane de parite** : rien ne
-dit « la sortie est juste » a part ce module et les outils reels. La couverture
-est donc organisee autrement que celle des deux autres domaines :
+No legacy generator to port, therefore **no parity snapshot**: nothing says "the
+output is right" apart from this module and the real tools. The coverage is
+organised differently from the other two domains:
 
-* ce que le **modele** refuse (contraintes que Terraform ne signalerait qu'au
-  `init`, c'est-a-dire trop tard) ;
-* ce que le **controle croise** refuse ou signale ;
-* la **coherence interne** de la projection — catalogue, variables, sorties et
-  gabarits doivent parler des memes noms ;
-* l'**absence de valeur secrete** dans tout fichier genere ;
-* et, sous marqueur `integration`, les **validateurs reels** : `terraform fmt`,
-  `terraform init`, `terraform validate` et `tflint`.
+* what the **model** refuses (constraints Terraform would only report at `init`,
+  that is to say too late);
+* what the **cross-check** refuses or reports;
+* the **internal consistency** of the projection — catalogue, variables, outputs
+  and templates must all talk about the same names;
+* the **absence of any secret value** in every generated file;
+* and, under the `integration` marker, the **real validators**: `terraform fmt`,
+  `terraform init`, `terraform validate` and `tflint`.
+
+The plugin's own messages are still French: the domains are translated with
+their templates, so the assertions below quote them as they are.
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ from forge.spec.io import load_spec_data
 from tests.conftest import REPO_ROOT
 
 PLUGIN = "forge.plugins.terraform.plugin"
-SPEC_COMPLETE = REPO_ROOT / "tests" / "specs" / "terraform-complet.yml"
+COMPLETE_SPEC = REPO_ROOT / "tests" / "specs" / "terraform-complet.yml"
 
 
 def _manager() -> ForgeManager:
@@ -42,15 +45,15 @@ def _manager() -> ForgeManager:
     return instance
 
 
-def _spec(donnees: dict | None = None):
-    """Modele racine valide, a partir de la spec de reference ou d'un dict."""
+def _spec(given: dict | None = None):
+    """Valid root model, from the reference spec or from a dict."""
     manager = _manager()
-    data = donnees if donnees is not None else load_spec_data(SPEC_COMPLETE)
+    data = given if given is not None else load_spec_data(COMPLETE_SPEC)
     return data, validate_spec(data, manager), manager
 
 
 def _base(**terraform) -> dict:
-    """Specification minimale, avec la section terraform fournie."""
+    """Minimal specification, with the terraform section supplied."""
     return {
         "forge_version": 1,
         "service": {
@@ -63,219 +66,219 @@ def _base(**terraform) -> dict:
     }
 
 
-def _genere(tmp_path: Path, donnees: dict | None = None):
-    data, spec, manager = _spec(donnees)
+def _generate(tmp_path: Path, given: dict | None = None):
+    data, spec, manager = _spec(given)
     pipeline.generate(data, spec, manager, tmp_path)
     return spec, manager
 
 
 # ---------------------------------------------------------------------------
-# Ce que le sous-modele refuse
+# What the sub-model refuses
 # ---------------------------------------------------------------------------
 
 
-def test_une_version_nue_est_refusee_comme_contrainte():
-    """`1.9.8` figerait le projet sur un correctif : presque toujours une faute."""
+def test_a_bare_version_is_refused_as_a_constraint():
+    """`1.9.8` would pin the project to one patch: almost always a mistake."""
     with pytest.raises(ValueError, match="contrainte de version"):
         TerraformSpec(terraform_version="1.9.8")
 
 
-@pytest.mark.parametrize("contrainte", ["~> 1.9", ">= 1.5, < 2.0", "~> 1.9.0"])
-def test_les_contraintes_bien_formees_passent(contrainte):
-    assert TerraformSpec(terraform_version=contrainte).terraform_version == contrainte
+@pytest.mark.parametrize("constraint", ["~> 1.9", ">= 1.5, < 2.0", "~> 1.9.0"])
+def test_well_formed_constraints_pass(constraint):
+    assert TerraformSpec(terraform_version=constraint).terraform_version == constraint
 
 
-def test_une_cle_de_backend_secrete_est_refusee():
-    """Un fichier genere ne porte jamais de secret, backend compris."""
+def test_a_secret_backend_key_is_refused():
+    """A generated file never carries a secret, backend included."""
     with pytest.raises(ValueError, match="secretes refusees"):
         TerraformSpec(backend={"kind": "s3", "config": {"bucket": "b", "region": "r", "secret_key": "x"}})
 
 
-def test_une_cle_de_backend_obligatoire_absente_est_refusee():
-    """Sinon le projet se rend parfaitement et refuse de s'initialiser."""
+def test_a_missing_mandatory_backend_key_is_refused():
+    """Otherwise the project renders perfectly and refuses to initialise."""
     with pytest.raises(ValueError, match="cles obligatoires absentes"):
         TerraformSpec(backend={"kind": "s3", "config": {"bucket": "b"}})
 
 
-def test_la_cle_d_etat_n_est_pas_reclamee_a_la_specification():
-    """`key` est derivee par environnement : l'exiger produirait un etat partage."""
+def test_the_state_key_is_not_asked_of_the_specification():
+    """`key` is derived per environment: requiring it would produce a shared state."""
     spec = TerraformSpec(backend={"kind": "s3", "config": {"bucket": "b", "region": "r"}})
     assert "key" not in spec.backend.config
 
 
-def test_une_famille_repetee_est_refusee():
+def test_a_repeated_family_is_refused():
     with pytest.raises(ValueError, match="familles de ressources"):
         TerraformSpec(resources=["namespace", "namespace"])
 
 
-def test_la_strategie_custom_exige_un_namespace_par_environnement_declare():
+def test_the_custom_strategy_requires_a_namespace_per_declared_environment():
     with pytest.raises(ValueError, match="custom"):
         TerraformSpec(namespace_strategy="custom", environments={"dev": {}})
 
 
-def test_un_namespace_explicite_trop_long_est_refuse():
+def test_an_explicit_namespace_that_is_too_long_is_refused():
     with pytest.raises(ValueError, match="63"):
         TerraformSpec(environments={"dev": {"namespace": "n" * 64}})
 
 
-def test_une_cle_inconnue_est_refusee():
-    """`extra=\"forbid\"` : une faute de frappe n'est jamais un silence."""
+def test_an_unknown_key_is_refused():
+    """`extra="forbid"`: a typo is never a silence."""
     with pytest.raises(ValueError):
         TerraformSpec(terrraform_version="~> 1.9")
 
 
 # ---------------------------------------------------------------------------
-# Ce que le controle croise refuse ou signale
+# What the cross-check refuses or reports
 # ---------------------------------------------------------------------------
 
 
-def _issues(donnees: dict) -> list:
+def _issues(given: dict) -> list:
     manager = _manager()
-    spec = validate_spec(donnees, manager)
+    spec = validate_spec(given, manager)
     return answers.cross_check(spec)
 
 
-def _messages(donnees: dict, level: str) -> list[str]:
-    return [issue.message for issue in _issues(donnees) if issue.level == level]
+def _messages(given: dict, level: str) -> list[str]:
+    return [issue.message for issue in _issues(given) if issue.level == level]
 
 
-def test_un_environnement_inconnu_est_une_erreur():
-    donnees = _base(resources=["namespace"], environments={"recette": {"namespace": "x"}})
-    assert any("recette" in m for m in _messages(donnees, "error"))
+def test_an_unknown_environment_is_an_error():
+    given = _base(resources=["namespace"], environments={"recette": {"namespace": "x"}})
+    assert any("recette" in m for m in _messages(given, "error"))
 
 
-def test_la_strategie_custom_couvre_tous_les_environnements_du_service():
-    """Un environnement absent de `terraform.environments` echappe au sous-modele."""
-    donnees = _base(
+def test_the_custom_strategy_covers_every_environment_of_the_service():
+    """An environment absent from `terraform.environments` escapes the sub-model."""
+    given = _base(
         resources=["namespace"],
         namespace_strategy="custom",
         environments={"dev": {"namespace": "boutique-dev"}},
     )
-    erreurs = _messages(donnees, "error")
-    assert any("prod" in m for m in erreurs)
-    assert not any("'dev'" in m for m in erreurs)
+    errors = _messages(given, "error")
+    assert any("prod" in m for m in errors)
+    assert not any("'dev'" in m for m in errors)
 
 
-def test_un_namespace_derive_trop_long_est_une_erreur():
-    """Ni le service ni l'environnement ne depassent seuls : le produit, si."""
-    donnees = _base(resources=["namespace"])
-    donnees["service"]["name"] = "b" * 55
-    donnees["service"]["environments"] = [{"name": "integration"}]
-    assert any("63" in m for m in _messages(donnees, "error"))
+def test_a_derived_namespace_that_is_too_long_is_an_error():
+    """Neither the service nor the environment is too long on its own: the product is."""
+    given = _base(resources=["namespace"])
+    given["service"]["name"] = "b" * 55
+    given["service"]["environments"] = [{"name": "integration"}]
+    assert any("63" in m for m in _messages(given, "error"))
 
 
-def test_une_surcharge_sans_sa_famille_est_signalee():
-    """Une valeur soigneusement reglee et ignoree en silence est pire qu'une erreur."""
-    donnees = _base(
+def test_an_override_without_its_family_is_reported():
+    """A carefully tuned value silently ignored is worse than an error."""
+    given = _base(
         resources=["namespace"],
         environments={"prod": {"quota": {"cpu": "8"}}},
     )
-    avertissements = _messages(donnees, "warning")
-    assert any("quota" in m and "ne sera pas appliquee" in m for m in avertissements)
+    warnings = _messages(given, "warning")
+    assert any("quota" in m and "ne sera pas appliquee" in m for m in warnings)
 
 
-def test_un_etat_local_en_production_est_signale():
-    donnees = _base(resources=["namespace", "random_secret"])
-    avertissements = _messages(donnees, "warning")
-    assert any("backend d'etat 'local'" in m for m in avertissements)
-    assert any("random_secret" in m for m in avertissements)
+def test_a_local_state_in_production_is_reported():
+    given = _base(resources=["namespace", "random_secret"])
+    warnings = _messages(given, "warning")
+    assert any("backend d'etat 'local'" in m for m in warnings)
+    assert any("random_secret" in m for m in warnings)
 
 
-def test_un_contexte_de_cluster_absent_est_signale():
-    donnees = _base(
+def test_a_missing_cluster_context_is_reported():
+    given = _base(
         resources=["namespace"],
         kubernetes={"context_per_environment": False},
     )
-    assert any("contexte courant" in m for m in _messages(donnees, "warning"))
+    assert any("contexte courant" in m for m in _messages(given, "warning"))
 
 
-def test_la_specification_de_reference_ne_leve_aucune_erreur():
+def test_the_reference_specification_raises_no_error():
     _, spec, _ = _spec()
     assert [issue for issue in answers.cross_check(spec) if issue.level == "error"] == []
 
 
-def test_le_controle_croise_est_muet_sans_section_terraform():
-    class Sans:
+def test_the_cross_check_is_silent_without_a_terraform_section():
+    class Without:
         pass
 
-    assert answers.cross_check(Sans()) == []
+    assert answers.cross_check(Without()) == []
 
 
 # ---------------------------------------------------------------------------
-# Coherence interne de la projection
+# Internal consistency of the projection
 # ---------------------------------------------------------------------------
 
 
-def test_la_projection_est_serialisable_et_deterministe():
+def test_the_projection_is_serialisable_and_deterministic():
     _, spec, _ = _spec()
-    premier = answers.build(spec)
+    first = answers.build(spec)
     second = answers.build(spec)
-    assert json.dumps(premier, sort_keys=True) == json.dumps(second, sort_keys=True)
+    assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
 
 
-def test_toutes_les_familles_de_l_enumeration_sont_au_catalogue():
-    assert set(family_names()) == {famille.value for famille in ResourceFamily}
+def test_every_family_of_the_enumeration_is_in_the_catalogue():
+    assert set(family_names()) == {family.value for family in ResourceFamily}
 
 
-def test_chaque_famille_documente_ses_pieges():
-    """Les pieges expliquent des choix du code genere : aucune famille sans."""
-    muettes = [famille.name for famille in FAMILIES if not famille.traps]
-    assert muettes == [], f"familles sans piege documente : {muettes}"
+def test_every_family_documents_its_traps():
+    """The traps explain choices in the generated code: no family without them."""
+    silent = [family.name for family in FAMILIES if not family.traps]
+    assert silent == [], f"families with no documented trap: {silent}"
 
 
-def test_chaque_sortie_de_famille_a_une_expression():
-    """Une sortie declaree sans expression ferait echouer le rendu, pas le test."""
-    connues = set(derive.OUTPUT_VALUES)
-    declarees = {nom for famille in FAMILIES for nom in famille.outputs}
-    assert declarees <= connues
+def test_every_family_output_has_an_expression():
+    """An output declared without an expression would break the render, not the test."""
+    known = set(derive.OUTPUT_VALUES)
+    declared = {name for family in FAMILIES for name in family.outputs}
+    assert declared <= known
 
 
-def test_les_familles_ne_reclament_que_des_providers_connus():
+def test_the_families_only_ask_for_known_providers():
     _, spec, _ = _spec()
-    noms = {provider["name"] for provider in derive.providers(spec)}
-    assert noms == {"kubernetes", "random", "tls"}
+    names = {provider["name"] for provider in derive.providers(spec)}
+    assert names == {"kubernetes", "random", "tls"}
 
 
-def test_le_tfvars_ne_cite_que_des_variables_declarees():
-    """Terraform refuse un tfvars citant une variable inconnue."""
+def test_the_tfvars_only_names_declared_variables():
+    """Terraform refuses a tfvars naming an unknown variable."""
     _, spec, _ = _spec()
     projection = answers.build(spec)
-    declarees = {variable["name"] for variable in projection["root_variables"]}
+    declared = {variable["name"] for variable in projection["root_variables"]}
     for env in projection["environments"]:
-        cites = {entree["name"] for entree in env["tfvars"]}
-        assert cites <= declarees, f"{env['name']} : {sorted(cites - declarees)}"
+        named = {entry["name"] for entry in env["tfvars"]}
+        assert named <= declared, f"{env['name']}: {sorted(named - declared)}"
 
 
-def test_le_tfvars_ne_porte_aucune_variable_secrete():
+def test_the_tfvars_carries_no_secret_variable():
     _, spec, _ = _spec()
     projection = answers.build(spec)
-    secretes = {v["name"] for v in projection["root_variables"] if v["sensitive"]}
-    assert secretes, "le cas de reference doit exercer au moins une variable secrete"
+    secrets = {v["name"] for v in projection["root_variables"] if v["sensitive"]}
+    assert secrets, "the reference case must exercise at least one secret variable"
     for env in projection["environments"]:
-        assert not secretes & {entree["name"] for entree in env["tfvars"]}
+        assert not secrets & {entry["name"] for entry in env["tfvars"]}
 
 
-def test_l_appel_de_module_transmet_toutes_ses_variables():
-    """Terraform ne signale pas une variable declaree et jamais transmise."""
+def test_the_module_call_passes_all_of_its_variables():
+    """Terraform does not report a variable declared and never passed."""
     _, spec, _ = _spec()
     projection = answers.build(spec)
-    attendues = {variable["name"] for variable in projection["variables"]}
+    expected = {variable["name"] for variable in projection["variables"]}
     for env in projection["environments"]:
-        transmises = {argument["name"] for argument in env["module_arguments"]}
-        assert transmises == attendues
+        passed = {argument["name"] for argument in env["module_arguments"]}
+        assert passed == expected
 
 
-def test_deux_environnements_n_ecrivent_jamais_le_meme_etat():
+def test_two_environments_never_write_the_same_state():
     _, spec, _ = _spec()
     projection = answers.build(spec)
-    cles = [
+    keys = [
         tuple(sorted((e["name"], e["value"]) for e in env["backend_config"]))
         for env in projection["environments"]
     ]
-    assert len(set(cles)) == len(cles)
+    assert len(set(keys)) == len(keys)
 
 
-def test_les_namespaces_derives_suivent_la_strategie():
+def test_the_derived_namespaces_follow_the_strategy():
     _, spec, _ = _spec()
     projection = answers.build(spec)
     assert [env["namespace"] for env in projection["environments"]] == [
@@ -285,8 +288,8 @@ def test_les_namespaces_derives_suivent_la_strategie():
     ]
 
 
-def test_la_facette_declaree_appartient_au_vocabulaire_partage():
-    """Une facette hors vocabulaire est sans danger, mais sans effet (phase 5)."""
+def test_the_declared_facet_belongs_to_the_shared_vocabulary():
+    """A facet outside the vocabulary is harmless, but pointless too (phase 5)."""
     from forge.plugins.terraform import plugin as terraform_plugin
     from forge.validate.consistency import FACET_VOCABULARY
 
@@ -301,224 +304,223 @@ def test_la_facette_declaree_appartient_au_vocabulaire_partage():
 
 
 # ---------------------------------------------------------------------------
-# Rendu
+# Render
 # ---------------------------------------------------------------------------
 
 
-def test_l_arborescence_annoncee_correspond_aux_fichiers_generes(tmp_path):
-    """Arbitrage R3 : `tree.py` reste au plugin, mais un test le tient a jour."""
-    spec, _ = _genere(tmp_path)
+def test_the_announced_tree_matches_the_generated_files(tmp_path):
+    """Arbitration R3: `tree.py` stays with the plugin, but a test keeps it current."""
+    spec, _ = _generate(tmp_path)
     base = tmp_path / "terraform"
-    produits = {
-        chemin.relative_to(base).as_posix() for chemin in base.rglob("*") if chemin.is_file()
+    produced = {
+        path.relative_to(base).as_posix() for path in base.rglob("*") if path.is_file()
     }
-    assert produits == set(tree.expected_paths(spec))
+    assert produced == set(tree.expected_paths(spec))
 
 
-def test_chaque_famille_retenue_produit_son_fichier(tmp_path):
-    spec, _ = _genere(tmp_path)
+def test_every_selected_family_produces_its_file(tmp_path):
+    spec, _ = _generate(tmp_path)
     module = tmp_path / "terraform" / "modules" / "boutique"
-    for famille in FAMILIES:
-        chemin = module / f"{famille.name}.tf"
-        assert chemin.is_file(), f"fichier manquant : {famille.name}.tf"
-        contenu = chemin.read_bytes().decode("utf-8")
-        for ressource in famille.resources:
-            assert f'resource "{ressource}"' in contenu
+    for family in FAMILIES:
+        path = module / f"{family.name}.tf"
+        assert path.is_file(), f"missing file: {family.name}.tf"
+        content = path.read_bytes().decode("utf-8")
+        for resource in family.resources:
+            assert f'resource "{resource}"' in content
 
 
-def test_une_famille_non_retenue_ne_produit_rien(tmp_path):
-    """Le choix vaut aussi a l'interieur d'un domaine."""
-    _genere(tmp_path, _base(resources=["namespace"]))
+def test_a_family_that_was_not_selected_produces_nothing(tmp_path):
+    """The choice also applies inside a domain."""
+    _generate(tmp_path, _base(resources=["namespace"]))
     module = tmp_path / "terraform" / "modules" / "boutique"
-    produits = sorted(chemin.name for chemin in module.glob("*.tf"))
-    assert produits == ["locals.tf", "namespace.tf", "outputs.tf", "variables.tf", "versions.tf"]
+    produced = sorted(path.name for path in module.glob("*.tf"))
+    assert produced == ["locals.tf", "namespace.tf", "outputs.tf", "variables.tf", "versions.tf"]
 
 
-def test_sans_la_famille_namespace_le_module_se_rattache_a_l_existant(tmp_path):
-    _genere(tmp_path, _base(resources=["quota"]))
+def test_without_the_namespace_family_the_module_attaches_to_the_existing_one(tmp_path):
+    _generate(tmp_path, _base(resources=["quota"]))
     locals_tf = (tmp_path / "terraform" / "modules" / "boutique" / "locals.tf").read_bytes()
-    texte = locals_tf.decode("utf-8")
-    assert "namespace = var.namespace" in texte
-    assert "kubernetes_namespace.this" not in texte
+    text = locals_tf.decode("utf-8")
+    assert "namespace = var.namespace" in text
+    assert "kubernetes_namespace.this" not in text
 
 
-def test_toute_variable_declaree_est_employee_par_un_gabarit(tmp_path):
-    """Verrou contre la regle tflint `terraform_unused_declarations`.
+def test_every_declared_variable_is_used_by_a_template(tmp_path):
+    """Lock against the tflint rule `terraform_unused_declarations`.
 
-    Elle est verifiee ici sur **chaque famille prise isolement** : le cas
-    complet la satisferait meme si une variable n'etait employee que par une
-    autre famille.
+    It is checked here on **each family taken in isolation**: the complete case
+    would satisfy it even if a variable were only used by another family.
     """
-    for famille in FAMILIES:
-        cible = tmp_path / famille.name
-        _genere(cible, _base(resources=[famille.name]))
-        module = cible / "terraform" / "modules" / "boutique"
-        corps = "\n".join(
-            chemin.read_bytes().decode("utf-8")
-            for chemin in module.glob("*.tf")
-            if chemin.name != "variables.tf"
+    for family in FAMILIES:
+        target = tmp_path / family.name
+        _generate(target, _base(resources=[family.name]))
+        module = target / "terraform" / "modules" / "boutique"
+        body = "\n".join(
+            path.read_bytes().decode("utf-8")
+            for path in module.glob("*.tf")
+            if path.name != "variables.tf"
         )
-        declarees = {
-            ligne.split('"')[1]
-            for ligne in (module / "variables.tf").read_bytes().decode("utf-8").splitlines()
-            if ligne.startswith('variable "')
+        declared = {
+            line.split('"')[1]
+            for line in (module / "variables.tf").read_bytes().decode("utf-8").splitlines()
+            if line.startswith('variable "')
         }
-        inutilisees = sorted(nom for nom in declarees if f"var.{nom}" not in corps)
-        assert inutilisees == [], f"{famille.name} : variables inutilisees {inutilisees}"
+        unused = sorted(name for name in declared if f"var.{name}" not in body)
+        assert unused == [], f"{family.name}: unused variables {unused}"
 
 
-#: Ce qu'aucun fichier genere ne doit contenir. Les motifs portent sur des
-#: **affectations litterales**, pas sur des mentions : `password = var.x` est
-#: licite, `password = "x"` ne l'est pas, et une famille nommee
-#: `generated_secret_keys` n'est pas un secret.
-MOTIFS_INTERDITS: tuple[tuple[str, str], ...] = (
+#: What no generated file may contain. The patterns are about **literal
+#: assignments**, not mentions: `password = var.x` is legitimate,
+#: `password = "x"` is not, and a family named `generated_secret_keys` is not a
+#: secret.
+FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
     (
         r"(?m)^\s*(?:access_key|secret_key|sas_token|client_secret|credentials)\s*=",
-        "cle d'acces au stockage d'etat",
+        "access key to the state storage",
     ),
     (
         r'(?m)^\s*\w*(?:password|token|secret)\w*\s*=\s*"',
-        "valeur litterale affectee a une cle secrete",
+        "literal value assigned to a secret key",
     ),
-    (r"BEGIN (?:RSA )?PRIVATE KEY", "cle privee"),
-    (r"BEGIN CERTIFICATE", "certificat"),
+    (r"BEGIN (?:RSA )?PRIVATE KEY", "private key"),
+    (r"BEGIN CERTIFICATE", "certificate"),
 )
 
 
-def test_aucun_fichier_genere_ne_porte_de_valeur_secrete(tmp_path):
-    """Regle absolue du projet, verifiee sur la sortie et non sur l'intention."""
+def test_no_generated_file_carries_a_secret_value(tmp_path):
+    """Absolute rule of the project, checked on the output and not on the intent."""
     import re
 
-    _genere(tmp_path)
-    for chemin in sorted((tmp_path / "terraform").rglob("*")):
-        if not chemin.is_file():
+    _generate(tmp_path)
+    for path in sorted((tmp_path / "terraform").rglob("*")):
+        if not path.is_file():
             continue
-        texte = chemin.read_bytes().decode("utf-8")
-        for motif, libelle in MOTIFS_INTERDITS:
-            trouve = re.search(motif, texte)
-            assert trouve is None, (
-                f"{chemin.name} porte un(e) {libelle} : {trouve.group(0).strip()!r}"
+        text = path.read_bytes().decode("utf-8")
+        for pattern, label in FORBIDDEN_PATTERNS:
+            found = re.search(pattern, text)
+            assert found is None, (
+                f"{path.name} carries a {label}: {found.group(0).strip()!r}"
             )
 
 
-def _affectations(chemin: Path) -> dict[str, str]:
-    """Lit un fichier d'affectations HCL en dict, alignement ignore."""
-    valeurs: dict[str, str] = {}
-    for ligne in chemin.read_bytes().decode("utf-8").splitlines():
-        if ligne.startswith("#") or "=" not in ligne:
+def _assignments(path: Path) -> dict[str, str]:
+    """Read an HCL assignment file into a dict, alignment ignored."""
+    values: dict[str, str] = {}
+    for line in path.read_bytes().decode("utf-8").splitlines():
+        if line.startswith("#") or "=" not in line:
             continue
-        cle, _, valeur = ligne.partition("=")
-        valeurs[cle.strip()] = valeur.strip()
-    return valeurs
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip()
+    return values
 
 
-def test_les_tfvars_portent_les_valeurs_de_leur_environnement(tmp_path):
-    _genere(tmp_path)
-    racine = tmp_path / "terraform" / "environments"
-    prod = _affectations(racine / "prod" / "terraform.tfvars")
-    dev = _affectations(racine / "dev" / "terraform.tfvars")
+def test_the_tfvars_carry_the_values_of_their_environment(tmp_path):
+    _generate(tmp_path)
+    root = tmp_path / "terraform" / "environments"
+    prod = _assignments(root / "prod" / "terraform.tfvars")
+    dev = _assignments(root / "dev" / "terraform.tfvars")
     assert prod["namespace"] == '"boutique-prod"'
     assert prod["kube_context"] == '"plateforme-prod-eu-west-3"'
     assert prod["quota_cpu"] == '"16"'
     assert dev["quota_cpu"] == '"2"'
-    # Le contexte non renseigne retombe sur le nom de l'environnement plutot
-    # que sur le contexte courant de la machine.
+    # An unset context falls back to the environment name rather than to the
+    # machine's current context.
     assert dev["kube_context"] == '"dev"'
-    # Les labels de service et ceux de l'environnement sont fusionnes.
+    # The service labels and those of the environment are merged.
     assert "criticality" in prod["labels"] and "criticality" not in dev["labels"]
 
 
-def test_le_backend_derive_une_cle_par_environnement(tmp_path):
-    _genere(tmp_path)
-    racine = tmp_path / "terraform" / "environments"
-    for nom in ("dev", "staging", "prod"):
-        contenu = (racine / nom / "backend.tf").read_bytes().decode("utf-8")
-        assert f'key     = "boutique/{nom}/terraform.tfstate"' in contenu
+def test_the_backend_derives_one_key_per_environment(tmp_path):
+    _generate(tmp_path)
+    root = tmp_path / "terraform" / "environments"
+    for name in ("dev", "staging", "prod"):
+        content = (root / name / "backend.tf").read_bytes().decode("utf-8")
+        assert f'key     = "boutique/{name}/terraform.tfstate"' in content
 
 
 # ---------------------------------------------------------------------------
-# Validateurs declares
+# Declared validators
 # ---------------------------------------------------------------------------
 
 
-def test_les_validateurs_couvrent_chaque_environnement(tmp_path):
+def test_the_validators_cover_every_environment(tmp_path):
     _, spec, _ = _spec()
-    liste = validators.commands(spec, tmp_path)
-    libelles = [commande.label for commande in liste]
-    assert libelles[0] == "terraform fmt"
-    assert libelles[-1] == "tflint"
-    for nom in ("dev", "staging", "prod"):
-        assert f"terraform init ({nom})" in libelles
-        assert f"terraform validate ({nom})" in libelles
-    assert len(liste) == 2 + 2 * 3
+    commands = validators.commands(spec, tmp_path)
+    labels = [command.label for command in commands]
+    assert labels[0] == "terraform fmt"
+    assert labels[-1] == "tflint"
+    for name in ("dev", "staging", "prod"):
+        assert f"terraform init ({name})" in labels
+        assert f"terraform validate ({name})" in labels
+    assert len(commands) == 2 + 2 * 3
 
 
-def test_l_initialisation_ne_touche_pas_au_stockage_d_etat(tmp_path):
-    """`forge validate` valide du code : il ne joint aucune infrastructure."""
+def test_the_initialisation_does_not_touch_the_state_storage(tmp_path):
+    """`forge validate` validates code: it joins no infrastructure."""
     _, spec, _ = _spec()
     inits = [c for c in validators.commands(spec, tmp_path) if c.label.startswith("terraform init")]
     assert inits
-    for commande in inits:
-        assert "-backend=false" in commande.argv
+    for command in inits:
+        assert "-backend=false" in command.argv
 
 
-def test_le_cache_de_providers_n_est_declare_que_s_il_existe(tmp_path, monkeypatch):
-    monkeypatch.setenv(validators.CACHE_ENV_VAR, str(tmp_path / "inexistant"))
+def test_the_provider_cache_is_only_declared_if_it_exists(tmp_path, monkeypatch):
+    monkeypatch.setenv(validators.CACHE_ENV_VAR, str(tmp_path / "nonexistent"))
     _, spec, _ = _spec()
     assert not any(
-        cle == "TF_PLUGIN_CACHE_DIR"
-        for commande in validators.commands(spec, tmp_path)
-        for cle, _ in commande.env
+        key == "TF_PLUGIN_CACHE_DIR"
+        for command in validators.commands(spec, tmp_path)
+        for key, _ in command.env
     )
     monkeypatch.setenv(validators.CACHE_ENV_VAR, str(tmp_path))
     assert any(
-        cle == "TF_PLUGIN_CACHE_DIR"
-        for commande in validators.commands(spec, tmp_path)
-        for cle, _ in commande.env
+        key == "TF_PLUGIN_CACHE_DIR"
+        for command in validators.commands(spec, tmp_path)
+        for key, _ in command.env
     )
 
 
 # ---------------------------------------------------------------------------
-# Catalogue et entretien
+# Catalogue and interview
 # ---------------------------------------------------------------------------
 
 
-def test_le_catalogue_expose_chaque_famille_avec_ses_options():
+def test_the_catalogue_exposes_every_family_with_its_options():
     from forge.plugins.terraform import plugin as terraform_plugin
 
-    entrees = terraform_plugin.forge_catalog()
-    assert [entree.name for entree in entrees] == list(family_names())
-    quota = next(entree for entree in entrees if entree.name == "quota")
+    entries = terraform_plugin.forge_catalog()
+    assert [entry.name for entry in entries] == list(family_names())
+    quota = next(entry for entry in entries if entry.name == "quota")
     assert "quota_cpu" in quota.options
     assert "requests" in quota.details
 
 
-def test_l_entretien_produit_une_section_valide():
+def test_the_interview_produces_a_valid_section():
     from forge.plugins.terraform import interview
     from tests.scripted_prompter import ScriptedPrompter
 
     service = validate_spec(_base(resources=["namespace"]), _manager()).service
     prompter = ScriptedPrompter(
         [
-            ["namespace", "quota"],   # familles
-            "~> 1.9",                 # contrainte de version
-            "per_env",                # strategie de namespace
+            ["namespace", "quota"],   # families
+            "~> 1.9",                 # version constraint
+            "per_env",                # namespace strategy
             "local",                  # backend
-            "kubeconfig",             # authentification
-            "~/.kube/config",         # chemin du kubeconfig
-            True,                     # un contexte par environnement
+            "kubeconfig",             # authentication
+            "~/.kube/config",         # kubeconfig path
+            True,                     # one context per environment
             True,                     # makefile
             True,                     # .tflint.hcl
         ]
     )
     section = interview.run(prompter, service)
-    assert prompter.exhausted, f"reponses non consommees : {prompter.answers}"
-    modele = TerraformSpec.model_validate(section)
-    assert modele.family_names() == ("namespace", "quota")
+    assert prompter.exhausted, f"answers not consumed: {prompter.answers}"
+    model = TerraformSpec.model_validate(section)
+    assert model.family_names() == ("namespace", "quota")
 
 
-def test_l_entretien_decline_quand_aucune_famille_n_est_retenue():
-    """Arbitrage R7 : `None` signifie « rien a generer », pas « domaine refuse »."""
+def test_the_interview_declines_when_no_family_is_selected():
+    """Arbitration R7: `None` means "nothing to generate", not "domain refused"."""
     from forge.plugins.terraform import interview
     from tests.scripted_prompter import ScriptedPrompter
 
@@ -526,7 +528,7 @@ def test_l_entretien_decline_quand_aucune_famille_n_est_retenue():
     assert interview.run(ScriptedPrompter([[]]), service) is None
 
 
-def test_l_entretien_demande_les_namespaces_en_strategie_custom():
+def test_the_interview_asks_for_the_namespaces_in_custom_strategy():
     from forge.plugins.terraform import interview
     from tests.scripted_prompter import ScriptedPrompter
 
@@ -555,28 +557,28 @@ def test_l_entretien_demande_les_namespaces_en_strategie_custom():
 
 
 # ---------------------------------------------------------------------------
-# Validation reelle du projet genere
+# Real validation of the generated project
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.integration
-def test_le_projet_genere_passe_ses_propres_validateurs(tmp_path):
-    """Regle dure de CLAUDE.md, sur le cas qui active les sept familles.
+def test_the_generated_project_passes_its_own_validators(tmp_path):
+    """Hard rule from CLAUDE.md, on the case enabling the seven families.
 
-    C'est le seul juge de ce domaine : il n'existe aucun instantane de parite.
-    `terraform init` telecharge des providers au premier passage — la variable
-    FORGE_TF_PLUGIN_CACHE evite de recommencer a chaque environnement.
+    It is the only judge of this domain: there is no parity snapshot at all.
+    `terraform init` downloads providers on the first pass — the
+    FORGE_TF_PLUGIN_CACHE variable avoids starting over for each environment.
     """
     from tests.conftest import require_tools
 
     require_tools("terraform", "terraform", "tflint")
 
-    spec, manager = _genere(tmp_path)
-    resultat = pipeline.validate(spec, manager, tmp_path)
-    echecs = [check for rapport in resultat.reports for check in rapport.failures()]
-    assert not echecs, (
-        f"validateurs en echec : {', '.join(c.label for c in echecs)}\n"
-        + "\n".join(c.detail for c in echecs)[:2000]
+    spec, manager = _generate(tmp_path)
+    result = pipeline.validate(spec, manager, tmp_path)
+    failures = [check for report in result.reports for check in report.failures()]
+    assert not failures, (
+        f"failing validators: {', '.join(c.label for c in failures)}\n"
+        + "\n".join(c.detail for c in failures)[:2000]
     )
-    lances = [c.label for rapport in resultat.reports for c in rapport.checks]
-    assert "tflint" in lances and "terraform fmt" in lances
+    launched = [c.label for report in result.reports for c in report.checks]
+    assert "tflint" in launched and "terraform fmt" in launched

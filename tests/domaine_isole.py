@@ -1,8 +1,8 @@
-"""Domaine factice dont le paquet ne fournit **aucun** module de filtres.
+"""Fake domain whose package provides **no** filter module at all.
 
-Il vit a la racine de `tests/` — et non dans `tests/domaines_factices/`, qui
-possede un `jinja_ext` — pour eprouver le cas d'un plugin qui n'enrichit pas
-l'environnement Jinja de copier.
+It lives at the root of `tests/` — and not in `tests/domaines_factices/`, which
+does have a `jinja_ext` — in order to exercise the case of a plugin that does
+not enrich copier's Jinja environment.
 """
 
 from __future__ import annotations
@@ -11,17 +11,17 @@ from typing import Any
 
 from forge.plugins_api.hookspecs import hookimpl
 from forge.plugins_api.types import DomainInfo
-from tests.domaines_factices import SectionTriviale
+from tests.domaines_factices import TrivialSection
 
 
 @hookimpl
 def forge_domain() -> DomainInfo:
-    return DomainInfo(name="isole", title="Isole", summary="Domaine factice sans filtres")
+    return DomainInfo(name="isole", title="Isole", summary="Fake domain with no filters")
 
 
 @hookimpl
-def forge_spec_model() -> type[SectionTriviale]:
-    return SectionTriviale
+def forge_spec_model() -> type[TrivialSection]:
+    return TrivialSection
 
 
 @hookimpl

@@ -1,14 +1,14 @@
-"""Coherence du catalogue d'alertes, et de chaque alerte avec son test.
+"""Consistency of the alert catalogue, and of each alert with its test.
 
-Separe de `test_plugin_monitoring.py` pour rester sous la limite de 600 lignes,
-et parce que ces controles portent sur autre chose : non pas sur ce que le
-domaine produit, mais sur la **tenue interne du catalogue** — qu'aucune alerte
-ne cite un seuil que le modele ne declare pas, qu'aucune ne soit livree sans
-test, et qu'aucun test ne verifie une formulation que la regle n'emploie plus.
+Kept apart from `test_plugin_monitoring.py` to stay under the 600-line limit,
+and because these checks are about something else: not about what the domain
+produces, but about the **internal soundness of the catalogue** — that no alert
+names a threshold the model does not declare, that none ships without a test,
+and that no test checks a wording the rule no longer uses.
 
-C'est ce dernier point qui compte le plus : `promtool test rules` compare les
-annotations caractere par caractere. Un test qui verifierait une ancienne
-formulation passerait au vert sans plus rien prouver.
+That last point is the one that matters most: `promtool test rules` compares the
+annotations character by character. A test checking an old wording would go green
+without proving anything any more.
 """
 
 from __future__ import annotations
@@ -26,126 +26,126 @@ from tests.test_plugin_monitoring import _spec
 
 
 # ---------------------------------------------------------------------------
-# Coherence interne du catalogue
+# Internal consistency of the catalogue
 # ---------------------------------------------------------------------------
 
 
-def test_toutes_les_familles_de_l_enumeration_sont_au_catalogue():
-    assert set(family_names()) == {famille.value for famille in RuleFamily}
+def test_every_family_of_the_enumeration_is_in_the_catalogue():
+    assert set(family_names()) == {family.value for family in RuleFamily}
 
 
-def test_chaque_famille_documente_ses_pieges():
-    muettes = [famille.name for famille in FAMILIES if not famille.traps]
-    assert muettes == [], f"familles sans piege documente : {muettes}"
+def test_every_family_documents_its_traps():
+    silent = [family.name for family in FAMILIES if not family.traps]
+    assert silent == [], f"families with no documented trap: {silent}"
 
 
-def test_chaque_seuil_du_catalogue_existe_dans_le_modele():
-    """Un seuil que `ThresholdsSpec` ne declare pas serait inatteignable."""
-    champs = set(ThresholdsSpec.model_fields)
-    cites = {alerte.threshold_field for alerte in all_alerts() if alerte.threshold_field}
-    assert cites <= champs, f"seuils sans champ de modele : {sorted(cites - champs)}"
+def test_every_threshold_of_the_catalogue_exists_in_the_model():
+    """A threshold `ThresholdsSpec` does not declare would be unreachable."""
+    fields = set(ThresholdsSpec.model_fields)
+    named = {alert.threshold_field for alert in all_alerts() if alert.threshold_field}
+    assert named <= fields, f"thresholds with no model field: {sorted(named - fields)}"
 
 
-def test_chaque_seuil_du_modele_est_employe_par_une_alerte():
-    """Un champ que personne n'emploie est un reglage sans effet."""
-    champs = set(ThresholdsSpec.model_fields)
-    cites = {alerte.threshold_field for alerte in all_alerts() if alerte.threshold_field}
-    assert champs <= cites, f"seuils inemployes : {sorted(champs - cites)}"
+def test_every_threshold_of_the_model_is_used_by_an_alert():
+    """A field nobody uses is a setting with no effect."""
+    fields = set(ThresholdsSpec.model_fields)
+    named = {alert.threshold_field for alert in all_alerts() if alert.threshold_field}
+    assert fields <= named, f"unused thresholds: {sorted(fields - named)}"
 
 
-def test_chaque_alerte_porte_un_test_unitaire():
-    nues = [alerte.name for alerte in all_alerts() if not alerte.test_series]
-    assert nues == [], f"alertes sans serie de test : {nues}"
+def test_every_alert_carries_a_unit_test():
+    bare = [alert.name for alert in all_alerts() if not alert.test_series]
+    assert bare == [], f"alerts with no test series: {bare}"
 
 
-def test_l_instant_d_evaluation_depasse_la_clause_for():
-    """Sinon l'alerte serait encore en attente et le test verifierait le vide."""
-    trop_tot = [
-        alerte.name
-        for alerte in all_alerts()
-        if _seconds(alerte.test_eval_time) <= _seconds(alerte.for_duration)
+def test_the_evaluation_instant_is_past_the_for_clause():
+    """Otherwise the alert would still be pending and the test would check nothing."""
+    too_early = [
+        alert.name
+        for alert in all_alerts()
+        if _seconds(alert.test_eval_time) <= _seconds(alert.for_duration)
     ]
-    assert trop_tot == [], f"instants d'evaluation trop precoces : {trop_tot}"
+    assert too_early == [], f"evaluation instants too early: {too_early}"
 
 
-def test_les_alertes_ont_des_noms_distincts():
-    noms = [alerte.name for alerte in all_alerts()]
-    assert len(set(noms)) == len(noms)
+def test_the_alerts_have_distinct_names():
+    names = [alert.name for alert in all_alerts()]
+    assert len(set(names)) == len(names)
 
 
 # ---------------------------------------------------------------------------
-# Coherence entre une regle et son test
+# Consistency between a rule and its test
 # ---------------------------------------------------------------------------
 
 
-def test_l_annotation_attendue_est_celle_de_la_regle_resolue():
-    """Elles sont calculees ensemble : elles ne peuvent pas diverger.
+def test_the_expected_annotation_is_the_one_of_the_resolved_rule():
+    """They are computed together: they cannot diverge.
 
-    C'est le verrou contre la seule duplication dangereuse du domaine — un test
-    qui verifierait une ancienne formulation ne verifierait plus rien.
+    This is the lock against the only dangerous duplication in the domain — a
+    test checking an old wording would no longer check anything.
     """
     _, spec, _ = _spec()
     for env in derive.environments(spec):
-        for groupe in env["rules"].values():
-            for alerte in groupe["alerts"]:
-                attendue = alerte["test"]["exp_annotations"]["description"]
-                rendue = render.render_description(
-                    alerte["description"], alerte["test"]["exp_labels"]
+        for group in env["rules"].values():
+            for alert in group["alerts"]:
+                expected = alert["test"]["exp_annotations"]["description"]
+                rendered = render.render_description(
+                    alert["description"], alert["test"]["exp_labels"]
                 )
-                assert attendue == rendue, alerte["name"]
+                assert expected == rendered, alert["name"]
 
 
-def test_aucune_reference_de_libelle_ne_reste_non_resolue():
-    """Une reference non resolue signale une alerte qui cite un libelle absent."""
+def test_no_label_reference_is_left_unresolved():
+    """An unresolved reference reports an alert naming a label that is absent."""
     _, spec, _ = _spec()
     for env in derive.environments(spec):
-        for groupe in env["rules"].values():
-            for alerte in groupe["alerts"]:
-                assert "$labels" not in alerte["test"]["exp_annotations"]["description"], (
-                    alerte["name"]
+        for group in env["rules"].values():
+            for alert in group["alerts"]:
+                assert "$labels" not in alert["test"]["exp_annotations"]["description"], (
+                    alert["name"]
                 )
 
 
-def test_aucun_jeton_du_catalogue_ne_survit_a_la_projection():
-    """Un `@jeton@` oublie produit un fichier que promtool refuse — tres loin d'ici."""
+def test_no_catalogue_token_survives_the_projection():
+    """A forgotten `@token@` produces a file promtool refuses — very far from here."""
     _, spec, _ = _spec()
-    reste = re.compile(r"@[a-z_]+@")
+    leftover = re.compile(r"@[a-z_]+@")
     for env in derive.environments(spec):
-        for groupe in env["rules"].values():
-            for alerte in groupe["alerts"]:
-                for cle in ("expr", "summary", "description", "panel_expr"):
-                    assert not reste.search(alerte[cle]), f"{alerte['name']} / {cle}"
-                for serie in alerte["test"]["series"]:
-                    assert not reste.search(serie["series"]), alerte["name"]
-                    assert not reste.search(serie["points"]), alerte["name"]
+        for group in env["rules"].values():
+            for alert in group["alerts"]:
+                for key in ("expr", "summary", "description", "panel_expr"):
+                    assert not leftover.search(alert[key]), f"{alert['name']} / {key}"
+                for series in alert["test"]["series"]:
+                    assert not leftover.search(series["series"]), alert["name"]
+                    assert not leftover.search(series["points"]), alert["name"]
 
 
-def test_les_series_de_test_suivent_les_seuils():
-    """Une serie figee ne prouverait la regle que pour un seul seuil.
+def test_the_test_series_follow_the_thresholds():
+    """A frozen series would only prove the rule for a single threshold.
 
-    C'est le defaut que `promtool test rules` a trouve : un quantile de test a
-    1.9 s validait un seuil a 1 s et echouait sur un seuil a 2 s.
+    That is the defect `promtool test rules` found: a test quantile at 1.9 s
+    validated a 1 s threshold and failed on a 2 s one.
     """
-    doux = derive._test_tokens({"cpu_cores": 1.0, "latency_p95_seconds": 1.0})
-    serre = derive._test_tokens({"cpu_cores": 4.0, "latency_p95_seconds": 3.0})
-    assert serre["cpu_step"] > doux["cpu_step"]
-    assert serre["latency_high_le"] > doux["latency_high_le"]
+    loose = derive._test_tokens({"cpu_cores": 1.0, "latency_p95_seconds": 1.0})
+    tight = derive._test_tokens({"cpu_cores": 4.0, "latency_p95_seconds": 3.0})
+    assert tight["cpu_step"] > loose["cpu_step"]
+    assert tight["latency_high_le"] > loose["latency_high_le"]
 
 
-def test_les_seuils_par_defaut_viennent_du_catalogue():
-    """Les recopier ailleurs les ferait diverger au premier reglage."""
-    defauts = derive.default_thresholds()
-    attendus = {
-        alerte.threshold_field: alerte.threshold_default
-        for alerte in all_alerts()
-        if alerte.threshold_field
+def test_the_default_thresholds_come_from_the_catalogue():
+    """Copying them somewhere else would make them diverge at the first change."""
+    defaults = derive.default_thresholds()
+    expected = {
+        alert.threshold_field: alert.threshold_default
+        for alert in all_alerts()
+        if alert.threshold_field
     }
-    assert defauts == attendus
+    assert defaults == expected
 
 
-def test_un_nombre_se_rend_pareil_dans_l_expression_et_dans_le_texte():
-    """`> 1.0` dans la regle et « depasse 1 seconde » dans le texte suffirait
-    a rendre le test unitaire faux."""
+def test_a_number_renders_the_same_in_the_expression_and_in_the_text():
+    """`> 1.0` in the rule and "exceeds 1 second" in the text would be enough to
+    make the unit test wrong."""
     assert render.format_number(1.0) == "1"
     assert render.format_number(0.05) == "0.05"
     assert render.percent(0.05) == "5"
@@ -153,8 +153,8 @@ def test_un_nombre_se_rend_pareil_dans_l_expression_et_dans_le_texte():
 
 
 @pytest.mark.parametrize(
-    ("service", "attendu"),
+    ("service", "expected"),
     [("boutique", "Boutique"), ("db-proxy", "DbProxy"), ("mon_service", "MonService")],
 )
-def test_le_prefixe_d_alerte_est_un_identifiant_camel(service, attendu):
-    assert render.alert_prefix(service) == attendu
+def test_the_alert_prefix_is_a_camel_identifier(service, expected):
+    assert render.alert_prefix(service) == expected
