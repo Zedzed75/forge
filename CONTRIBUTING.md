@@ -64,6 +64,29 @@ explain in the PR *why* the output changed.
 - CI must be green before a PR is merged. It runs the suite on all three
   supported Python versions with every validator installed.
 
+### Changes to generated output need a changelog entry
+
+**If your PR moves a golden file, it must also add an entry to
+[CHANGELOG.md](CHANGELOG.md)** under `## [Unreleased]`, in the same commit. A
+moved golden is the definition of a user-visible change: it is exactly what
+`forge update` will rewrite in someone's repository.
+
+Write the entry for the person running that update, not for a reviewer reading
+the diff. Say what the old spelling was and what the new one is, and — this is
+the part that is easy to skip — say whether anything *outside* the generated
+files has to change too. A renamed CI job is also the name of a required status
+check in a branch-protection rule that forge cannot reach; a renamed alert is
+also a matcher in someone's Alertmanager routes and silences. When such a step
+exists, label it **Migration** so it cannot be read as trivia.
+
+If the change is genuinely inert — prose, a comment, a local loop variable — say
+so and say why. "No migration" is a useful entry; a missing entry is not.
+
+`CHANGELOG.md` is user-facing, so it is English, like `README.md`,
+`CONTRIBUTING.md` and `SECURITY.md`. It records changes to what forge *produces*
+and to the CLI contract; a refactor, a new test or a documentation fix inside
+this repository does not belong there.
+
 ## Architecture rules
 
 These are load-bearing. A change that breaks one of them will be sent back:
