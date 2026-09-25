@@ -1,22 +1,22 @@
-"""Entretien du domaine Ansible (hook `forge_interview`).
+"""Interview for the Ansible domain (`forge_interview` hook).
 
-Portage de `ansible_forge.prompts.flow` (MIGRATION.md §3). Deux differences de
-fond avec l'outil d'origine, toutes deux dues au bloc `service:` partage :
+Port of `ansible_forge.prompts.flow` (MIGRATION.md §3). Two substantive
+differences from the original tool, both caused by the shared `service:` block:
 
-* l'identite du projet et la liste des environnements ne sont plus demandees
-  ici — le coeur les a deja obtenues (`forge.interview.service_flow`) et les
-  passe dans `service` ;
-* la sortie n'est pas un modele mais **la section `ansible:` de forge.yml**,
-  c'est-a-dire un dict de types simples, directement serialisable en YAML et
-  validable par `AnsibleSpec`.
+* the project identity and the list of environments are no longer asked for
+  here — the core has already obtained them (`forge.interview.service_flow`)
+  and passes them in `service`;
+* the output is not a model but **the `ansible:` section of forge.yml**, that
+  is, a dict of simple types, directly serialisable to YAML and validatable by
+  `AnsibleSpec`.
 
-Ce qui reste ici est ce qu'Ansible seul sait : famille d'OS, connexion SSH,
-groupes de machines, inventaire par environnement, options des roles.
+What is left here is what Ansible alone knows: OS family, SSH connection, host
+groups, per-environment inventory, role options.
 
-Les validateurs de ce module retournent `None | str` (contrat `Validator` du
-prompter), la ou ceux de `names.py` levent `ValueError` pour pydantic : les deux
-disent la meme chose, mais l'un s'affiche sous un champ et l'autre arrete la
-validation du modele. Une reponse acceptee ici ne peut pas etre refusee ensuite.
+The validators in this module return `None | str` (the prompter's `Validator`
+contract), where those in `names.py` raise `ValueError` for pydantic: both say
+the same thing, but one is displayed under a field and the other stops the
+validation of the model. An answer accepted here can never be refused later.
 """
 
 from __future__ import annotations
@@ -39,35 +39,36 @@ from forge.plugins.ansible.names import (
 from forge.plugins.ansible.spec import OSFamily
 from forge.spec.service import Environment, ServiceSpec
 
-#: Groupe propose par defaut pour la premiere question de la boucle.
+#: Group offered by default for the first question of the loop.
 DEFAULT_GROUP = "webservers"
 
-#: Au-dela, declarer les machines a la main dans forge.yml est plus rapide.
+#: Beyond that, declaring the machines by hand in forge.yml is faster.
 MAX_HOSTS_PER_GROUP = 100
 
-#: Etiquette d'un nom de domaine, pour valider une adresse d'hote.
+#: Label of a domain name, used to validate a host address.
 _FQDN_LABEL_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", re.IGNORECASE)
 
 
 def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Deroule l'entretien Ansible et retourne la section `ansible:` de forge.yml.
+    """Run the Ansible interview and return the `ansible:` section of forge.yml.
 
-    Retourne `None` si l'utilisateur declare zero groupe : sans groupe il n'y a
-    ni inventaire ni playbook, donc rien a generer. Le coeur a deja demande
-    *quels* domaines generer, cet entretien ne repose pas la question.
+    Returns `None` when the user declares zero groups: without a group there is
+    neither inventory nor playbook, so nothing to generate. The core has
+    already asked *which* domains to generate; this interview does not ask
+    again.
     """
     connection = _ask_connection(prompter)
     groups = _ask_groups(prompter)
     if not groups:
-        prompter.note("Aucun groupe déclaré : le domaine Ansible n'est pas généré.")
+        prompter.note("No group declared: the Ansible domain is not generated.")
         return None
 
     hosts = _ask_hosts(prompter, service.environments, groups)
     roles = _ask_roles(prompter, groups)
     options = _ask_generation_options(prompter)
 
-    # L'ordre des cles est celui des champs d'AnsibleSpec : forge.yml se lit
-    # alors dans le meme ordre que le modele qui le valide.
+    # The key order is that of the AnsibleSpec fields: forge.yml then reads in
+    # the same order as the model that validates it.
     return {
         **connection,
         "options": options,
@@ -78,10 +79,10 @@ def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
 
 
 def _ask_connection(prompter: Prompter) -> dict[str, Any]:
-    """Famille d'OS et parametres de connexion SSH communs a toutes les machines."""
-    prompter.note("── Machines cibles et connexion ──")
+    """OS family and SSH connection settings shared by every machine."""
+    prompter.note("── Target machines and connection ──")
     os_family = prompter.select(
-        "Famille de système d'exploitation cible",
+        "Target operating system family",
         [
             (OSFamily.DEBIAN.value, "Debian / Ubuntu"),
             (OSFamily.REDHAT.value, "RHEL / Rocky / Fedora"),
@@ -89,19 +90,19 @@ def _ask_connection(prompter: Prompter) -> dict[str, Any]:
         default=OSFamily.DEBIAN.value,
     )
     remote_user = prompter.text(
-        "Compte SSH utilisé par Ansible",
+        "SSH account used by Ansible",
         default="ansible",
         validate=lambda value: _check_pattern(
-            value, USER_NAME_RE, "Nom d'utilisateur SSH", "Attendu : un nom de compte POSIX."
+            value, USER_NAME_RE, "SSH user name", "Expected: a POSIX account name."
         ),
     )
     ssh_port = prompter.text(
-        "Port SSH des machines cibles",
+        "SSH port of the target machines",
         default="22",
         validate=_validate_port,
     )
-    become = prompter.confirm("Utiliser sudo (escalade de privilèges) ?", default=True)
-    python_interpreter = prompter.text("Interpréteur Python distant", default="auto_silent")
+    become = prompter.confirm("Use sudo (privilege escalation)?", default=True)
+    python_interpreter = prompter.text("Remote Python interpreter", default="auto_silent")
 
     return {
         "os_family": os_family,
@@ -113,16 +114,15 @@ def _ask_connection(prompter: Prompter) -> dict[str, Any]:
 
 
 def _ask_groups(prompter: Prompter) -> list[dict[str, Any]]:
-    """Groupes d'hotes et roles appliques a chacun.
+    """Host groups and the roles applied to each of them.
 
-    Une liste vide signifie « pas de projet Ansible » : c'est la seule facon de
-    decliner le domaine une fois l'entretien commence, d'ou le premier nom
-    laisse facultatif.
+    An empty list means "no Ansible project": it is the only way to decline the
+    domain once the interview has started, hence the first name being optional.
     """
-    prompter.note("── Groupes de machines ──")
+    prompter.note("── Machine groups ──")
     prompter.note(
-        "Un projet Ansible décrit au moins un groupe de machines ; "
-        "laisser le premier nom vide abandonne le domaine Ansible."
+        "An Ansible project describes at least one machine group; "
+        "leaving the first name empty gives up the Ansible domain."
     )
     catalog = [(name, f"{name} — {get_role(name).summary}") for name in role_names()]
     groups: list[dict[str, Any]] = []
@@ -131,7 +131,7 @@ def _ask_groups(prompter: Prompter) -> list[dict[str, Any]]:
     while True:
         first = not groups
         name = prompter.text(
-            f"Nom du groupe n°{len(groups) + 1}",
+            f"Name of group #{len(groups) + 1}",
             default=DEFAULT_GROUP if first else "",
             validate=lambda value, taken=taken, first=first: _validate_group_name(
                 value, taken, allow_empty=first
@@ -140,12 +140,12 @@ def _ask_groups(prompter: Prompter) -> list[dict[str, Any]]:
         if not name:
             return groups
 
-        description = prompter.text(f"Description du groupe « {name} »", default="").strip()
+        description = prompter.text(f"Description of group '{name}'", default="").strip()
         roles = prompter.checkbox(
-            f"Rôles appliqués au groupe « {name} »", catalog, default=["common"]
+            f"Roles applied to group '{name}'", catalog, default=["common"]
         )
         if not roles:
-            prompter.note("Aucun rôle choisi : le rôle « common » est appliqué par défaut.")
+            prompter.note("No role chosen: the 'common' role is applied by default.")
             roles = ["common"]
 
         group: dict[str, Any] = {"name": name}
@@ -155,21 +155,21 @@ def _ask_groups(prompter: Prompter) -> list[dict[str, Any]]:
         groups.append(group)
         taken.add(name)
 
-        if not prompter.confirm("Ajouter un autre groupe ?", default=False):
+        if not prompter.confirm("Add another group?", default=False):
             return groups
 
 
 def _ask_hosts(
     prompter: Prompter, environments: list[Environment], groups: list[dict[str, Any]]
 ) -> dict[str, dict[str, list[dict[str, Any]]]]:
-    """Machines de chaque groupe, environnement par environnement.
+    """Machines of each group, environment by environment.
 
-    Les environnements viennent du bloc `service:` : l'entretien ne les redemande
-    pas, il se contente de les parcourir dans l'ordre de promotion.
+    The environments come from the `service:` block: the interview does not ask
+    for them again, it merely walks them in promotion order.
     """
     prompter.note("── Machines ──")
     detailed = prompter.confirm(
-        "Préciser un port ou un compte SSH spécifique par machine ?", default=False
+        "Specify a per-machine SSH port or account?", default=False
     )
     hosts: dict[str, dict[str, list[dict[str, Any]]]] = {}
 
@@ -185,10 +185,10 @@ def _ask_hosts(
 def _ask_hosts_of_group(
     prompter: Prompter, environment: Environment, group: str, detailed: bool
 ) -> list[dict[str, Any]]:
-    """Machines d'un groupe dans un environnement donne."""
+    """Machines of one group in a given environment."""
     env = environment.name
     count = prompter.text(
-        f"Nombre de machines dans « {group} » pour l'environnement « {env} »",
+        f"Number of machines in '{group}' for environment '{env}'",
         default="1",
         validate=_validate_count,
     )
@@ -197,29 +197,29 @@ def _ask_hosts_of_group(
 
     for index in range(1, int(count) + 1):
         name = prompter.text(
-            f"  Nom de la machine {index}/{count} ({group}/{env})",
+            f"  Name of machine {index}/{count} ({group}/{env})",
             default=f"{group}-{env}-{index:02d}",
             validate=lambda value, taken=taken: _validate_host_name(value, taken),
         ).strip()
         taken.add(name)
         entry: dict[str, Any] = {
             "name": name,
-            # Nouveaute par rapport au legacy : quand l'environnement declare un
-            # domaine dans le bloc `service:`, l'adresse par defaut en decoule.
+            # New compared to the legacy tool: when the environment declares a
+            # domain in the `service:` block, the default address follows from it.
             "ansible_host": prompter.text(
-                f"  Adresse IP ou nom de domaine de « {name} »",
+                f"  IP address or domain name of '{name}'",
                 default=f"{name}.{environment.domain}" if environment.domain else "",
                 validate=_validate_host_address,
             ).strip(),
         }
         if detailed:
             port = prompter.text(
-                f"  Port SSH de « {name} » (vide = valeur du projet)",
+                f"  SSH port of '{name}' (empty = project value)",
                 default="",
                 validate=lambda value: None if not value.strip() else _validate_port(value),
             )
             user = prompter.text(
-                f"  Compte SSH de « {name} » (vide = valeur du projet)", default=""
+                f"  SSH account of '{name}' (empty = project value)", default=""
             )
             if port.strip():
                 entry["ansible_port"] = int(port)
@@ -230,19 +230,19 @@ def _ask_hosts_of_group(
 
 
 def _ask_roles(prompter: Prompter, groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Options des roles reellement appliques, dans l'ordre du catalogue."""
+    """Options of the roles actually applied, in catalog order."""
     used = {role for group in groups for role in group["roles"]}
     ordered = [name for name in role_names() if name in used]
     if not ordered:
         return []
 
-    prompter.note("── Réglages des rôles ──")
+    prompter.note("── Role settings ──")
     if not prompter.confirm(
-        "Personnaliser les réglages des rôles ? (non = valeurs par défaut documentées)",
+        "Customise the role settings? (no = documented default values)",
         default=False,
     ):
-        # `AnsibleSpec` complete les options manquantes avec les defauts du
-        # catalogue : citer les roles suffit, la sortie reste complete.
+        # `AnsibleSpec` fills the missing options with the catalog defaults:
+        # naming the roles is enough, the output stays complete.
         return [{"name": name} for name in ordered]
 
     return [
@@ -251,102 +251,102 @@ def _ask_roles(prompter: Prompter, groups: list[dict[str, Any]]) -> list[dict[st
 
 
 def _ask_generation_options(prompter: Prompter) -> dict[str, Any]:
-    """Fichiers annexes a produire en plus des roles et de l'inventaire."""
-    prompter.note("── Options de génération ──")
+    """Side files to produce in addition to the roles and the inventory."""
+    prompter.note("── Generation options ──")
     return {
         "use_vault": prompter.confirm(
-            "Générer les modèles de fichiers vault (secrets) ?", default=True
+            "Generate the vault file templates (secrets)?", default=True
         ),
         "write_lint_config": prompter.confirm(
-            "Générer .gitignore, .yamllint et .ansible-lint ?", default=True
+            "Generate .gitignore, .yamllint and .ansible-lint?", default=True
         ),
         "write_ci": prompter.confirm(
-            "Générer un workflow GitHub Actions exécutant ansible-lint ?", default=False
+            "Generate a GitHub Actions workflow running ansible-lint?", default=False
         ),
     }
 
 
-# -- validateurs de saisie --------------------------------------------------
+# -- input validators -------------------------------------------------------
 
 
 def _check_pattern(value: str, pattern: re.Pattern[str], label: str, hint: str) -> str | None:
-    """Valide une chaine contre une expression reguliere."""
+    """Validate a string against a regular expression."""
     if pattern.match(value.strip()):
         return None
-    return f"{label} invalide : '{value}'. {hint}"
+    return f"Invalid {label}: '{value}'. {hint}"
 
 
 def _validate_port(value: str) -> str | None:
-    """Valide une saisie de port TCP."""
+    """Validate a TCP port entry."""
     try:
         parsed = int(value.strip())
     except ValueError:
-        return f"Un entier est attendu, reçu : « {value} »."
+        return f"An integer is expected, got: '{value}'."
     if not MIN_PORT <= parsed <= MAX_PORT:
-        return f"Le port doit être compris entre {MIN_PORT} et {MAX_PORT}, reçu : {parsed}."
+        return f"The port must be between {MIN_PORT} and {MAX_PORT}, got: {parsed}."
     return None
 
 
 def _validate_count(value: str) -> str | None:
-    """Valide un nombre de machines."""
+    """Validate a machine count."""
     if not value.strip().isdigit():
-        return f"Un entier positif ou nul est attendu, reçu : « {value} »."
+        return f"A zero or positive integer is expected, got: '{value}'."
     if int(value) > MAX_HOSTS_PER_GROUP:
         return (
-            f"Au-delà de {MAX_HOSTS_PER_GROUP} machines, déclarez-les directement "
-            "dans forge.yml."
+            f"Beyond {MAX_HOSTS_PER_GROUP} machines, declare them directly "
+            "in forge.yml."
         )
     return None
 
 
 def _validate_group_name(value: str, taken: set[str], *, allow_empty: bool = False) -> str | None:
-    """Valide un nom de groupe, unicite et noms reserves compris."""
+    """Validate a group name, uniqueness and reserved names included."""
     value = value.strip()
     if allow_empty and not value:
         return None
     error = _check_pattern(
         value,
         GROUP_NAME_RE,
-        "Nom de groupe",
-        "Attendu : minuscules, chiffres et '_' (le tiret est interdit).",
+        "group name",
+        "Expected: lowercase letters, digits and '_' (the hyphen is forbidden).",
     )
     if error:
         return error
     if value in RESERVED_GROUP_NAMES:
-        return f"Le nom « {value} » est réservé par Ansible."
+        return f"The name '{value}' is reserved by Ansible."
     if value in taken:
-        return f"Le groupe « {value} » est déjà déclaré."
+        return f"The group '{value}' is already declared."
     return None
 
 
 def _validate_host_name(value: str, taken: set[str]) -> str | None:
-    """Valide un nom de machine, unicite comprise."""
+    """Validate a machine name, uniqueness included."""
     value = value.strip()
     error = _check_pattern(
         value,
         HOST_NAME_RE,
-        "Nom d'hôte",
-        "Attendu : minuscules, chiffres, '.', '-' et '_'.",
+        "host name",
+        "Expected: lowercase letters, digits, '.', '-' and '_'.",
     )
     if error:
         return error
     if value in taken:
-        return f"La machine « {value} » est déjà déclarée dans cet environnement."
+        return f"The machine '{value}' is already declared in this environment."
     return None
 
 
 def _validate_host_address(value: str) -> str | None:
-    """Valide une adresse d'hote : adresse IP ou nom de domaine."""
+    """Validate a host address: IP address or domain name."""
     value = value.strip()
     if not value:
-        return "L'adresse de l'hôte est obligatoire (adresse IP ou nom de domaine)."
+        return "The host address is mandatory (IP address or domain name)."
     if _is_ip(value) or _is_fqdn(value):
         return None
-    return f"'{value}' n'est ni une adresse IP ni un nom de domaine valide."
+    return f"'{value}' is neither an IP address nor a valid domain name."
 
 
 def _is_ip(value: str) -> bool:
-    """Indique si la chaine est une adresse IPv4 ou IPv6 valide."""
+    """Tell whether the string is a valid IPv4 or IPv6 address."""
     try:
         ipaddress.ip_address(value)
     except ValueError:
@@ -355,7 +355,7 @@ def _is_ip(value: str) -> bool:
 
 
 def _is_fqdn(value: str) -> bool:
-    """Indique si la chaine est un nom de domaine syntaxiquement valide."""
+    """Tell whether the string is a syntactically valid domain name."""
     if not value or len(value) > 253:
         return False
     labels = value.rstrip(".").split(".")

@@ -1,13 +1,13 @@
-"""Entretien du domaine pipeline.
+"""Interview for the pipeline domain.
 
-L'entretien le plus court du projet, et c'est le signe que le domaine est bien
-cadre : presque tout se deduit des autres sections. Ce qui reste tient en quatre
-questions — quel outil, sur quoi il se declenche, construit-on une image,
-deploie-t-on.
+The shortest interview in the project, and that is the sign the domain is well
+scoped: almost everything is derived from the other sections. What is left fits
+in four questions — which tool, what triggers it, do we build an image, do we
+deploy.
 
-Conformement a l'arbitrage R7 (PLAN.md), retourner `None` signifie « il n'y a
-rien a generer » et non « l'utilisateur refuse le domaine » : ici, un pipeline
-qui ne validerait rien, ne construirait rien et ne deploierait rien.
+Per arbitration R7 (PLAN.md), returning `None` means "there is nothing to
+generate" and not "the user declines the domain": here, a pipeline that would
+validate nothing, build nothing and deploy nothing.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from forge.interview.prompter import Prompter
 from forge.plugins.pipeline.enums import Provider
 from forge.spec.service import ServiceSpec
 
-#: Libelles des outils de CI, dans l'ordre propose.
+#: Labels of the CI tools, in the order offered.
 PROVIDER_CHOICES: list[tuple[str, str]] = [
     (Provider.GITHUB.value, "GitHub Actions — .github/workflows/ci.yml"),
     (Provider.GITLAB.value, "GitLab CI — .gitlab-ci.yml"),
@@ -26,22 +26,22 @@ PROVIDER_CHOICES: list[tuple[str, str]] = [
 
 
 def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conduit l'entretien et retourne la section `pipeline:` de forge.yml."""
+    """Conduct the interview and return the `pipeline:` section of forge.yml."""
     prompter.note(
-        "Le pipeline se deduit des autres domaines : un job de validation par "
-        "domaine demande, avec leurs propres commandes. Restent quatre choix."
+        "The pipeline is derived from the other domains: one validation job per "
+        "requested domain, with their own commands. Four choices remain."
     )
 
     provider = prompter.select(
-        "Quel outil d'integration continue ?", PROVIDER_CHOICES, Provider.GITHUB.value
+        "Which continuous integration tool?", PROVIDER_CHOICES, Provider.GITHUB.value
     )
     section: dict[str, Any] = {"provider": provider}
 
-    branche = prompter.text("Branche principale", default="main")
+    branch = prompter.text("Main branch", default="main")
     trigger: dict[str, Any] = {}
-    if branche != "main":
-        trigger["branches"] = [branche]
-    if not prompter.confirm("Declencher aussi sur les propositions de fusion ?", default=True):
+    if branch != "main":
+        trigger["branches"] = [branch]
+    if not prompter.confirm("Also trigger on pull requests?", default=True):
         trigger["on_pull_request"] = False
     if trigger:
         section["trigger"] = trigger
@@ -58,48 +58,48 @@ def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
 
 
 def _ask_build(prompter: Prompter, service: ServiceSpec, provider: str) -> dict[str, Any] | None:
-    """Construction d'image. Tous les services ne sont pas conteneurises."""
-    if not prompter.confirm("Construire et publier une image de conteneur ?", default=False):
+    """Image build. Not every service is containerised."""
+    if not prompter.confirm("Build and publish a container image?", default=False):
         return None
-    defaut = "ghcr.io" if provider == Provider.GITHUB.value else "$CI_REGISTRY"
+    default_registry = "ghcr.io" if provider == Provider.GITHUB.value else "$CI_REGISTRY"
     build: dict[str, Any] = {}
-    registre = prompter.text("Registre d'images", default=defaut)
-    if registre != "ghcr.io":
-        build["registry"] = registre
-    depot = prompter.text("Depot de l'image dans le registre", default=service.name)
-    if depot != service.name:
-        build["image"] = depot
+    registry = prompter.text("Image registry", default=default_registry)
+    if registry != "ghcr.io":
+        build["registry"] = registry
+    repository = prompter.text("Image repository in the registry", default=service.name)
+    if repository != service.name:
+        build["image"] = repository
     prompter.note(
-        "Aucun identifiant de registre n'est ecrit : le pipeline emploie le "
-        "jeton que l'outil de CI fournit deja."
+        "No registry credential is written: the pipeline uses the token the CI "
+        "tool already provides."
     )
     return build
 
 
 def _ask_deploy(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Deploiement. Se limiter a valider est un choix legitime, et le plus sur."""
-    if not prompter.confirm("Deployer depuis le pipeline ?", default=False):
+    """Deployment. Validating only is a legitimate choice, and the safest one."""
+    if not prompter.confirm("Deploy from the pipeline?", default=False):
         return None
 
-    choix = [(env.name, f"{env.name}{' (production)' if env.production else ''}") for env in service.environments]
-    defaut = [env.name for env in service.environments if not env.production]
-    retenus = prompter.checkbox("Quels environnements deployer ?", choix, defaut)
-    if not retenus:
-        prompter.note("Aucun environnement retenu : le pipeline se limitera a valider.")
+    choices = [(env.name, f"{env.name}{' (production)' if env.production else ''}") for env in service.environments]
+    default_envs = [env.name for env in service.environments if not env.production]
+    selected = prompter.checkbox("Which environments should be deployed?", choices, default_envs)
+    if not selected:
+        prompter.note("No environment retained: the pipeline will only validate.")
         return None
 
     deploy: dict[str, Any] = {}
-    if sorted(retenus) != sorted(env.name for env in service.environments):
+    if sorted(selected) != sorted(env.name for env in service.environments):
         deploy["environments"] = [
-            env.name for env in service.environments if env.name in set(retenus)
+            env.name for env in service.environments if env.name in set(selected)
         ]
 
     production = next((env.name for env in service.environments if env.production), "")
-    if production in retenus:
-        garde = prompter.confirm(
-            f"Exiger une approbation humaine avant de deployer '{production}' ?",
+    if production in selected:
+        gate = prompter.confirm(
+            f"Require a human approval before deploying '{production}'?",
             default=True,
         )
-        if not garde:
+        if not gate:
             deploy["manual_for_production"] = False
     return deploy

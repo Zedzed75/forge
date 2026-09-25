@@ -1,14 +1,14 @@
-"""Entretien du domaine Helm.
+"""Interview for the Helm domain.
 
-Le coeur a deja demande l'identite du service et ses environnements ; cet
-entretien ne repose aucune de ces questions. Il decrit ce qui est propre a Helm :
-la version de Kubernetes visee, l'image, et les composants du chart avec leurs
-ressources.
+The core has already asked for the service identity and its environments; this
+interview asks none of that again. It describes what is specific to Helm: the
+targeted Kubernetes version, the image, and the chart components with their
+resources.
 
-Le questionnaire suit la structure du catalogue (`catalog/families.py`) : pour
-chaque composant, on demande son type de charge de travail, puis les familles de
-ressources a lui adjoindre. L'utilisateur n'a jamais a connaitre le nom d'un kind
-Kubernetes — le catalogue le traduit.
+The questionnaire follows the structure of the catalog (`catalog/families.py`):
+for each component we ask for its workload kind, then the resource families to
+attach to it. The user never has to know the name of a Kubernetes kind — the
+catalog translates it.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from forge.plugins.helm.enums import (
 from forge.spec.names import DNS_LABEL_RE
 from forge.spec.service import ServiceSpec
 
-#: Addons proposes a la selection, dans l'ordre du catalogue.
-ADDONS_PROPOSES: tuple[str, ...] = (
+#: Addons offered for selection, in catalog order.
+OFFERED_ADDONS: tuple[str, ...] = (
     AddonKind.SERVICE.value,
     AddonKind.INGRESS.value,
     AddonKind.CONFIGMAP.value,
@@ -40,124 +40,124 @@ ADDONS_PROPOSES: tuple[str, ...] = (
     AddonKind.NETWORKPOLICY.value,
 )
 
-#: Addons coches par defaut : le strict necessaire d'un service exposable.
-ADDONS_PAR_DEFAUT: tuple[str, ...] = (AddonKind.SERVICE.value,)
+#: Addons ticked by default: the bare minimum of an exposable service.
+DEFAULT_ADDONS: tuple[str, ...] = (AddonKind.SERVICE.value,)
 
 
-def _label_dns(valeur: str) -> str | None:
-    if not DNS_LABEL_RE.match(valeur.strip()):
-        return "attendu un label DNS : minuscules, chiffres et tirets internes"
+def _dns_label(value: str) -> str | None:
+    if not DNS_LABEL_RE.match(value.strip()):
+        return "expected a DNS label: lowercase letters, digits and inner hyphens"
     return None
 
 
-def _entier(valeur: str) -> str | None:
-    texte = valeur.strip()
-    if not texte.isdigit() or int(texte) < 1:
-        return "attendu un entier positif"
+def _positive_int(value: str) -> str | None:
+    text = value.strip()
+    if not text.isdigit() or int(text) < 1:
+        return "expected a positive integer"
     return None
 
 
-def _non_vide(valeur: str) -> str | None:
-    return None if valeur.strip() else "valeur obligatoire"
+def _non_empty(value: str) -> str | None:
+    return None if value.strip() else "value required"
 
 
-def _libelle_famille(nom: str) -> str:
-    """Libelle d'un addon : son resume de catalogue, pas son kind."""
-    famille = get_family(nom)
-    return f"{famille.summary} ({famille.kind})"
+def _family_label(name: str) -> str:
+    """Label of an addon: its catalog summary, not its kind."""
+    family = get_family(name)
+    return f"{family.summary} ({family.kind})"
 
 
-def _demander_composant(prompter: Prompter, rang: int, premier: bool) -> dict[str, Any] | None:
-    """Questionne un composant ; retourne None si l'utilisateur s'arrete."""
-    invite = "Nom du composant" if premier else f"Nom du composant n°{rang} (vide pour terminer)"
-    validation: Validator | None = _label_dns if premier else None
-    nom = prompter.text(invite, default="api" if premier else "").strip()
-    if not nom:
+def _ask_component(prompter: Prompter, index: int, first: bool) -> dict[str, Any] | None:
+    """Question a component; return None when the user stops."""
+    prompt = "Component name" if first else f"Name of component #{index} (empty to finish)"
+    validator: Validator | None = _dns_label if first else None
+    name = prompter.text(prompt, default="api" if first else "").strip()
+    if not name:
         return None
-    if validation is None and _label_dns(nom) is not None:
-        prompter.note(f"Nom ignore : {_label_dns(nom)}")
+    if validator is None and _dns_label(name) is not None:
+        prompter.note(f"Name ignored: {_dns_label(name)}")
         return None
 
     kind = prompter.select(
-        f"Type de charge de travail pour « {nom} »",
+        f"Workload kind for '{name}'",
         choices=[
-            (ComponentKind.DEPLOYMENT.value, "Sans etat, repliquable (Deployment)"),
-            (ComponentKind.STATEFULSET.value, "A etat, volume par pod (StatefulSet)"),
-            (ComponentKind.CRONJOB.value, "Tache planifiee (CronJob)"),
+            (ComponentKind.DEPLOYMENT.value, "Stateless, replicable (Deployment)"),
+            (ComponentKind.STATEFULSET.value, "Stateful, one volume per pod (StatefulSet)"),
+            (ComponentKind.CRONJOB.value, "Scheduled task (CronJob)"),
         ],
         default=ComponentKind.DEPLOYMENT.value,
     )
 
-    composant: dict[str, Any] = {"name": nom, "kind": kind}
+    component: dict[str, Any] = {"name": name, "kind": kind}
 
     if kind == ComponentKind.CRONJOB.value:
-        # Un CronJob n'a ni Service, ni Ingress, ni autoscaling : ne pas les proposer.
-        composant["cron"] = {
+        # A CronJob has no Service, no Ingress and no autoscaling: do not offer them.
+        component["cron"] = {
             "schedule": prompter.text(
-                f"Planification de « {nom} » (cron a cinq champs)", default="0 3 * * *"
+                f"Schedule of '{name}' (five-field cron)", default="0 3 * * *"
             ).strip()
         }
-        return composant
+        return component
 
-    proposables = [nom_addon for nom_addon in ADDONS_PROPOSES]
+    available = [addon_name for addon_name in OFFERED_ADDONS]
     if kind == ComponentKind.STATEFULSET.value:
-        # Le Service headless et la persistance sont imposes par le modele.
-        proposables = [a for a in proposables if a != AddonKind.SERVICE.value]
+        # The headless Service and the persistence are imposed by the model.
+        available = [a for a in available if a != AddonKind.SERVICE.value]
 
     addons = prompter.checkbox(
-        f"Ressources a adjoindre a « {nom} »",
-        choices=[(a, _libelle_famille(a)) for a in proposables],
-        default=[a for a in ADDONS_PAR_DEFAUT if a in proposables],
+        f"Resources to attach to '{name}'",
+        choices=[(a, _family_label(a)) for a in available],
+        default=[a for a in DEFAULT_ADDONS if a in available],
     )
     if kind == ComponentKind.STATEFULSET.value:
         addons = [AddonKind.SERVICE.value, *addons]
-    composant["addons"] = addons
+    component["addons"] = addons
 
     port = prompter.text(
-        f"Port d'ecoute du conteneur « {nom} »", default="8080", validate=_entier
+        f"Container listening port of '{name}'", default="8080", validate=_positive_int
     )
-    composant["container_port"] = int(port)
+    component["container_port"] = int(port)
 
     if AddonKind.INGRESS.value in addons:
-        composant["ingress"] = {
+        component["ingress"] = {
             "base_domain": prompter.text(
-                f"Domaine de base pour l'exposition de « {nom} »",
+                f"Base domain exposing '{name}'",
                 default="example.net",
-                validate=_non_vide,
+                validate=_non_empty,
             ).strip()
         }
-    return composant
+    return component
 
 
 def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conduit l'entretien du domaine Helm et retourne sa section de forge.yml.
+    """Conduct the Helm domain interview and return its forge.yml section.
 
-    Retourne None si l'utilisateur ne declare aucun composant : un chart sans
-    composant n'aurait rien a deployer.
+    Returns None when the user declares no component: a chart without a
+    component would have nothing to deploy.
     """
-    prompter.note("── Chart Helm ──")
+    prompter.note("── Helm chart ──")
 
     version = prompter.select(
-        "Version de Kubernetes visee",
+        "Targeted Kubernetes version",
         choices=[(v, v) for v in KUBERNETES_VERSIONS],
         default=KUBERNETES_VERSIONS[-1],
     )
-    chart_version = prompter.text("Version du chart (semver)", default="0.1.0").strip()
+    chart_version = prompter.text("Chart version (semver)", default="0.1.0").strip()
     app_version = prompter.text(
-        "Version applicative (appVersion)", default="1.0.0", validate=_non_vide
+        "Application version (appVersion)", default="1.0.0", validate=_non_empty
     ).strip()
 
     prompter.note("── Image ──")
-    registry = prompter.text("Registre d'images", default="docker.io").strip()
+    registry = prompter.text("Image registry", default="docker.io").strip()
     repository = prompter.text(
-        "Depot de l'image (sans le registre)", default=service.name, validate=_non_vide
+        "Image repository (without the registry)", default=service.name, validate=_non_empty
     ).strip()
     strategy = prompter.select(
-        "Comment le tag d'image est-il choisi ?",
+        "How is the image tag chosen?",
         choices=[
-            (TagStrategy.APP_VERSION.value, "Le tag suit l'appVersion du chart"),
-            (TagStrategy.PER_ENV.value, "Un tag par environnement"),
-            (TagStrategy.FIXED.value, "Un tag fixe, identique partout"),
+            (TagStrategy.APP_VERSION.value, "The tag follows the chart appVersion"),
+            (TagStrategy.PER_ENV.value, "One tag per environment"),
+            (TagStrategy.FIXED.value, "One fixed tag, the same everywhere"),
         ],
         default=TagStrategy.APP_VERSION.value,
     )
@@ -168,29 +168,29 @@ def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
         "pull_policy": ImagePullPolicy.IF_NOT_PRESENT.value,
     }
     if strategy == TagStrategy.FIXED.value:
-        image["tag"] = prompter.text("Tag fixe", default="1.0.0", validate=_non_vide).strip()
+        image["tag"] = prompter.text("Fixed tag", default="1.0.0", validate=_non_empty).strip()
 
     prompter.note("── Namespaces ──")
     namespace_strategy = prompter.select(
-        "Comment les namespaces sont-ils repartis ?",
+        "How are the namespaces split?",
         choices=[
-            (NamespaceStrategy.PER_ENV.value, "Un namespace par environnement"),
-            (NamespaceStrategy.SINGLE.value, "Un seul namespace, partage"),
-            (NamespaceStrategy.CUSTOM.value, "Un namespace precise pour chaque environnement"),
+            (NamespaceStrategy.PER_ENV.value, "One namespace per environment"),
+            (NamespaceStrategy.SINGLE.value, "A single, shared namespace"),
+            (NamespaceStrategy.CUSTOM.value, "A namespace named for each environment"),
         ],
         default=NamespaceStrategy.PER_ENV.value,
     )
 
-    prompter.note("── Composants du chart ──")
-    composants: list[dict[str, Any]] = []
+    prompter.note("── Chart components ──")
+    components: list[dict[str, Any]] = []
     while True:
-        composant = _demander_composant(prompter, len(composants) + 1, not composants)
-        if composant is None:
+        component = _ask_component(prompter, len(components) + 1, not components)
+        if component is None:
             break
-        composants.append(composant)
-        if not prompter.confirm("Ajouter un autre composant ?", default=False):
+        components.append(component)
+        if not prompter.confirm("Add another component?", default=False):
             break
-    if not composants:
+    if not components:
         return None
 
     section: dict[str, Any] = {
@@ -199,23 +199,23 @@ def run(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
         "kubernetes": {"version": version},
         "namespace_strategy": namespace_strategy,
         "image": image,
-        "components": composants,
+        "components": components,
     }
 
     if namespace_strategy == NamespaceStrategy.CUSTOM.value:
         section["environments"] = {
             env.name: {
                 "namespace": prompter.text(
-                    f"Namespace de l'environnement « {env.name} »",
+                    f"Namespace of environment '{env.name}'",
                     default=f"{service.name}-{env.name}",
-                    validate=_non_vide,
+                    validate=_non_empty,
                 ).strip()
             }
             for env in service.environments
         }
 
     section["extras"] = {
-        "makefile": prompter.confirm("Generer un Makefile de raccourcis ?", default=True),
-        "helm_tests": prompter.confirm("Generer un test `helm test` ?", default=True),
+        "makefile": prompter.confirm("Generate a Makefile of shortcuts?", default=True),
+        "helm_tests": prompter.confirm("Generate a `helm test`?", default=True),
     }
     return section

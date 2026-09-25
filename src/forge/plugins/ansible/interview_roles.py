@@ -1,13 +1,13 @@
-"""Saisie des options des roles selectionnes.
+"""Entry of the options of the selected roles.
 
-Portage de `ansible_forge.prompts.role_questions` (MIGRATION.md §3), inchange
-dans son principe : chaque option du catalogue porte son type, ce module se
-contente de traduire ce type en question. Ajouter une option a un role suffit
-donc a la faire apparaitre dans l'entretien, sans toucher a ce fichier.
+Port of `ansible_forge.prompts.role_questions` (MIGRATION.md §3), unchanged in
+principle: each catalog option carries its type, and this module merely
+translates that type into a question. Adding an option to a role is therefore
+enough to make it appear in the interview, without touching this file.
 
-Le module est separe de `interview.py` pour deux raisons : il ne parle que du
-catalogue (pas d'inventaire, pas de connexion), et la limite de 600 lignes par
-fichier du depot laisse ainsi de la place aux deux questionnaires.
+The module is separate from `interview.py` for two reasons: it speaks only of
+the catalog (no inventory, no connection), and the repository's 600-line limit
+per file thus leaves room for both questionnaires.
 """
 
 from __future__ import annotations
@@ -20,13 +20,13 @@ from forge.plugins.ansible.names import MAX_PORT, MIN_PORT
 
 
 def ask_role_options(prompter: Prompter, role: RoleDefinition) -> dict[str, Any]:
-    """Pose toutes les questions d'un role et retourne les valeurs saisies."""
-    prompter.note(f"\nRôle « {role.name} » — {role.summary}")
+    """Ask every question of a role and return the entered values."""
+    prompter.note(f"\nRole '{role.name}' — {role.summary}")
     return {option.name: ask_option(prompter, option) for option in role.options}
 
 
 def ask_option(prompter: Prompter, option: RoleOption) -> Any:
-    """Pose la question correspondant a une option et retourne sa valeur."""
+    """Ask the question matching an option and return its value."""
     if option.kind is OptionKind.BOOL:
         return prompter.confirm(option.question, default=bool(option.default))
 
@@ -47,25 +47,25 @@ def ask_option(prompter: Prompter, option: RoleOption) -> Any:
 
 
 def _ask_int(prompter: Prompter, option: RoleOption) -> int:
-    """Demande un entier, en appliquant les bornes des ports le cas echeant."""
+    """Ask for an integer, applying the port bounds where relevant."""
     is_port = "port" in option.name
 
     def validate(value: str) -> str | None:
         try:
             parsed = int(value.strip())
         except ValueError:
-            return f"Un entier est attendu, reçu : « {value} »."
+            return f"An integer is expected, got: '{value}'."
         if is_port and not MIN_PORT <= parsed <= MAX_PORT:
-            return f"Le port doit être compris entre {MIN_PORT} et {MAX_PORT}."
+            return f"The port must be between {MIN_PORT} and {MAX_PORT}."
         if not is_port and parsed < 0:
-            return "Un entier positif est attendu."
+            return "A positive integer is expected."
         return None
 
     return int(prompter.text(option.question, default=str(option.default), validate=validate))
 
 
 def _ask_list(prompter: Prompter, option: RoleOption) -> list[Any]:
-    """Demande une liste saisie sous forme de valeurs separees par des virgules."""
+    """Ask for a list entered as comma-separated values."""
     default = ", ".join(str(item) for item in option.default)
 
     def validate(value: str) -> str | None:
@@ -73,7 +73,7 @@ def _ask_list(prompter: Prompter, option: RoleOption) -> list[Any]:
             return None
         for item in _split(value):
             if not item.lstrip("-").isdigit():
-                return f"« {item} » n'est pas un entier."
+                return f"'{item}' is not an integer."
         return None
 
     raw = prompter.text(f"{option.question} [{option.allowed}]", default=default, validate=validate)
@@ -84,10 +84,10 @@ def _ask_list(prompter: Prompter, option: RoleOption) -> list[Any]:
 
 
 def _ask_records(prompter: Prompter, option: RoleOption) -> list[dict[str, Any]]:
-    """Demande une liste de dictionnaires, un enregistrement a la fois."""
+    """Ask for a list of dictionaries, one record at a time."""
     records: list[dict[str, Any]] = []
     while prompter.confirm(
-        f"{option.question} — ajouter une entrée ?" if records else f"{option.question} ?",
+        f"{option.question} — add an entry?" if records else f"{option.question}?",
         default=not records,
     ):
         record = {field.name: ask_option(prompter, field) for field in option.fields}
@@ -96,5 +96,5 @@ def _ask_records(prompter: Prompter, option: RoleOption) -> list[dict[str, Any]]
 
 
 def _split(value: str) -> list[str]:
-    """Decoupe une saisie « a, b , c » en liste, en ignorant les vides."""
+    """Split an entry such as 'a, b , c' into a list, ignoring empty parts."""
     return [item.strip() for item in value.split(",") if item.strip()]
