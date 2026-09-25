@@ -30,7 +30,7 @@ def forge_domain() -> DomainInfo:
     return DomainInfo(
         name="monitoring",
         title="Monitoring",
-        summary="Collecte, regles d'alerte et tests unitaires d'alerte",
+        summary="Metric collection, alert rules and alert unit tests",
     )
 
 

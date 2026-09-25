@@ -17,7 +17,7 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Demo | `demo/` | Domaine de demonstration, utilise par les tests du coeur |
+| Demo | `demo/` | Demonstration domain, used by the core tests |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer

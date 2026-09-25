@@ -44,7 +44,7 @@ def forge_domain() -> DomainInfo:
     return DomainInfo(
         name="pipeline",
         title="Pipeline",
-        summary="Chaine d'integration : un job par domaine, construction, deploiement",
+        summary="Integration pipeline: one job per domain, build, deploy",
         # Un fichier de CI n'existe que la ou son outil le lit : ni GitHub ni
         # GitLab ne le cherchent dans un sous-repertoire. Seul domaine du projet
         # dont la sortie est la racine du depot.

@@ -27,7 +27,7 @@ def forge_domain() -> DomainInfo:
     return DomainInfo(
         name="helm",
         title="Helm",
-        summary="Chart Helm complet : values commentees, gabarits et validation stricte",
+        summary="Complete Helm chart: commented values, templates and strict validation",
     )
 
 

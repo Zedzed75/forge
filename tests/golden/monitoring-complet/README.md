@@ -17,7 +17,7 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Monitoring | `monitoring/` | Collecte, regles d'alerte et tests unitaires d'alerte |
+| Monitoring | `monitoring/` | Metric collection, alert rules and alert unit tests |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer

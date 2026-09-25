@@ -70,7 +70,7 @@ def forge_domain() -> DomainInfo:
     return DomainInfo(
         name="demo",
         title="Demo",
-        summary="Domaine de demonstration, utilise par les tests du coeur",
+        summary="Demonstration domain, used by the core tests",
     )
 
 

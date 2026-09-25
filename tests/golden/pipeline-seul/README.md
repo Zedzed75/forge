@@ -17,7 +17,7 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Pipeline | racine du depot | Chaine d'integration : un job par domaine, construction, deploiement |
+| Pipeline | racine du depot | Integration pipeline: one job per domain, build, deploy |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer

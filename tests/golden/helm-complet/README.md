@@ -17,7 +17,7 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Helm | `helm/` | Chart Helm complet : values commentees, gabarits et validation stricte |
+| Helm | `helm/` | Complete Helm chart: commented values, templates and strict validation |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer

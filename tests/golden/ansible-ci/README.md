@@ -17,7 +17,7 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Ansible | `ansible/` | Projet Ansible complet : inventaires, playbooks et roles commentes |
+| Ansible | `ansible/` | Complete Ansible project: commented inventories, playbooks and roles |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer
