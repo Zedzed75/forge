@@ -1,7 +1,7 @@
-"""Second domaine reellement generable, pour eprouver le filtrage `--only`.
+"""Second domain that really generates, to exercise the `--only` filter.
 
-Il reutilise le gabarit du plugin `demo` — aucun fichier de gabarit n'est ajoute
-a l'arborescence de production — mais ecrit dans son propre sous-repertoire.
+It reuses the `demo` plugin's template — no template file is added to the
+production tree — but writes into its own subdirectory.
 """
 
 from __future__ import annotations
@@ -16,10 +16,10 @@ from forge.plugins_api.types import DomainInfo, Projection
 @hookimpl
 def forge_domain() -> DomainInfo:
     return DomainInfo(
-        name="autre",
-        title="Autre",
-        summary="Second domaine generable, utilise par les tests de filtrage",
-        outdir="autre",
+        name="other",
+        title="Other",
+        summary="Second generable domain, used by the filtering tests",
+        outdir="other",
     )
 
 
@@ -35,7 +35,7 @@ def forge_template_subdir() -> str:
 
 @hookimpl
 def forge_answers(spec: Any) -> dict[str, Any]:
-    section: DemoSpec = spec.autre
+    section: DemoSpec = spec.other
     return {
         "greeting": section.greeting,
         "environments": [
@@ -55,5 +55,5 @@ def forge_projection(spec: Any) -> Projection:
         service_name=spec.service.name,
         environments=tuple(env.name for env in spec.service.environments),
         labels=dict(spec.service.labels),
-        facets={"widgets": tuple(w.name for w in spec.autre.widgets)},
+        facets={"widgets": tuple(w.name for w in spec.other.widgets)},
     )

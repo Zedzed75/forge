@@ -62,7 +62,7 @@ def _write_spec(path: Path, data: dict) -> Path:
 
 
 def _two_domain_spec() -> dict:
-    """Specification asking for the `demo` domain AND the `autre` domain."""
+    """Specification asking for the `demo` domain AND the `other` domain."""
     section = {"greeting": "bonjour", "widgets": [{"name": "cpu", "kind": "gauge"}]}
     return {
         "forge_version": 1,
@@ -73,7 +73,7 @@ def _two_domain_spec() -> dict:
             "environments": [{"name": "prod", "production": True}],
         },
         "demo": dict(section),
-        "autre": dict(section),
+        "other": dict(section),
     }
 
 
@@ -106,7 +106,7 @@ def test_only_generates_nothing_but_the_requested_domain(tmp_path):
     pipeline.generate(data, validate_spec(data, manager), manager, tmp_path, only=["demo"])
 
     assert (tmp_path / "demo").is_dir()
-    assert not (tmp_path / "autre").exists()
+    assert not (tmp_path / "other").exists()
 
 
 def test_only_does_not_remove_the_other_domains_from_the_index(tmp_path):
@@ -117,8 +117,8 @@ def test_only_does_not_remove_the_other_domains_from_the_index(tmp_path):
 
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
     assert "`demo/`" in readme
-    assert "`autre/`" in readme
-    assert "#   - autre" in (tmp_path / "forge.yml").read_text(encoding="utf-8")
+    assert "`other/`" in readme
+    assert "#   - other" in (tmp_path / "forge.yml").read_text(encoding="utf-8")
 
 
 def test_both_domains_are_generated_without_a_filter(tmp_path):
@@ -126,8 +126,8 @@ def test_both_domains_are_generated_without_a_filter(tmp_path):
     data = _two_domain_spec()
     result = pipeline.generate(data, validate_spec(data, manager), manager, tmp_path)
 
-    assert result.domains == ["autre", "demo"]
-    assert (tmp_path / "autre" / "environments" / "prod" / "cpu.yml").is_file()
+    assert result.domains == ["demo", "other"]
+    assert (tmp_path / "other" / "environments" / "prod" / "cpu.yml").is_file()
     assert (tmp_path / "demo" / "environments" / "prod" / "cpu.yml").is_file()
 
 
@@ -150,7 +150,7 @@ def test_validate_exits_1_when_a_cross_domain_check_fails(tmp_path, monkeypatch)
 
 
 def test_validate_exits_0_on_a_mere_warning(tmp_path, monkeypatch):
-    spec_path = _write_spec(tmp_path / "forge.yml", _fake_spec("normal", "desordre"))
+    spec_path = _write_spec(tmp_path / "forge.yml", _fake_spec("normal", "disorder"))
     result = _invoke(
         ["validate", "-s", str(spec_path), "-o", str(tmp_path)],
         monkeypatch,
@@ -305,7 +305,7 @@ def test_plugin_jinja_module_finds_the_plugin_s_filter_module():
 
 
 def test_plugin_jinja_module_returns_empty_when_the_plugin_provides_none():
-    hooks = _manager(ISOLATED).domain("isole")
+    hooks = _manager(ISOLATED).domain("isolated")
     assert pipeline.plugin_jinja_module(hooks) == ""
 
 
