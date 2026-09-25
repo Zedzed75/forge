@@ -36,7 +36,10 @@ Helm chart together is one possible use, not the normal one.
   for Ansible; helm lint + helm template + kubeconform -strict for Helm).
 - FQCN only for Ansible modules; Helm best practices (helpers, app.kubernetes.io labels,
   no hardcoded values). Never invent a module or resource kind.
-- Comments/docs in French; identifiers, keys and file names in English.
+- **English throughout**: comments, docstrings, prose, documentation, identifiers, keys
+  and file names — in this repository and in everything it generates. This reverses the
+  original rule ("comments/docs in French"), under which every existing file was written;
+  a file still carrying French is awaiting translation, never a pattern to copy.
 - ALL plugin templates use copier custom delimiters [[ ]] / [% %] / [# #] (decision Q1,
   DESIGN.md §8): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
   copier.yml, so one set of delimiters. Never write {{ }} meaning "generator variable".
