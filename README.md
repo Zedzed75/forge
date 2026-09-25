@@ -300,6 +300,7 @@ travail sale reference un commit temporaire introuvable ensuite.
 
 | Fichier | Contenu |
 | --- | --- |
+| `CHANGELOG.md` | what changed in generated output, and what `forge update` asks of you |
 | `DESIGN.md` | architecture detaillee, contrat de plugin, decisions arbitrees |
 | `MIGRATION.md` | releve du portage : doublons fusionnes, arbitrages, ecarts |
 | `PLAN.md` | avancement phase par phase, et ce que chacune a etabli |
