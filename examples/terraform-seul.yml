@@ -1,57 +1,57 @@
 # ---------------------------------------------------------------------------
-# Exemple : un service qui n'a besoin QUE de Terraform.
+# Example: a service that needs NOTHING BUT Terraform.
 # ---------------------------------------------------------------------------
-# Poser le socle — le cloisonnement, son budget, l'identité qui y déploie — sans
-# rien y déployer soi-même. C'est le besoin d'une équipe plateforme qui prépare
-# le terrain pour des équipes produit.
+# Laying the foundation — the partition, its budget, the identity that deploys
+# into it — without deploying anything yourself. That is the need of a platform
+# team preparing the ground for product teams.
 #
-#   forge generate -s examples/terraform-seul.yml -o /tmp/socle
+#   forge generate -s examples/terraform-seul.yml -o /tmp/foundation
 #
-# Produit `terraform/` et rien d'autre. Les sections `ansible:` et `helm:` sont
-# absentes, donc ces domaines ne sont pas générés.
+# Produces `terraform/` and nothing else. The `ansible:` and `helm:` sections
+# are absent, so those domains are not generated.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
-  name: socle
-  description: "Socle d'accueil des services de l'équipe produit"
-  owner: "Equipe Plateforme"
-  owner_email: plateforme@example.net
+  name: foundation
+  description: "Landing foundation for the product team's services"
+  owner: "Platform Team"
+  owner_email: platform@example.net
   environments:
     - name: dev
     - name: prod
       production: true
 
 terraform:
-  # Contrainte, jamais une version nue : une version figée sur un correctif
-  # précis est presque toujours une erreur de saisie, et le modèle la refuse.
+  # A constraint, never a bare version: a version pinned to one exact patch is
+  # almost always a typo, and the model refuses it.
   terraform_version: "~> 1.9"
 
-  # `per_env` dérive `<service>-<env>` : socle-dev, socle-prod.
+  # `per_env` derives `<service>-<env>`: foundation-dev, foundation-prod.
   namespace_strategy: per_env
 
-  # Familles retenues. Le choix vaut aussi À L'INTÉRIEUR d'un domaine : une
-  # famille absente d'ici ne produit aucun fichier.
+  # Selected families. The choice also applies INSIDE a domain: a family absent
+  # from here produces no file at all.
   resources:
     - namespace
     - quota
     - service_account
 
   backend:
-    # local | s3 | gcs | azurerm | http. `forge validate` signale un état local
-    # sur un environnement de production : ni verrou, ni chiffrement.
+    # local | s3 | gcs | azurerm | http. `forge validate` reports local state on
+    # a production environment: neither locking nor encryption.
     kind: s3
     config:
-      bucket: etats-terraform-plateforme
+      bucket: terraform-states-platform
       region: eu-west-3
       encrypt: "true"
-      # `key` n'est PAS demandée ici : elle est dérivée par environnement, pour
-      # que deux racines n'écrivent jamais le même état.
+      # `key` is NOT asked for here: it is derived per environment, so that two
+      # roots never write the same state.
 
   kubernetes:
     auth: kubeconfig
-    # Sans contexte nommé, Terraform applique sur le contexte courant de la
-    # machine. Laissez à `true`.
+    # With no named context, Terraform applies against the machine's current
+    # context. Leave this at `true`.
     context_per_environment: true
 
   environments:
@@ -61,7 +61,7 @@ terraform:
         memory: 4Gi
         pods: 20
     prod:
-      kube_context: plateforme-prod-eu-west-3
+      kube_context: platform-prod-eu-west-3
       quota:
         cpu: "16"
         memory: 32Gi
