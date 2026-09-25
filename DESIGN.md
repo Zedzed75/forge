@@ -740,12 +740,13 @@ names dependencies without a version.
 
 ```
 forge/
-├── CLAUDE.md  PLAN.md  MIGRATION.md  DESIGN.md  README.md
+├── CLAUDE.md  PLAN.md  MIGRATION.md  DESIGN.md  README.md  CHANGELOG.md
+├── CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md  LICENSE
 ├── copier.yml                     # single root template (§5.1)
 ├── partials/header.jinja          # macros shared by the templates
 ├── pyproject.toml                 # uv, python >=3.11
 ├── .gitattributes                 # * text=auto eol=lf
-├── examples/                      # five specifications, all tested
+├── examples/                      # six specifications, all tested
 ├── src/forge/
 │   ├── cli.py  errors.py  jinja_ext.py  pipeline.py
 │   ├── spec/         io.py  service.py  assembly.py  names.py  types.py
