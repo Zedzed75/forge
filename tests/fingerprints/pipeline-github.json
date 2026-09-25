@@ -1,7 +1,7 @@
 {
   "ansible_handler_links": [],
   "files": {
-    ".copier-answers.yml": "- structured 609219005a11c687",
+    ".copier-answers.yml": "- structured 96f16d9416fc73a8",
     ".gitattributes": "- text f70d755466b10164",
     ".github/workflows/ci.yml": "- structured a4ea443b05c17a03",
     "README.md": "- prose ef571b3f70962994",
