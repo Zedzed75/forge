@@ -26,7 +26,7 @@ UNKNOWN_TOOL = "house-tool"
 @hookimpl
 def forge_domain() -> DomainInfo:
     return DomainInfo(
-        name="inconnu",
+        name="unknown",
         title="Unknown Domain",
         summary="Fake domain the pipeline has never seen",
         # Between the foundation (10) and machine configuration (30): sorting by
@@ -47,7 +47,7 @@ def forge_template_subdir() -> str:
 
 @hookimpl
 def forge_answers(spec: Any) -> dict[str, Any]:
-    return {"enabled": spec.inconnu.enabled}
+    return {"enabled": spec.unknown.enabled}
 
 
 @hookimpl

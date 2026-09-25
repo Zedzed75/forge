@@ -16,7 +16,7 @@ from tests.fake_domains import TrivialSection
 
 @hookimpl
 def forge_domain() -> DomainInfo:
-    return DomainInfo(name="isole", title="Isole", summary="Fake domain with no filters")
+    return DomainInfo(name="isolated", title="Isolated", summary="Fake domain with no filters")
 
 
 @hookimpl
@@ -31,4 +31,4 @@ def forge_template_subdir() -> str:
 
 @hookimpl
 def forge_answers(spec: Any) -> dict[str, Any]:
-    return {"enabled": spec.isole.enabled}
+    return {"enabled": spec.isolated.enabled}
