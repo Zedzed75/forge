@@ -87,8 +87,11 @@ These are load-bearing. A change that breaks one of them will be sent back:
   `app.kubernetes.io` labels, no hardcoded values). Never invent a module or a
   resource kind that does not exist.
 
-For naming and language conventions in code and comments, follow what the
-surrounding files already do and see `CLAUDE.md`. `DESIGN.md` records the
+Write everything in English: comments, docstrings, prose, documentation,
+identifiers, keys and file names, both here and in the projects forge generates.
+The repository was originally written with French comments and is being
+translated, so a file that still reads French is a leftover, not the convention —
+follow `CLAUDE.md`, not the file next to yours. `DESIGN.md` records the
 architectural decisions and the reasoning behind them; read it before proposing
 a structural change.
 
