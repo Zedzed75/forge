@@ -258,7 +258,7 @@ the user. The mechanism existed; what was missing is that it be
 What was done:
 - `tests/test_domain_selection.py` rewritten: **no domain name or count is
   hardcoded any more**. Everything is read from the plugin registry, and
-  `test_chaque_domaine_livre_a_une_specification_mono_domaine` makes the
+  `test_every_shipped_domain_has_a_single_domain_specification` makes the
   suite fail if a domain is added without its single-domain case. 11 tests -> 34.
 - One single-domain case parametrised per domain: generation, real content of the
   target, `forge validate`, `forge diff`, `forge plugins`. Terraform enters it,
@@ -345,7 +345,7 @@ What phase 7 established, and which serves phase 8:
   `tflint` reported `var.annotations` declared and never used as soon as the
   `namespace` family was not selected. Fix: the annotations are
   applied to **all** the resources — which their description already
-  promised. Hence `test_toute_variable_declaree_est_employee_par_un_gabarit`, which
+  promised. Hence `test_every_declared_variable_is_used_by_a_template`, which
   exercises **each family in isolation**: the complete case would have masked the defect.
 - **CI was not validating what it thought it was validating.** Neither `helm` nor
   `kubeconform` had ever been installed there: the `integration` tests
@@ -424,7 +424,7 @@ Reminders for phase 5:
 - `forge update` and `forge diff` have existed since phase 2 and are tested; phase
   5 asks to add to them the test of an update **after a deliberate
   modification of a template** — the temporary template repository pattern
-  (`tests/test_cli_coverage.py::_depot_de_gabarit`) already allows it.
+  (`tests/test_cli_coverage.py::_template_repository`) already allows it.
 
 ## Session log
 
