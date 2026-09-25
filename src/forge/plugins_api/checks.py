@@ -1,17 +1,17 @@
-"""Controles croises qu'un plugin sur deux refaisait a l'identique.
+"""Cross-checks that every other plugin re-implemented identically.
 
-Un sous-modele pydantic ne voit que **sa** section : il ne peut pas verifier que
-les environnements qu'il cite existent dans `service.environments`, qui vit dans
-le bloc partage. Chaque domaine a donc ecrit ce controle, et les quatre versions
-etaient les memes a un nom de section pres.
+A pydantic sub-model only sees **its** section: it cannot check that the
+environments it names exist in `service.environments`, which lives in the shared
+block. Every domain therefore wrote that check, and the four versions were the
+same up to a section name.
 
-Ce module n'ajoute aucune connaissance de domaine au coeur : il ne parle que de
-`service.environments`, qui est du coeur, et de cles fournies par l'appelant.
-C'est la difference avec un `forge_consistency` — celui-la porte sur des fichiers
-ecrits, celui-ci sur la specification, avant tout rendu.
+This module adds no domain knowledge to the core: it only talks about
+`service.environments`, which is core, and about keys supplied by the caller.
+That is the difference with a `forge_consistency` — that one covers written
+files, this one the specification, before any rendering.
 
-Un plugin reste libre de ne pas s'en servir : le hook `forge_check_spec` ne
-demande rien d'autre qu'une liste d'`Issue`.
+A plugin remains free not to use it: the `forge_check_spec` hook asks for
+nothing but a list of `Issue`.
 """
 
 from __future__ import annotations
@@ -24,39 +24,39 @@ from forge.plugins_api.types import Issue
 def unknown_environments(
     spec: Any, domain: str, sections: Mapping[str, Iterable[str]]
 ) -> list[Issue]:
-    """Refuse toute cle d'environnement absente de `service.environments`.
+    """Refuse any environment key absent from `service.environments`.
 
-    `sections` associe un chemin de section — `helm.environments`,
-    `ansible.hosts` — aux noms d'environnement qu'elle cite. Un domaine qui en
-    declare plusieurs voit les sections fautives regroupees par environnement :
-    citer `dev` dans deux sections produit un seul constat, qui les nomme toutes
-    les deux, plutot que deux constats a lire separement.
+    `sections` maps a section path — `helm.environments`, `ansible.hosts` — to
+    the environment names it references. A domain declaring several of them sees
+    the offending sections grouped by environment: naming `dev` in two sections
+    produces a single finding naming both, rather than two findings to read
+    separately.
 
-    L'ordre du resultat est deterministe : il est affiche tel quel.
+    The order of the result is deterministic: it is printed as-is.
     """
-    connus = {env.name for env in spec.service.environments}
-    declares = ", ".join(env.name for env in spec.service.environments)
+    known = {env.name for env in spec.service.environments}
+    declared = ", ".join(env.name for env in spec.service.environments)
 
-    citantes: dict[str, list[str]] = {}
-    for section, noms in sections.items():
-        for nom in noms:
-            if nom not in connus:
-                citantes.setdefault(nom, []).append(section)
+    citing: dict[str, list[str]] = {}
+    for section, names in sections.items():
+        for name in names:
+            if name not in known:
+                citing.setdefault(name, []).append(section)
 
     issues: list[Issue] = []
-    for nom in sorted(citantes):
-        sujet = " et ".join(citantes[nom])
-        verbe = "citent" if len(citantes[nom]) > 1 else "cite"
+    for name in sorted(citing):
+        subject = " and ".join(citing[name])
+        verb = "reference" if len(citing[name]) > 1 else "references"
         issues.append(
             Issue(
                 level="error",
                 message=(
-                    f"{sujet} {verbe} l'environnement '{nom}', absent de "
-                    f"service.environments (declares : {declares})."
+                    f"{subject} {verb} environment '{name}', absent from "
+                    f"service.environments (declared: {declared})."
                 ),
                 hint=(
-                    f"Ajoutez un environnement '{nom}' a service.environments, ou "
-                    f"corrigez la cle '{nom}' dans {sujet}."
+                    f"Add an environment '{name}' to service.environments, or "
+                    f"fix the '{name}' key in {subject}."
                 ),
                 domains=(domain,),
             )

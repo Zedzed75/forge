@@ -1,8 +1,8 @@
-"""Enchainement des operations de forge, independamment de la CLI.
+"""Sequencing of forge's operations, independently of the CLI.
 
-La CLI ne fait que lire des arguments et afficher des resultats ; tout ce qui
-suit est appelable depuis les tests sans terminal. Chaque operation part d'un
-`forge.yml` deja charge et d'un gestionnaire de plugins, jamais d'un etat global.
+The CLI does nothing but read arguments and print results; everything that
+follows is callable from the tests without a terminal. Every operation starts
+from an already loaded `forge.yml` and a plugin manager, never from global state.
 """
 
 from __future__ import annotations
@@ -26,47 +26,47 @@ from forge.validate.runner import Report, run_commands
 
 @dataclass
 class GenerationResult:
-    """Ce qu'une generation a produit."""
+    """What a generation produced."""
 
     target: Path
     domains: list[str] = field(default_factory=list)
     repo_files: list[Path] = field(default_factory=list)
     dry_run: bool = False
 
-    #: Constats de niveau `warning` remontes par les plugins avant le rendu.
-    #: Les erreurs, elles, ont deja arrete la generation.
+    #: `warning`-level findings reported by the plugins before rendering.
+    #: Errors, for their part, have already stopped the generation.
     warnings: list[Issue] = field(default_factory=list)
 
     def summary(self) -> str:
-        """Resume d'une ligne — jamais l'arborescence complete."""
-        prefix = "simulation : " if self.dry_run else ""
-        listed = ", ".join(self.domains) or "aucun"
-        return f"{prefix}{self.target} — domaines : {listed}"
+        """One-line summary — never the full tree."""
+        prefix = "dry run: " if self.dry_run else ""
+        listed = ", ".join(self.domains) or "none"
+        return f"{prefix}{self.target} — domains: {listed}"
 
 
 @dataclass
 class ValidationResult:
-    """Rapports par domaine et constats inter-domaines."""
+    """Per-domain reports and cross-domain findings."""
 
     reports: list[Report] = field(default_factory=list)
     issues: list[Issue] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        """Vrai si aucun rapport n'echoue et aucun constat n'est une erreur."""
+        """True if no report fails and no finding is an error."""
         return all(report.ok for report in self.reports) and not any(
             issue.level == "error" for issue in self.issues
         )
 
 
 def load_spec(spec_path: Path, manager: ForgeManager) -> tuple[dict[str, Any], ForgeSpecBase]:
-    """Charge `forge.yml` et retourne (dict brut, instance validee)."""
+    """Load `forge.yml` and return (raw dict, validated instance)."""
     data = load_spec_data(spec_path)
     return data, validate_spec(data, manager)
 
 
 def find_spec_file(spec_path: Path | None, target: Path) -> Path:
-    """Resout le chemin du `forge.yml` : celui demande, sinon celui de la cible."""
+    """Resolve the path of the `forge.yml`: the one asked for, else the target's."""
     if spec_path is not None:
         return Path(spec_path)
     candidate = Path(target) / SPEC_FILENAME
@@ -76,16 +76,16 @@ def find_spec_file(spec_path: Path | None, target: Path) -> Path:
     if local.is_file():
         return local
     raise SpecFileError(
-        f"aucune specification trouvee : ni {candidate}, ni ./{SPEC_FILENAME}. "
-        "Precisez --spec."
+        f"no specification found: neither {candidate}, nor ./{SPEC_FILENAME}. "
+        "Pass --spec."
     )
 
 
 def plugin_jinja_module(hooks: DomainHooks) -> str:
-    """Module de filtres du plugin, s'il en fournit un (convention `jinja_ext`).
+    """The plugin's filter module, if it provides one (`jinja_ext` convention).
 
-    Un plugin enrichit ainsi l'environnement Jinja sans toucher au copier.yml
-    racine ni au coeur.
+    That is how a plugin enriches the Jinja environment without touching the root
+    copier.yml or the core.
     """
     module_name = getattr(hooks.plugin, "__name__", "")
     if not module_name:
@@ -95,13 +95,13 @@ def plugin_jinja_module(hooks: DomainHooks) -> str:
     try:
         if importlib.util.find_spec(candidate) is not None:
             return candidate
-    except (ImportError, ValueError):  # pragma: no cover - depend de l'installation
+    except (ImportError, ValueError):  # pragma: no cover - depends on the install
         return ""
     return ""
 
 
 def domain_data(spec: ForgeSpecBase, hooks: DomainHooks) -> dict[str, Any]:
-    """Assemble les reponses copier d'un domaine."""
+    """Assemble the copier answers of one domain."""
     return copier_runner.build_data(
         plugin=hooks.name,
         template_subdir=hooks.template_subdir(),
@@ -112,23 +112,23 @@ def domain_data(spec: ForgeSpecBase, hooks: DomainHooks) -> dict[str, Any]:
 
 
 def indexed_domains(spec: ForgeSpecBase, manager: ForgeManager) -> list[DomainInfo]:
-    """Domaines que la specification demande, quel que soit le filtre `--only`.
+    """Domains the specification asks for, whatever the `--only` filter.
 
-    C'est cette liste — et non celle des domaines effectivement rendus — qui
-    alimente l'index de niveau depot : un `--only ansible` ne doit pas faire
-    disparaitre `helm/` du README d'un projet ou la section `helm:` existe.
+    It is this list — and not the list of domains actually rendered — that feeds
+    the repository-level index: an `--only ansible` must not make `helm/` vanish
+    from the README of a project whose `helm:` section exists.
     """
     return [manager.domain(name).info for name in spec.domain_names()]
 
 
 def check_spec(spec: ForgeSpecBase, manager: ForgeManager, names: list[str]) -> list[Issue]:
-    """Interroge chaque domaine sur la coherence de la specification.
+    """Ask every domain about the consistency of the specification.
 
-    Appele **avant tout rendu** : un sous-modele de plugin ne voit que sa
-    propre section, il ne peut donc pas verifier seul ce qui touche au bloc
-    partage `service:`. Sans ce controle, une specification incoherente serait
-    generee sans broncher et l'erreur ne sortirait qu'au `forge validate`
-    suivant (arbitrage R2 de la revue d'interface).
+    Called **before any rendering**: a plugin sub-model only sees its own
+    section, so it cannot check on its own anything touching the shared
+    `service:` block. Without this check an inconsistent specification would be
+    generated without a murmur and the error would only surface at the next
+    `forge validate` (arbitration R2 of the interface review).
     """
     issues: list[Issue] = []
     for name in names:
@@ -137,15 +137,15 @@ def check_spec(spec: ForgeSpecBase, manager: ForgeManager, names: list[str]) -> 
 
 
 def raise_on_errors(issues: list[Issue]) -> list[Issue]:
-    """Arrete sur les erreurs, retourne les avertissements a afficher."""
-    erreurs = [issue for issue in issues if issue.level == "error"]
-    if erreurs:
+    """Stop on errors, return the warnings to display."""
+    errors = [issue for issue in issues if issue.level == "error"]
+    if errors:
         detail = "\n".join(
             f"  - {issue.message}" + (f"\n    -> {issue.hint}" if issue.hint else "")
-            for issue in erreurs
+            for issue in errors
         )
         raise SpecValidationError(
-            f"specification incoherente ({len(erreurs)} erreur(s)) :\n{detail}"
+            f"inconsistent specification ({len(errors)} error(s)):\n{detail}"
         )
     return [issue for issue in issues if issue.level == "warning"]
 
@@ -162,17 +162,17 @@ def generate(
     dry_run: bool = False,
     spec_path: Path | None = None,
 ) -> GenerationResult:
-    """Rend tous les domaines demandes sous `target/<outdir>`."""
+    """Render every requested domain under `target/<outdir>`."""
     target = Path(target)
     names = resolve_domains(spec, manager, only)
     result = GenerationResult(target=target, domains=names, dry_run=dry_run)
-    # Les controles croises passent AVANT le rendu : mieux vaut ne rien ecrire
-    # que d'ecrire un projet qu'on sait incoherent.
+    # The cross-checks run BEFORE rendering: better to write nothing at all than
+    # to write a project we know to be inconsistent.
     result.warnings = raise_on_errors(check_spec(spec, manager, names))
     if dry_run:
         return result
 
-    copier_runner.ensure_directory(target, "repertoire cible")
+    copier_runner.ensure_directory(target, "target directory")
     src = copier_runner.template_root()
     for name in names:
         hooks = manager.domain(name)
@@ -184,8 +184,8 @@ def generate(
             force=force,
             plugin_jinja=plugin_jinja_module(hooks),
         )
-    # Les fichiers de niveau depot sont ecrits en dernier : un echec de rendu ne
-    # doit pas laisser derriere lui l'index d'un projet qui n'existe pas.
+    # The repository-level files are written last: a rendering failure must not
+    # leave behind the index of a project that does not exist.
     result.repo_files = scaffold.write_repo_files(
         target,
         spec_data,
@@ -204,21 +204,21 @@ def update(
     ref: str = copier_runner.DEFAULT_REF,
     conflict: str = "inline",
 ) -> list[str]:
-    """Rejoue `copier update` sur chaque domaine deja genere sous `target`.
+    """Replay `copier update` on every domain already generated under `target`.
 
-    `update` ne lit pas de `forge.yml` : le filtre `--only` est donc valide
-    contre les domaines **enregistres**, pas contre une specification. Un nom
-    inconnu doit echouer ici, sinon une faute de frappe dans un script de CI
-    produirait « aucun domaine mis a jour » et un code de retour 0.
+    `update` does not read a `forge.yml`: the `--only` filter is therefore
+    validated against the **registered** domains, not against a specification. An
+    unknown name must fail here, otherwise a typo in a CI script would produce
+    "no domain updated" and a return code of 0.
     """
     target = Path(target)
     updated: list[str] = []
     if only is not None:
         unknown = [name for name in only if name not in manager.domain_names()]
         if unknown:
-            known = ", ".join(manager.domain_names()) or "aucun"
+            known = ", ".join(manager.domain_names()) or "none"
             raise SpecValidationError(
-                f"domaine(s) inconnu(s) : {', '.join(unknown)} (enregistres : {known})"
+                f"unknown domain(s): {', '.join(unknown)} (registered: {known})"
             )
     src = copier_runner.template_root()
     for info in manager.domains():
@@ -227,9 +227,9 @@ def update(
         outdir = target / info.outdir
         if not (outdir / copier_runner.ANSWERS_FILENAME).is_file():
             if only is not None:
-                # Domaine nomme explicitement mais jamais genere : le silence
-                # ferait passer une CI au vert sans rien mettre a jour. Le
-                # message est celui, deja formule, de `run_update`.
+                # Domain named explicitly but never generated: silence would let
+                # a CI go green without updating anything. The message is the one
+                # `run_update` already words.
                 copier_runner.run_update(dst=outdir, src=src, ref=ref, conflict=conflict)
             continue
         copier_runner.run_update(
@@ -243,8 +243,8 @@ def update(
     return updated
 
 
-#: Nom donne, dans un rapport de comparaison, aux fichiers de niveau depot.
-ROOT_LABEL = "(racine)"
+#: Name given, in a comparison report, to the repository-level files.
+ROOT_LABEL = "(root)"
 
 
 def foreign_paths(
@@ -253,26 +253,26 @@ def foreign_paths(
     manager: ForgeManager,
     name: str,
 ) -> frozenset[str]:
-    """Ce qu'un domaine ecrivant a la racine du depot ne doit pas comparer.
+    """What a domain writing at the repository root must not compare.
 
-    Un domaine dont `DomainInfo.outdir` vaut `.` — le domaine `pipeline`, dont
-    les fichiers n'ont de sens que la ou l'outil de CI les lit — partage sa
-    racine avec les autres domaines et avec les fichiers de niveau depot.
-    Comparer sa cible a un rendu neuf sans les ecarter les declarerait tous
-    supprimes.
+    A domain whose `DomainInfo.outdir` is `.` — the `pipeline` domain, whose
+    files only make sense where the CI tool reads them — shares its root with the
+    other domains and with the repository-level files. Comparing its target
+    against a fresh render without setting those aside would declare them all
+    removed.
 
-    Retourne un ensemble vide pour tout domaine ecrivant dans son propre
-    sous-repertoire : le cas normal ne paie rien.
+    Returns an empty set for any domain writing into its own subdirectory: the
+    normal case pays nothing.
     """
     info = manager.domain(name).info
     if info.outdir not in (".", ""):
         return frozenset()
-    autres = {
-        autre.outdir
-        for autre in indexed_domains(spec, manager)
-        if autre.name != name and autre.outdir not in (".", "")
+    others = {
+        other.outdir
+        for other in indexed_domains(spec, manager)
+        if other.name != name and other.outdir not in (".", "")
     }
-    return frozenset(autres | set(scaffold.repo_files_content(spec_data, [])))
+    return frozenset(others | set(scaffold.repo_files_content(spec_data, [])))
 
 
 def diff_repo_files(
@@ -283,20 +283,20 @@ def diff_repo_files(
     *,
     spec_path: Path | None = None,
 ) -> DomainDiff:
-    """Compare les fichiers de niveau depot a ce que forge produirait.
+    """Compare the repository-level files against what forge would produce.
 
-    Ils ne passent pas par copier (cf. `render/scaffold`) : sans cette
-    comparaison, `forge diff` annoncerait « a jour » sur des fichiers qu'il
-    n'aurait jamais regardes.
+    They do not go through copier (cf. `render/scaffold`): without this
+    comparison, `forge diff` would report "up to date" about files it never
+    looked at.
     """
     wanted = scaffold.repo_files_content(spec_data, indexed_domains(spec, manager))
     if spec_path is not None:
         try:
             if Path(spec_path).resolve() == (target / SPEC_FILENAME).resolve():
-                # Source de verite editee a la main : sa mise en forme n'a pas a
-                # correspondre a une reserialisation.
+                # Source of truth, hand-edited: its formatting does not have to
+                # match a re-serialisation.
                 wanted.pop(SPEC_FILENAME, None)
-        except OSError:  # pragma: no cover - chemin invalide sur ce poste
+        except OSError:  # pragma: no cover - invalid path on this machine
             pass
 
     result = DomainDiff(domain=ROOT_LABEL)
@@ -327,7 +327,7 @@ def diff(
     ref: str = copier_runner.DEFAULT_REF,
     spec_path: Path | None = None,
 ) -> list[DomainDiff]:
-    """Compare la cible a un rendu neuf, domaine par domaine (resume seul)."""
+    """Compare the target against a fresh render, domain by domain (summary only)."""
     target = Path(target)
     names = resolve_domains(spec, manager, only)
     src = copier_runner.template_root()
@@ -367,7 +367,7 @@ def validate(
     only: list[str] | None = None,
     skip_missing: bool = False,
 ) -> ValidationResult:
-    """Lance les validateurs de chaque domaine puis les controles inter-domaines."""
+    """Run every domain's validators, then the cross-domain checks."""
     target = Path(target)
     names = resolve_domains(spec, manager, only)
     result = ValidationResult()

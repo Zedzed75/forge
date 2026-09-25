@@ -1,36 +1,35 @@
-"""Controles inter-domaines, sans aucune connaissance de domaine (decision Q4).
+"""Cross-domain checks, with no domain knowledge at all (decision Q4).
 
-Chaque plugin declare une `Projection` : ce qu'il affirme produire, exprime en
-vocabulaire neutre. Le coeur ne fait que **comparer ces declarations** — deux
-domaines qui declarent la meme facette doivent declarer la meme valeur. Un
-troisieme plugin herite donc de ces controles sans que le coeur change
-(DESIGN.md §6.4).
+Every plugin declares a `Projection`: what it claims to produce, expressed in
+neutral vocabulary. The core does nothing but **compare those declarations** —
+two domains declaring the same facet must declare the same value. A third plugin
+therefore inherits these checks without the core changing (DESIGN.md §6.4).
 """
 
 from __future__ import annotations
 
 from forge.plugins_api.types import Issue, Projection
 
-#: Une facette n'est comparee que si au moins ce nombre de domaines la declare.
+#: A facet is only compared when at least this many domains declare it.
 MIN_DECLARERS = 2
 
-#: **Vocabulaire partage des facettes.**
+#: **Shared facet vocabulary.**
 #:
-#: Le coeur compare les facettes **par leur nom** : ce nom est donc un espace de
-#: noms partage entre tous les plugins, et deux domaines qui emploient le meme
-#: nom affirment parler de la meme chose. Sans regle explicite, la collision est
-#: silencieuse et produit un faux positif — mesure en phase 5 : Ansible
-#: declarait `hosts` pour ses machines d'inventaire, Helm pour ses hotes
-#: d'Ingress, et `forge validate` echouait sur un projet parfaitement coherent.
+#: The core compares facets **by name**: that name is therefore a namespace
+#: shared by every plugin, and two domains using the same name are asserting they
+#: talk about the same thing. Without an explicit rule the collision is silent
+#: and produces a false positive — measured in phase 5: Ansible declared `hosts`
+#: for its inventory machines, Helm for its Ingress hosts, and `forge validate`
+#: failed on a perfectly consistent project.
 #:
-#: Un plugin qui declare une facette hors de ce vocabulaire n'est compare a
-#: personne : c'est sans danger, mais sans effet non plus. Pour qu'une facette
-#: serve, il faut l'ajouter ici **et** s'accorder sur son sens.
+#: A plugin declaring a facet outside this vocabulary is compared with nobody:
+#: harmless, but pointless too. For a facet to be of any use it must be added
+#: here **and** agreed upon.
 FACET_VOCABULARY: dict[str, str] = {
-    "ingress_hosts": "noms de domaine par lesquels le service est joignable de l'exterieur",
-    "inventory_hosts": "machines nommees dans un inventaire de configuration",
-    "namespaces": "cloisons logiques dans lesquelles le service est deploye",
-    "groups": "regroupements de machines partageant un role",
+    "ingress_hosts": "domain names through which the service is reachable from outside",
+    "inventory_hosts": "machines named in a configuration inventory",
+    "namespaces": "logical partitions the service is deployed into",
+    "groups": "groupings of machines sharing a role",
 }
 
 
@@ -45,69 +44,69 @@ def _check_service_name(projections: dict[str, Projection]) -> list[Issue]:
     if len(values) <= 1:
         return []
     detail = "; ".join(
-        f"{name!r} pour {', '.join(domains)}" for name, domains in sorted(values.items())
+        f"{name!r} for {', '.join(domains)}" for name, domains in sorted(values.items())
     )
     return [
         Issue(
             level="error",
-            message=f"les domaines n'emploient pas le meme nom de service : {detail}",
-            hint="service.name doit etre repris tel quel par chaque domaine",
+            message=f"the domains do not use the same service name: {detail}",
+            hint="service.name must be carried over as-is by every domain",
             domains=tuple(_sorted_domains(projections)),
         )
     ]
 
 
 def _check_environments(projections: dict[str, Projection]) -> list[Issue]:
-    """Compare ce que **chaque domaine materialise reellement**.
+    """Compare what **each domain actually materialises**.
 
-    `Projection.environments` ne recopie pas `service.environments` : un domaine
-    y declare les environnements pour lesquels il produit quelque chose. Un
-    environnement qu'Ansible ignore alors que Helm y deploie est donc visible
-    ici, et nulle part ailleurs — c'est precisement ce que la comparaison de
-    projections apporte, et qu'aucun domaine ne peut voir seul.
+    `Projection.environments` does not copy `service.environments`: a domain
+    declares there the environments it produces something for. An environment
+    Ansible ignores while Helm deploys into it is therefore visible here, and
+    nowhere else — which is precisely what comparing projections brings, and what
+    no single domain can see on its own.
     """
     issues: list[Issue] = []
     domains = _sorted_domains(projections)
-    tous = sorted({env for domain in domains for env in projections[domain].environments})
+    everything = sorted({env for domain in domains for env in projections[domain].environments})
 
-    for env in tous:
-        absents = [d for d in domains if env not in projections[d].environments]
-        if not absents:
+    for env in everything:
+        absent = [d for d in domains if env not in projections[d].environments]
+        if not absent:
             continue
-        presents = [d for d in domains if env in projections[d].environments]
+        present = [d for d in domains if env in projections[d].environments]
         issues.append(
             Issue(
                 level="warning",
                 message=(
-                    f"l'environnement '{env}' est materialise par "
-                    f"{', '.join(presents)} mais pas par {', '.join(absents)}"
+                    f"environment '{env}' is materialised by "
+                    f"{', '.join(present)} but not by {', '.join(absent)}"
                 ),
                 hint=(
-                    f"si c'est voulu, rien a faire ; sinon, completez la section "
-                    f"de {absents[0]} pour '{env}', ou retirez-le de "
+                    f"if that is intended, nothing to do; otherwise complete the "
+                    f"{absent[0]} section for '{env}', or remove it from "
                     "service.environments"
                 ),
                 domains=tuple(domains),
             )
         )
 
-    # L'ordre reste porteur de sens : il decrit la promotion dev -> prod.
+    # The order still carries meaning: it describes the dev -> prod promotion.
     reference_domain = domains[0]
     reference = [e for e in projections[reference_domain].environments]
     for domain in domains[1:]:
         current = [e for e in projections[domain].environments]
-        communs_ref = [e for e in reference if e in current]
-        communs_cur = [e for e in current if e in reference]
-        if communs_ref != communs_cur:
+        common_ref = [e for e in reference if e in current]
+        common_cur = [e for e in current if e in reference]
+        if common_ref != common_cur:
             issues.append(
                 Issue(
                     level="warning",
                     message=(
-                        f"{domain} ordonne les environnements autrement que "
+                        f"{domain} orders the environments differently from "
                         f"{reference_domain} ({', '.join(current)} vs "
                         f"{', '.join(reference)})"
                     ),
-                    hint="l'ordre de service.environments est celui de la promotion",
+                    hint="the order of service.environments is the promotion order",
                     domains=(reference_domain, domain),
                 )
             )
@@ -116,7 +115,7 @@ def _check_environments(projections: dict[str, Projection]) -> list[Issue]:
 
 def _check_labels(projections: dict[str, Projection]) -> list[Issue]:
     issues: list[Issue] = []
-    seen: dict[str, tuple[str, str]] = {}  # cle -> (valeur, domaine)
+    seen: dict[str, tuple[str, str]] = {}  # key -> (value, domain)
     for domain in _sorted_domains(projections):
         for key, value in sorted(projections[domain].labels.items()):
             if key not in seen:
@@ -128,10 +127,10 @@ def _check_labels(projections: dict[str, Projection]) -> list[Issue]:
                     Issue(
                         level="error",
                         message=(
-                            f"label {key!r} contradictoire : {known_value!r} dans "
-                            f"{known_domain}, {value!r} dans {domain}"
+                            f"contradictory label {key!r}: {known_value!r} in "
+                            f"{known_domain}, {value!r} in {domain}"
                         ),
-                        hint="les labels partages viennent de service.labels",
+                        hint="shared labels come from service.labels",
                         domains=(known_domain, domain),
                     )
                 )
@@ -158,19 +157,19 @@ def _check_facets(projections: dict[str, Projection]) -> list[Issue]:
             extra = sorted(current - reference)
             parts = []
             if missing:
-                parts.append(f"absent(s) de {domain} : {', '.join(missing)}")
+                parts.append(f"absent from {domain}: {', '.join(missing)}")
             if extra:
-                parts.append(f"absent(s) de {reference_domain} : {', '.join(extra)}")
+                parts.append(f"absent from {reference_domain}: {', '.join(extra)}")
             issues.append(
                 Issue(
                     level="error",
                     message=(
-                        f"facette « {facet} » divergente entre {reference_domain} et "
-                        f"{domain} ({' ; '.join(parts)})"
+                        f"facet \"{facet}\" diverges between {reference_domain} and "
+                        f"{domain} ({'; '.join(parts)})"
                     ),
                     hint=(
-                        "les deux domaines decrivent la meme realite : alignez la "
-                        "specification, ou cessez de la declarer des deux cotes"
+                        "both domains describe the same reality: align the "
+                        "specification, or stop declaring it on both sides"
                     ),
                     domains=(reference_domain, domain),
                 )
@@ -179,10 +178,10 @@ def _check_facets(projections: dict[str, Projection]) -> list[Issue]:
 
 
 def compare_projections(projections: dict[str, Projection]) -> list[Issue]:
-    """Compare les projections de tous les domaines et retourne les constats.
+    """Compare every domain's projection and return the findings.
 
-    Aucune regle « si ansible alors… » : uniquement des egalites entre ce que
-    les domaines declarent.
+    No rule of the form "if ansible then…": nothing but equalities between what
+    the domains declare.
     """
     if len(projections) < MIN_DECLARERS:
         return []
@@ -195,12 +194,12 @@ def compare_projections(projections: dict[str, Projection]) -> list[Issue]:
 
 
 def format_issues(issues: list[Issue]) -> str:
-    """Met en forme les constats, erreurs d'abord."""
+    """Format the findings, errors first."""
     if not issues:
-        return "coherence inter-domaines : aucun ecart"
+        return "cross-domain consistency: no difference"
     lines: list[str] = []
     for issue in sorted(issues, key=lambda i: (i.level != "error", i.message)):
-        mark = "ERREUR " if issue.level == "error" else "AVERTIR"
+        mark = "ERROR  " if issue.level == "error" else "WARNING"
         scope = f" [{', '.join(issue.domains)}]" if issue.domains else ""
         lines.append(f"[{mark}]{scope} {issue.message}")
         if issue.hint:
@@ -209,5 +208,5 @@ def format_issues(issues: list[Issue]) -> str:
 
 
 def has_errors(issues: list[Issue]) -> bool:
-    """Vrai si au moins un constat est de niveau erreur."""
+    """True if at least one finding is of level error."""
     return any(issue.level == "error" for issue in issues)

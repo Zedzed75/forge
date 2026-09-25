@@ -1,8 +1,8 @@
-"""Facade de gestion des plugins (DESIGN.md §2.3 et §2.4).
+"""Plugin management facade (DESIGN.md §2.3 and §2.4).
 
-`pm.hook.forge_answers(...)` appelle *tous* les plugins et retourne une liste ;
-forge a besoin d'adresser *un* domaine a la fois. Cette facade encapsule donc
-`pm.subset_hook_caller()` derriere `manager.domain("ansible").answers(spec)`.
+`pm.hook.forge_answers(...)` calls *every* plugin and returns a list; forge needs
+to address *one* domain at a time. This facade therefore wraps
+`pm.subset_hook_caller()` behind `manager.domain("ansible").answers(spec)`.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from forge.interview.prompter import Prompter
     from forge.spec.service import ServiceSpec
 
-#: Plugins de domaine livres avec forge, enregistres en dur (decision DESIGN §2.4).
-#: Ajouter un domaine ne doit toucher aucun autre fichier du coeur.
+#: Domain plugins shipped with forge, registered statically (decision DESIGN §2.4).
+#: Adding a domain must touch no other core file.
 BUILTIN_PLUGINS: tuple[str, ...] = (
     "forge.plugins.ansible.plugin",
     "forge.plugins.helm.plugin",
@@ -44,24 +44,25 @@ BUILTIN_PLUGINS: tuple[str, ...] = (
     "forge.plugins.pipeline.plugin",
 )
 
-#: Variable d'environnement listant des modules de plugin supplementaires,
-#: separes par des virgules. Sert aux tests (plugin `demo`) et aux essais locaux.
+#: Environment variable listing extra plugin modules, comma-separated. Used by
+#: the tests (the `demo` plugin) and for local experiments.
 PLUGINS_ENV_VAR = "FORGE_PLUGINS"
 
-#: Un nom de domaine devient a la fois une cle de section dans forge.yml et un
-#: **champ du modele pydantic assemble**. Il doit donc etre un identifiant Python
-#: minuscule ne commencant pas par un souligne : pydantic transformerait sinon la
-#: section en attribut prive, et elle disparaitrait du modele sans erreur.
+#: A domain name becomes both a section key in forge.yml and a **field of the
+#: assembled pydantic model**. It must therefore be a lowercase Python
+#: identifier that does not start with an underscore: pydantic would otherwise
+#: turn the section into a private attribute, and it would vanish from the model
+#: without an error.
 DOMAIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def reserved_domain_names() -> frozenset[str]:
-    """Noms qu'un domaine ne peut pas porter sans ecraser une partie du coeur.
+    """Names a domain cannot carry without overwriting part of the core.
 
-    Calcule a l'execution a partir de `ForgeSpecBase` : la liste ne peut pas se
-    desynchroniser quand un champ ou une methode y est ajoute. Sans ce garde-fou,
-    un plugin nomme `service` remplacerait purement et simplement le bloc partage
-    dans le modele assemble, et l'erreur ne se verrait que bien plus loin.
+    Computed at run time from `ForgeSpecBase`: the list cannot fall out of sync
+    when a field or a method is added to it. Without this guard, a plugin named
+    `service` would plainly replace the shared block in the assembled model, and
+    the error would only show up much later.
     """
     from forge.spec.assembly import ForgeSpecBase
 
@@ -72,25 +73,25 @@ def reserved_domain_names() -> frozenset[str]:
 
 
 def check_domain_name(name: str) -> None:
-    """Valide un nom de domaine, ou leve `PluginError` avec la raison exacte."""
+    """Validate a domain name, or raise `PluginError` with the exact reason."""
     if not DOMAIN_NAME_RE.match(name) or keyword.iskeyword(name):
         raise PluginError(
-            f"nom de domaine invalide : '{name}' — attendu un identifiant Python en "
-            "minuscules commencant par une lettre (a-z, 0-9, _), qui ne soit pas un "
-            "mot-cle du langage"
+            f"invalid domain name: '{name}' — expected a lowercase Python "
+            "identifier starting with a letter (a-z, 0-9, _), and not a language "
+            "keyword"
         )
     if name in reserved_domain_names():
         raise PluginError(
-            f"nom de domaine reserve : '{name}' entre en conflit avec un champ ou une "
-            "methode du modele racine ; choisissez un autre nom de domaine"
+            f"reserved domain name: '{name}' collides with a field or a method of "
+            "the root model; choose another domain name"
         )
 
 
 class DomainHooks:
-    """Vue mono-domaine du gestionnaire de plugins.
+    """Single-domain view of the plugin manager.
 
-    Chaque methode appelle le hook correspondant sur le seul plugin du domaine
-    et deplie la liste de resultats de pluggy.
+    Each method calls the matching hook on the one plugin of the domain and
+    unwraps pluggy's list of results.
     """
 
     def __init__(self, manager: ForgeManager, info: DomainInfo, plugin: object) -> None:
@@ -109,44 +110,44 @@ class DomainHooks:
         if not results:
             if required:
                 raise PluginError(
-                    f"le plugin '{self.name}' n'implemente pas le hook obligatoire "
+                    f"plugin '{self.name}' does not implement the required hook "
                     f"{hook_name}()"
                 )
             return None
         return results[0]
 
     def spec_model(self) -> type[BaseModel]:
-        """Sous-modele pydantic de la section <domaine>."""
+        """Pydantic sub-model of the <domain> section."""
         return self._call("forge_spec_model", required=True)
 
     def template_subdir(self) -> str:
-        """Chemin du gabarit copier, relatif a la racine du depot forge."""
+        """Path of the copier template, relative to the forge repository root."""
         return self._call("forge_template_subdir", required=True)
 
     def answers(self, spec: Any, context: GenerationContext | None = None) -> dict[str, Any]:
-        """Dict `domain` passe a copier pour ce domaine.
+        """The `domain` dict passed to copier for this domain.
 
-        Le contexte — ce que les **autres** domaines demandes declarent — est
-        calcule ici quand l'appelant ne le fournit pas. Un plugin qui n'en a pas
-        besoin ne declare pas le parametre : pluggy n'appelle un hookimpl
-        qu'avec les arguments qu'il nomme.
+        The context — what the **other** requested domains declare — is computed
+        here when the caller does not supply it. A plugin that does not need it
+        does not declare the parameter: pluggy calls a hookimpl only with the
+        arguments it names.
         """
         if context is None:
             context = self.manager.context(spec)
         return self._call("forge_answers", required=True, spec=spec, context=context)
 
     def interview(self, prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-        """Entretien du domaine ; None si l'utilisateur decline le domaine."""
+        """Domain interview; None if the user declines the domain."""
         return self._call("forge_interview", required=False, prompter=prompter, service=service)
 
     def validators(self, spec: Any, outdir: Path) -> list[Command]:
-        """Commandes externes de validation, dans l'ordre d'execution."""
+        """External validation commands, in execution order."""
         return self._call("forge_validators", required=False, spec=spec, outdir=outdir) or []
 
     def deploy(self, spec: Any, outdir: Path, environment: str) -> list[Command]:
-        """Commandes deployant ce domaine dans `environment`, vides s'il se tait.
+        """Commands deploying this domain into `environment`, empty if it is silent.
 
-        Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+        The core never runs them: they are written into a pipeline.
         """
         return (
             self._call(
@@ -160,51 +161,51 @@ class DomainHooks:
         )
 
     def projection(self, spec: Any) -> Projection | None:
-        """Projection du domaine, ou None s'il n'en declare pas."""
+        """Projection of the domain, or None if it declares none."""
         return self._call("forge_projection", required=False, spec=spec)
 
     def check_spec(self, spec: Any) -> list[Issue]:
-        """Controles croises du domaine sur la specification, avant tout rendu."""
+        """The domain's cross-checks on the specification, before any rendering."""
         return self._call("forge_check_spec", required=False, spec=spec) or []
 
     def catalog(self) -> list[CatalogEntry]:
-        """Catalogue du domaine, vide s'il n'en declare pas."""
+        """Catalogue of the domain, empty if it declares none."""
         return self._call("forge_catalog", required=False) or []
 
 
 class ForgeManager:
-    """Registre des plugins et point d'entree unique du coeur vers eux."""
+    """Plugin registry and the core's single entry point towards them."""
 
     def __init__(self) -> None:
         self._pm = pluggy.PluginManager(hookspecs.PROJECT_NAME)
         self._pm.add_hookspecs(hookspecs)
         self._domains: dict[str, tuple[DomainInfo, object]] = {}
 
-    # -- enregistrement ----------------------------------------------------
+    # -- registration ------------------------------------------------------
 
     def register(self, plugin: object, name: str | None = None) -> DomainInfo:
-        """Enregistre un plugin et retourne l'identite du domaine qu'il declare."""
+        """Register a plugin and return the identity of the domain it declares."""
         try:
             self._pm.register(plugin, name=name)
         except ValueError as exc:
-            # pluggy refuse un plugin deja enregistre, sous le meme nom ou sous un
-            # autre : les deux cas arrivent avec un module liste deux fois.
+            # pluggy refuses an already registered plugin, under the same name or
+            # another one: both happen with a module listed twice.
             raise PluginError(
-                f"plugin deja enregistre : {name or plugin!r} ({exc})"
+                f"plugin already registered: {name or plugin!r} ({exc})"
             ) from exc
         caller = self.hook_caller("forge_domain", plugin)
         results = [r for r in caller() if r is not None]
         if not results:
             self._pm.unregister(plugin)
             raise PluginError(
-                f"le plugin {name or plugin!r} n'implemente pas forge_domain() : "
-                "il ne peut pas etre decouvert"
+                f"plugin {name or plugin!r} does not implement forge_domain(): "
+                "it cannot be discovered"
             )
         info = results[0]
         if not isinstance(info, DomainInfo):
             self._pm.unregister(plugin)
             raise PluginError(
-                f"forge_domain() doit retourner un DomainInfo, pas {type(info).__name__}"
+                f"forge_domain() must return a DomainInfo, not {type(info).__name__}"
             )
         try:
             check_domain_name(info.name)
@@ -213,92 +214,91 @@ class ForgeManager:
             raise
         if info.name in self._domains:
             self._pm.unregister(plugin)
-            raise PluginError(f"deux plugins declarent le domaine '{info.name}'")
+            raise PluginError(f"two plugins declare domain '{info.name}'")
         self._domains[info.name] = (info, plugin)
         return info
 
     def register_module(self, dotted_path: str) -> DomainInfo:
-        """Importe `dotted_path` et enregistre le module comme plugin."""
+        """Import `dotted_path` and register the module as a plugin."""
         try:
             module = importlib.import_module(dotted_path)
         except Exception as exc:
-            # Import impossible, mais aussi SyntaxError ou erreur levee au chargement
-            # du module : le type d'origine est conserve, il porte le diagnostic.
+            # Import failure, but also a SyntaxError or an error raised while the
+            # module loads: the original type is kept, it carries the diagnosis.
             raise PluginError(
-                f"plugin inutilisable : {dotted_path} "
-                f"({type(exc).__name__} : {exc})"
+                f"unusable plugin: {dotted_path} "
+                f"({type(exc).__name__}: {exc})"
             ) from exc
         return self.register(module, name=dotted_path)
 
-    # -- consultation ------------------------------------------------------
+    # -- lookup ------------------------------------------------------------
 
     def hook_caller(self, hook_name: str, plugin: object) -> Any:
-        """Hook caller restreint au seul `plugin` (cf. DESIGN.md §2.3)."""
+        """Hook caller restricted to `plugin` alone (cf. DESIGN.md §2.3)."""
         others = [p for p in self._pm.get_plugins() if p is not plugin]
         return self._pm.subset_hook_caller(hook_name, remove_plugins=others)
 
     def domains(self) -> list[DomainInfo]:
-        """Domaines enregistres, tries par nom : l'ordre fait le determinisme."""
+        """Registered domains, sorted by name: the order is what makes it deterministic."""
         return [info for _, (info, _) in sorted(self._domains.items())]
 
     def domain_names(self) -> tuple[str, ...]:
-        """Noms des domaines enregistres, tries."""
+        """Names of the registered domains, sorted."""
         return tuple(sorted(self._domains))
 
     def domain(self, name: str) -> DomainHooks:
-        """Vue mono-domaine, ou `PluginError` si le domaine est inconnu."""
+        """Single-domain view, or `PluginError` if the domain is unknown."""
         if name not in self._domains:
-            known = ", ".join(self.domain_names()) or "aucun"
-            raise PluginError(f"domaine inconnu : '{name}' (connus : {known})")
+            known = ", ".join(self.domain_names()) or "none"
+            raise PluginError(f"unknown domain: '{name}' (known: {known})")
         info, plugin = self._domains[name]
         return DomainHooks(self, info, plugin)
 
-    # -- vue d'ensemble ----------------------------------------------------
+    # -- overview ----------------------------------------------------------
 
     def context(self, spec: Any) -> GenerationContext:
-        """Ce que chaque domaine **demande par la specification** declare.
+        """What every domain **requested by the specification** declares.
 
-        Un seul plugin en a besoin — celui qui federe les autres — mais rien ici
-        ne lui est propre : le coeur rassemble des hooks qui existaient deja,
-        dans le vocabulaire du contrat, et n'en tire aucune conclusion.
+        Only one plugin needs it — the one that federates the others — but
+        nothing here is specific to it: the core gathers hooks that already
+        existed, in the vocabulary of the contract, and draws no conclusion from
+        them.
 
-        Les chemins des commandes sont **relatifs a la racine du projet** :
-        `Path(info.outdir)` et non un repertoire absolu. Le contexte alimente un
-        fichier de pipeline, ou un chemin de poste de developpement n'aurait
-        aucun sens.
+        Command paths are **relative to the project root**: `Path(info.outdir)`
+        and not an absolute directory. The context feeds a pipeline file, where a
+        developer workstation path would make no sense.
 
-        Un `PluginError` leve par un domaine n'est pas rattrape : une commande
-        qu'on ne sait pas construire ne doit pas devenir un job silencieusement
-        absent du pipeline.
+        A `PluginError` raised by a domain is not caught: a command we cannot
+        build must not become a job silently missing from the pipeline.
         """
-        demandes = [nom for nom in self.domain_names() if getattr(spec, nom, None) is not None]
-        environnements = [env.name for env in spec.service.environments]
-        sommaires: list[DomainSummary] = []
-        for nom in demandes:
-            hooks = self.domain(nom)
-            racine = Path(hooks.info.outdir)
-            deploiements = tuple(
-                (env, tuple(hooks.deploy(spec, racine, env))) for env in environnements
+        requested = [name for name in self.domain_names() if getattr(spec, name, None) is not None]
+        environments = [env.name for env in spec.service.environments]
+        summaries: list[DomainSummary] = []
+        for name in requested:
+            hooks = self.domain(name)
+            root = Path(hooks.info.outdir)
+            deployments = tuple(
+                (env, tuple(hooks.deploy(spec, root, env))) for env in environments
             )
-            sommaires.append(
+            summaries.append(
                 DomainSummary(
                     info=hooks.info,
                     projection=hooks.projection(spec),
-                    validators=tuple(hooks.validators(spec, racine)),
-                    # Un domaine muet sur le deploiement ne laisse aucune entree :
-                    # le pipeline ecrira une etape a completer, pas une commande
-                    # devinee.
+                    validators=tuple(hooks.validators(spec, root)),
+                    # A domain silent about deployment leaves no entry: the
+                    # pipeline will write a step to fill in, not a guessed
+                    # command.
                     deployments=tuple(
-                        (env, commandes) for env, commandes in deploiements if commandes
+                        (env, commands) for env, commands in deployments if commands
                     ),
                 )
             )
-        return GenerationContext(domains=tuple(sommaires))
+        return GenerationContext(domains=tuple(summaries))
 
-    # -- hook multi-plugins ------------------------------------------------
+    # -- multi-plugin hook -------------------------------------------------
 
     def consistency(self, spec: Any, outdirs: dict[str, Path]) -> list[Issue]:
-        """Concatene `forge_consistency` de tous les plugins (seul hook global)."""
+        """Concatenate `forge_consistency` from every plugin (the only global hook)."""
         issues: list[Issue] = []
         for result in self._pm.hook.forge_consistency(spec=spec, outdirs=outdirs):
             if result:
@@ -307,7 +307,7 @@ class ForgeManager:
 
 
 def default_manager() -> ForgeManager:
-    """Gestionnaire peuple des plugins livres, plus ceux de `FORGE_PLUGINS`."""
+    """Manager populated with the shipped plugins, plus those of `FORGE_PLUGINS`."""
     manager = ForgeManager()
     for dotted in BUILTIN_PLUGINS:
         manager.register_module(dotted)

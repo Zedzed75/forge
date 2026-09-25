@@ -1,15 +1,15 @@
-"""Pont WSL : executer un outil externe qui ne tourne pas sous Windows.
+"""WSL bridge: running an external tool that does not run under Windows.
 
-Portage generalise de `tests/ansible_tools.py` (MIGRATION.md §3) : le besoin
-n'a rien de propre a Ansible — c'est « lancer un binaire Linux sur un projet
-genere sous Windows », en recopiant le projet hors des montages Windows, que
-Linux voit world-writable (ce qui fait refuser un `ansible.cfg`, et fausserait
-d'autres outils de la meme facon).
+Generalised port of `tests/ansible_tools.py` (MIGRATION.md §3): the need has
+nothing Ansible-specific about it — it is "run a Linux binary against a project
+generated under Windows", copying the project out of the Windows mounts, which
+Linux sees as world-writable (which makes an `ansible.cfg` be refused, and would
+mislead other tools the same way).
 
-Variables d'environnement reconnues :
-    FORGE_WSL_DISTRO   distribution WSL a utiliser (defaut : Debian)
-    FORGE_WSL_PATH     repertoires ajoutes au PATH dans WSL
-    FORGE_WSL_USER     utilisateur WSL (defaut : root)
+Recognised environment variables:
+    FORGE_WSL_DISTRO   WSL distribution to use (default: Debian)
+    FORGE_WSL_PATH     directories prepended to the PATH inside WSL
+    FORGE_WSL_USER     WSL user (default: root)
 """
 
 from __future__ import annotations
@@ -23,88 +23,86 @@ from pathlib import Path, PureWindowsPath
 
 from forge.errors import ForgeError
 
-#: Distribution WSL interrogee.
+#: WSL distribution queried.
 WSL_DISTRO = os.environ.get("FORGE_WSL_DISTRO", "Debian")
 
-#: Repertoires ajoutes au PATH dans WSL, avant le PATH de la distribution.
+#: Directories prepended to the PATH inside WSL, before the distribution's PATH.
 #:
-#: Convention du projet : les outils de validation vivent sous `/opt`, hors du
-#: repertoire personnel d'un utilisateur. Le pont s'execute en effet sous un
-#: compte (`root` par defaut) qui n'est pas forcement celui qui a installe les
-#: outils — un binaire pose dans `~/.local/bin` d'un autre compte serait
-#: invisible. Un lien symbolique vers `/opt/forge-tools/bin` suffit a le rendre
-#: joignable, sans deplacer l'installation d'origine.
+#: Project convention: the validation tools live under `/opt`, outside any
+#: user's home directory. The bridge runs under an account (`root` by default)
+#: which is not necessarily the one that installed the tools — a binary dropped
+#: in another account's `~/.local/bin` would be invisible. A symlink into
+#: `/opt/forge-tools/bin` is enough to make it reachable, without moving the
+#: original installation.
 WSL_PATH = os.environ.get(
     "FORGE_WSL_PATH", "/opt/forge-venv/bin:/opt/forge-tools/bin:/root/.local/bin"
 )
 
-#: Utilisateur employe dans WSL.
+#: User the bridge runs as inside WSL.
 WSL_USER = os.environ.get("FORGE_WSL_USER", "root")
 
 
 def quote(value: str) -> str:
-    """Protege une valeur pour un shell POSIX."""
+    """Protect a value for a POSIX shell."""
     return "'" + str(value).replace("'", "'\\''") + "'"
 
 
 def to_wsl_path(path: str | Path) -> str:
-    """Traduit un chemin Windows (`Z:\\a\\b`) en chemin WSL (`/mnt/z/a/b`).
+    """Translate a Windows path (`Z:\\a\\b`) into a WSL path (`/mnt/z/a/b`).
 
-    Un chemin UNC (`\\\\serveur\\partage\\...`) n'a pas d'equivalent sous `/mnt`
-    tant que le partage n'est pas monte a la main dans la distribution : fabriquer
-    un chemin plausible mais faux ferait echouer la copie plus loin, sur un
-    `cp: cannot stat` incomprehensible. Mieux vaut le dire tout de suite.
+    A UNC path (`\\\\server\\share\\...`) has no equivalent under `/mnt` as long
+    as the share is not mounted by hand inside the distribution: fabricating a
+    plausible but wrong path would make the copy fail further on, with an
+    incomprehensible `cp: cannot stat`. Better to say so right away.
     """
-    # Deux separateurs en tete : chemin UNC. Le controle se fait sur la
-    # **chaine**, avant toute interpretation par pathlib. Ce n'est pas de la
-    # prudence excessive : jusqu'a Python 3.11, `PureWindowsPath(PosixPath(...))`
-    # reutilise les composants deja decoupes selon les regles POSIX au lieu de
-    # relire la chaine avec celles de Windows, et le prefixe UNC disparait.
-    # Python 3.12 a reecrit pathlib et reparse toujours — la CI a trouve l'ecart
-    # entre les deux.
-    brut = str(path).replace("\\", "/")
-    if brut.startswith("//"):
+    # Two leading separators: a UNC path. The check is made on the **string**,
+    # before any interpretation by pathlib. This is not excessive caution: up to
+    # Python 3.11, `PureWindowsPath(PosixPath(...))` reuses the components
+    # already split according to POSIX rules instead of re-reading the string
+    # with the Windows ones, and the UNC prefix disappears. Python 3.12 rewrote
+    # pathlib and always re-parses — the CI found the difference between the two.
+    raw = str(path).replace("\\", "/")
+    if raw.startswith("//"):
         raise ForgeError(
-            f"chemin UNC non supporte par le pont WSL : {path}\n"
-            "  generez le projet sur un lecteur local, ou montez le partage dans "
-            f"la distribution « {WSL_DISTRO} »."
+            f"UNC path not supported by the WSL bridge: {path}\n"
+            "  generate the project on a local drive, or mount the share in the "
+            f"'{WSL_DISTRO}' distribution."
         )
 
-    # `PureWindowsPath(str(...))` et non `Path` : la traduction doit lire un
-    # chemin **Windows**, quelle que soit la plateforme hote. Avec `Path`, un
-    # Linux comprend `C:/projets` comme un nom de repertoire ordinaire et rend
-    # `/repertoire/courant/C:/projets` — un chemin plausible et faux, que rien
-    # ne signale. Le passage par `str` force la relecture aux regles Windows sur
-    # toutes les versions de Python.
-    fenetre = PureWindowsPath(str(path))
-    if not fenetre.drive and not fenetre.is_absolute():
-        # Chemin relatif : le resoudre contre le repertoire courant, ce qui
-        # depend legitimement de la plateforme.
-        fenetre = PureWindowsPath(Path(path).resolve())
+    # `PureWindowsPath(str(...))` and not `Path`: the translation must read a
+    # **Windows** path, whatever the host platform. With `Path`, a Linux reads
+    # `C:/projects` as an ordinary directory name and returns
+    # `/current/directory/C:/projects` — a plausible, wrong path that nothing
+    # reports. Going through `str` forces the re-read under Windows rules on
+    # every version of Python.
+    windows = PureWindowsPath(str(path))
+    if not windows.drive and not windows.is_absolute():
+        # Relative path: resolve it against the current directory, which
+        # legitimately depends on the platform.
+        windows = PureWindowsPath(Path(path).resolve())
 
-    drive = fenetre.drive
-    # Second passage, et il n'est pas redondant : la resolution d'un chemin
-    # relatif ci-dessus peut aboutir sur un partage reseau que la chaine de
-    # depart ne montrait pas.
+    drive = windows.drive
+    # Second pass, and it is not redundant: resolving a relative path above may
+    # land on a network share the initial string did not show.
     if drive.startswith("\\\\") or drive.startswith("//"):
         raise ForgeError(
-            f"chemin UNC non supporte par le pont WSL : {fenetre}\n"
-            "  generez le projet sur un lecteur local, ou montez le partage dans "
-            f"la distribution « {WSL_DISTRO} »."
+            f"UNC path not supported by the WSL bridge: {windows}\n"
+            "  generate the project on a local drive, or mount the share in the "
+            f"'{WSL_DISTRO}' distribution."
         )
     letter = drive.rstrip(":").lower()
-    rest = fenetre.as_posix()[len(drive) :].lstrip("/")
-    return f"/mnt/{letter}/{rest}" if letter else fenetre.as_posix()
+    rest = windows.as_posix()[len(drive) :].lstrip("/")
+    return f"/mnt/{letter}/{rest}" if letter else windows.as_posix()
 
 
 def is_windows() -> bool:
-    """Vrai si le processus courant tourne sous Windows."""
+    """True if the current process runs under Windows."""
     return sys.platform == "win32"
 
 
 @lru_cache(maxsize=1)
 def wsl_available() -> bool:
-    """Vrai si `wsl.exe` est present et la distribution configuree repond."""
+    """True if `wsl.exe` is present and the configured distribution answers."""
     if not is_windows() or not shutil.which("wsl.exe"):
         return False
     try:
@@ -120,7 +118,7 @@ def wsl_available() -> bool:
 
 @lru_cache(maxsize=32)
 def wsl_has_tool(tool: str) -> bool:
-    """Vrai si `tool` est trouvable dans le PATH de la distribution WSL."""
+    """True if `tool` can be found in the WSL distribution's PATH."""
     if not wsl_available():
         return False
     command = f"PATH={quote(WSL_PATH)}:$PATH command -v {quote(tool)} >/dev/null"
@@ -138,11 +136,11 @@ def wsl_has_tool(tool: str) -> bool:
 def build_command(
     tool: str, argv: tuple[str, ...] | list[str], cwd: Path, env: dict[str, str] | None
 ) -> str:
-    """Construit la ligne bash executee dans WSL, copie du projet comprise.
+    """Build the bash line run inside WSL, copy of the project included.
 
-    Le nettoyage passe par un `trap` et non par un `rm` final : sans lui, un
-    depassement de delai tue le processus avant la suppression et laisse une
-    copie complete du projet dans le `/tmp` de la distribution, a chaque essai.
+    The cleanup goes through a `trap` rather than a final `rm`: without it, a
+    timeout kills the process before the removal and leaves a complete copy of
+    the project in the distribution's `/tmp`, on every attempt.
     """
     arguments = " ".join(quote(arg) for arg in argv)
     assignments = " ".join(
@@ -166,7 +164,7 @@ def run_in_wsl(
     env: dict[str, str] | None = None,
     stdin: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Lance `tool` dans WSL sur une copie native de `cwd`."""
+    """Run `tool` inside WSL against a native copy of `cwd`."""
     command = build_command(tool, argv, cwd, env)
     return subprocess.run(
         ["wsl.exe", "-d", WSL_DISTRO, "-u", WSL_USER, "--exec", "bash", "-lc", command],
@@ -179,10 +177,10 @@ def run_in_wsl(
 
 
 def install_hint(tool: str) -> str:
-    """Message d'installation adapte a la plateforme courante."""
+    """Installation message suited to the current platform."""
     if is_windows():
         return (
-            f"installez {tool} dans la distribution WSL « {WSL_DISTRO} » "
-            f"(PATH utilise : {WSL_PATH}), ou dans le PATH Windows."
+            f"install {tool} in the '{WSL_DISTRO}' WSL distribution "
+            f"(PATH used: {WSL_PATH}), or in the Windows PATH."
         )
-    return f"installez {tool} et rendez-le accessible depuis le PATH."
+    return f"install {tool} and make it reachable from the PATH."

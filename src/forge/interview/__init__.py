@@ -1,1 +1,1 @@
-"""Entretien interactif : protocole de saisie et flux du bloc service."""
+"""Interactive interview: input protocol and the service block flow."""

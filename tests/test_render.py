@@ -172,7 +172,7 @@ def test_le_forge_yml_source_de_la_cible_n_est_pas_reecrit(tmp_path, spec_data):
 def test_une_cible_qui_est_un_fichier_donne_une_erreur_lisible(tmp_path, spec_data):
     fichier = tmp_path / "rapport.txt"
     fichier.write_text("x", encoding="utf-8")
-    with pytest.raises(RenderError, match="n'est pas un repertoire"):
+    with pytest.raises(RenderError, match="is not a directory"):
         scaffold.write_repo_files(fichier, spec_data, [])
 
 
@@ -203,7 +203,7 @@ def test_deux_arborescences_identiques_ne_montrent_aucun_ecart(tmp_path):
     b = _ecrire(tmp_path / "b", {"x.yml": "1\n"})
     ecart = diff_trees("demo", a, b)
     assert ecart.empty
-    assert ecart.summary().endswith("a jour")
+    assert ecart.summary().endswith("up to date")
 
 
 def test_le_diff_classe_ajouts_suppressions_et_modifications(tmp_path):

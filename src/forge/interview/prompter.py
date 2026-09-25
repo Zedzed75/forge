@@ -1,9 +1,9 @@
-"""Couche de saisie interactive (portage de `ansible_forge.prompts.prompter`).
+"""Interactive input layer (port of `ansible_forge.prompts.prompter`).
 
-L'entretien est ecrit contre le protocole `Prompter`, jamais contre
-`questionary` : les tests rejouent donc un entretien complet avec des reponses
-scriptees, et la logique des questions reste verifiable sans terminal. Les
-plugins recoivent ce protocole via le hook `forge_interview`.
+The interview is written against the `Prompter` protocol, never against
+`questionary`: the tests therefore replay a complete interview with scripted
+answers, and the question logic stays verifiable without a terminal. Plugins
+receive this protocol through the `forge_interview` hook.
 """
 
 from __future__ import annotations
@@ -12,35 +12,35 @@ from typing import Callable, Protocol, runtime_checkable
 
 from forge.errors import ForgeError
 
-#: Fonction de validation : retourne None si la valeur est acceptable, sinon le
-#: message d'erreur a afficher.
+#: Validation function: returns None when the value is acceptable, otherwise the
+#: error message to display.
 Validator = Callable[[str], "str | None"]
 
 
 @runtime_checkable
 class Prompter(Protocol):
-    """Operations de saisie utilisees par les entretiens."""
+    """Input operations used by the interviews."""
 
     def text(self, message: str, default: str = "", validate: Validator | None = None) -> str:
-        """Demande une chaine libre."""
+        """Ask for a free-form string."""
 
     def confirm(self, message: str, default: bool = True) -> bool:
-        """Demande une reponse oui/non."""
+        """Ask a yes/no question."""
 
     def select(self, message: str, choices: list[tuple[str, str]], default: str) -> str:
-        """Demande de choisir une valeur parmi `choices` (valeur, libelle)."""
+        """Ask to pick one value among `choices` (value, label)."""
 
     def checkbox(
         self, message: str, choices: list[tuple[str, str]], default: list[str]
     ) -> list[str]:
-        """Demande de choisir zero ou plusieurs valeurs parmi `choices`."""
+        """Ask to pick zero or more values among `choices`."""
 
     def note(self, message: str) -> None:
-        """Affiche une information sans attendre de reponse."""
+        """Print information without waiting for an answer."""
 
 
 class QuestionaryPrompter:
-    """Implementation de `Prompter` fondee sur questionary."""
+    """Implementation of `Prompter` built on questionary."""
 
     def text(self, message: str, default: str = "", validate: Validator | None = None) -> str:
         import questionary
@@ -81,7 +81,7 @@ class QuestionaryPrompter:
 
 
 def _as_questionary_validator(validate: Validator | None):
-    """Adapte un validateur du projet a l'API de questionary."""
+    """Adapt one of the project's validators to questionary's API."""
     if validate is None:
         return None
 
@@ -93,7 +93,7 @@ def _as_questionary_validator(validate: Validator | None):
 
 
 def _require(answer):
-    """Transforme une saisie interrompue (Ctrl+C) en erreur explicite."""
+    """Turn an interrupted input (Ctrl+C) into an explicit error."""
     if answer is None:
-        raise ForgeError("Saisie interrompue : rien n'a ete genere.")
+        raise ForgeError("Input interrupted: nothing was generated.")
     return answer

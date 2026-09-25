@@ -1,10 +1,10 @@
-"""Lecture et ecriture de `forge.yml`.
+"""Reading and writing `forge.yml`.
 
-Portage de `ansible_forge.spec_io` (MIGRATION.md §3, doublon §5.2) rendu
-domaine-agnostique : la validation appartient a `assembly`, ce module ne fait
-que du YAML deterministe — ordre des cles figé par le modele (jamais
-alphabetique), pas de style de flux, fins de ligne LF, encodage UTF-8.
-Sauvegarder puis recharger une spec doit redonner un objet identique.
+Port of `ansible_forge.spec_io` (MIGRATION.md §3, duplicate §5.2) made
+domain-agnostic: validation belongs to `assembly`, this module only does
+deterministic YAML — key order fixed by the model (never alphabetical), no flow
+style, LF line endings, UTF-8. Saving then reloading a spec must give back an
+identical object.
 """
 
 from __future__ import annotations
@@ -16,9 +16,12 @@ import yaml
 
 from forge.errors import SpecFileError
 
-#: Nom de fichier de specification par defaut.
+#: Default specification file name.
 SPEC_FILENAME = "forge.yml"
 
+# The header below is written into the user's `forge.yml`, so it is generated
+# output and not source prose: translating it would move every golden fixture.
+# It is translated with the templates and the goldens, not here.
 _HEADER_TOP = """\
 ---
 # ---------------------------------------------------------------------------
@@ -38,16 +41,17 @@ _HEADER_BOTTOM = """\
 
 
 class _ForgeDumper(yaml.SafeDumper):
-    """Dumper YAML avec indentation des listes, plus lisible pour un humain."""
+    """YAML dumper that indents lists, more readable for a human."""
 
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> Any:
         return super().increase_indent(flow, False)
 
 
 def build_header(sections: list[str]) -> str:
-    """En-tete commente, enrichi de la liste des domaines presents."""
+    """Commented header, enriched with the list of domains present."""
     lines = [_HEADER_TOP]
     if sections:
+        # Generated output, like `_HEADER_TOP` above: left in French on purpose.
         lines.append("#\n# Domaines generes par cette specification :\n")
         for name in sections:
             lines.append(f"#   - {name}\n")
@@ -56,7 +60,7 @@ def build_header(sections: list[str]) -> str:
 
 
 def dump_yaml(data: dict[str, Any]) -> str:
-    """Serialise `data` en YAML deterministe, sans en-tete."""
+    """Serialise `data` to deterministic YAML, without the header."""
     return yaml.dump(
         data,
         Dumper=_ForgeDumper,
@@ -68,7 +72,7 @@ def dump_yaml(data: dict[str, Any]) -> str:
 
 
 def dump_spec(data: dict[str, Any], *, sections: list[str] | None = None) -> str:
-    """Serialise une spec complete, en-tete comprise."""
+    """Serialise a complete spec, header included."""
     header = build_header(sections if sections is not None else [])
     return header + dump_yaml(data)
 
@@ -76,7 +80,7 @@ def dump_spec(data: dict[str, Any], *, sections: list[str] | None = None) -> str
 def save_spec(
     data: dict[str, Any], path: Path, *, sections: list[str] | None = None
 ) -> Path:
-    """Ecrit la spec dans `path` (UTF-8, fins de ligne LF) et retourne le chemin."""
+    """Write the spec to `path` (UTF-8, LF line endings) and return the path."""
     path = Path(path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,27 +88,27 @@ def save_spec(
             dump_spec(data, sections=sections), encoding="utf-8", newline="\n"
         )
     except OSError as exc:
-        raise SpecFileError(f"ecriture impossible de {path} : {exc}") from exc
+        raise SpecFileError(f"cannot write {path}: {exc}") from exc
     return path
 
 
 def _check_string_keys(node: Any, source: str, path: str = "") -> None:
-    """Refuse toute cle de mapping qui n'est pas une chaine.
+    """Refuse any mapping key that is not a string.
 
-    YAML 1.1 interprete `on:`, `yes:`, `no:` et `1.2:` comme un booleen ou un
-    nombre. La cle n'est alors plus une chaine, et tout le reste du coeur
-    (comparaison aux sections connues, mise en forme des messages) casserait sur
-    une trace Python. Mieux vaut le dire ici, avec la ligne fautive.
+    YAML 1.1 reads `on:`, `yes:`, `no:` and `1.2:` as a boolean or a number. The
+    key is then no longer a string, and everything else in the core (comparing
+    against known sections, formatting messages) would break on a Python
+    traceback. Better to say so here, with the offending line.
     """
     if isinstance(node, dict):
         for key, value in node.items():
             if not isinstance(key, str):
-                where = f" sous {path}" if path else " a la racine"
+                where = f" under {path}" if path else " at the root"
                 raise SpecFileError(
-                    f"cle YAML non textuelle{where} dans {source} : {key!r} "
+                    f"non-textual YAML key{where} in {source}: {key!r} "
                     f"({type(key).__name__}).\n"
-                    "  YAML 1.1 convertit on/off/yes/no/true/false en booleens et "
-                    "1.2 en nombre : entourez la cle de guillemets."
+                    "  YAML 1.1 converts on/off/yes/no/true/false to booleans and "
+                    "1.2 to a number: quote the key."
                 )
             _check_string_keys(value, source, f"{path}.{key}" if path else key)
     elif isinstance(node, list):
@@ -112,32 +116,32 @@ def _check_string_keys(node: Any, source: str, path: str = "") -> None:
             _check_string_keys(item, source, f"{path}[{index}]")
 
 
-def parse_spec(text: str, *, source: str = "<chaine>") -> dict[str, Any]:
-    """Analyse un texte YAML et retourne le dict brut, sans le valider."""
+def parse_spec(text: str, *, source: str = "<string>") -> dict[str, Any]:
+    """Parse a YAML text and return the raw dict, without validating it."""
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        raise SpecFileError(f"YAML invalide dans {source} : {exc}") from None
+        raise SpecFileError(f"invalid YAML in {source}: {exc}") from None
     if data is None:
-        raise SpecFileError(f"La specification {source} est vide.")
+        raise SpecFileError(f"Specification {source} is empty.")
     if not isinstance(data, dict):
         raise SpecFileError(
-            f"La specification {source} doit etre un dictionnaire YAML, "
-            f"trouve : {type(data).__name__}."
+            f"Specification {source} must be a YAML mapping, "
+            f"found: {type(data).__name__}."
         )
     _check_string_keys(data, source)
     return data
 
 
 def load_spec_data(path: Path) -> dict[str, Any]:
-    """Charge le dict brut de la spec situee a `path`."""
+    """Load the raw dict of the spec located at `path`."""
     path = Path(path)
     if not path.exists():
-        raise SpecFileError(f"Fichier de specification introuvable : {path}")
+        raise SpecFileError(f"Specification file not found: {path}")
     if not path.is_file():
-        raise SpecFileError(f"Le chemin de specification n'est pas un fichier : {path}")
+        raise SpecFileError(f"The specification path is not a file: {path}")
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise SpecFileError(f"Lecture impossible de {path} : {exc}") from None
+        raise SpecFileError(f"Cannot read {path}: {exc}") from None
     return parse_spec(text, source=str(path))

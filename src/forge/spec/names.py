@@ -1,7 +1,7 @@
-"""Verifications de nommage generiques, sans vocabulaire de domaine.
+"""Generic naming checks, free of any domain vocabulary.
 
-Portage de la partie domaine-agnostique de `ansible_forge.validation`
-(MIGRATION.md §3) : les regex propres a Ansible restent dans son plugin.
+Port of the domain-agnostic part of `ansible_forge.validation`
+(MIGRATION.md §3): the Ansible-specific regexes stay in its plugin.
 """
 
 from __future__ import annotations
@@ -9,31 +9,31 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-#: Label DNS (RFC 1123) : lettres minuscules, chiffres et tirets internes.
+#: DNS label (RFC 1123): lowercase letters, digits and internal hyphens.
 DNS_LABEL_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
-#: Sous-domaine DNS : des labels separes par des points.
+#: DNS subdomain: labels separated by dots.
 SUBDOMAIN_RE = re.compile(
     r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 )
 
-#: Version semantique simplifiee : MAJEUR.MINEUR.CORRECTIF, pre-release optionnel.
+#: Simplified semantic version: MAJOR.MINOR.PATCH, optional pre-release.
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 
 
 def check_pattern(value: str, pattern: re.Pattern[str], what: str) -> str:
-    """Retourne `value` si elle respecte `pattern`, sinon leve `ValueError`.
+    """Return `value` if it matches `pattern`, otherwise raise `ValueError`.
 
-    `what` decrit la contrainte en francais, il apparait tel quel dans le
-    message d'erreur pydantic.
+    `what` describes the constraint and appears verbatim in the pydantic error
+    message.
     """
     if not pattern.match(value):
-        raise ValueError(f"{value!r} n'est pas {what}")
+        raise ValueError(f"{value!r} is not {what}")
     return value
 
 
 def find_duplicates(values: Iterable[str]) -> list[str]:
-    """Liste, dans l'ordre de premiere apparition, les valeurs vues deux fois."""
+    """List, in order of first appearance, the values seen twice."""
     seen: set[str] = set()
     duplicates: list[str] = []
     for value in values:
@@ -44,7 +44,7 @@ def find_duplicates(values: Iterable[str]) -> list[str]:
 
 
 def require_unique(values: Iterable[str], what: str) -> None:
-    """Leve `ValueError` si `values` contient des doublons."""
+    """Raise `ValueError` if `values` contains duplicates."""
     duplicates = find_duplicates(values)
     if duplicates:
-        raise ValueError(f"{what} en double : {', '.join(sorted(duplicates))}")
+        raise ValueError(f"duplicate {what}: {', '.join(sorted(duplicates))}")

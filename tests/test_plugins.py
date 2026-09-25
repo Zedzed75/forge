@@ -58,30 +58,30 @@ def test_un_plugin_sans_forge_domain_est_refuse():
 def test_deux_plugins_du_meme_domaine_sont_refuses():
     instance = ForgeManager()
     instance.register(_module_factice("alpha"), name="a")
-    with pytest.raises(PluginError, match="deux plugins"):
+    with pytest.raises(PluginError, match="two plugins"):
         instance.register(_module_factice("alpha"), name="b")
 
 
 def test_un_nom_de_domaine_non_identifiant_est_refuse():
-    with pytest.raises(PluginError, match="nom de domaine invalide"):
+    with pytest.raises(PluginError, match="invalid domain name"):
         ForgeManager().register(_module_factice("mon-domaine"))
 
 
 @pytest.mark.parametrize("nom", ["service", "forge_version", "domain_names", "section"])
 def test_un_nom_de_domaine_reserve_est_refuse(nom):
     """Sans ce garde-fou, `create_model` ecrase le champ du coeur en silence."""
-    with pytest.raises(PluginError, match="reserve"):
+    with pytest.raises(PluginError, match="reserved"):
         ForgeManager().register(_module_factice(nom))
 
 
 def test_un_nom_de_domaine_prefixe_par_souligne_est_refuse():
     """pydantic en ferait un attribut prive : la section disparaitrait du modele."""
-    with pytest.raises(PluginError, match="nom de domaine invalide"):
+    with pytest.raises(PluginError, match="invalid domain name"):
         ForgeManager().register(_module_factice("_interne"))
 
 
 def test_un_nom_de_domaine_mot_cle_est_refuse():
-    with pytest.raises(PluginError, match="nom de domaine invalide"):
+    with pytest.raises(PluginError, match="invalid domain name"):
         ForgeManager().register(_module_factice("class"))
 
 
@@ -93,7 +93,7 @@ def test_le_modele_assemble_ne_peut_pas_masquer_le_bloc_service(manager):
         DomainInfo(name="service", title="S", summary="s"),
         plugin,
     )
-    with pytest.raises(SpecValidationError, match="masquerait le coeur"):
+    with pytest.raises(SpecValidationError, match="shadow the core"):
         build_spec_model(manager)
 
 
@@ -101,13 +101,13 @@ def test_un_module_enregistre_deux_fois_donne_une_erreur_lisible(monkeypatch):
     monkeypatch.setenv(
         "FORGE_PLUGINS", "forge.plugins.demo.plugin,forge.plugins.demo.plugin"
     )
-    with pytest.raises(PluginError, match="deja enregistre"):
+    with pytest.raises(PluginError, match="already registered"):
         default_manager()
 
 
 def test_un_module_de_plugin_introuvable_donne_une_erreur_lisible(monkeypatch):
     monkeypatch.setenv("FORGE_PLUGINS", "forge.plugins.nexiste.pas")
-    with pytest.raises(PluginError, match="inutilisable"):
+    with pytest.raises(PluginError, match="unusable"):
         default_manager()
 
 
@@ -131,7 +131,7 @@ def test_un_hook_de_domaine_n_est_pas_capte_par_un_autre_plugin(manager):
 
 
 def test_un_domaine_inconnu_donne_un_message_actionnable(manager):
-    with pytest.raises(PluginError, match="domaine inconnu"):
+    with pytest.raises(PluginError, match="unknown domain"):
         manager.domain("terraform")
 
 
@@ -145,7 +145,7 @@ def test_un_hook_obligatoire_non_implemente_est_signale():
             return DomainInfo(name="nu", title="Nu", summary="s")
 
     instance.register(SansModele())
-    with pytest.raises(PluginError, match="hook obligatoire"):
+    with pytest.raises(PluginError, match="required hook"):
         instance.domain("nu").spec_model()
 
 
