@@ -104,18 +104,18 @@ domain:
                     test:
                         eval_time: 6m
                         exp_annotations:
-                            description: Instance instance-de-test:9090 of job boutique
+                            description: Instance test-instance:9090 of job boutique
                                 has not answered for 5 minutes.
                             summary: The target no longer answers the collector
                         exp_labels:
                             env: dev
-                            instance: instance-de-test:9090
+                            instance: test-instance:9090
                             job: boutique
                             service: boutique
                             severity: critical
                         series:
                         -   points: 0+0x10
-                            series: up{job="boutique", instance="instance-de-test:9090"}
+                            series: up{job="boutique", instance="test-instance:9090"}
                     threshold: ''
                     threshold_field: ''
                     threshold_unit: ''
@@ -263,20 +263,20 @@ domain:
                     test:
                         eval_time: 6m
                         exp_annotations:
-                            description: 'The external probe on https://sonde-de-test.invalid
+                            description: 'The external probe on https://test-probe.invalid
                                 has been failing for 5 minutes. The service can be
                                 running and stay unreachable: that is precisely what
                                 this probe sees and the others do not.'
                             summary: The service is no longer reachable from the outside
                         exp_labels:
                             env: dev
-                            instance: https://sonde-de-test.invalid
+                            instance: https://test-probe.invalid
                             job: blackbox
                             service: boutique
                             severity: critical
                         series:
                         -   points: 0+0x10
-                            series: probe_success{job="blackbox", instance="https://sonde-de-test.invalid"}
+                            series: probe_success{job="blackbox", instance="https://test-probe.invalid"}
                     threshold: ''
                     threshold_field: ''
                     threshold_unit: ''
@@ -298,20 +298,20 @@ domain:
                     test:
                         eval_time: 20m
                         exp_annotations:
-                            description: 'The certificate served on https://sonde-de-test.invalid
+                            description: 'The certificate served on https://test-probe.invalid
                                 expires in less than 21 days. An expired certificate
                                 gives no warning: it breaks every connection at once.'
                             summary: A TLS certificate is approaching its expiry
                         exp_labels:
                             env: dev
-                            instance: https://sonde-de-test.invalid
+                            instance: https://test-probe.invalid
                             job: blackbox
                             service: boutique
                             severity: warning
                         series:
                         -   points: 908400+0x25
                             series: probe_ssl_earliest_cert_expiry{job="blackbox",
-                                instance="https://sonde-de-test.invalid"}
+                                instance="https://test-probe.invalid"}
                     threshold: '21'
                     threshold_field: certificate_days
                     threshold_unit: days before expiry
@@ -352,20 +352,20 @@ domain:
                     test:
                         eval_time: 70m
                         exp_annotations:
-                            description: Container conteneur-de-test of pod pod-de-test
+                            description: Container test-container of pod test-pod
                                 has restarted more than 3 times in one hour.
                             summary: A container is restarting in a loop
                         exp_labels:
-                            container: conteneur-de-test
+                            container: test-container
                             env: dev
                             namespace: boutique-dev
-                            pod: pod-de-test
+                            pod: test-pod
                             service: boutique
                             severity: warning
                         series:
                         -   points: 0+1x70
                             series: kube_pod_container_status_restarts_total{namespace="boutique-dev",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                     threshold: '3'
                     threshold_field: restarts_per_hour
                     threshold_unit: restarts per hour
@@ -404,24 +404,24 @@ domain:
                     test:
                         eval_time: 15m
                         exp_annotations:
-                            description: Container conteneur-de-test of pod pod-de-test
+                            description: Container test-container of pod test-pod
                                 has exceeded 90 % of its memory limit for 10 minutes.
                                 An actual overrun causes an OOMKill, not a slowdown.
                             summary: A container is approaching its memory limit
                         exp_labels:
-                            container: conteneur-de-test
+                            container: test-container
                             env: dev
                             namespace: boutique-dev
-                            pod: pod-de-test
+                            pod: test-pod
                             service: boutique
                             severity: warning
                         series:
                         -   points: 950000000+0x20
                             series: container_memory_working_set_bytes{namespace="boutique-dev",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                         -   points: 1000000000+0x20
                             series: container_spec_memory_limit_bytes{namespace="boutique-dev",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                     threshold: '0.9'
                     threshold_field: memory_ratio
                     threshold_unit: proportion of the limit (0.9 = 90 %)
@@ -442,18 +442,18 @@ domain:
                     test:
                         eval_time: 15m
                         exp_annotations:
-                            description: Pod pod-de-test has been consuming more than
+                            description: Pod test-pod has been consuming more than
                                 1.5 core(s) for 10 minutes.
                             summary: A pod is durably consuming a lot of CPU
                         exp_labels:
                             env: dev
-                            pod: pod-de-test
+                            pod: test-pod
                             service: boutique
                             severity: warning
                         series:
                         -   points: 0+150x20
                             series: container_cpu_usage_seconds_total{namespace="boutique-dev",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                     threshold: '1.5'
                     threshold_field: cpu_cores
                     threshold_unit: cores
@@ -518,19 +518,19 @@ domain:
                     test:
                         eval_time: 6m
                         exp_annotations:
-                            description: Instance instance-de-test:9090 of job boutique
+                            description: Instance test-instance:9090 of job boutique
                                 has not answered for 5 minutes.
                             summary: The target no longer answers the collector
                         exp_labels:
                             criticality: high
                             env: prod
-                            instance: instance-de-test:9090
+                            instance: test-instance:9090
                             job: boutique
                             service: boutique
                             severity: critical
                         series:
                         -   points: 0+0x10
-                            series: up{job="boutique", instance="instance-de-test:9090"}
+                            series: up{job="boutique", instance="test-instance:9090"}
                     threshold: ''
                     threshold_field: ''
                     threshold_unit: ''
@@ -683,7 +683,7 @@ domain:
                     test:
                         eval_time: 6m
                         exp_annotations:
-                            description: 'The external probe on https://sonde-de-test.invalid
+                            description: 'The external probe on https://test-probe.invalid
                                 has been failing for 5 minutes. The service can be
                                 running and stay unreachable: that is precisely what
                                 this probe sees and the others do not.'
@@ -691,13 +691,13 @@ domain:
                         exp_labels:
                             criticality: high
                             env: prod
-                            instance: https://sonde-de-test.invalid
+                            instance: https://test-probe.invalid
                             job: blackbox
                             service: boutique
                             severity: critical
                         series:
                         -   points: 0+0x10
-                            series: probe_success{job="blackbox", instance="https://sonde-de-test.invalid"}
+                            series: probe_success{job="blackbox", instance="https://test-probe.invalid"}
                     threshold: ''
                     threshold_field: ''
                     threshold_unit: ''
@@ -720,21 +720,21 @@ domain:
                     test:
                         eval_time: 20m
                         exp_annotations:
-                            description: 'The certificate served on https://sonde-de-test.invalid
+                            description: 'The certificate served on https://test-probe.invalid
                                 expires in less than 30 days. An expired certificate
                                 gives no warning: it breaks every connection at once.'
                             summary: A TLS certificate is approaching its expiry
                         exp_labels:
                             criticality: high
                             env: prod
-                            instance: https://sonde-de-test.invalid
+                            instance: https://test-probe.invalid
                             job: blackbox
                             service: boutique
                             severity: warning
                         series:
                         -   points: 1297200+0x25
                             series: probe_ssl_earliest_cert_expiry{job="blackbox",
-                                instance="https://sonde-de-test.invalid"}
+                                instance="https://test-probe.invalid"}
                     threshold: '30'
                     threshold_field: certificate_days
                     threshold_unit: days before expiry
@@ -776,21 +776,21 @@ domain:
                     test:
                         eval_time: 70m
                         exp_annotations:
-                            description: Container conteneur-de-test of pod pod-de-test
+                            description: Container test-container of pod test-pod
                                 has restarted more than 2 times in one hour.
                             summary: A container is restarting in a loop
                         exp_labels:
-                            container: conteneur-de-test
+                            container: test-container
                             criticality: high
                             env: prod
                             namespace: boutique-prod
-                            pod: pod-de-test
+                            pod: test-pod
                             service: boutique
                             severity: warning
                         series:
                         -   points: 0+1x70
                             series: kube_pod_container_status_restarts_total{namespace="boutique-prod",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                     threshold: '2'
                     threshold_field: restarts_per_hour
                     threshold_unit: restarts per hour
@@ -830,25 +830,25 @@ domain:
                     test:
                         eval_time: 15m
                         exp_annotations:
-                            description: Container conteneur-de-test of pod pod-de-test
+                            description: Container test-container of pod test-pod
                                 has exceeded 85 % of its memory limit for 10 minutes.
                                 An actual overrun causes an OOMKill, not a slowdown.
                             summary: A container is approaching its memory limit
                         exp_labels:
-                            container: conteneur-de-test
+                            container: test-container
                             criticality: high
                             env: prod
                             namespace: boutique-prod
-                            pod: pod-de-test
+                            pod: test-pod
                             service: boutique
                             severity: warning
                         series:
                         -   points: 925000000+0x20
                             series: container_memory_working_set_bytes{namespace="boutique-prod",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                         -   points: 1000000000+0x20
                             series: container_spec_memory_limit_bytes{namespace="boutique-prod",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                     threshold: '0.85'
                     threshold_field: memory_ratio
                     threshold_unit: proportion of the limit (0.9 = 90 %)
@@ -870,19 +870,19 @@ domain:
                     test:
                         eval_time: 15m
                         exp_annotations:
-                            description: Pod pod-de-test has been consuming more than
+                            description: Pod test-pod has been consuming more than
                                 3 core(s) for 10 minutes.
                             summary: A pod is durably consuming a lot of CPU
                         exp_labels:
                             criticality: high
                             env: prod
-                            pod: pod-de-test
+                            pod: test-pod
                             service: boutique
                             severity: warning
                         series:
                         -   points: 0+240x20
                             series: container_cpu_usage_seconds_total{namespace="boutique-prod",
-                                pod="pod-de-test", container="conteneur-de-test"}
+                                pod="test-pod", container="test-container"}
                     threshold: '3'
                     threshold_field: cpu_cores
                     threshold_unit: cores

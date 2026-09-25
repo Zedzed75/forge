@@ -30,7 +30,7 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: probe_success{job="blackbox", instance="https://sonde-de-test.invalid"}
+      - series: probe_success{job="blackbox", instance="https://test-probe.invalid"}
         values: 0+0x10
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -42,20 +42,20 @@ tests:
           - exp_labels:
               criticality: high
               env: prod
-              instance: https://sonde-de-test.invalid
+              instance: https://test-probe.invalid
               job: blackbox
               service: boutique
               severity: critical
             exp_annotations:
               summary: The service is no longer reachable from the outside
-              description: 'The external probe on https://sonde-de-test.invalid has been failing for 5 minutes. The service can be running and stay unreachable: that is precisely what this probe sees and the others do not.'
+              description: 'The external probe on https://test-probe.invalid has been failing for 5 minutes. The service can be running and stay unreachable: that is precisely what this probe sees and the others do not.'
 
   # ---------------------------------------------------------------------------
   # BoutiqueCertificatBientotExpire — A TLS certificate is approaching its expiry
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: probe_ssl_earliest_cert_expiry{job="blackbox", instance="https://sonde-de-test.invalid"}
+      - series: probe_ssl_earliest_cert_expiry{job="blackbox", instance="https://test-probe.invalid"}
         values: 1297200+0x25
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -67,10 +67,10 @@ tests:
           - exp_labels:
               criticality: high
               env: prod
-              instance: https://sonde-de-test.invalid
+              instance: https://test-probe.invalid
               job: blackbox
               service: boutique
               severity: warning
             exp_annotations:
               summary: A TLS certificate is approaching its expiry
-              description: 'The certificate served on https://sonde-de-test.invalid expires in less than 30 days. An expired certificate gives no warning: it breaks every connection at once.'
+              description: 'The certificate served on https://test-probe.invalid expires in less than 30 days. An expired certificate gives no warning: it breaks every connection at once.'

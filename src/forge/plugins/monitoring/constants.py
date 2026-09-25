@@ -41,7 +41,7 @@ BLACKBOX_MODULE: Final[str] = "http_2xx"
 
 #: Valeurs employees par les tests unitaires engendres. Elles n'ont besoin
 #: d'exister nulle part : promtool fabrique les series lui-meme.
-TEST_INSTANCE: Final[str] = "instance-de-test:9090"
-TEST_POD: Final[str] = "pod-de-test"
-TEST_CONTAINER: Final[str] = "conteneur-de-test"
-TEST_PROBE_URL: Final[str] = "https://sonde-de-test.invalid"
+TEST_INSTANCE: Final[str] = "test-instance:9090"
+TEST_POD: Final[str] = "test-pod"
+TEST_CONTAINER: Final[str] = "test-container"
+TEST_PROBE_URL: Final[str] = "https://test-probe.invalid"
