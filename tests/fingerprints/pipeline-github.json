@@ -1,9 +1,9 @@
 {
   "ansible_handler_links": [],
   "files": {
-    ".copier-answers.yml": "- structured 96f16d9416fc73a8",
+    ".copier-answers.yml": "- structured 46343f9bb816f369",
     ".gitattributes": "- text f70d755466b10164",
-    ".github/workflows/ci.yml": "- structured a4ea443b05c17a03",
+    ".github/workflows/ci.yml": "- structured 3823975dde4fc5d2",
     "README.md": "- prose db0c4e39d67a28d0",
     "forge.yml": "- structured b4a55e8dcd8fc442",
     "helm/.copier-answers.yml": "- structured 8bb26bc5dad7901b",
