@@ -461,3 +461,16 @@ Reminders for phase 5:
   finished and tested (two dialects, witness through a fake domain, the three
   defects locked down). 568 tests. **Target complete: the five domains of the
   brief are delivered.**
+- Session 7 (2026-09-26): ZED-12, found while preparing publication. forge had
+  **never** been usable from an install — the template root was looked up at the
+  repository root, which no wheel has — and no test saw it, because every test runs
+  from a checkout. `copier.yml` and `partials/` are now shipped inside the package
+  as well (`force-include`), and `template_root()` prefers the repository root and
+  falls back to the package. Preferring the repository is the whole point: it is the
+  only shape copier treats as a versioned template, so a checkout keeps
+  `forge update` and its `_commit` line, and its output stays byte-identical —
+  goldens and fingerprints untouched. An installed forge loses `update`, which is
+  copier's constraint and is written down in DESIGN.md §8 Q2-bis. The two tests that
+  would have caught the defect are in `test_cli.py`, one of them installing the
+  built wheel into a throwaway virtualenv and comparing the result against a golden
+  tree.

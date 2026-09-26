@@ -12,7 +12,9 @@ Phase 1 deliverable. Every statement about copier's behaviour has been
 forge.yml  ──►  core: loading + validation (pydantic assembled from the plugins)
                   │
                   ├─ for each selected domain ──► forge_answers hook ──► copier.run_copy
-                  │        (src = forge repository root, _subdirectory = plugin template)
+                  │        (src = forge repository root, or the package directory
+                  │         once installed — §8 Q2-bis;
+                  │         _subdirectory = plugin template)
                   │                                          │
                   │                                          ▼
                   │                                  <target>/<domain>/…
@@ -127,7 +129,9 @@ def forge_template_subdir() -> str:
     """Path of the copier template, relative to the forge repository root.
 
     Example: "src/forge/plugins/ansible/template".
-    Passed to copier through `_subdirectory` (see §5).
+    Passed to copier through `_subdirectory` (see §5). An installed forge renders
+    from the package directory, where the same template is one prefix shorter; the
+    core shortens it, not the plugin (§8 Q2-bis).
     """
 
 @hookspec
@@ -450,7 +454,7 @@ updated on its own (`forge update --only helm`).
 
 ## 5. Invoking copier
 
-### 5.1 Root `copier.yml` (single, at the forge repository root)
+### 5.1 Root `copier.yml` (single, at the forge repository root; copied into the package for the wheel — §8 Q2-bis)
 
 ```yaml
 _subdirectory: "[[ template_subdir ]]"     # provided by the forge_template_subdir hook
@@ -489,7 +493,7 @@ Every plugin template must contain `[[ _copier_conf.answers_file ]].jinja`
 
 ```python
 run_copy(
-    src_path=str(template_root),               # forge repository root (git repository)
+    src_path=str(template_root),               # repo root, or the package once installed
     dst_path=str(target / domain.outdir),      # <target>/ansible
     data={
         "plugin": domain.name,
@@ -626,6 +630,67 @@ at a subdirectory of a git repository is not recognised as a versioned template
 → **DECISION: a single `copier.yml` at the forge repository root, with
 `_subdirectory` supplied as data.** Validated end to end (copy + update + merge
 of a manual edit).
+→ **Still in force. Q2-bis adds the installed case it did not cover.**
+
+**Q2-bis. The template root has two shapes, and the repository one wins.**
+*(Reopens Q2 — new reason: forge is being published.)* Q2 answered "where does the
+template live" for a checkout and, without saying so, made that the only answer.
+The repository root does not exist in a wheel, so a `pip install`ed forge found no
+`copier.yml`, and `forge generate` refused to generate anything at all. forge had
+never been usable from an install. No test saw it: every test runs from a
+checkout, where the repository root is there by construction.
+
+The constraint Q2 measured is what makes this awkward. copier treats `src_path` as
+a versioned template only when it is the **exact** root of a git repository, and
+only a versioned template can be `copier update`d. So the two requirements pull
+apart:
+
+- `copier update` from a checkout needs the root to be the **repository root**;
+- generating from an install needs the root to be **inside the distribution**,
+  and `site-packages/forge` is the root of no repository.
+
+Both were considered. Putting the root inside the package for everyone is the
+smaller change and gives one path instead of two — but it takes `copier update`
+and the `_commit` line away from *checkout* users as well, not just installed
+ones, since `<repo>/src/forge` is no more a repository root than
+`site-packages/forge` is. That was judged too expensive: `forge update` is the
+reason rendering goes through copier at all.
+
+→ **DECISION: `template_root()` tries the repository root first, then the package
+directory.** A checkout and an editable install take branch one and behave
+**exactly as before** — versioned template, `vcs_ref="HEAD"`, `_commit` recorded,
+`copier update` working, byte-identical output. A wheel install takes branch two.
+`copier.yml` and `partials/` stay at the repository root, the one source of truth,
+and are **copied into the package at build time** (`force-include` in
+`pyproject.toml`) so that both shapes carry them at `<root>/copier.yml` and
+`<root>/partials/`. That is what keeps the templates' `partials/header.jinja`
+import working unchanged in both: copier roots its Jinja loader at `src_path`.
+
+Two consequences follow, and both are narrow:
+
+1. **A plugin's `template_subdir` is one prefix longer in a checkout than in an
+   install** (`src/forge/plugins/ansible/template` against
+   `plugins/ansible/template`). Plugins declare the repository form — the one a
+   contributor can see on disk — and the core shortens it
+   (`copier_runner.resolve_subdir`) by trying both and keeping the one that
+   exists. Resolving by probing rather than by remembering which branch was taken
+   also makes `FORGE_TEMPLATE_SRC` accept either shape.
+2. **An installed forge cannot `copier update`**, and neither can an install-shaped
+   `FORGE_TEMPLATE_SRC`. This is copier's constraint, not a gap in forge:
+   `site-packages/forge` has no git history to compare against. `run_update`
+   refuses with a message that names the *template* root and points at
+   `forge generate --force` or at a git clone — copier's own message says
+   "git-tracked template" without indicating which of the two repositories it
+   means. For the same reason an installed forge records no `_commit` in
+   `.copier-answers.yml`; a checkout still does.
+
+Verified against a built wheel and a venv that never had the repository:
+`forge/copier.yml` and `forge/partials/header.jinja` are shipped, and
+`forge generate` produces a tree identical to the golden one. Both are asserted on
+every run by `tests/test_cli.py::test_the_wheel_ships_the_whole_template_root` and
+`::test_an_installed_forge_generates_the_same_project_as_a_checkout` — the second
+being the only test in the suite that exercises forge the way a user who ran
+`pip install` does.
 
 **Q3. Shape of the data passed to copier.** Three declared questions (`plugin`,
 `service`, `domain`, plus `template_subdir` and `forge_version`) rather than one
@@ -742,8 +807,8 @@ names dependencies without a version.
 forge/
 ├── CLAUDE.md  PLAN.md  MIGRATION.md  DESIGN.md  README.md  CHANGELOG.md
 ├── CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md  LICENSE
-├── copier.yml                     # single root template (§5.1)
-├── partials/header.jinja          # macros shared by the templates
+├── copier.yml                     # single root template (§5.1); copied into the
+├── partials/header.jinja          # wheel under forge/ so an install can render (§8 Q2-bis)
 ├── pyproject.toml                 # uv, python >=3.11
 ├── .gitattributes                 # * text=auto eol=lf
 ├── examples/                      # six specifications, all tested
@@ -777,7 +842,7 @@ forge/
 | `plugins/terraform/hcl.py` | `terraform fmt` aligns the `=` of consecutive lines: a template cannot align keys whose length it does not know, the projection can |
 | `plugins/monitoring/render.py` | an alert annotation and the annotation expected by its unit test are computed together, otherwise they diverge |
 | `plugins/pipeline/jobs.py`, `tools.py` | deriving jobs from a `GenerationContext`, and knowing how to install the tools the commands name — the only table in the project that names binaries |
-| `partials/` at the root | macros shared between templates, resolved by copier's Jinja loader |
+| `partials/` at the root | macros shared between templates, resolved by copier's Jinja loader. Copied into the package for the wheel (§8 Q2-bis) |
 
 `tests/parity/` existed throughout the port then was removed in phase 10, along
 with `_legacy/` (see `MIGRATION.md`, closing section).
