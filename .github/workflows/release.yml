@@ -53,13 +53,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Every `uses:` below is pinned to a full commit SHA with the version in a
+      # trailing comment, the form the publish action already used. It matters
+      # more here than anywhere else in the repository: this job holds no
+      # `id-token` permission and so cannot publish, but it can alter `dist/`
+      # before the upload, and the job that does hold `id-token` then sends that
+      # artifact to PyPI under our identity, as `iac-forge`. A PyPI version is
+      # never replaceable, not even after deletion, so the distance between a
+      # tampered build and a permanent bad release wearing our name is one job
+      # boundary with no human step in it. A mutable tag is not an acceptable
+      # entry point for that. Dependabot rewrites both the SHA and the comment
+      # (.github/dependabot.yml).
+      #
       # `fetch-depth: 0` pour disposer des tags : le garde-fou ci-dessous a
       # besoin du tag, et hatchling lit la version dans le fichier source.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
           python-version: "3.13"
@@ -91,7 +103,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: distributions
           path: dist/
@@ -112,7 +124,7 @@ jobs:
       # Seule permission ajoutee : demander le jeton OIDC de courte duree.
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: distributions
           path: dist/
@@ -141,7 +153,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: distributions
           path: dist/
