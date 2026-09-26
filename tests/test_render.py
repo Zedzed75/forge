@@ -10,10 +10,19 @@ import yaml
 from forge.errors import RenderError
 from forge.plugins_api.types import DomainInfo
 from forge.render import scaffold
+from forge.render import copier_runner
 from forge.render.copier_runner import (
+    ANSWERS_FILENAME,
+    DEFAULT_REF,
+    PACKAGE_RELPATH,
     normalise_text,
     normalise_tree,
+    package_root,
+    repository_root,
+    resolve_subdir,
     rewrite_src_path,
+    run_update,
+    template_ref,
     template_root,
 )
 from forge.render.diff import diff_trees
@@ -102,6 +111,126 @@ def test_a_forced_root_without_copier_yml_is_refused(tmp_path, monkeypatch):
     monkeypatch.setenv("FORGE_TEMPLATE_SRC", str(tmp_path))
     with pytest.raises(RenderError, match="copier.yml"):
         template_root()
+
+
+def test_the_package_sits_where_this_prefix_says():
+    """`PACKAGE_RELPATH` is the hinge between the two root shapes; it must be true.
+
+    If it ever stops describing the layout, `resolve_subdir` silently stops
+    shortening anything and an installed forge is broken again -- with no other
+    test able to notice, since a checkout never needs the shortened form.
+    """
+    assert repository_root() / PACKAGE_RELPATH == package_root()
+    assert (repository_root() / "copier.yml").is_file()
+    assert (repository_root() / "partials" / "header.jinja").is_file()
+
+
+def test_the_repository_root_wins_over_the_package(monkeypatch):
+    """From a checkout the root must stay the repository, not the package.
+
+    Preferring the package would cost every checkout user `copier update` and the
+    `_commit` line in their projects, because only a git repository root is a
+    versioned template to copier (DESIGN.md §8 Q2-bis).
+    """
+    monkeypatch.delenv("FORGE_TEMPLATE_SRC", raising=False)
+    assert template_root() == repository_root()
+    assert template_root() != package_root()
+
+
+def test_a_root_without_a_repository_above_it_falls_back_to_the_package(
+    tmp_path, monkeypatch
+):
+    """The installed case: `site-packages/forge` is the root, and it carries the template.
+
+    Simulated with the two layouts side by side -- a "repository" with no
+    copier.yml, a "package" with one -- which is what a wheel install looks like
+    from `template_root()`'s point of view. That the wheel really carries the file
+    is asserted separately, against a built wheel, in
+    `test_cli.py::test_the_wheel_ships_the_whole_template_root`.
+    """
+    monkeypatch.delenv("FORGE_TEMPLATE_SRC", raising=False)
+    site_packages = tmp_path / "site-packages" / "forge"
+    site_packages.mkdir(parents=True)
+    (site_packages / "copier.yml").write_text("", encoding="utf-8")
+    monkeypatch.setattr(copier_runner, "repository_root", lambda: tmp_path / "no-repo")
+    monkeypatch.setattr(copier_runner, "package_root", lambda: site_packages)
+
+    assert template_root() == site_packages
+
+
+def test_no_root_at_all_names_both_places_it_looked(monkeypatch):
+    monkeypatch.delenv("FORGE_TEMPLATE_SRC", raising=False)
+    monkeypatch.setattr(copier_runner, "repository_root", lambda: Path("/nowhere"))
+    monkeypatch.setattr(copier_runner, "package_root", lambda: Path("/nowhere-either"))
+    with pytest.raises(RenderError, match="nowhere-either"):
+        template_root()
+
+
+# ---------------------------------------------------------------------------
+# Resolving a plugin's template against the root in use
+# ---------------------------------------------------------------------------
+
+
+def test_a_repository_root_keeps_the_declared_subdir(tmp_path):
+    declared = f"{PACKAGE_RELPATH}/plugins/demo/template"
+    (tmp_path / declared).mkdir(parents=True)
+    assert resolve_subdir(tmp_path, declared) == declared
+
+
+def test_a_package_root_drops_the_repository_prefix(tmp_path):
+    """The installed shape: the package *is* what `src/forge/` became."""
+    (tmp_path / "plugins" / "demo" / "template").mkdir(parents=True)
+    assert (
+        resolve_subdir(tmp_path, f"{PACKAGE_RELPATH}/plugins/demo/template")
+        == "plugins/demo/template"
+    )
+
+
+def test_a_subdir_that_exists_nowhere_is_refused_with_both_forms(tmp_path):
+    """Failing loudly beats handing copier a path that is not there."""
+    with pytest.raises(RenderError, match="plugins/demo/template"):
+        resolve_subdir(tmp_path, f"{PACKAGE_RELPATH}/plugins/demo/template")
+
+
+# ---------------------------------------------------------------------------
+# Template reference
+# ---------------------------------------------------------------------------
+
+
+def test_an_unversioned_root_has_no_reference(tmp_path):
+    """copier would ignore `vcs_ref` in silence: forge says so by returning None."""
+    assert template_ref(tmp_path) is None
+
+
+def test_a_repository_root_keeps_its_reference(tmp_path):
+    """Only the EXACT root of a repository is a versioned template to copier."""
+    (tmp_path / ".git").mkdir()
+    assert template_ref(tmp_path) == DEFAULT_REF
+    assert template_ref(tmp_path, "v1.2.3") == "v1.2.3"
+    # A subdirectory of that same work tree is not one -- which is why the package
+    # directory cannot be the root in a checkout without losing `update`.
+    inner = tmp_path / PACKAGE_RELPATH
+    inner.mkdir(parents=True)
+    assert template_ref(inner) is None
+
+
+def test_the_checkout_keeps_its_reference():
+    """The AC that matters: a checkout renders exactly as it did before."""
+    assert template_ref(template_root()) == DEFAULT_REF
+
+
+def test_update_refuses_an_unversioned_root(tmp_path):
+    """The message has to name the TEMPLATE root, not the target project.
+
+    This is the situation of every installed forge: `site-packages/forge` is the
+    root of no repository, so `copier update` is impossible there.
+    """
+    target = tmp_path / "project"
+    target.mkdir()
+    (target / ANSWERS_FILENAME).write_text("_src_path: x\n", encoding="utf-8")
+
+    with pytest.raises(RenderError, match="is not the root of a git repository"):
+        run_update(dst=target, src=tmp_path / "template-without-git")
 
 
 def test_rewrite_src_path_unties_the_project_from_its_original_machine(tmp_path):
