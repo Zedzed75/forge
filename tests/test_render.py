@@ -152,9 +152,7 @@ def test_the_core_refuses_to_overwrite_a_modified_repository_file(tmp_path, spec
     assert (tmp_path / "README.md").read_text(encoding="utf-8") == "written by hand\n"
 
     scaffold.write_repo_files(tmp_path, spec_data, infos, force=True)
-    # The generated README is still French: it is output, translated with the
-    # templates and the golden fixtures.
-    assert "Domaines generes" in (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert "Generated domains" in (tmp_path / "README.md").read_text(encoding="utf-8")
 
 
 def test_the_target_s_source_forge_yml_is_not_rewritten(tmp_path, spec_data):

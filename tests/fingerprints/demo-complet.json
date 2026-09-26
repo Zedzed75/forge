@@ -2,7 +2,7 @@
   "ansible_handler_links": [],
   "files": {
     ".gitattributes": "- text f70d755466b10164",
-    "README.md": "- prose 0a6aab44dd49a06d",
+    "README.md": "- prose e2e0929dee883ba1",
     "demo/.copier-answers.yml": "- structured a71c7a8f6700fb65",
     "demo/README.md": "- prose 06903f606e6767d0",
     "demo/environments/dev/cpu.yml": "- structured 8f907c45de6f3bf7",
