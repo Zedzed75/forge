@@ -6,19 +6,80 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "forge"
+# Nom de distribution, et lui seul. Trois noms sont en jeu ici, et ils ne sont
+# volontairement PAS alignes :
+#
+#   distribution (ce que PyPI indexe)     iac-forge  <- cette ligne, elle seule
+#   commande installee (ce qu'on tape)    forge      <- [project.scripts] plus bas
+#   paquet importe (ce que le code lit)   forge      <- src/forge, inchange
+#
+# `forge` est deja pris sur PyPI par un projet sans rapport : `pip install forge`
+# ne sera jamais nous. L'utilisateur tape `pip install iac-forge` une fois, puis
+# `forge` pour toujours. Aligner la commande ou le paquet importe sur le nom de
+# distribution casserait toutes les lignes de commande et tous les imports
+# existants sans rien apporter — le nom de distribution est le seul que PyPI
+# contraigne.
+name = "iac-forge"
 # Version lue dans src/forge/__init__.py : une seule source. Elle etait
 # dupliquee ici et la, et les deux avaient deja diverge — `forge --version`
 # annoncait 0.1.0 sur un depot tague v1.1.0.
 dynamic = ["version"]
 description = "Plugin-based deterministic generator of complete, commented IaC projects"
-readme = "README.md"
+# Table explicite plutot que la forme courte. `readme = "README.md"` laisse le
+# backend *deduire* le type de contenu du suffixe ; PyPI rend la page du projet
+# d'apres le `Description-Content-Type` declare, et un type absent ou faux y
+# affiche le Markdown brut. Le declarer supprime la deduction.
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
 # Forme PEP 639 : une expression SPDX, plus le fichier de licence declare a
 # part. La table `{ text = "MIT" }` est obsolete et n'embarquait aucun fichier
 # dans la distribution — le depot annoncait MIT sans en livrer le texte.
 license = "MIT"
 license-files = ["LICENSE"]
+# Les mots-clefs sont ce sur quoi la recherche PyPI indexe. Ils nomment les cinq
+# domaines livres, pas des generalites : quelqu'un qui cherche « ansible
+# generator » ou « helm scaffold » doit tomber dessus.
+keywords = [
+    "iac",
+    "infrastructure-as-code",
+    "generator",
+    "scaffolding",
+    "ansible",
+    "helm",
+    "terraform",
+    "prometheus",
+    "ci-cd",
+    "copier",
+    "jinja2",
+]
+# Deux pieges dans cette liste, tous deux verifies contre les trove classifiers
+# de PyPI :
+#
+# 1. Pas de « License :: OSI Approved :: MIT License ». La licence est declaree
+#    plus haut comme expression SPDX (PEP 639), ce qui produit un champ
+#    `License-Expression` en metadata 2.4 ; PyPI *rejette* un envoi qui porte a
+#    la fois ce champ et un classifier `License ::`. Les deux formes ne
+#    coexistent pas, et c'est l'expression qu'on garde.
+# 2. « 4 - Beta » et non « 5 - Production/Stable » malgre le tag v1.1.0 : le
+#    paquet n'a jamais ete installe par personne hors de ce depot. On passera en
+#    Production/Stable quand des retours d'usage reel le justifieront, pas parce
+#    que le numero de version y ressemble.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: System :: Systems Administration",
+]
 dependencies = [
     "copier>=9.7",
     "pluggy>=1.5",
@@ -33,6 +94,21 @@ dev = [
     "pytest>=8.0",
 ]
 
+# Les liens de la colonne de droite sur la page PyPI. Sans eux, la page ne donne
+# aucun moyen d'atteindre le code, de signaler un bug ou de lire la licence :
+# c'est la difference entre un paquet publie et un paquet adoptable.
+#
+# Pas d'entree « Changelog » : CHANGELOG.md n'existe pas encore (il arrive en
+# phase 5). Un lien mort sur la page d'accueil est pire que pas de lien.
+[project.urls]
+Homepage = "https://github.com/Zedzed75/forge"
+Repository = "https://github.com/Zedzed75/forge"
+Issues = "https://github.com/Zedzed75/forge/issues"
+Documentation = "https://github.com/Zedzed75/forge#readme"
+
+# Le nom de la commande, et il ne suit PAS le nom de la distribution : on
+# installe `iac-forge` et on tape `forge`. Voir le commentaire de `name` plus
+# haut. Ne pas renommer.
 [project.scripts]
 forge = "forge.cli:app"
 

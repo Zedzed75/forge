@@ -1,0 +1,153 @@
+# ---------------------------------------------------------------------------
+# Publication de la distribution `iac-forge` sur PyPI.
+# ---------------------------------------------------------------------------
+# Trois noms sont en jeu et un seul est celui de ce fichier : la distribution
+# publiee est `iac-forge`, la commande installee reste `forge`, le paquet
+# importe reste `forge`. Voir le commentaire de `name` dans pyproject.toml.
+#
+# Authentification : **Trusted Publishing (OIDC)**, jamais un jeton. GitHub
+# signe un jeton OIDC de courte duree pour ce depot, ce workflow et cet
+# environnement ; PyPI le verifie contre le publieur declare cote PyPI. Aucun
+# secret PyPI n'existe donc dans ce depot, et il n'y a rien a faire fuiter le
+# jour ou il devient public. `permissions: id-token: write` est ce qui autorise
+# la demande de ce jeton — sans cette ligne l'envoi echoue en 403, et c'est la
+# seule permission que les jobs de publication ajoutent.
+#
+# Deux declencheurs, volontairement dissymetriques :
+#
+#   push d'un tag v*    -> PyPI reel. Irreversible : une version publiee sur
+#                          PyPI ne peut pas etre remplacee, meme apres
+#                          suppression. D'ou le garde-fou tag/version ci-dessous.
+#   workflow_dispatch   -> TestPyPI seulement. C'est la repetition generale,
+#                          lancee a la main autant de fois qu'on veut.
+#
+# TestPyPI n'est jamais declenche par un tag : le second tag de la meme version
+# serait refuse en « File already exists » et ferait echouer une publication
+# reelle pour une raison qui n'a rien a voir avec elle.
+#
+# Prerequis cote PyPI (a faire une fois, par un humain, dans l'interface) :
+# declarer un « pending publisher » sur pypi.org ET sur test.pypi.org pour le
+# projet `iac-forge`, avec owner `Zedzed75`, repository `forge`, workflow
+# `release.yml`, et le nom d'environnement correspondant (`pypi` / `testpypi`).
+# Le premier envoi reussi cree le projet, reserve le nom, et convertit le
+# publieur en attente en publieur etabli.
+# ---------------------------------------------------------------------------
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Lecture seule par defaut. Les deux jobs de publication elargissent
+# eux-memes, et seulement pour `id-token`.
+permissions:
+  contents: read
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Construction unique. Les deux cibles publient EXACTEMENT les memes
+  # fichiers : si TestPyPI reconstruisait de son cote, la repetition generale
+  # ne vaudrait rien — on aurait valide un artefact que PyPI ne recevra pas.
+  # -------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # `fetch-depth: 0` pour disposer des tags : le garde-fou ci-dessous a
+      # besoin du tag, et hatchling lit la version dans le fichier source.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.13"
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Construire la sdist et la wheel
+        run: uv build
+
+      # `twine check --strict` et non `twine check` : sans `--strict`, une
+      # description longue mal formee n'est qu'un avertissement, et on ne
+      # l'apprend qu'en voyant la page PyPI afficher du Markdown brut. En
+      # strict, c'est une erreur ici, avant l'envoi.
+      - name: Verifier les metadonnees
+        run: uvx twine check --strict dist/*
+
+      # Le depot a deja vu la version diverger de son tag : `forge --version`
+      # annoncait 0.1.0 sur un depot tague v1.1.0. Sur PyPI la meme erreur est
+      # definitive, puisqu'on ne republie pas une version. On compare donc le
+      # tag pousse au nom de fichier produit, et on refuse avant l'envoi.
+      - name: Verifier que le tag correspond a la version construite
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          built=$(ls dist/*.tar.gz | sed -E 's|.*/iac_forge-(.+)\.tar\.gz|\1|')
+          echo "tag=${tag} version construite=${built}"
+          if [ "$tag" != "$built" ]; then
+            echo "::error::le tag ${GITHUB_REF_NAME} ne correspond pas a la version construite ${built}" \
+                 "— corrigez src/forge/__init__.py ou le tag, puis retaguez."
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  # -------------------------------------------------------------------------
+  # Repetition generale. Le job ne publie sur TestPyPI que sur declenchement
+  # manuel ; c'est lui qui prouve la chaine OIDC de bout en bout avant qu'on
+  # touche a PyPI reel.
+  # -------------------------------------------------------------------------
+  testpypi:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/iac-forge
+    permissions:
+      # Seule permission ajoutee : demander le jeton OIDC de courte duree.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+      - name: Publier sur TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Une repetition generale se relance. Sans `skip-existing`, le second
+          # essai sur une version deja envoyee tombe en rouge sans qu'il y ait
+          # quoi que ce soit a corriger.
+          skip-existing: true
+
+  # -------------------------------------------------------------------------
+  # PyPI reel. Tag uniquement, et derriere un environnement GitHub : c'est la
+  # ou l'on accroche une regle de revue obligatoire si le board en veut une,
+  # et c'est le nom que le publieur declare cote PyPI epingle.
+  # -------------------------------------------------------------------------
+  pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/iac-forge
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+      # Pas de `skip-existing` ici, a l'inverse de TestPyPI : sur PyPI, « cette
+      # version existe deja » veut dire qu'on republie par erreur, et on veut
+      # le savoir en rouge plutot que voir le job passer sans rien envoyer.
+      - name: Publier sur PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
