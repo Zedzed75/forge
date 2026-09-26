@@ -42,6 +42,22 @@ path = "src/forge/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/forge"]
 
+# The template root has to exist inside the wheel, or an installed forge cannot
+# render anything (DESIGN.md §8 Q2-bis). `packages` carries everything under
+# `src/forge/`, which is where the domain templates already live -- but
+# `copier.yml` and `partials/` sit at the REPOSITORY root, because that is the
+# only shape in which copier sees a versioned template and so the only one in
+# which `forge update` works from a checkout. They are therefore copied into the
+# package at build time rather than moved: one source of truth in the repository,
+# one copy in the distribution.
+#
+# `tests/test_cli.py::test_the_wheel_ships_the_whole_template_root` asserts both
+# land where the renderer looks for them. Do not trust this table without it --
+# non-.py files are the usual trap of a build backend.
+[tool.hatch.build.targets.wheel.force-include]
+"copier.yml" = "forge/copier.yml"
+"partials" = "forge/partials"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

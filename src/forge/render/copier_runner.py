@@ -5,11 +5,14 @@ writes a generated file itself. This module concentrates the constraints found
 during the spike (MIGRATION.md §2):
 
 * `src_path` = forge repository root + `_subdirectory` (otherwise `copier update`
-  fails for lack of a versioned template reference);
+  fails for lack of a versioned template reference) -- falling back to the
+  package directory when there is no repository, which is the installed case
+  (DESIGN.md §8 Q2-bis);
 * `defaults=True` is mandatory (otherwise an interactive prompt, which breaks
   under Git Bash);
 * `unsafe=True` is required as soon as `_jinja_extensions` is declared;
-* `vcs_ref="HEAD"` by default, so the render follows the working tree;
+* `vcs_ref="HEAD"` when the root is a git repository root, `None` otherwise:
+  copier silently ignores the reference in the second case (see `template_ref`);
 * `core.longpaths` forced through environment variables around the call, without
   touching the user's git configuration;
 * `_src_path` rewritten before any `update`, because copier records it as an
@@ -30,8 +33,18 @@ import forge
 from forge.errors import RenderError
 
 #: Git reference used by default: the working tree, uncommitted templates
-#: included (decision DESIGN.md §8 Q8).
+#: included (decision DESIGN.md §8 Q8). It only reaches copier when the template
+#: root is a git repository root (see `template_ref`).
 DEFAULT_REF = "HEAD"
+
+#: Where the `forge` package sits inside the repository. It mirrors
+#: `[tool.hatch.build.targets.wheel] packages = ["src/forge"]`, and it is the
+#: difference between the two shapes a template root can take: the repository
+#: root carries the templates under this prefix, the installed package carries
+#: them directly (DESIGN.md §8 Q2-bis).
+#: `tests/test_render.py::test_the_package_sits_where_this_prefix_says` keeps it
+#: honest -- a constant that can drift from the layout it describes is a trap.
+PACKAGE_RELPATH = "src/forge"
 
 #: Environment variable forcing the template root (tests, installed usage).
 TEMPLATE_SRC_ENV_VAR = "FORGE_TEMPLATE_SRC"
@@ -44,8 +57,46 @@ ANSWERS_FILENAME = ".copier-answers.yml"
 LONGPATHS_SETTING = ("core.longpaths", "true")
 
 
+def package_root() -> Path:
+    """Directory of the installed `forge` package.
+
+    `src/forge/` from a checkout, `site-packages/forge/` once installed.
+    """
+    return Path(forge.__file__).resolve().parent
+
+
+def repository_root() -> Path:
+    """Where the forge repository root would be, relative to the package.
+
+    Only meaningful when forge runs from a checkout (or an editable install). In a
+    wheel this path is whatever happens to sit two levels above `site-packages`,
+    so callers must check that it actually carries a `copier.yml` before using it.
+    """
+    return package_root().parents[len(Path(PACKAGE_RELPATH).parts) - 1]
+
+
 def template_root() -> Path:
-    """Root of the template repository, the one carrying the single `copier.yml`."""
+    """Root handed to copier as `src_path`: the one carrying the single `copier.yml`.
+
+    Two shapes, tried in this order:
+
+    1. **the repository root**, when forge runs from a checkout or an editable
+       install. Preferred deliberately: it is a git repository root, which is the
+       only form copier treats as a versioned template, and therefore the only one
+       in which `copier update` works. Choosing the package directory instead would
+       silently cost every checkout user `forge update` and the `_commit` line in
+       their generated projects.
+    2. **the package directory**, when there is no repository above it. This is the
+       installed case, and it used to be unreachable: the root was looked up only
+       at step 1, so a wheel-installed forge found no `copier.yml` and refused to
+       generate anything at all.
+
+    `copier.yml` and `partials/` live at the repository root and are copied into
+    the package at build time (see `pyproject.toml`), so both shapes carry them at
+    `<root>/copier.yml` and `<root>/partials/`. That is what lets the templates
+    import `partials/header.jinja` unchanged in both cases: copier roots its Jinja
+    loader at `src_path`, not at the repository.
+    """
     forced = os.environ.get(TEMPLATE_SRC_ENV_VAR)
     if forced:
         root = Path(forced).resolve()
@@ -54,13 +105,59 @@ def template_root() -> Path:
                 f"{TEMPLATE_SRC_ENV_VAR}={root} contains no copier.yml"
             )
         return root
-    root = Path(forge.__file__).resolve().parents[2]
-    if (root / "copier.yml").is_file():
-        return root
+    for root in (repository_root(), package_root()):
+        if (root / "copier.yml").is_file():
+            return root
     raise RenderError(
-        "template root not found: forge must be used from its repository, "
-        f"or {TEMPLATE_SRC_ENV_VAR} must point at a copy of that repository."
+        f"template root not found: neither {repository_root()} nor {package_root()} "
+        "carries a copier.yml. If forge was installed, the installation is "
+        "incomplete -- the templates were not shipped with the package. Otherwise "
+        f"{TEMPLATE_SRC_ENV_VAR} can point at a copy of the forge repository."
     )
+
+
+def resolve_subdir(root: Path, subdir: str) -> str:
+    """Express a plugin's `template_subdir` relative to the template root in use.
+
+    A plugin declares its template the way it sits in the repository
+    (`src/forge/plugins/ansible/template`), which is what `_subdirectory` needs
+    when the root is the repository root. When the root is the package directory
+    instead, the same template is one prefix shorter
+    (`plugins/ansible/template`) -- the package *is* what `src/forge/` became.
+
+    Resolved by trying both forms and returning the one that exists, rather than
+    by deciding from which branch of `template_root()` we came: that also makes
+    `FORGE_TEMPLATE_SRC` work whichever of the two shapes the copy has, and it
+    fails loudly instead of handing copier a path that is not there.
+    """
+    candidates = [subdir]
+    prefix = f"{PACKAGE_RELPATH}/"
+    if subdir.startswith(prefix):
+        candidates.append(subdir[len(prefix) :])
+    for candidate in candidates:
+        if (root / candidate).is_dir():
+            return candidate
+    raise RenderError(
+        f"template not found under {root}: tried {', '.join(candidates)}. The "
+        "plugin declares a template directory that the template root does not "
+        "carry."
+    )
+
+
+def template_ref(src: Path, ref: str | None = DEFAULT_REF) -> str | None:
+    """Reference to hand copier, or None when the template is not versioned.
+
+    copier treats `src_path` as a versioned template only when that path is the
+    **exact** root of a git repository: a subdirectory of a work tree is read as a
+    plain path and `vcs_ref` has no effect there (DESIGN.md §8 Q2 measured this at
+    the time). Passing the reference regardless would look like it did something.
+
+    The repository root satisfies this, so a checkout keeps `vcs_ref="HEAD"` and
+    everything that depends on it -- `_commit` in the answers file, and
+    `copier update`. An installed package never does, and `run_update` says so
+    outright instead of letting copier fail on an opaque message.
+    """
+    return ref if (Path(src) / ".git").exists() else None
 
 
 def _git_config_overrides() -> dict[str, str]:
@@ -159,7 +256,7 @@ def _copier_copy(
                 quiet=True,
                 overwrite=force,
                 pretend=pretend,
-                vcs_ref=ref,
+                vcs_ref=template_ref(src, ref),
             )
         except Exception as exc:  # copier raises varied types depending on the cause
             raise RenderError(f"copier render to {dst} failed: {exc}") from exc
@@ -220,6 +317,11 @@ def run_copy(
     """Generate `dst` from the template designated by `data['template_subdir']`."""
     src = src or template_root()
     dst = Path(dst)
+    # Resolved here rather than in the plugin: a plugin declares where its template
+    # sits, the core knows which of the two root shapes is in play. A copy, because
+    # the recorded answer must be the resolved form while the caller's dict is not
+    # ours to rewrite.
+    data = {**data, "template_subdir": resolve_subdir(src, data["template_subdir"])}
     if not force and not pretend and _has_content(dst):
         _refuse_conflicts(src=src, dst=dst, data=data, ref=ref, plugin_jinja=plugin_jinja)
     ensure_directory(dst, "target directory")
@@ -293,6 +395,19 @@ def run_update(
         raise RenderError(
             f"{dst} has no {ANSWERS_FILENAME}: this directory was not generated by "
             "forge, it cannot be updated."
+        )
+    if template_ref(src, ref) is None:
+        # Said here rather than by copier: its own message ("Updating is only
+        # supported in git-tracked templates") gives no way to tell that it is the
+        # TEMPLATE root, not the target project, that has to be versioned. This is
+        # the installed case -- `site-packages/forge` is the root of no repository.
+        raise RenderError(
+            f"cannot update: the template root {src} is not the root of a git "
+            "repository, and copier only knows how to compare two git references. "
+            "This is expected of an installed forge; a checkout does not hit it.\n"
+            "  `forge generate --force` regenerates the project instead (without "
+            f"merging your edits), or point {TEMPLATE_SRC_ENV_VAR} at a git clone of "
+            "the forge repository (see DESIGN.md §8 Q2-bis)."
         )
     if rewrite_src_path(answers, src):
         # The project comes from another machine: copier re-renders the OLD
