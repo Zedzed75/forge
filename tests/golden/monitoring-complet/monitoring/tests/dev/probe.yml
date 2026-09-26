@@ -26,7 +26,7 @@ evaluation_interval: 1m
 
 tests:
   # ---------------------------------------------------------------------------
-  # BoutiqueSondeExterneEnEchec — The service is no longer reachable from the outside
+  # BoutiqueExternalProbeFailed — The service is no longer reachable from the outside
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
@@ -37,7 +37,7 @@ tests:
         # (5m): the alert must therefore have moved from "pending" to
         # "firing".
       - eval_time: 6m
-        alertname: BoutiqueSondeExterneEnEchec
+        alertname: BoutiqueExternalProbeFailed
         exp_alerts:
           - exp_labels:
               env: dev
@@ -50,7 +50,7 @@ tests:
               description: 'The external probe on https://test-probe.invalid has been failing for 5 minutes. The service can be running and stay unreachable: that is precisely what this probe sees and the others do not.'
 
   # ---------------------------------------------------------------------------
-  # BoutiqueCertificatBientotExpire — A TLS certificate is approaching its expiry
+  # BoutiqueCertificateExpiringSoon — A TLS certificate is approaching its expiry
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
@@ -61,7 +61,7 @@ tests:
         # (15m): the alert must therefore have moved from "pending" to
         # "firing".
       - eval_time: 20m
-        alertname: BoutiqueCertificatBientotExpire
+        alertname: BoutiqueCertificateExpiringSoon
         exp_alerts:
           - exp_labels:
               env: dev

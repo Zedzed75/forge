@@ -26,7 +26,7 @@ evaluation_interval: 1m
 
 tests:
   # ---------------------------------------------------------------------------
-  # BoutiqueCibleInjoignable — The target no longer answers the collector
+  # BoutiqueTargetDown — The target no longer answers the collector
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
@@ -37,7 +37,7 @@ tests:
         # (5m): the alert must therefore have moved from "pending" to
         # "firing".
       - eval_time: 6m
-        alertname: BoutiqueCibleInjoignable
+        alertname: BoutiqueTargetDown
         exp_alerts:
           - exp_labels:
               criticality: high
