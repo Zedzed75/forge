@@ -192,13 +192,13 @@ domain:
         - prod
         name: helm
         outdir: helm
-        summary: 'Chart Helm complet : values commentees, gabarits et validation stricte'
+        summary: 'Complete Helm chart: commented values, templates and strict validation'
         title: Helm
         validator_count: 6
     -   deploys: []
         name: pipeline
         outdir: .
-        summary: 'Chaine d''integration : un job par domaine, construction, deploiement'
+        summary: 'Integration pipeline: one job per domain, build, deploy'
         title: Pipeline
         validator_count: 1
     -   deploys:
@@ -206,7 +206,7 @@ domain:
         - prod
         name: terraform
         outdir: terraform
-        summary: 'Socle d''infrastructure : namespace, budget, identite de deploiement'
+        summary: 'Infrastructure foundation: namespace, budget, deployment identity'
         title: Terraform
         validator_count: 6
     env_names:

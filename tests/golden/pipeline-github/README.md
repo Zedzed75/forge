@@ -17,9 +17,9 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Helm | `helm/` | Chart Helm complet : values commentees, gabarits et validation stricte |
-| Pipeline | racine du depot | Chaine d'integration : un job par domaine, construction, deploiement |
-| Terraform | `terraform/` | Socle d'infrastructure : namespace, budget, identite de deploiement |
+| Helm | `helm/` | Complete Helm chart: commented values, templates and strict validation |
+| Pipeline | racine du depot | Integration pipeline: one job per domain, build, deploy |
+| Terraform | `terraform/` | Infrastructure foundation: namespace, budget, deployment identity |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer

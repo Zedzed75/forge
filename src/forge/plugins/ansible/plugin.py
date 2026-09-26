@@ -26,7 +26,7 @@ def forge_domain() -> DomainInfo:
     return DomainInfo(
         name="ansible",
         title="Ansible",
-        summary="Projet Ansible complet : inventaires, playbooks et roles commentes",
+        summary="Complete Ansible project: commented inventories, playbooks and roles",
         # Apres le socle, avant la charge applicative : configurer les machines
         # qui accueilleront le service, pas le service lui-meme.
         deploy_order=30,

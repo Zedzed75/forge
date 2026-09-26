@@ -29,7 +29,7 @@ def forge_domain() -> DomainInfo:
     return DomainInfo(
         name="terraform",
         title="Terraform",
-        summary="Socle d'infrastructure : namespace, budget, identite de deploiement",
+        summary="Infrastructure foundation: namespace, budget, deployment identity",
         # Le socle part en premier : c'est lui qui cree le cloisonnement
         # dans lequel les autres domaines deposent quelque chose.
         deploy_order=10,

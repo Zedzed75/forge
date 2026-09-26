@@ -17,7 +17,7 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Terraform | `terraform/` | Socle d'infrastructure : namespace, budget, identite de deploiement |
+| Terraform | `terraform/` | Infrastructure foundation: namespace, budget, deployment identity |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer

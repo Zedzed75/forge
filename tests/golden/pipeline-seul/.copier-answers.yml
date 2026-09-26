@@ -47,7 +47,7 @@ domain:
     -   deploys: []
         name: pipeline
         outdir: .
-        summary: 'Chaine d''integration : un job par domaine, construction, deploiement'
+        summary: 'Integration pipeline: one job per domain, build, deploy'
         title: Pipeline
         validator_count: 1
     env_names:

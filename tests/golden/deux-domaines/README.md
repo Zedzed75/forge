@@ -17,8 +17,8 @@ structurelle passe par ce fichier : editez-le puis relancez
 
 | Domaine | Repertoire | Role |
 | --- | --- | --- |
-| Ansible | `ansible/` | Projet Ansible complet : inventaires, playbooks et roles commentes |
-| Helm | `helm/` | Chart Helm complet : values commentees, gabarits et validation stricte |
+| Ansible | `ansible/` | Complete Ansible project: commented inventories, playbooks and roles |
+| Helm | `helm/` | Complete Helm chart: commented values, templates and strict validation |
 
 Chaque domaine est autonome : son `.copier-answers.yml` permet de le
 mettre a jour seul (`forge update --only <domaine>`), et le supprimer
