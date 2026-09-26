@@ -9,6 +9,30 @@ header saying what it is for, every exposed variable is commented with its
 allowed values, and **the generated project passes the real validators of its
 domain** — not an internal check, the actual tools.
 
+## Install
+
+```bash
+pip install iac-forge
+forge --version
+```
+
+**Only the distribution is called `iac-forge`.** `forge` was already taken on PyPI
+by an unrelated project, so that is the name the index knows us by — and it is the
+only one that changed. You type it once:
+
+| | name |
+| --- | --- |
+| install, once | `pip install iac-forge` |
+| command, ever after | `forge` |
+| import, in Python | `import forge` |
+
+Python 3.11 or later. Generating needs nothing else. **Validating** needs the real
+tools of whichever domains you use — the table below names them per domain — and
+`forge plugins` reports which of them it can find on your machine.
+
+To work on forge itself rather than use it, see
+[Development setup and tests](#development-setup-and-tests).
+
 ## A project does not need everything
 
 One project may need nothing but a Helm chart. Another, nothing but Ansible
@@ -24,7 +48,9 @@ forge generate -s examples/monitoring-only.yml -o /tmp/payment     # monitoring/
 forge generate -s examples/pipeline-only.yml   -o /tmp/ci          # a CI chain on its own
 ```
 
-These six examples are committed and tested: see [`examples/`](examples/).
+These six examples are committed and tested: see [`examples/`](examples/). They live
+in this repository rather than in the installed package — `forge new` writes you a
+`forge.yml` of your own, so an install does not need them.
 
 | Domain | Section | Produces | Validated by |
 | --- | --- | --- | --- |
@@ -270,7 +296,10 @@ profile, which the original suite had never checked.
 `MIGRATION.md` keeps the complete record: the merged duplicates, the arbitrations
 made, and the assumed divergences.
 
-## Installation and tests
+## Development setup and tests
+
+This is the checkout flow, for working **on** forge. To use it, `pip install iac-forge`
+is enough — see [Install](#install).
 
 ```bash
 uv venv
