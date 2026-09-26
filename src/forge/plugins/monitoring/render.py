@@ -133,7 +133,7 @@ def alert_prefix(service_name: str) -> str:
 
     `boutique` -> `Boutique`, `db-proxy` -> `DbProxy`. Un nom d'alerte est un
     identifiant en CamelCase par convention Prometheus, et le prefixer par le
-    service evite qu'une alerte `CibleInjoignable` de deux services differents
+    service evite qu'une alerte `TargetDown` de deux services differents
     se confonde dans un recepteur commun.
     """
     return "".join(morceau.capitalize() for morceau in service_name.replace("_", "-").split("-"))
