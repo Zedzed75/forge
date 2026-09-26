@@ -121,7 +121,11 @@ class DomainHooks:
         return self._call("forge_spec_model", required=True)
 
     def template_subdir(self) -> str:
-        """Path of the copier template, relative to the forge repository root."""
+        """Path of the copier template, relative to the forge repository root.
+
+        `copier_runner.resolve_subdir` re-expresses it against the template root
+        actually in use, which differs once forge is installed.
+        """
         return self._call("forge_template_subdir", required=True)
 
     def answers(self, spec: Any, context: GenerationContext | None = None) -> dict[str, Any]:

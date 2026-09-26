@@ -28,6 +28,11 @@ Helm chart together is one possible use, not the normal one.
 ## Hard rules
 - Core is domain-agnostic. Domain knowledge lives only in plugins/<domain>/.
 - Rendering and updates go through copier (library mode). Never hand-roll rendering.
+- Anything the renderer reads must reach the wheel: under `src/forge/`, or in the
+  `force-include` table of `pyproject.toml`. The template root is the repo root from a
+  checkout and `site-packages/forge/` from an install (DESIGN.md §8 Q2-bis). Get this
+  wrong and an installed forge cannot generate while every test still passes — they all
+  run from a checkout.
 - Plugin contract via pluggy hooks. Adding a domain must not require touching core.
 - Same spec => same generated output. Golden tests enforce it.
 - Every generated file is commented: header explaining its purpose, explicit names on

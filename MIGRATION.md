@@ -52,6 +52,12 @@ of the templates.
    repository root** + `_subdirectory: "src/forge/plugins/[[ plugin ]]/template"`
    in a single root `copier.yml`. `_commit` is then filled in and `copier update`
    three-way merges a template evolution with a manual edit (verified).
+   **Still the shape used from a checkout**, and the reason it is preferred over
+   the package directory even now that the package can serve as a root: the
+   package is exactly the "subdirectory of a git repository" this point rules out,
+   so choosing it would have cost checkout users `update` too. An installed forge
+   takes the other shape and does lose `update`, which is copier's constraint and
+   is documented as such (DESIGN.md §8 Q2-bis).
 4. **Answers file**: copier only writes `.copier-answers.yml` if the template
    contains `[[ _copier_conf.answers_file ]].jinja`. That file is mandatory in
    every plugin template.
@@ -63,6 +69,10 @@ of the templates.
    `vcs_ref="HEAD"`, copier includes the dirty working tree
    (`DirtyLocalWarning`): that is the mode expected in development and for the
    golden tests.
+   The reference is only handed over when the root really is a repository root
+   (`copier_runner.template_ref`). An installed forge renders from a plain
+   directory, where copier would ignore `vcs_ref` without saying so — and where
+   points 7 and 8 below stop applying, there being no clone.
 7. **Windows / long paths**: path names carrying a `yield` tag are long;
    copier's temporary clone does not inherit `core.longpaths` and `git add`
    fails there ("Filename too long"). Validated workaround, **without touching

@@ -68,7 +68,7 @@ The interview first asks for the service identity and its environments, then
 | `forge new` | interactive interview — asks which domains to generate — writes `forge.yml` then generates |
 | `forge generate` | replays an existing specification |
 | `forge validate` | each domain's validators + cross-domain consistency |
-| `forge update` | applies template evolutions without overwriting your changes |
+| `forge update` | applies template evolutions without overwriting your changes (needs a git-tracked template — see below) |
 | `forge diff` | summarises the gap between the target and a fresh render |
 | `forge plugins` | registered domains and state of the external tools |
 | `forge catalog <domain>` | catalogue published by a plugin, pitfalls included |
@@ -107,6 +107,14 @@ src/forge/
 Rendering **always** goes through copier, never through a hardcoded file write.
 That is what makes `forge update` possible: a project delivered six months ago
 receives the template evolutions without losing the settings made by hand.
+
+`forge update` is the one command with a condition `forge generate` does not have:
+copier merges by comparing two git references, and for that it needs the template
+to be a git repository. From a checkout it is, and `forge update` works. An
+installed forge renders from `site-packages/forge/`, which has no git history — so
+it says so and points at `forge generate --force`, or at
+`FORGE_TEMPLATE_SRC=<a git clone of this repository>` if you want the merge.
+DESIGN.md §8 Q2-bis has the reasoning.
 
 Consequence for the templates: they use the `[[ ]]`, `[% %]` and `[# #]`
 delimiters, never `{{ }}`. Helm and Ansible both write `{{ ... }}` in their own

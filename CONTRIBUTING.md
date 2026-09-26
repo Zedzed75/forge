@@ -98,6 +98,13 @@ These are load-bearing. A change that breaks one of them will be sent back:
   pluggy hooks; that contract is what makes a new domain a drop-in.
 - **Rendering goes through copier** (library mode). Never hand-roll template
   rendering.
+- **Anything the renderer reads must reach the wheel.** The template root is the
+  repository root from a checkout and `site-packages/forge/` from an install, so a
+  file the renderer needs has to be either under `src/forge/` or listed in the
+  `force-include` table of `pyproject.toml`. Miss that and an installed forge
+  cannot generate at all, while every test keeps passing — they all run from a
+  checkout, where the path resolves anyway. That is exactly how the bug
+  DESIGN.md §8 Q2-bis describes got in.
 - **Templates use copier's custom delimiters** `[[ ]]`, `[% %]` and `[# #]`.
   This is deliberate: Helm and Ansible both use `{{ }}` in *their* output, and
   those braces must pass through untouched. Never write `{{ }}` meaning "a

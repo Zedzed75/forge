@@ -6,6 +6,10 @@ comparison — and not the detail of each layer, which is covered elsewhere.
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -13,11 +17,24 @@ from typer.testing import CliRunner
 
 from forge import pipeline
 from forge.cli import CHANGELOG_URL, app, run_new
-from forge.plugins_api.manager import ForgeManager
-from tests.conftest import DEMO_PLUGIN, REPO_ROOT, SPECS_DIR
+from forge.plugins_api.manager import BUILTIN_PLUGINS, ForgeManager
+from forge.render.copier_runner import ANSWERS_FILENAME, PACKAGE_RELPATH
+from tests.conftest import (
+    DEMO_PLUGIN,
+    GOLDEN_DIR,
+    REPO_ROOT,
+    SPECS_DIR,
+    stable_text,
+    tree_files,
+)
 from tests.scripted_prompter import ScriptedPrompter
 
 runner = CliRunner()
+
+#: Reference case rendered by the installed-forge test. A shipped domain, not
+#: `demo`: the demo plugin is only registered through FORGE_PLUGINS, which an
+#: installed forge has no reason to carry.
+INSTALL_CASE = "ansible-ci"
 
 #: Answers replaying the full interview: the service block, then the demo domain.
 #: The values are the ones the reference specs use, so they stay as they are
@@ -286,6 +303,130 @@ def test_the_plugin_template_path_is_the_declared_one(tmp_path):
     manager.register_module(DEMO_PLUGIN)
     hooks = manager.domain("demo")
     assert (Path(pipeline.copier_runner.template_root()) / hooks.template_subdir()).is_dir()
+
+
+# ---------------------------------------------------------------------------
+# Packaging
+# ---------------------------------------------------------------------------
+# forge had never been usable from an install: the template root was looked up at
+# the repository root, which does not exist in a wheel. Nothing in the suite
+# noticed, because every other test runs from a checkout where that path is there
+# by construction. These two tests are the ones that would have caught it, and
+# they are the only ones that look at forge the way a user who ran `pip install`
+# does.
+# ---------------------------------------------------------------------------
+
+
+def _build_wheel(into: Path) -> Path:
+    """Build the wheel into `into` and return it, or skip when uv is missing."""
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv missing: the wheel cannot be built")
+    subprocess.run(
+        [uv, "build", "--wheel", "--out-dir", str(into)],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+    )
+    wheels = list(into.glob("*.whl"))
+    assert len(wheels) == 1, f"exactly one wheel expected: {wheels}"
+    return wheels[0]
+
+
+@pytest.mark.integration
+def test_the_wheel_ships_the_whole_template_root(tmp_path):
+    """Everything the renderer reads must be inside the wheel, under `forge/`.
+
+    `copier.yml` and `partials/` live at the repository root, so they only get in
+    through the `force-include` table in `pyproject.toml`. Nothing else would warn
+    if that table were dropped or mistyped: non-.py files are the usual trap of a
+    build backend, and a checkout keeps working either way.
+    """
+    with zipfile.ZipFile(_build_wheel(tmp_path)) as archive:
+        shipped = set(archive.namelist())
+
+    manager = ForgeManager()
+    for module in BUILTIN_PLUGINS:
+        manager.register_module(module)
+    prefix = f"{PACKAGE_RELPATH}/"
+    expected_dirs = [
+        # The wheel carries the shortened form, which is what an installed forge
+        # asks `resolve_subdir` for.
+        f"forge/{manager.domain(name).template_subdir().removeprefix(prefix)}/"
+        for name in manager.domain_names()
+    ]
+
+    for path in ("forge/copier.yml", "forge/partials/header.jinja"):
+        assert path in shipped, f"{path} missing from the wheel"
+    for directory in expected_dirs:
+        assert any(name.startswith(directory) for name in shipped), (
+            f"no template shipped under {directory}"
+        )
+
+
+@pytest.mark.integration
+def test_an_installed_forge_generates_the_same_project_as_a_checkout(tmp_path):
+    """The acceptance criterion itself: install the wheel, generate, compare.
+
+    Deliberately end to end and deliberately slow. It is the only test that proves
+    the claim forge makes on PyPI — that installing it gives you a working
+    generator — and the defect it guards against was invisible to all 600-odd other
+    tests precisely because they share the repository with the code they exercise.
+
+    The venv is built with no access to this checkout, and the comparison is
+    against the stored golden tree, so a wheel that renders *something* but not the
+    right thing fails too. `_commit` differs by design: an installed forge renders
+    from a plain directory, so copier records no template commit (DESIGN.md §8
+    Q2-bis).
+    """
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv missing: the wheel cannot be built")
+    wheel = _build_wheel(tmp_path / "dist")
+
+    venv = tmp_path / "venv"
+    subprocess.run([uv, "venv", "-q", str(venv)], check=True, capture_output=True)
+    subprocess.run(
+        [uv, "pip", "install", "-q", str(wheel)],
+        check=True,
+        capture_output=True,
+        env={**os.environ, "VIRTUAL_ENV": str(venv)},
+    )
+    forge_exe = next(
+        path
+        for path in (venv / "Scripts" / "forge.exe", venv / "bin" / "forge")
+        if path.exists()
+    )
+
+    project = tmp_path / "project"
+    project.mkdir()
+    spec = project / "forge.yml"
+    spec.write_bytes((SPECS_DIR / f"{INSTALL_CASE}.yml").read_bytes())
+    result = subprocess.run(
+        [str(forge_exe), "generate", "-s", str(spec), "-o", str(project / "out")],
+        capture_output=True,
+        text=True,
+        # Run from the venv, not from the checkout: a cwd inside the repository
+        # would let a path-relative lookup succeed and hide the very defect.
+        cwd=venv,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    reference = GOLDEN_DIR / INSTALL_CASE
+    produced = project / "out"
+    assert tree_files(produced) == tree_files(reference), (
+        "an installed forge produced a different tree than the golden one"
+    )
+    differences = [
+        name
+        for name in tree_files(reference)
+        if stable_text(produced / name).encode("utf-8")
+        != (reference / name).read_bytes()
+        # The answers file records the template root and the commit, both of which
+        # legitimately differ between an install and a checkout.
+        and not name.endswith(ANSWERS_FILENAME)
+    ]
+    assert not differences, f"differing content: {', '.join(differences)}"
 
 
 def test_the_announced_version_is_the_project_s():

@@ -65,6 +65,12 @@ def forge_template_subdir() -> str:
 
     Example: "src/forge/plugins/ansible/template". Passed to copier through
     `_subdirectory` (DESIGN.md §5).
+
+    Declare it as it sits in the repository, as above. An installed forge renders
+    from the package directory instead, where the same template is one prefix
+    shorter; the core shortens it (`copier_runner.resolve_subdir`) rather than
+    asking every plugin to know which of the two roots is in play
+    (DESIGN.md §8 Q2-bis).
     """
 
 
