@@ -83,7 +83,7 @@ class Alert:
 
 AVAILABILITY_ALERTS: tuple[Alert, ...] = (
     Alert(
-        name="CibleInjoignable",
+        name="TargetDown",
         expr='up{job="@job@"} == 0',
         for_duration="5m",
         severity=Severity.CRITICAL,
@@ -100,7 +100,7 @@ AVAILABILITY_ALERTS: tuple[Alert, ...] = (
 
 ERROR_RATE_ALERTS: tuple[Alert, ...] = (
     Alert(
-        name="TauxErreurEleve",
+        name="HighErrorRate",
         expr=(
             'sum(rate(@requests@{job="@job@", @status@=~"5.."}[5m]))\n'
             "  /\n"
@@ -134,7 +134,7 @@ ERROR_RATE_ALERTS: tuple[Alert, ...] = (
 
 LATENCY_ALERTS: tuple[Alert, ...] = (
     Alert(
-        name="LatenceElevee",
+        name="HighLatency",
         expr=(
             "histogram_quantile(0.95,\n"
             '  sum by (le) (rate(@duration@_bucket{job="@job@"}[5m]))\n'
@@ -167,7 +167,7 @@ LATENCY_ALERTS: tuple[Alert, ...] = (
 
 SATURATION_ALERTS: tuple[Alert, ...] = (
     Alert(
-        name="MemoireProcheDeLaLimite",
+        name="MemoryNearLimit",
         expr=(
             'container_memory_working_set_bytes{namespace="@namespace@", container!=""}\n'
             "  /\n"
@@ -208,7 +208,7 @@ SATURATION_ALERTS: tuple[Alert, ...] = (
         needs_namespace=True,
     ),
     Alert(
-        name="CpuEleve",
+        name="HighCpuUsage",
         expr=(
             "sum by (pod) (\n"
             "  rate(container_cpu_usage_seconds_total"
@@ -244,7 +244,7 @@ SATURATION_ALERTS: tuple[Alert, ...] = (
 
 RESTART_ALERTS: tuple[Alert, ...] = (
     Alert(
-        name="RedemarragesEnBoucle",
+        name="ContainerRestartLoop",
         expr=(
             "increase(\n"
             "  kube_pod_container_status_restarts_total"
@@ -282,7 +282,7 @@ RESTART_ALERTS: tuple[Alert, ...] = (
 
 PROBE_ALERTS: tuple[Alert, ...] = (
     Alert(
-        name="SondeExterneEnEchec",
+        name="ExternalProbeFailed",
         expr='probe_success{job="@blackbox_job@"} == 0',
         for_duration="5m",
         severity=Severity.CRITICAL,
@@ -303,7 +303,7 @@ PROBE_ALERTS: tuple[Alert, ...] = (
         needs_probe=True,
     ),
     Alert(
-        name="CertificatBientotExpire",
+        name="CertificateExpiringSoon",
         expr=(
             "(\n"
             '  probe_ssl_earliest_cert_expiry{job="@blackbox_job@"} - time()\n'
@@ -348,36 +348,36 @@ PROBE_ALERTS: tuple[Alert, ...] = (
 #: expression, which stays correct, only less readable. The keys are the French
 #: alert names, and must stay exactly in step with the `name` values above.
 PANEL_EXPRESSIONS: dict[str, str] = {
-    "CibleInjoignable": 'up{job="@job@"}',
-    "TauxErreurEleve": (
+    "TargetDown": 'up{job="@job@"}',
+    "HighErrorRate": (
         'sum(rate(@requests@{job="@job@", @status@=~"5.."}[5m]))\n'
         "  /\n"
         'sum(rate(@requests@{job="@job@"}[5m]))'
     ),
-    "LatenceElevee": (
+    "HighLatency": (
         "histogram_quantile(0.95,\n"
         '  sum by (le) (rate(@duration@_bucket{job="@job@"}[5m]))\n'
         ")"
     ),
-    "MemoireProcheDeLaLimite": (
+    "MemoryNearLimit": (
         'container_memory_working_set_bytes{namespace="@namespace@", container!=""}\n'
         "  /\n"
         'container_spec_memory_limit_bytes{namespace="@namespace@", container!=""}'
     ),
-    "CpuEleve": (
+    "HighCpuUsage": (
         "sum by (pod) (\n"
         "  rate(container_cpu_usage_seconds_total"
         '{namespace="@namespace@", container!=""}[5m])\n'
         ")"
     ),
-    "RedemarragesEnBoucle": (
+    "ContainerRestartLoop": (
         "increase(\n"
         "  kube_pod_container_status_restarts_total"
         '{namespace="@namespace@"}[1h]\n'
         ")"
     ),
-    "SondeExterneEnEchec": 'probe_success{job="@blackbox_job@"}',
-    "CertificatBientotExpire": (
+    "ExternalProbeFailed": 'probe_success{job="@blackbox_job@"}',
+    "CertificateExpiringSoon": (
         "(\n"
         '  probe_ssl_earliest_cert_expiry{job="@blackbox_job@"} - time()\n'
         ") / 86400"

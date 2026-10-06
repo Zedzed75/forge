@@ -41,7 +41,7 @@ groups:
       # monitoring.environments.dev.thresholds.restarts_per_hour
       # in forge.yml.
       # -----------------------------------------------------------------------
-      - alert: BoutiqueRedemarragesEnBoucle
+      - alert: BoutiqueContainerRestartLoop
         expr: |
           increase(
             kube_pod_container_status_restarts_total{namespace="boutique-dev"}[1h]

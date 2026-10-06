@@ -19,6 +19,47 @@ next one.
 
 ### Changed
 
+- **Generated alert names are English.** The eight alerts produced by the
+  `monitoring` domain were named in French. Each generated name is the service
+  name followed by one of these suffixes, so a service called `boutique` had
+  `BoutiqueCibleInjoignable` and now has `BoutiqueTargetDown`:
+
+  | Before | After |
+  | --- | --- |
+  | `CibleInjoignable` | `TargetDown` |
+  | `TauxErreurEleve` | `HighErrorRate` |
+  | `LatenceElevee` | `HighLatency` |
+  | `MemoireProcheDeLaLimite` | `MemoryNearLimit` |
+  | `CpuEleve` | `HighCpuUsage` |
+  | `RedemarragesEnBoucle` | `ContainerRestartLoop` |
+  | `SondeExterneEnEchec` | `ExternalProbeFailed` |
+  | `CertificatBientotExpire` | `CertificateExpiringSoon` |
+
+  `forge update --only monitoring` rewrites all of it: the `alert:` field in
+  `rules/<env>/<family>.yml`, the `alertname` assertion in the matching
+  `tests/<env>/<family>.yml`, the panel descriptions in the Grafana dashboard,
+  and `.copier-answers.yml`. Afterwards `promtool test rules` is green — and you
+  should not read that as reassurance. promtool checks each rule against its own
+  test file, and both sides moved in the same pass, so it would stay green however
+  badly this broke your alerting.
+
+  **Migration.** `alertname` is a label, and Alertmanager matches on it from
+  configuration forge neither owns nor can see. Nothing below reports an error;
+  each one simply stops working:
+
+  - **routes** that select on `alertname` no longer match, so the alerts they
+    directed fall through to your default receiver;
+  - **inhibition rules** no longer inhibit, so an alert a more serious one used to
+    suppress now pages alongside it;
+  - **silences** are matcher objects stored in Alertmanager, keyed on the label
+    value. A silence on an old name still shows as active while silencing nothing.
+
+  Before merging a `forge update --only monitoring`: grep your Alertmanager
+  configuration for the old names in the table above, update every matcher, and
+  re-create any silence that was active. The generated
+  `monitoring/README.md` carries the same warning next to the names your project
+  produces now.
+
 - **Generated CI job identifiers are English.** Every job key and job name in
   the generated `.github/workflows/ci.yml`, and every stage name in the
   generated `.gitlab-ci.yml`, was renamed:

@@ -46,7 +46,7 @@ groups:
       # monitoring.environments.prod.thresholds.latency_p95_seconds
       # in forge.yml.
       # -----------------------------------------------------------------------
-      - alert: BoutiqueLatenceElevee
+      - alert: BoutiqueHighLatency
         expr: |
           histogram_quantile(0.95,
             sum by (le) (rate(http_request_duration_seconds_bucket{job="boutique"}[5m]))

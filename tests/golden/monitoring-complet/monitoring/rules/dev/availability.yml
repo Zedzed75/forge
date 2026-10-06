@@ -36,7 +36,7 @@ groups:
       # -----------------------------------------------------------------------
       # The target no longer answers the collector
       # -----------------------------------------------------------------------
-      - alert: BoutiqueCibleInjoignable
+      - alert: BoutiqueTargetDown
         expr: |
           up{job="boutique"} == 0
         # The condition has to hold for this duration before firing: without it,

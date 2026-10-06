@@ -85,7 +85,9 @@ promtool test rules   tests/dev/*.yml
 - **It does not route the alerts.** Alertmanager is not configured here: its
   configuration cannot be validated offline by any tool shipped with Prometheus,
   and forge only generates what it can have checked. The `severity`, `service`
-  and `env` labels carried by every alert are what a routing needs.
+  and `env` labels carried by every alert are what a routing needs. Because that
+  configuration is yours, forge cannot migrate it for you when an alert is
+  renamed — see the last section.
 - **It does not discover the targets.** They are written in the configuration. A
   target never declared produces no series, and therefore no alert: silence is not
   health. If your targets change often, replace `static_configs` with
@@ -94,3 +96,38 @@ promtool test rules   tests/dev/*.yml
   well-formed JSON whose structure forge checks, but no offline Grafana linter
   exists: the guarantee is weaker there than on the rules. Import it and look at
   it.
+
+## If this project predates the alert rename
+
+The alert names were French and are now English. `forge update --only monitoring`
+rewrites `rules/` and `tests/` for you, and `promtool test rules` is green
+afterwards — it checks every rule against its own test file, and both sides moved
+in the same pass. **That green says nothing about whether your alerting still
+works.**
+
+`alertname` is a label, and Alertmanager matches on it from configuration forge
+does not own and cannot see. Three things break, and none of them is reported as
+an error:
+
+- **routes** that select on `alertname` stop matching, so the alerts they used to
+  direct fall through to your default receiver — typically a mailbox nobody reads;
+- **inhibition rules** stop inhibiting, so an alert that a more serious one used
+  to suppress now pages alongside it;
+- **silences** are matcher objects stored inside Alertmanager, keyed on the label
+  value. A silence on an old name still looks active in the UI while silencing
+  nothing at all.
+
+The names this project generates now:
+
+- `BoutiqueTargetDown` — The target no longer answers the collector
+- `BoutiqueHighErrorRate` — Too many responses in error
+- `BoutiqueHighLatency` — The service answers too slowly
+- `BoutiqueMemoryNearLimit` — A container is approaching its memory limit
+- `BoutiqueHighCpuUsage` — A pod is durably consuming a lot of CPU
+- `BoutiqueContainerRestartLoop` — A container is restarting in a loop
+- `BoutiqueExternalProbeFailed` — The service is no longer reachable from the outside
+- `BoutiqueCertificateExpiringSoon` — A TLS certificate is approaching its expiry
+
+Search your Alertmanager configuration for the old names, update every matcher,
+and re-create any silence that was active. forge's own changelog carries the
+full before/after table.

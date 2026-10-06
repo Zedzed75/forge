@@ -426,6 +426,47 @@ Reminders for phase 5:
   modification of a template** — the temporary template repository pattern
   (`tests/test_cli_coverage.py::_template_repository`) already allows it.
 
+## Arbitration — the eight alert names (2026-09-26)
+
+The English-first pass reached one set of identifiers it could not simply
+translate. The eight alert names produced by the `monitoring` domain are French,
+and unlike every other rename in that pass this one is **not**
+behaviour-preserving: `alertname` is a label Alertmanager matches on, from
+configuration that lives outside anything forge generates.
+
+Three options were put to the board. **Option 1 was chosen — rename, and treat it
+as breaking.** The record, so it is not reopened without a new reason:
+
+| Option | Outcome |
+|---|---|
+| 1. Rename, treat as breaking | **Chosen.** English names, migration note in `CHANGELOG.md` and in the generated `monitoring/README.md`. |
+| 2. Rename for new projects only, keep old names on `forge update` | Rejected: needs a name-pinning mechanism forge does not have, and leaves two populations of generated projects diverging permanently. |
+| 3. Leave them French, document the exception | Rejected: would make these the one permanent French identifier in generated output, against the whole point of the English-first work. |
+
+**What made option 1 free.** The cost of a breaking change is paid by users who
+already run the thing being broken, and that population was confirmed empty
+before the decision, not assumed: the repository is private (unauthenticated
+GitHub API returns 404), `iac-forge` has never been published to PyPI, and the
+publication work is still open. The eleven git tags through `v1.1.1` are local
+tags with no release and no package behind them, so they do not imply adoption
+either. Had forge been published, option 2 would have been the honest answer
+despite its cost.
+
+**The trap, recorded because it will recur.** `promtool test rules` is green
+across this rename and proves nothing about it. promtool checks a rule file
+against its own test file; a rename touches both sides in one pass, so the
+validator that normally makes this domain trustworthy is silent precisely where
+the risk is. Any future change to a *label value* in generated output — not just
+alert names — inherits this blind spot. The same reasoning applied in reverse to
+the earlier monitoring fixture rename, where promtool genuinely was the proof,
+because the fixture values only had to agree with assertions that moved with them.
+
+**Left open, deliberately.** The board asked for the service-name prefix
+convention (`alert_prefix()`, which turns `boutique` into `Boutique`) to be
+reconsidered as well. That is a second breaking change with its own argument —
+the prefix exists so two services' alerts cannot collide in a shared
+Alertmanager receiver — and it is tracked separately rather than folded in here.
+
 ## Session log
 
 - Session 1 (2026-08-23): phase 0 (bootstrap) then phase 1 (audit + design).

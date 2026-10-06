@@ -43,7 +43,7 @@ groups:
       # -----------------------------------------------------------------------
       # The service is no longer reachable from the outside
       # -----------------------------------------------------------------------
-      - alert: BoutiqueSondeExterneEnEchec
+      - alert: BoutiqueExternalProbeFailed
         expr: |
           probe_success{job="blackbox"} == 0
         # The condition has to hold for this duration before firing: without it,
@@ -63,7 +63,7 @@ groups:
       # monitoring.environments.dev.thresholds.certificate_days
       # in forge.yml.
       # -----------------------------------------------------------------------
-      - alert: BoutiqueCertificatBientotExpire
+      - alert: BoutiqueCertificateExpiringSoon
         expr: |
           (
             probe_ssl_earliest_cert_expiry{job="blackbox"} - time()

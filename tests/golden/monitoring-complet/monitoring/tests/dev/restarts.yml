@@ -26,7 +26,7 @@ evaluation_interval: 1m
 
 tests:
   # ---------------------------------------------------------------------------
-  # BoutiqueRedemarragesEnBoucle — A container is restarting in a loop
+  # BoutiqueContainerRestartLoop — A container is restarting in a loop
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
@@ -37,7 +37,7 @@ tests:
         # (5m): the alert must therefore have moved from "pending" to
         # "firing".
       - eval_time: 70m
-        alertname: BoutiqueRedemarragesEnBoucle
+        alertname: BoutiqueContainerRestartLoop
         exp_alerts:
           - exp_labels:
               container: test-container
