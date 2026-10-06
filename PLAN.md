@@ -461,11 +461,52 @@ alert names — inherits this blind spot. The same reasoning applied in reverse 
 the earlier monitoring fixture rename, where promtool genuinely was the proof,
 because the fixture values only had to agree with assertions that moved with them.
 
-**Left open, deliberately.** The board asked for the service-name prefix
-convention (`alert_prefix()`, which turns `boutique` into `Boutique`) to be
-reconsidered as well. That is a second breaking change with its own argument —
-the prefix exists so two services' alerts cannot collide in a shared
-Alertmanager receiver — and it is tracked separately rather than folded in here.
+### Arbitration — the service-name prefix on alert names
+
+The board also asked for the `alert_prefix()` convention (`boutique` +
+`TargetDown` → `BoutiqueTargetDown`) to be reconsidered. Tracked separately
+because it is a second breaking change with its own argument, then decided and
+landed on its own: **the prefix is dropped.** The names are now bare
+`TargetDown`, `HighErrorRate` and so on, and `alert_prefix()` no longer exists.
+
+| Option | Outcome |
+|---|---|
+| 1. Drop the prefix | **Chosen.** The service was carried twice: once as the `service` label `derive.py` already sets, once baked into the identifier. The label is what Alertmanager matches on. |
+| 2. Keep it | Rejected: a cross-service route becomes `alertname=~".*TargetDown"`, which also matches an unrelated alert ending in those characters, and a shared runbook or community dashboard keyed on `TargetDown` stops applying by construction. |
+| 3. Opt-in through `monitoring.alert_prefix` | Rejected, but not because it was expensive — one spec field and one branch. **Adding** it later is additive and breaks nobody; shipping it now and removing it later is a second break on the same identifiers. Dropping first keeps the later move free. |
+
+**The shared-receiver cost, which was the original justification.** An operator
+reading a notification from one Alertmanager fed by several services sees
+`TargetDown` and does not know whose. Real, and paid in the notification rather
+than in the routing: one `{{ .Labels.service }}` in the receiver template fixes
+it for every alert, including the ones forge did not generate. The prefix did
+not actually solve it either — a shared receiver in a Kubernetes cluster already
+gets unprefixed `TargetDown` and `KubePodCrashLooping` from the
+kube-prometheus-stack and node-exporter mixins, so labels have to be read
+regardless; prefixing only made forge's output the one thing in the cluster not
+following the convention.
+
+**The cost accepted, and documented.** forge's `TargetDown` now shares a name
+with kube-prometheus-stack's, which has a different expression, so a route on
+`alertname="TargetDown"` catches both. That is the convention working as
+intended — `service` and `env` disambiguate — but the generated
+`monitoring/README.md` and `CHANGELOG.md` both say so explicitly rather than
+leaving an operator to discover it.
+
+**Same empty-population argument, re-confirmed rather than inherited.** Checked
+on 2026-10-06, not carried over: `pypi.org` and `test.pypi.org` both return 404
+for `iac-forge`, and the repository is still `PRIVATE`. The failed `Release` run
+of 2026-09-26 published nothing. Had it published, option 3 would have become
+the strong answer instead of the weakest.
+
+**And the same promtool blind spot**, for the same reason: the rename moved the
+`alert:` field and the `alertname` assertion in one pass, so `promtool test
+rules` stayed green and proved nothing about it. One thing the alert rename did
+not have to deal with: the fingerprint does not report
+`grafana/dashboards/<service>.json`, because its `description` is normalised as
+prose — and that is where the eight panel cross-references to alert names live.
+The golden tree is their only coverage, so they were verified one by one in the
+diff instead of being taken on the fingerprint's word.
 
 ## Session log
 
