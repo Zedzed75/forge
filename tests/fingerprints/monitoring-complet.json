@@ -4,7 +4,7 @@
     ".gitattributes": "- text f70d755466b10164",
     "README.md": "- prose 9e5b02500512dd8e",
     "forge.yml": "- structured 563d9270c6ff0703",
-    "monitoring/.copier-answers.yml": "- structured 3764efc82f658ad3",
+    "monitoring/.copier-answers.yml": "- structured 9304d678fa26d869",
     "monitoring/.gitignore": "- text 116c71be095f2f84",
     "monitoring/Makefile": "- text f7fd871a0bf7487e",
     "monitoring/README.md": "- prose 37cc88a9865a8178",

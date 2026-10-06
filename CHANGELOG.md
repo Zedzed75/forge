@@ -19,6 +19,27 @@ next one.
 
 ### Changed
 
+- **The monitoring file descriptions recorded in `.copier-answers.yml` are
+  English.** The monitoring domain records, for each file it writes at the
+  `monitoring/` level, a one-sentence description of what that file is for. Four
+  of them were French:
+
+  | File | Before | After |
+  | --- | --- | --- |
+  | `README.md` | Ce fichier : ce qui est surveille, et comment. | This file: what is watched, and how. |
+  | `.gitignore` | Exclut les donnees du collecteur et les rendus locaux. | Excludes the collector data and the local renderings. |
+  | `.copier-answers.yml` | Reponses du gabarit, relues par `forge update`. Ne pas editer. | Template answers, read back by `forge update`. Do not edit. |
+  | `Makefile` | Raccourcis : `make check`, `make test`, `make check ENV=prod`. | Shortcuts: `make check`, `make test`, `make check ENV=prod`. |
+
+  They appear in exactly one generated file, `monitoring/.copier-answers.yml`,
+  and nowhere else: no template reads them, and the generated `README.md`
+  composes its own sentences. They are in the answers file only because the whole
+  `domain` dict is serialised there.
+
+  No migration. `.copier-answers.yml` is generation plumbing — copier reads it
+  back to replay the template, and it reads the keys, not the prose. Nothing
+  outside the file matches on these sentences.
+
 - **Generated alert names are English.** The eight alerts produced by the
   `monitoring` domain were named in French. Each generated name is the service
   name followed by one of these suffixes, so a service called `boutique` had
