@@ -1,21 +1,21 @@
-"""Section `pipeline:` de forge.yml.
+"""The `pipeline:` section of forge.yml.
 
-La section la plus courte du projet, et c'est voulu : **presque tout le contenu
-du pipeline se deduit des autres sections**. Ce qui reste a decider tient en
-quatre points — quel outil de CI, sur quoi il se declenche, faut-il construire
-une image, faut-il deployer et sous quelle garde.
+The shortest section of the project, and deliberately so: **almost all the
+content of the pipeline is deduced from the other sections**. What is left to
+decide comes down to four points — which CI tool, what triggers it, whether an
+image has to be built, whether a deployment happens and under what guard.
 
-Ce que ce modele ne decide pas, et ne doit jamais decider :
+What this model does not decide, and must never decide:
 
-* quels domaines valider — ce sont ceux que la specification demande ;
-* quelles commandes lancer — chaque domaine les declare (`forge_validators`,
-  `forge_deploy`) ;
-* dans quel repertoire les lancer — chaque domaine le declare (`DomainInfo`).
+* which domains to validate — they are the ones the specification asks for;
+* which commands to run — each domain declares them (`forge_validators`,
+  `forge_deploy`);
+* in which directory to run them — each domain declares it (`DomainInfo`).
 
-Aucune valeur secrete n'a sa place ici. Les identifiants de registre et les
-acces aux clusters sont des **secrets de la CI** : le pipeline genere les lit
-par `${{ secrets.* }}` (GitHub) ou par des variables protegees (GitLab), et
-forge n'en ecrit jamais la valeur.
+No secret value has its place here. Registry credentials and cluster accesses are
+**CI secrets**: the generated pipeline reads them through `${{ secrets.* }}`
+(GitHub) or through protected variables (GitLab), and forge never writes their
+value.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ from forge.plugins.pipeline.enums import Provider
 from forge.spec.names import require_unique
 from forge.spec.types import ForgeModel
 
-#: Runner par defaut de chaque outil de CI. GitHub nomme une machine, GitLab une
-#: image de conteneur : le meme champ ne peut pas avoir le meme defaut.
+#: Default runner of each CI tool. GitHub names a machine, GitLab a container
+#: image: the same field cannot have the same default.
 DEFAULT_RUNNERS: dict[str, str] = {
     Provider.GITHUB.value: "ubuntu-latest",
     Provider.GITLAB.value: "debian:trixie-slim",
@@ -35,126 +35,125 @@ DEFAULT_RUNNERS: dict[str, str] = {
 
 
 class TriggerSpec(ForgeModel):
-    """Ce qui declenche le pipeline."""
+    """What triggers the pipeline."""
 
-    #: Branches dont un push declenche le pipeline.
+    #: Branches a push on which triggers the pipeline.
     branches: list[str] = Field(default_factory=lambda: ["main"], min_length=1)
 
-    #: Declenche aussi sur les propositions de fusion. Laissez a `true` : c'est
-    #: le seul moment ou une validation empeche encore quelque chose.
+    #: Also triggers on merge requests. Leave it at `true`: it is the only moment
+    #: when a validation still prevents anything.
     on_pull_request: bool = True
 
-    #: Declenche aussi sur les etiquettes de version (v1.2.3).
+    #: Also triggers on version tags (v1.2.3).
     on_tag: bool = False
 
     @field_validator("branches")
     @classmethod
     def _unique(cls, value: list[str]) -> list[str]:
-        require_unique(value, "branches de declenchement")
+        require_unique(value, "trigger branches")
         return value
 
 
 class BuildSpec(ForgeModel):
-    """Construction et publication de l'image du service."""
+    """Build and publication of the service image."""
 
-    #: Repertoire de construction, relatif a la racine du depot.
+    #: Build directory, relative to the root of the repository.
     context: str = "."
 
-    #: Chemin du Dockerfile, relatif a la racine du depot.
+    #: Path of the Dockerfile, relative to the root of the repository.
     dockerfile: str = "Dockerfile"
 
-    #: Registre de destination. `ghcr.io` sur GitHub, `$CI_REGISTRY` sur GitLab.
+    #: Destination registry. `ghcr.io` on GitHub, `$CI_REGISTRY` on GitLab.
     registry: str = "ghcr.io"
 
-    #: Depot de l'image dans le registre. Vide, il vaut le nom du service.
+    #: Repository of the image within the registry. Empty, it is the service name.
     image: str = ""
 
-    #: Plateformes construites. Plusieurs valeurs exigent buildx et allongent
-    #: nettement la construction.
+    #: Platforms built. Several values require buildx and lengthen the build
+    #: markedly.
     platforms: list[str] = Field(default_factory=lambda: ["linux/amd64"], min_length=1)
 
-    #: Publie l'image. A `false`, l'image est construite et jetee — utile pour
-    #: verifier que le Dockerfile tient sans avoir de registre.
+    #: Publishes the image. At `false`, the image is built and thrown away —
+    #: useful to check that the Dockerfile holds up without having a registry.
     push: bool = True
 
 
 class DeploySpec(ForgeModel):
-    """Deploiement, environnement par environnement."""
+    """Deployment, environment by environment."""
 
-    #: Environnements deployes par le pipeline. Vide, ils le sont tous. Les noms
-    #: sont verifies contre `service.environments` par le controle croise.
+    #: Environments the pipeline deploys. Empty, all of them are. The names are
+    #: checked against `service.environments` by the cross-check.
     environments: list[str] = Field(default_factory=list)
 
-    #: Exige une approbation humaine avant de deployer la production. Le
-    #: passer a `false` fait partir un `apply` sur la production au moindre
-    #: push accepte.
+    #: Requires a human approval before deploying production. Switching it to
+    #: `false` sends an `apply` to production on the slightest accepted push.
     manual_for_production: bool = True
 
-    #: Deploie les environnements dans l'ordre de `service.environments`, chacun
-    #: attendant le precedent. A `false`, ils partent en parallele.
+    #: Deploys the environments in the order of `service.environments`, each one
+    #: waiting for the previous. At `false`, they go in parallel.
     sequential: bool = True
 
     @field_validator("environments")
     @classmethod
     def _unique(cls, value: list[str]) -> list[str]:
-        require_unique(value, "environnements de deploiement")
+        require_unique(value, "deployment environments")
         return value
 
 
 class PipelineSpec(ForgeModel):
-    """Section `pipeline:` : la chaine qui valide, construit et deploie."""
+    """The `pipeline:` section: the chain that validates, builds and deploys."""
 
-    #: Outil d'integration continue vise.
+    #: Targeted continuous integration tool.
     provider: Provider = Provider.GITHUB
 
-    #: Machine (GitHub) ou image de conteneur (GitLab) executant les jobs.
-    #: Vide, le defaut de l'outil choisi s'applique.
+    #: Machine (GitHub) or container image (GitLab) running the jobs. Empty, the
+    #: default of the chosen tool applies.
     runner: str = ""
 
-    #: Ce qui declenche le pipeline.
+    #: What triggers the pipeline.
     trigger: TriggerSpec = Field(default_factory=TriggerSpec)
 
-    #: Construction d'image. Absent, aucun job de construction n'est engendre —
-    #: tous les services ne sont pas conteneurises.
+    #: Image build. Absent, no build job is generated — not every service is
+    #: containerised.
     build: BuildSpec | None = None
 
-    #: Deploiement. Absent, le pipeline se limite a valider ; c'est un choix
-    #: legitime, et le plus courant tant que la chaine n'est pas eprouvee.
+    #: Deployment. Absent, the pipeline limits itself to validating; that is a
+    #: legitimate choice, and the most common one until the chain is proven.
     deploy: DeploySpec | None = None
 
     @model_validator(mode="after")
-    def _runner_par_defaut(self) -> PipelineSpec:
-        """Applique le defaut propre a l'outil choisi.
+    def _default_runner(self) -> PipelineSpec:
+        """Apply the default specific to the chosen tool.
 
-        Fait ici plutot qu'a la derivation : le modele est la source de verite,
-        et `forge.yml` relu doit dire ce qui sera reellement employe.
+        Done here rather than at derivation time: the model is the source of
+        truth, and a `forge.yml` read back must say what will really be used.
         """
         if not self.runner:
             object.__setattr__(self, "runner", DEFAULT_RUNNERS[self.provider.value])
         return self
 
-    # -- lecture ------------------------------------------------------------
+    # -- lookups ------------------------------------------------------------
 
     @property
     def is_github(self) -> bool:
-        """Vrai si l'outil vise est GitHub Actions."""
+        """True when the targeted tool is GitHub Actions."""
         return self.provider is Provider.GITHUB
 
     @property
     def is_gitlab(self) -> bool:
-        """Vrai si l'outil vise est GitLab CI."""
+        """True when the targeted tool is GitLab CI."""
         return self.provider is Provider.GITLAB
 
     def deployed_environments(self, declared: tuple[str, ...]) -> tuple[str, ...]:
-        """Environnements a deployer, dans l'ordre de `service.environments`.
+        """Environments to deploy, in the order of `service.environments`.
 
-        L'ordre vient toujours du bloc partage, jamais de l'ordre d'ecriture de
-        `pipeline.deploy.environments` : la promotion dev -> staging -> prod est
-        une propriete du service, pas du pipeline.
+        The order always comes from the shared block, never from the order
+        `pipeline.deploy.environments` was written in: the dev -> staging -> prod
+        promotion is a property of the service, not of the pipeline.
         """
         if self.deploy is None:
             return ()
         if not self.deploy.environments:
             return declared
-        demandes = set(self.deploy.environments)
-        return tuple(nom for nom in declared if nom in demandes)
+        requested = set(self.deploy.environments)
+        return tuple(name for name in declared if name in requested)

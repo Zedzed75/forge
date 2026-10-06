@@ -1,4 +1,4 @@
-"""Enumerations du domaine pipeline."""
+"""Enumerations of the pipeline domain."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from enum import Enum
 
 
 class Provider(str, Enum):
-    """Outil d'integration continue vise.
+    """Targeted continuous integration tool.
 
-    Le choix change le **format du fichier**, jamais ce qu'il contient : les
-    memes jobs, derives du meme contexte, s'ecrivent dans les deux dialectes.
-    C'est la seule raison pour laquelle deux gabarits cohabitent.
+    The choice changes the **format of the file**, never what it contains: the
+    same jobs, derived from the same context, are written in both dialects. That
+    is the only reason two templates coexist.
     """
 
     #: GitHub Actions — `.github/workflows/ci.yml`.
@@ -21,13 +21,13 @@ class Provider(str, Enum):
 
 
 class JobKind(str, Enum):
-    """Nature d'un job engendre. Fixe son etage et ses dependances."""
+    """Nature of a generated job. Fixes its stage and its dependencies."""
 
-    #: Validation d'un domaine : ses propres `Command`, telles qu'il les declare.
+    #: Validation of a domain: its own `Command`s, as it declares them.
     VALIDATE = "validate"
 
-    #: Construction et publication de l'image du service.
+    #: Build and publication of the service image.
     BUILD = "build"
 
-    #: Deploiement d'un environnement, un job par environnement.
+    #: Deployment of an environment, one job per environment.
     DEPLOY = "deploy"

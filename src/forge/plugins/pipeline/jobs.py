@@ -1,24 +1,25 @@
-"""Derivation des jobs a partir de ce que les autres domaines declarent.
+"""Derivation of the jobs from what the other domains declare.
 
-Le coeur de la phase 8. **Aucun nom de domaine n'apparait ici** : tout vient du
-`GenerationContext`, qui ne parle que `DomainInfo`, `Command` et `Projection`.
-Ajouter un domaine a forge ajoute donc un job a ce pipeline sans qu'une ligne de
-ce module change — c'est la propriete a preserver.
+The heart of phase 8. **No domain name appears here**: everything comes from the
+`GenerationContext`, which only speaks `DomainInfo`, `Command` and `Projection`.
+Adding a domain to forge therefore adds a job to this pipeline without one line
+of this module changing — that is the property to preserve.
 
-Trois traductions non triviales sont faites ici, et elles meritent d'etre lues :
+Three non-trivial translations are done here, and they are worth reading:
 
-* **le chainage par stdin.** `forge validate` execute `kubeconform` sur la sortie
-  de `helm template` en gardant celle-ci en memoire. Un fichier de CI n'a pas
-  cette memoire : la source ecrit dans un fichier, le consommateur le relit. Une
-  redirection plutot qu'un tube, parce que `pipefail` n'existe pas dans le
-  `/bin/sh` d'une image Debian et qu'un tube y masquerait l'echec de la source.
-* **le repertoire de travail.** `Command.cwd` est un chemin relatif a la racine
-  du projet — le coeur le construit ainsi pour ce module. Il devient
-  `working-directory` chez GitHub, un `cd` chez GitLab.
-* **l'approbation humaine.** GitLab la declare dans le fichier (`when: manual`) ;
-  GitHub la declare dans les reglages du depot, le fichier ne portant que le nom
-  de l'environnement. Le gabarit GitHub le dit en commentaire plutot que de
-  laisser croire que le fichier suffit.
+* **the stdin chaining.** `forge validate` runs `kubeconform` on the output of
+  `helm template` while keeping the latter in memory. A CI file has no such
+  memory: the source writes into a file, the consumer reads it back. A
+  redirection rather than a pipe, because `pipefail` does not exist in the
+  `/bin/sh` of a Debian image and a pipe would hide the failure of the source
+  there.
+* **the working directory.** `Command.cwd` is a path relative to the root of the
+  project — the core builds it that way for this module. It becomes
+  `working-directory` on GitHub, a `cd` on GitLab.
+* **the human approval.** GitLab declares it in the file (`when: manual`); GitHub
+  declares it in the repository settings, the file only carrying the name of the
+  environment. The GitHub template says so in a comment rather than letting one
+  believe the file is enough.
 """
 
 from __future__ import annotations
@@ -31,13 +32,13 @@ from forge.plugins.pipeline import tools
 from forge.plugins.pipeline.enums import JobKind
 from forge.plugins_api.types import Command, DomainSummary, GenerationContext
 
-#: Prefixe des fichiers intermediaires du chainage stdin.
+#: Prefix of the intermediate files of the stdin chaining.
 STDIN_PREFIX = "/tmp/forge-"
 
 
 @dataclass
 class Step:
-    """Une etape de job : un libelle, des lignes de shell, un contexte."""
+    """A job step: a label, shell lines, a context."""
 
     name: str
     run: list[str] = field(default_factory=list)
@@ -45,20 +46,20 @@ class Step:
     env: dict[str, str] = field(default_factory=dict)
 
     def script(self) -> list[str]:
-        """Lignes autonomes : repertoire et variables portes par la ligne elle-meme.
+        """Self-contained lines: directory and variables carried by the line itself.
 
-        GitLab n'a ni `working-directory` ni variables par etape — un job est un
-        seul script. Le `cd` est enferme dans un sous-shell pour qu'il ne fuie
-        pas sur la ligne suivante.
+        GitLab has neither `working-directory` nor per-step variables — a job is
+        one single script. The `cd` is enclosed in a subshell so that it does not
+        leak onto the next line.
         """
-        prefixe = "".join(f"{cle}={shlex.quote(valeur)} " for cle, valeur in sorted(self.env.items()))
-        lignes = []
-        for ligne in self.run:
-            complete = prefixe + ligne
+        prefix = "".join(f"{key}={shlex.quote(value)} " for key, value in sorted(self.env.items()))
+        lines = []
+        for line in self.run:
+            complete = prefix + line
             if self.workdir:
                 complete = f"(cd {shlex.quote(self.workdir)} && {complete})"
-            lignes.append(complete)
-        return lignes
+            lines.append(complete)
+        return lines
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -72,7 +73,7 @@ class Step:
 
 @dataclass
 class Job:
-    """Un job du pipeline."""
+    """A job of the pipeline."""
 
     key: str
     name: str
@@ -82,7 +83,7 @@ class Job:
     environment: str = ""
     manual: bool = False
     default_branch_only: bool = False
-    #: Outils que ce job installe, et ceux qu'il ne sait pas installer.
+    #: Tools this job installs, and those it does not know how to install.
     tool_names: list[str] = field(default_factory=list)
     unknown_tools: list[str] = field(default_factory=list)
 
@@ -102,166 +103,168 @@ class Job:
 
 
 # ---------------------------------------------------------------------------
-# Traduction d'une Command en etape
+# Translation of a Command into a step
 # ---------------------------------------------------------------------------
 
 
 def _slug(label: str) -> str:
-    """Identifiant de fichier derive d'un libelle de commande."""
-    garde = [c if c.isalnum() else "-" for c in label.lower()]
-    return "".join(garde).strip("-").replace("---", "-").replace("--", "-")
+    """File identifier derived from a command label."""
+    kept = [c if c.isalnum() else "-" for c in label.lower()]
+    return "".join(kept).strip("-").replace("---", "-").replace("--", "-")
 
 
 def _shell(command: Command, redirection: str = "") -> str:
-    """Ligne de shell equivalente a une commande, arguments cites au besoin."""
-    morceaux = [command.tool, *command.argv]
-    ligne = " ".join(shlex.quote(morceau) for morceau in morceaux)
-    return f"{ligne} {redirection}".rstrip()
+    """Shell line equivalent to a command, arguments quoted where needed."""
+    pieces = [command.tool, *command.argv]
+    line = " ".join(shlex.quote(piece) for piece in pieces)
+    return f"{line} {redirection}".rstrip()
 
 
 def portable_env(command: Command) -> dict[str, str]:
-    """Variables d'environnement d'une commande, purgees de ce qui est local.
+    """Environment variables of a command, purged of what is local.
 
-    `Command.env` configure une execution **sur le poste** : le chemin des
-    collections Ansible, un cache de providers Terraform, un miroir de schemas
-    Kubernetes. Ces valeurs sont lues dans l'environnement du processus au
-    moment de la generation ; les recopier dans un fichier de CI y ecrirait le
-    chemin d'un poste de developpement, et rendrait la sortie **dependante de la
-    machine qui l'a engendree** — un fichier golden ne pourrait plus etre
-    compare.
+    `Command.env` configures a run **on the workstation**: the path of the Ansible
+    collections, a Terraform provider cache, a Kubernetes schema mirror. These
+    values are read from the process environment at generation time; copying them
+    into a CI file would write the path of a development workstation there, and
+    would make the output **depend on the machine that produced it** — a golden
+    file could no longer be compared.
 
-    Le critere est volontairement grossier — une valeur qui ressemble a un
-    chemin est ecartee — mais il est sur dans le bon sens : ce qui reste
-    (`NO_COLOR=1`, `TF_IN_AUTOMATION=1`) est du reglage de comportement, valable
-    partout. Ce qu'un outil a besoin de trouver sur le runner est fourni par sa
-    recette d'installation, ecrite pour le runner.
+    The criterion is deliberately coarse — a value that looks like a path is set
+    aside — but it errs in the right direction: what remains (`NO_COLOR=1`,
+    `TF_IN_AUTOMATION=1`) is behaviour tuning, valid everywhere. What a tool needs
+    to find on the runner is supplied by its installation recipe, written for the
+    runner.
     """
     return {
-        cle: valeur
-        for cle, valeur in command.env
-        if not _ressemble_a_un_chemin(valeur)
+        key: value
+        for key, value in command.env
+        if not _looks_like_a_path(value)
     }
 
 
-def _ressemble_a_un_chemin(valeur: str) -> bool:
-    """Vrai si la valeur designe un emplacement du systeme de fichiers."""
-    return "/" in valeur or "\\" in valeur or (len(valeur) > 1 and valeur[1] == ":")
+def _looks_like_a_path(value: str) -> bool:
+    """True when the value designates a location on the filesystem."""
+    return "/" in value or "\\" in value or (len(value) > 1 and value[1] == ":")
 
 
 def _workdir(command: Command) -> str:
-    """Repertoire de travail, relatif a la racine du projet."""
+    """Working directory, relative to the root of the project."""
     if command.cwd is None:
         return ""
-    chemin = command.cwd.as_posix()
-    return "" if chemin in (".", "") else chemin
+    path = command.cwd.as_posix()
+    return "" if path in (".", "") else path
 
 
 def steps_for(commands: tuple[Command, ...]) -> list[Step]:
-    """Traduit une suite de `Command` en etapes, chainage stdin compris."""
+    """Translate a sequence of `Command`s into steps, stdin chaining included."""
     sources = {
-        commande.stdin_from for commande in commands if commande.stdin_from
+        command.stdin_from for command in commands if command.stdin_from
     }
-    etapes: list[Step] = []
-    for commande in commands:
+    steps: list[Step] = []
+    for command in commands:
         redirection = ""
-        if commande.label in sources:
-            redirection = f"> {STDIN_PREFIX}{_slug(commande.label)}.out"
-        elif commande.stdin_from:
-            redirection = f"< {STDIN_PREFIX}{_slug(commande.stdin_from)}.out"
-        etapes.append(
+        if command.label in sources:
+            redirection = f"> {STDIN_PREFIX}{_slug(command.label)}.out"
+        elif command.stdin_from:
+            redirection = f"< {STDIN_PREFIX}{_slug(command.stdin_from)}.out"
+        steps.append(
             Step(
-                name=commande.label,
-                run=[_shell(commande, redirection)],
-                workdir=_workdir(commande),
-                env=portable_env(commande),
+                name=command.label,
+                run=[_shell(command, redirection)],
+                workdir=_workdir(command),
+                env=portable_env(command),
             )
         )
-    return etapes
+    return steps
 
 
 def install_step(
-    noms: tuple[str, ...], provider: str
+    names: tuple[str, ...], provider: str
 ) -> tuple[Step | None, list[str], list[str]]:
-    """Etape d'installation des outils, et le partage connus / inconnus.
+    """Tool installation step, and the known / unknown split.
 
-    Les variables posees par une recette ne se transmettent pas de la meme
-    facon : chaque `run:` de GitHub est un shell neuf, et seul un ecrit dans
-    `$GITHUB_ENV` survit a l'etape suivante ; un job GitLab est un seul shell,
-    ou un `export` suffit.
+    The variables a recipe sets are not carried over the same way: each `run:` of
+    GitHub is a fresh shell, and only one written into `$GITHUB_ENV` survives to
+    the next step; a GitLab job is one single shell, where an `export` is enough.
     """
-    connus, inconnus = tools.resolve(noms)
-    lignes: list[str] = []
-    paquets = tools.system_packages(connus)
-    if paquets:
-        lignes.append(
+    known, unknown = tools.resolve(names)
+    lines: list[str] = []
+    packages = tools.system_packages(known)
+    if packages:
+        lines.append(
             "if command -v apt-get >/dev/null; then apt-get update -qq && "
-            f"apt-get install -y -qq --no-install-recommends {' '.join(paquets)}; fi"
+            f"apt-get install -y -qq --no-install-recommends {' '.join(packages)}; fi"
         )
     exports: dict[str, str] = {}
-    for recette in connus:
-        lignes.extend(recette.steps)
-        exports.update(recette.exports)
-    for cle, valeur in sorted(exports.items()):
+    for recipe in known:
+        lines.extend(recipe.steps)
+        exports.update(recipe.exports)
+    for key, value in sorted(exports.items()):
         if provider == "github":
-            lignes.append(f'echo "{cle}={valeur}" >> "$GITHUB_ENV"')
+            lines.append(f'echo "{key}={value}" >> "$GITHUB_ENV"')
         else:
-            lignes.append(f'export {cle}="{valeur}"')
-    for inconnu in inconnus:
-        # Jamais devine : l'etape echoue en nommant l'outil manquant, plutot que
-        # de laisser le job echouer plus loin sur un « command not found ».
-        lignes.append(
-            f'echo "forge ne sait pas installer {inconnu} : completez cette etape" >&2'
+            lines.append(f'export {key}="{value}"')
+    for missing in unknown:
+        # Never guessed: the step fails while naming the missing tool, rather than
+        # letting the job fail further on with a "command not found".
+        #
+        # This message is a line of the generated CI file, not prose of the
+        # plugin. No golden spec declares an unknown tool, so no reference
+        # output carries it — which is why translating it moves nothing.
+        lines.append(
+            f'echo "forge cannot install {missing}: complete this step" >&2'
         )
-        lignes.append("exit 1")
-    if not lignes:
-        return None, [recette.name for recette in connus], inconnus
+        lines.append("exit 1")
+    if not lines:
+        return None, [recipe.name for recipe in known], unknown
     return (
-        Step(name="Install the tools", run=lignes),
-        [recette.name for recette in connus],
-        inconnus,
+        Step(name="Install the tools", run=lines),
+        [recipe.name for recipe in known],
+        unknown,
     )
 
 
 # ---------------------------------------------------------------------------
-# Construction des jobs
+# Building the jobs
 # ---------------------------------------------------------------------------
 
 
 def _job_for_commands(
     key: str, name: str, kind: JobKind, commands: tuple[Command, ...], provider: str
 ) -> Job:
-    """Job installant ce qu'il faut, puis lancant `commands` dans l'ordre."""
-    noms = tuple(sorted({commande.tool for commande in commands}))
-    installation, connus, inconnus = install_step(noms, provider)
-    etapes = [installation] if installation else []
-    etapes += steps_for(commands)
+    """Job installing what is needed, then running `commands` in order."""
+    names = tuple(sorted({command.tool for command in commands}))
+    installation, known, unknown = install_step(names, provider)
+    steps = [installation] if installation else []
+    steps += steps_for(commands)
     return Job(
         key=key,
         name=name,
         kind=kind.value,
-        steps=etapes,
-        tool_names=connus,
-        unknown_tools=inconnus,
+        steps=steps,
+        tool_names=known,
+        unknown_tools=unknown,
     )
 
 
 def validate_jobs(context: GenerationContext, provider: str) -> list[Job]:
-    """Un job de validation par domaine demande, y compris le pipeline lui-meme.
+    """One validation job per requested domain, the pipeline itself included.
 
-    Le domaine `pipeline` valide sa propre sortie : c'est un domaine comme un
-    autre du point de vue de ce module, et l'exclure serait le seul endroit ou
-    il se traiterait a part.
+    The `pipeline` domain validates its own output: it is a domain like any other
+    from the point of view of this module, and excluding it would be the only
+    place where it treated itself apart.
     """
     jobs: list[Job] = []
-    for sommaire in context.domains:
-        if not sommaire.validators:
+    for summary in context.domains:
+        if not summary.validators:
             continue
         jobs.append(
             _job_for_commands(
-                key=f"validate-{sommaire.name}",
-                name=f"Validate {sommaire.info.title}",
+                key=f"validate-{summary.name}",
+                name=f"Validate {summary.info.title}",
                 kind=JobKind.VALIDATE,
-                commands=sommaire.validators,
+                commands=summary.validators,
                 provider=provider,
             )
         )
@@ -269,27 +272,27 @@ def validate_jobs(context: GenerationContext, provider: str) -> list[Job]:
 
 
 def build_job(build: Any, service_name: str, provider: str) -> Job:
-    """Job de construction et de publication de l'image.
+    """Job building and publishing the image.
 
-    Aucun identifiant n'est ecrit : la connexion au registre emploie le jeton que
-    l'outil de CI fournit deja (`GITHUB_TOKEN`, `CI_REGISTRY_PASSWORD`).
+    No credential is written: the connection to the registry uses the token the CI
+    tool already supplies (`GITHUB_TOKEN`, `CI_REGISTRY_PASSWORD`).
     """
     image = build.image or service_name
     reference = f"{build.registry}/{image}"
-    plateformes = ",".join(build.platforms)
-    lignes = [
+    platforms = ",".join(build.platforms)
+    lines = [
         "docker buildx create --use --name forge-builder 2>/dev/null || "
         "docker buildx use forge-builder",
         " ".join(
             [
                 "docker buildx build",
-                f"--platform {plateformes}",
+                f"--platform {platforms}",
                 f"--file {shlex.quote(build.dockerfile)}",
-                # Guillemets obligatoires autour de l'expansion : sans eux,
-                # shellcheck signale SC2086 (« double quote to prevent globbing
-                # and word splitting ») et actionlint fait echouer le job. Ce
-                # n'est pas du zele : un tag contenant un blanc ou un caractere
-                # generique serait coupe en plusieurs arguments.
+                # Quotes mandatory around the expansion: without them, shellcheck
+                # reports SC2086 ("double quote to prevent globbing and word
+                # splitting") and actionlint fails the job. It is not zeal: a tag
+                # containing a blank or a wildcard character would be split into
+                # several arguments.
                 f'--tag "{reference}:$FORGE_IMAGE_TAG"',
                 "--push" if build.push else "--load",
                 shlex.quote(build.context),
@@ -300,7 +303,7 @@ def build_job(build: Any, service_name: str, provider: str) -> Job:
         key="build",
         name="Build the image",
         kind=JobKind.BUILD.value,
-        steps=[Step(name=f"docker buildx build ({reference})", run=lignes)],
+        steps=[Step(name=f"docker buildx build ({reference})", run=lines)],
         default_branch_only=build.push,
     )
     job.steps[0].env = {"FORGE_IMAGE_TAG": _tag_expression(provider)}
@@ -308,11 +311,11 @@ def build_job(build: Any, service_name: str, provider: str) -> Job:
 
 
 def _tag_expression(provider: str) -> str:
-    """Expression donnant le tag de l'image, propre a chaque outil de CI.
+    """Expression giving the tag of the image, specific to each CI tool.
 
-    Le tag est l'empreinte du commit, jamais `latest` : deux constructions du
-    meme `latest` produisent deux images differentes sous le meme nom, et rien
-    ne dit laquelle tourne.
+    The tag is the fingerprint of the commit, never `latest`: two builds of the
+    same `latest` produce two different images under the same name, and nothing
+    says which one is running.
     """
     return "${{ github.sha }}" if provider == "github" else "$CI_COMMIT_SHA"
 
@@ -327,71 +330,71 @@ def deploy_jobs(
     sequential: bool,
     needs: list[str],
 ) -> list[Job]:
-    """Un job de deploiement par environnement, tous domaines confondus.
+    """One deployment job per environment, all domains taken together.
 
-    Un seul job par environnement plutot qu'un par couple (domaine,
-    environnement) : dans un meme environnement, les domaines se deploient dans
-    l'ordre qu'ils declarent eux-memes (`DomainInfo.deploy_order`) — le socle
-    avant ce qui s'y pose. Trier par nom aurait fait partir un chart avant
-    l'infrastructure qui cree son namespace, ce qu'aucun tri generique ne
-    pouvait deviner.
+    One single job per environment rather than one per (domain, environment)
+    pair: within the same environment, the domains deploy in the order they
+    declare themselves (`DomainInfo.deploy_order`) — the base layer before what
+    rests on it. Sorting by name would have sent a chart off before the
+    infrastructure that creates its namespace, which no generic sort could have
+    guessed.
     """
-    ordonnes = sorted(context.domains, key=lambda s: (s.info.deploy_order, s.name))
+    ordered = sorted(context.domains, key=lambda s: (s.info.deploy_order, s.name))
     jobs: list[Job] = []
-    precedent: str | None = None
-    for nom in environments:
-        commandes: list[Command] = []
-        for sommaire in ordonnes:
-            commandes.extend(_deployment_for(sommaire, nom))
-        if not commandes:
+    previous: str | None = None
+    for name in environments:
+        commands: list[Command] = []
+        for summary in ordered:
+            commands.extend(_deployment_for(summary, name))
+        if not commands:
             continue
         job = _job_for_commands(
-            key=f"deploy-{nom}",
-            # Cle et libelle sont tous deux des identifiants, malgre les
-            # apparences : chez GitHub, la cle nomme le job dans `needs:` et le
-            # libelle est le nom du « required status check » qu'une regle de
-            # protection de branche compare. Ni l'un ni l'autre n'est de la
-            # prose traduisible, donc les deux restent en anglais.
-            name=f"Deploy {nom}",
+            key=f"deploy-{name}",
+            # Key and label are both identifiers, appearances notwithstanding:
+            # on GitHub the key names the job in `needs:` and the label is the
+            # name of the "required status check" a branch protection rule
+            # compares against. Neither is translatable prose, so both stay in
+            # English.
+            name=f"Deploy {name}",
             kind=JobKind.DEPLOY,
-            commands=tuple(commandes),
+            commands=tuple(commands),
             provider=provider,
         )
-        job.environment = nom
+        job.environment = name
         job.default_branch_only = True
-        job.manual = manual_for_production and nom == production
-        job.needs = list(needs) + ([precedent] if sequential and precedent else [])
+        job.manual = manual_for_production and name == production
+        job.needs = list(needs) + ([previous] if sequential and previous else [])
         jobs.append(job)
-        precedent = job.key
+        previous = job.key
     return jobs
 
 
-def _deployment_for(sommaire: DomainSummary, environment: str) -> tuple[Command, ...]:
-    """Commandes de deploiement du domaine pour cet environnement, ou rien."""
-    for nom, commandes in sommaire.deployments:
-        if nom == environment:
-            return commandes
+def _deployment_for(summary: DomainSummary, environment: str) -> tuple[Command, ...]:
+    """Deployment commands of the domain for this environment, or nothing."""
+    for name, commands in summary.deployments:
+        if name == environment:
+            return commands
     return ()
 
 
 def undeployed(
     context: GenerationContext, environments: tuple[str, ...], self_name: str
 ) -> list[str]:
-    """Domaines demandes qui ne disent pas comment se deployer.
+    """Requested domains that do not say how they deploy.
 
-    Le pipeline n'invente pas leur commande : il les nomme, pour que l'absence
-    d'un job de deploiement soit un constat et non un oubli.
+    The pipeline does not invent their command: it names them, so that the absence
+    of a deployment job is an observation and not an oversight.
 
-    Le domaine appelant s'exclut : un pipeline ne se deploie pas, il est le
-    deploiement. C'est le **seul** endroit de ce module ou un domaine est traite
-    autrement que les autres, et il ne le doit qu'a sa propre identite — jamais
-    a la connaissance d'un autre.
+    The calling domain excludes itself: a pipeline does not deploy itself, it is
+    the deployment. That is the **only** place in this module where a domain is
+    treated differently from the others, and it owes that only to its own identity
+    — never to the knowledge of another.
     """
     if not environments:
         return []
     return sorted(
-        sommaire.name
-        for sommaire in context.domains
-        if sommaire.name != self_name
-        and not any(_deployment_for(sommaire, nom) for nom in environments)
+        summary.name
+        for summary in context.domains
+        if summary.name != self_name
+        and not any(_deployment_for(summary, name) for name in environments)
     )

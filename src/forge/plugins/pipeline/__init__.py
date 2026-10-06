@@ -1,7 +1,7 @@
-"""Plugin de domaine pipeline : la chaine d'integration et de deploiement.
+"""Pipeline domain plugin: the integration and deployment chain.
 
-Le domaine qui **federe les autres sans les connaitre**. Il n'y a pas une seule
-occurrence de « ansible », « helm » ou « terraform » dans ce paquet, hors
-documentation : tout ce qu'il sait des autres domaines lui arrive par le
-`GenerationContext` que le coeur assemble a partir de hooks deja existants.
+The domain that **federates the others without knowing them**. There is not a
+single occurrence of "ansible", "helm" or "terraform" in this package, outside
+documentation: everything it knows about the other domains reaches it through the
+`GenerationContext` the core assembles from hooks that already existed.
 """
