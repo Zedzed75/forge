@@ -1,14 +1,12 @@
-"""Plugin de domaine monitoring : sondes, regles d'alerte et leurs tests.
+"""Monitoring domain plugin: probes, alerting rules and their tests.
 
-Domaine autonome : il ne lit **aucune** autre section de forge.yml. Ce qu'il
-surveille, il le declare lui-meme ; la coherence avec les autres domaines passe
-par le vocabulaire des facettes (`namespaces`, `ingress_hosts`), verifie par
-`forge validate`. C'est le meme mecanisme que pour Helm et Terraform, et il ne
-demande aucun couplage.
+A self-contained domain: it reads **no** other section of forge.yml. What it
+watches, it declares itself; coherence with the other domains goes through the
+facet vocabulary (`namespaces`, `ingress_hosts`), checked by `forge validate`. It
+is the same mechanism as for Helm and Terraform, and it asks for no coupling.
 
-Particularite du domaine : `promtool` sait faire tourner des **tests unitaires
-d'alerte** — donner une serie temporelle synthetique et verifier que l'alerte se
-declenche avec les bons libelles. forge en engendre un par famille de regles.
-Une regle d'alerte non testee est une regle dont personne ne sait si elle se
-declenche, et on ne l'apprend que le jour ou elle aurait du le faire.
+What is specific to this domain: `promtool` can run **alert unit tests** — give
+it a synthetic time series and check that the alert fires with the right labels.
+forge generates one per rule family. An untested alerting rule is a rule nobody
+knows fires or not, and that is only learnt the day it should have.
 """

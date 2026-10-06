@@ -1,17 +1,17 @@
-"""Resolution des jetons du catalogue, et projection d'une alerte.
+"""Resolution of the catalogue tokens, and projection of an alert.
 
-Deux substitutions, et la seconde est le point interessant :
+Two substitutions, and the second one is the interesting part:
 
-1. les jetons `@…@` du catalogue deviennent les valeurs de la specification ;
-2. les references `{{ $labels.<nom> }}` d'une annotation sont resolues avec les
-   libelles du test unitaire, pour produire l'annotation **telle que promtool la
-   verra**.
+1. the `@…@` tokens of the catalogue become the values of the specification;
+2. the `{{ $labels.<name> }}` references of an annotation are resolved with the
+   labels of the unit test, so as to produce the annotation **as promtool will
+   see it**.
 
-La seconde evite la seule duplication dangereuse de ce domaine. `promtool test
-rules` compare les annotations rendues caractere par caractere : ecrire a la
-main, dans le fichier de test, ce que l'annotation est censee donner ferait
-diverger la regle et son test au premier changement de formulation — et un test
-qui verifie une ancienne formulation ne verifie plus rien.
+The second one avoids the only dangerous duplication of this domain. `promtool
+test rules` compares the rendered annotations character by character: writing by
+hand, in the test file, what the annotation is supposed to give would make the
+rule and its test diverge at the first change of wording — and a test that checks
+an old wording no longer checks anything.
 """
 
 from __future__ import annotations
@@ -22,23 +22,22 @@ from forge.plugins.monitoring.catalog.alerts import Alert
 
 
 def substitute(text: str, values: dict[str, Any]) -> str:
-    """Remplace les jetons `@cle@` de `text` par les valeurs fournies.
+    """Replace the `@key@` tokens of `text` with the supplied values.
 
-    Ni `str.format` ni `string.Template` ne conviennent : PromQL est plein
-    d'accolades (`{job="x"}`) et les annotations sont pleines de `$`
-    (`{{ $labels.pod }}`).
+    Neither `str.format` nor `string.Template` fits: PromQL is full of braces
+    (`{job="x"}`) and the annotations are full of `$` (`{{ $labels.pod }}`).
     """
-    for cle, valeur in values.items():
-        text = text.replace(f"@{cle}@", format_number(valeur))
+    for key, value in values.items():
+        text = text.replace(f"@{key}@", format_number(value))
     return text
 
 
 def format_number(value: Any) -> str:
-    """Rend un nombre de facon **identique** dans l'expression et le texte.
+    """Render a number **identically** in the expression and in the text.
 
-    `1.0` s'ecrit `1`, `0.05` s'ecrit `0.05`. Sans cette normalisation, une
-    expression PromQL dirait `> 1.0` et l'annotation « depasse 1 seconde », ce
-    qui suffirait a rendre le test unitaire faux.
+    `1.0` is written `1`, `0.05` is written `0.05`. Without this normalisation, a
+    PromQL expression would say `> 1.0` and the annotation "exceeds 1 second",
+    which is enough to make the unit test wrong.
     """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return str(value)
@@ -48,21 +47,21 @@ def format_number(value: Any) -> str:
 
 
 def percent(value: float) -> str:
-    """Rend une proportion en pourcentage, sans artefact de virgule flottante."""
+    """Render a proportion as a percentage, without floating-point artefacts."""
     return format_number(round(value * 100, 6))
 
 
 def render_description(description: str, labels: dict[str, str]) -> str:
-    """Resout `{{ $labels.<nom> }}` avec les libelles donnes.
+    """Resolve `{{ $labels.<name> }}` with the given labels.
 
-    Un libelle absent est laisse tel quel : le test unitaire echouera alors en
-    montrant la reference non resolue, ce qui est exactement le diagnostic
-    voulu — l'alerte cite un libelle que son expression ne produit pas.
+    A missing label is left as it is: the unit test will then fail while showing
+    the unresolved reference, which is exactly the diagnosis wanted — the alert
+    quotes a label its expression does not produce.
     """
-    rendu = description
-    for nom, valeur in labels.items():
-        rendu = rendu.replace("{{ $labels." + nom + " }}", valeur)
-    return rendu
+    rendered = description
+    for name, value in labels.items():
+        rendered = rendered.replace("{{ $labels." + name + " }}", value)
+    return rendered
 
 
 def project(
@@ -72,68 +71,68 @@ def project(
     alert_prefix: str,
     rule_labels: dict[str, str],
 ) -> dict[str, Any]:
-    """Projette une alerte du catalogue en dict JSON-serialisable.
+    """Project a catalogue alert into a JSON-serialisable dict.
 
-    Le dict porte la regle **et** son test unitaire : les deux sont construits
-    a partir des memes valeurs, dans la meme fonction, ce qui les empeche de
-    diverger.
+    The dict carries the rule **and** its unit test: both are built from the same
+    values, in the same function, which stops them from diverging.
     """
-    resolus = dict(values)
+    resolved = dict(values)
     if alert.threshold_field:
-        seuil = resolus.get(alert.threshold_field, alert.threshold_default)
-        resolus["threshold"] = seuil
-        resolus["threshold_pct"] = percent(float(seuil))
+        threshold = resolved.get(alert.threshold_field, alert.threshold_default)
+        resolved["threshold"] = threshold
+        resolved["threshold_pct"] = percent(float(threshold))
 
-    summary = substitute(alert.summary, resolus)
-    description = substitute(alert.description, resolus)
-    libelles_resultat = {
-        nom: substitute(valeur, resolus)
-        for nom, valeur in alert.test_result_labels.items()
+    summary = substitute(alert.summary, resolved)
+    description = substitute(alert.description, resolved)
+    result_labels = {
+        name: substitute(value, resolved)
+        for name, value in alert.test_result_labels.items()
     }
 
     return {
         "name": f"{alert_prefix}{alert.name}",
-        "expr": substitute(alert.expr, resolus),
+        "expr": substitute(alert.expr, resolved),
         "for": alert.for_duration,
         "severity": alert.severity.value,
         "summary": summary,
         "description": description,
         "labels": dict(rule_labels),
         "threshold_field": alert.threshold_field or "",
-        "threshold": format_number(resolus.get("threshold", "")) if alert.threshold_field else "",
+        "threshold": format_number(resolved.get("threshold", "")) if alert.threshold_field else "",
         "threshold_unit": alert.threshold_unit,
         "test": {
             "series": [
                 {
-                    "series": substitute(serie, resolus),
-                    # Surtout pas `values` : en Jinja, `serie.values` resoudrait
-                    # la methode du dict avant la cle, et le gabarit ecrirait
-                    # `<built-in method values...>` dans le fichier de test.
-                    # promtool s'en plaint, mais tres loin de la cause.
-                    # Les points portent des jetons eux aussi : le pas d'un
-                    # compteur est calcule a partir du seuil.
-                    "points": substitute(valeurs, resolus),
+                    "series": substitute(series, resolved),
+                    # Definitely not `values`: in Jinja, `series.values` would
+                    # resolve the dict method before the key, and the template
+                    # would write `<built-in method values...>` into the test
+                    # file. promtool complains about it, but a very long way from
+                    # the cause.
+                    # The points carry tokens too: the step of a counter is
+                    # computed from the threshold.
+                    "points": substitute(points, resolved),
                 }
-                for serie, valeurs in alert.test_series
+                for series, points in alert.test_series
             ],
             "eval_time": alert.test_eval_time,
-            # Ce que promtool doit retrouver : les libelles que la regle ajoute,
-            # plus ceux que l'expression laisse survivre.
-            "exp_labels": {**rule_labels, **libelles_resultat},
+            # What promtool must find again: the labels the rule adds, plus the
+            # ones the expression lets survive.
+            "exp_labels": {**rule_labels, **result_labels},
             "exp_annotations": {
                 "summary": summary,
-                "description": render_description(description, libelles_resultat),
+                "description": render_description(description, result_labels),
             },
         },
     }
 
 
 def alert_prefix(service_name: str) -> str:
-    """Prefixe des noms d'alerte, derive du nom du service.
+    """Prefix of the alert names, derived from the service name.
 
-    `boutique` -> `Boutique`, `db-proxy` -> `DbProxy`. Un nom d'alerte est un
-    identifiant en CamelCase par convention Prometheus, et le prefixer par le
-    service evite qu'une alerte `TargetDown` de deux services differents
-    se confonde dans un recepteur commun.
+    `boutique` -> `Boutique`, `db-proxy` -> `DbProxy`. An alert name is a
+    CamelCase identifier by Prometheus convention, and prefixing it with the
+    service stops a `TargetDown` alert of two different services from being
+    confused in a common receiver.
     """
-    return "".join(morceau.capitalize() for morceau in service_name.replace("_", "-").split("-"))
+    return "".join(part.capitalize() for part in service_name.replace("_", "-").split("-"))

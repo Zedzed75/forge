@@ -1,9 +1,9 @@
-"""Acces au catalogue des familles de regles.
+"""Access to the catalogue of rule families.
 
-Meme role que les registres des trois autres domaines : une seule porte
-d'entree, pour que l'ordre canonique soit celui du catalogue et non celui de la
-specification. Deux specifications qui citent les memes familles dans un ordre
-different doivent produire le meme projet.
+The same role as the registries of the three other domains: a single entry point,
+so that the canonical order is that of the catalogue and not that of the
+specification. Two specifications that quote the same families in a different
+order must produce the same project.
 """
 
 from __future__ import annotations
@@ -13,26 +13,26 @@ from forge.plugins.monitoring.catalog.families import BY_NAME, FAMILIES, Family
 
 
 def all_families() -> tuple[Family, ...]:
-    """Toutes les familles, dans l'ordre canonique."""
+    """All the families, in canonical order."""
     return FAMILIES
 
 
 def family_names() -> tuple[str, ...]:
-    """Noms des familles, dans l'ordre canonique."""
-    return tuple(famille.name for famille in FAMILIES)
+    """Family names, in canonical order."""
+    return tuple(family.name for family in FAMILIES)
 
 
 def get_family(name: str) -> Family:
-    """Famille `name`, ou `KeyError`. Le sous-modele valide deja les noms."""
+    """The `name` family, or `KeyError`. The sub-model already validates the names."""
     return BY_NAME[name]
 
 
 def selected(names: list[str] | tuple[str, ...]) -> tuple[Family, ...]:
-    """Familles retenues, remises dans l'ordre canonique et dedoublonnees."""
-    demandees = set(names)
-    return tuple(famille for famille in FAMILIES if famille.name in demandees)
+    """Retained families, put back into canonical order and deduplicated."""
+    requested = set(names)
+    return tuple(family for family in FAMILIES if family.name in requested)
 
 
 def all_alerts() -> tuple[Alert, ...]:
-    """Toutes les alertes du catalogue, familles confondues."""
-    return tuple(alerte for famille in FAMILIES for alerte in famille.alerts)
+    """All the alerts of the catalogue, families taken together."""
+    return tuple(alert for family in FAMILIES for alert in family.alerts)

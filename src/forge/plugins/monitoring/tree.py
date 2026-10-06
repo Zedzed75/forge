@@ -1,14 +1,14 @@
-"""Chemins que le domaine monitoring ecrit, et ce que chacun contient.
+"""Paths the monitoring domain writes, and what each of them contains.
 
-Meme role — et meme mise en garde — que dans les trois autres domaines : c'est
-le seul endroit qui duplique la connaissance de l'arborescence de gabarit, et un
-test le confronte au rendu reel (arbitrage R3, PLAN.md).
+The same role — and the same warning — as in the three other domains: it is the
+only place that duplicates the knowledge of the template tree, and a test
+confronts it with the real rendering (arbitration R3, PLAN.md).
 
-Une particularite : **les regles sont ecrites par environnement, pas une fois
-pour toutes**. Deux raisons, et elles sont independantes — les seuils different
-(la production merite plus serre que le developpement), et le namespace observe
-aussi. Une regle partagee entre environnements devrait donc porter des filtres
-larges et des seuils moyens, c'est-a-dire ne bien servir aucun des deux.
+One peculiarity: **the rules are written per environment, not once and for all**.
+Two reasons, and they are independent — the thresholds differ (production
+deserves tighter ones than development), and so does the namespace observed. A
+rule shared between environments would therefore have to carry wide filters and
+average thresholds, that is to say serve neither of the two well.
 """
 
 from __future__ import annotations
@@ -17,124 +17,124 @@ from typing import Any, Final, NamedTuple
 
 
 class Entry(NamedTuple):
-    """Un fichier genere et la phrase qui le decrit."""
+    """A generated file and the sentence describing it."""
 
     path: str
     purpose: str
 
 
-#: Repertoire de la configuration du collecteur.
+#: Directory of the collector configuration.
 PROMETHEUS_DIR: Final[str] = "prometheus"
 
-#: Repertoire des regles d'alerte. Hors de `prometheus/` et symetrique de
-#: `tests/` : les deux se lisent cote a cote, et un fichier de regles a un
-#: fichier de test au meme chemin relatif.
+#: Directory of the alerting rules. Outside `prometheus/` and symmetrical with
+#: `tests/`: the two read side by side, and a rule file has a test file at the
+#: same relative path.
 RULES_DIR: Final[str] = "rules"
 
-#: Repertoire des tests unitaires d'alerte.
+#: Directory of the alert unit tests.
 TESTS_DIR: Final[str] = "tests"
 
-#: Repertoire des tableaux de bord.
+#: Directory of the dashboards.
 DASHBOARDS_DIR: Final[str] = "grafana/dashboards"
 
 
 def environment_dir(environment: str) -> str:
-    """Repertoire de configuration d'un environnement."""
+    """Configuration directory of an environment."""
     return f"{PROMETHEUS_DIR}/{environment}"
 
 
 def rules_dir(environment: str) -> str:
-    """Repertoire des regles d'un environnement."""
+    """Rules directory of an environment."""
     return f"{RULES_DIR}/{environment}"
 
 
 def rule_file(environment: str, family: str) -> str:
-    """Fichier de regles d'une famille, dans un environnement."""
+    """Rule file of a family, within an environment."""
     return f"{rules_dir(environment)}/{family}.yml"
 
 
 def test_file(environment: str, family: str) -> str:
-    """Fichier de test unitaire d'une famille, dans un environnement."""
+    """Unit test file of a family, within an environment."""
     return f"{TESTS_DIR}/{environment}/{family}.yml"
 
 
 def config_file(environment: str) -> str:
-    """Configuration du collecteur pour un environnement."""
+    """Collector configuration for an environment."""
     return f"{environment_dir(environment)}/prometheus.yml"
 
 
 def dashboard_file(service_name: str) -> str:
-    """Tableau de bord Grafana du service."""
+    """Grafana dashboard of the service."""
     return f"{DASHBOARDS_DIR}/{service_name}.json"
 
 
 def root_files(spec: Any) -> list[dict[str, str]]:
-    """Fichiers de niveau `monitoring/`, hors configuration et regles."""
-    entrees = [
-        {"path": "README.md", "purpose": "Ce fichier : ce qui est surveille, et comment."},
+    """Files at the `monitoring/` level, configuration and rules aside."""
+    entries = [
+        {"path": "README.md", "purpose": "This file: what is watched, and how."},
         {
             "path": ".gitignore",
-            "purpose": "Exclut les donnees du collecteur et les rendus locaux.",
+            "purpose": "Excludes the collector data and the local renderings.",
         },
         {
             "path": ".copier-answers.yml",
-            "purpose": "Reponses du gabarit, relues par `forge update`. Ne pas editer.",
+            "purpose": "Template answers, read back by `forge update`. Do not edit.",
         },
     ]
     if spec.monitoring.extras.makefile:
-        entrees.append(
+        entries.append(
             {
                 "path": "Makefile",
-                "purpose": "Raccourcis : `make check`, `make test`, `make check ENV=prod`.",
+                "purpose": "Shortcuts: `make check`, `make test`, `make check ENV=prod`.",
             }
         )
-    return sorted(entrees, key=lambda entree: entree["path"])
+    return sorted(entries, key=lambda entry: entry["path"])
 
 
 def environment_files(spec: Any, environment: str) -> list[dict[str, str]]:
-    """Fichiers propres a un environnement, dans l'ordre de lecture."""
+    """Files specific to an environment, in reading order."""
     monitoring = spec.monitoring
-    entrees = [
+    entries = [
         {
             "path": config_file(environment),
             "purpose": (
-                "Configuration du collecteur : cibles, intervalle, fichiers de regles."
+                "Collector configuration: targets, interval, rule files."
             ),
         }
     ]
-    for famille in monitoring.family_names():
-        entrees.append(
+    for family in monitoring.family_names():
+        entries.append(
             {
-                "path": rule_file(environment, famille),
-                "purpose": f"Regles d'alerte de la famille « {famille} ».",
+                "path": rule_file(environment, family),
+                "purpose": f"Alerting rules of the '{family}' family.",
             }
         )
-    for famille in monitoring.family_names():
-        entrees.append(
+    for family in monitoring.family_names():
+        entries.append(
             {
-                "path": test_file(environment, famille),
+                "path": test_file(environment, family),
                 "purpose": (
-                    f"Test unitaire des alertes « {famille} », joue par "
+                    f"Unit test of the '{family}' alerts, run by "
                     "`promtool test rules`."
                 ),
             }
         )
-    return entrees
+    return entries
 
 
 def expected_paths(spec: Any) -> list[str]:
-    """Tous les chemins ecrits par le domaine, tries."""
-    chemins = [entree["path"] for entree in root_files(spec)]
+    """Every path the domain writes, sorted."""
+    paths = [entry["path"] for entry in root_files(spec)]
     for env in spec.service.environments:
-        chemins += [entree["path"] for entree in environment_files(spec, env.name)]
+        paths += [entry["path"] for entry in environment_files(spec, env.name)]
     if spec.monitoring.extras.dashboard:
-        chemins.append(dashboard_file(spec.service.name))
-    return sorted(chemins)
+        paths.append(dashboard_file(spec.service.name))
+    return sorted(paths)
 
 
 def dashboard_slot(spec: Any) -> list[dict[str, str]]:
-    """Emplacement du tableau de bord : une entree, ou aucune.
+    """Slot of the dashboard: one entry, or none.
 
-    Motif partage avec les trois autres domaines (arbitrage R4, DESIGN.md §5.3).
+    A pattern shared with the three other domains (arbitration R4, DESIGN.md §5.3).
     """
     return [{"name": spec.service.name}] if spec.monitoring.extras.dashboard else []

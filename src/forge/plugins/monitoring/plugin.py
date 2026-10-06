@@ -1,13 +1,13 @@
-"""Plugin de domaine monitoring : implementation des hooks de forge.
+"""Monitoring domain plugin: implementation of the forge hooks.
 
-Comme les trois autres, ce module ne contient aucune logique : il branche le
-contrat (`DESIGN.md` §2.2) sur les modules qui font le travail.
+Like the three others, this module holds no logic: it wires the contract
+(`DESIGN.md` §2.2) onto the modules that do the work.
 
-Le domaine est **autonome** : il ne lit aucune autre section de forge.yml. Sa
-rencontre avec les autres domaines se fait par les facettes, comparees par
-`forge validate` — `namespaces` avec Terraform et Helm, `ingress_hosts` avec
-Helm. Un chart qui expose `boutique.example.net` pendant que la sonde regarde
-`api.example.net` est un defaut qu'aucun des deux domaines ne peut voir seul.
+The domain is **self-contained**: it reads no other section of forge.yml. Its
+meeting with the other domains happens through the facets, compared by
+`forge validate` — `namespaces` with Terraform and Helm, `ingress_hosts` with
+Helm. A chart exposing `boutique.example.net` while the probe looks at
+`api.example.net` is a defect neither of the two domains can see on its own.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 @hookimpl
 def forge_check_spec(spec: Any) -> list[Issue]:
-    """Controles que le sous-modele ne peut pas faire : il ne voit pas `service:`."""
+    """Checks the sub-model cannot do: it does not see `service:`."""
     if getattr(spec, "monitoring", None) is None:
         return []
     return answers_module.cross_check(spec)
@@ -64,24 +64,24 @@ def forge_check_spec(spec: Any) -> list[Issue]:
 
 @hookimpl
 def forge_projection(spec: Any) -> Projection:
-    """Ce que le domaine monitoring affirme surveiller.
+    """What the monitoring domain claims to watch.
 
-    Deux facettes du **vocabulaire partage**
-    (`forge.validate.consistency.FACET_VOCABULARY`) :
+    Two facets of the **shared vocabulary**
+    (`forge.validate.consistency.FACET_VOCABULARY`):
 
-    * `namespaces` — les cloisons observees. Terraform les cree, Helm y deploie,
-      le monitoring les regarde : les trois doivent nommer les memes.
-    * `ingress_hosts` — les hotes sondes de l'exterieur. C'est la facette que
-      Helm declare pour ses Ingress. Surveiller un hote que personne n'expose,
-      ou exposer un hote que personne ne sonde, sont deux erreurs symetriques
-      qu'aucun domaine ne peut voir seul.
+    * `namespaces` — the partitions observed. Terraform creates them, Helm deploys
+      into them, monitoring watches them: all three must name the same ones.
+    * `ingress_hosts` — the hosts probed from the outside. It is the facet Helm
+      declares for its Ingresses. Watching a host nobody exposes, or exposing a
+      host nobody probes, are two symmetrical mistakes no domain can see on its
+      own.
 
-    `environments` ne recopie pas `service.environments` : un environnement sans
-    aucune cible declaree n'est pas materialise par ce domaine, et le dire est
-    plus utile que de pretendre le surveiller.
+    `environments` does not copy `service.environments`: an environment with no
+    declared target is not materialised by this domain, and saying so is more
+    useful than pretending to watch it.
     """
     monitoring = spec.monitoring
-    materialises = tuple(
+    materialised = tuple(
         env.name
         for env in spec.service.environments
         if monitoring.overrides(env.name).targets
@@ -94,7 +94,7 @@ def forge_projection(spec: Any) -> Projection:
     )
     return Projection(
         service_name=spec.service.name,
-        environments=materialises,
+        environments=materialised,
         labels=dict(spec.service.labels),
         facets={
             "namespaces": tuple(namespaces),
@@ -105,31 +105,31 @@ def forge_projection(spec: Any) -> Projection:
 
 @hookimpl
 def forge_catalog() -> list[CatalogEntry]:
-    """Familles de regles consultables par `forge catalog monitoring`."""
+    """Rule families browsable through `forge catalog monitoring`."""
     return [
         CatalogEntry(
-            name=famille.name,
-            summary=famille.summary,
-            details=_details(famille),
-            options=famille.option_descriptions(),
+            name=family.name,
+            summary=family.summary,
+            details=_details(family),
+            options=family.option_descriptions(),
         )
-        for famille in all_families()
+        for family in all_families()
     ]
 
 
-def _details(famille: Any) -> str:
-    """Description longue d'une famille : son role, ses alertes, ses pieges."""
-    lignes = [famille.details or famille.summary, ""]
-    lignes.append("Alertes :")
-    for alerte in famille.alerts:
-        lignes.append(f"  - {alerte.name} ({alerte.severity.value}, for: {alerte.for_duration})")
-        lignes.append(f"      {alerte.summary}")
-    if famille.exporters:
-        lignes += ["", f"Exige : {', '.join(famille.exporters)}"]
-    if famille.traps:
-        lignes += ["", "Points de vigilance :"]
-        lignes += [f"  - {piege}" for piege in famille.traps]
-    return "\n".join(lignes)
+def _details(family: Any) -> str:
+    """Long description of a family: its role, its alerts, its traps."""
+    lines = [family.details or family.summary, ""]
+    lines.append("Alerts:")
+    for alert in family.alerts:
+        lines.append(f"  - {alert.name} ({alert.severity.value}, for: {alert.for_duration})")
+        lines.append(f"      {alert.summary}")
+    if family.exporters:
+        lines += ["", f"Requires: {', '.join(family.exporters)}"]
+    if family.traps:
+        lines += ["", "Points to watch:"]
+        lines += [f"  - {trap}" for trap in family.traps]
+    return "\n".join(lines)
 
 
 @hookimpl

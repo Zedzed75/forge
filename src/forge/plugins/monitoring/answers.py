@@ -1,13 +1,13 @@
-"""Projection vers le dict `domain` de copier, et controles croises.
+"""Projection into copier's `domain` dict, and cross-checks.
 
-Meme contrat que les trois autres domaines : sortie JSON-serialisable, ordre
-fige, aucun objet pydantic. Le calcul vit dans :mod:`derive` et :mod:`tree`.
+The same contract as the three other domains: JSON-serialisable output, frozen
+order, no pydantic object. The computation lives in :mod:`derive` and
+:mod:`tree`.
 
-Les controles croises de ce domaine ont une couleur particuliere : presque tous
-sont des **avertissements**, et presque tous disent la meme chose sous des
-formes differentes — « cette regle ne se declenchera jamais ». C'est le mode de
-defaillance propre a la supervision : rien n'echoue, rien ne casse, et personne
-n'est prevenu le jour ou il aurait fallu l'etre.
+The cross-checks of this domain have a particular colour: almost all of them are
+**warnings**, and almost all of them say the same thing in different forms — "this
+rule will never fire". That is the failure mode specific to monitoring: nothing
+fails, nothing breaks, and nobody is warned the day they should have been.
 """
 
 from __future__ import annotations
@@ -24,40 +24,40 @@ DOMAIN_NAME = "monitoring"
 
 
 def build(spec: Any) -> dict[str, Any]:
-    """Construit le dict `domain` passe a copier pour le domaine monitoring."""
+    """Build the `domain` dict passed to copier for the monitoring domain."""
     service = spec.service
     monitoring = spec.monitoring
-    familles = derive.families(spec)
+    families = derive.families(spec)
 
     return {
-        # -- collecte ------------------------------------------------------------
+        # -- scraping ------------------------------------------------------------
         "scrape": derive.scrape(spec),
         "metrics": derive.metrics(spec),
         "blackbox": derive.blackbox(spec),
         "job_name": service.name,
         "alert_prefix": render.alert_prefix(service.name),
-        # -- familles retenues ----------------------------------------------------
-        "families": familles,
-        "family_names": [famille["name"] for famille in familles],
-        # -- environnements --------------------------------------------------------
+        # -- retained families ----------------------------------------------------
+        "families": families,
+        "family_names": [family["name"] for family in families],
+        # -- environments --------------------------------------------------------
         "environments": derive.environments(spec),
         "env_names": [env.name for env in service.environments],
         "default_env": service.environments[0].name,
-        # -- cles courtes, lues UNIQUEMENT par les chemins de gabarit -------------
-        # Windows plafonne un chemin a 260 caracteres, et copier clone le depot
-        # de gabarit dans un repertoire temporaire avant de rendre : un nom de
-        # fichier portant `[% yield env from domain.environments %]` deux fois
-        # depassait la limite. Ces listes ne portent qu'un nom ; les gabarits
-        # relisent l'entree complete par `selectattr`.
+        # -- short keys, read ONLY by the template paths -------------------------
+        # Windows caps a path at 260 characters, and copier clones the template
+        # repository into a temporary directory before rendering: a file name
+        # carrying `[% yield env from domain.environments %]` twice went over the
+        # limit. These lists carry a name only; the templates read the complete
+        # entry back through `selectattr`.
         "envs": [{"name": env["name"]} for env in derive.environments(spec)],
-        "fams": [{"name": famille["name"]} for famille in familles],
+        "fams": [{"name": family["name"]} for family in families],
         "dash": tree.dashboard_slot(spec),
-        # -- tableau de bord --------------------------------------------------------
+        # -- dashboard --------------------------------------------------------
         "dashboard_file": tree.dashboard_file(service.name),
         "dashboard_panels": (
             derive.dashboard_panels(spec) if monitoring.extras.dashboard else []
         ),
-        # -- annexes et documentation -------------------------------------------------
+        # -- extras and documentation -------------------------------------------------
         "extras": derive.extras(spec),
         "root_files": tree.root_files(spec),
         "expected_paths": tree.expected_paths(spec),
@@ -65,12 +65,12 @@ def build(spec: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Controles croises
+# Cross-checks
 # ---------------------------------------------------------------------------
 
 
 def cross_check(spec: Any) -> list[Issue]:
-    """Controles que `MonitoringSpec` ne peut pas faire : elle ne voit pas `service:`."""
+    """Checks `MonitoringSpec` cannot do: it does not see `service:`."""
     monitoring = getattr(spec, "monitoring", None)
     if monitoring is None:
         return []
@@ -89,23 +89,22 @@ def cross_check(spec: Any) -> list[Issue]:
 
 
 def _check_targets(spec: Any, monitoring: Any) -> list[Issue]:
-    """Signale un environnement dont aucune cible n'est collectee.
+    """Report an environment none of whose targets is scraped.
 
-    C'est le defaut le plus grave que ce domaine puisse produire, et le plus
-    silencieux : sans cible, aucune serie n'existe, donc `up == 0` ne peut pas
-    se declencher. Le tableau de bord est vide et tout parait calme.
+    It is the most serious defect this domain can produce, and the most silent:
+    without a target, no series exists, so `up == 0` cannot fire. The dashboard is
+    empty and everything looks calm.
     """
     return [
         Issue(
             level="warning",
             message=(
-                f"aucune cible de collecte n'est declaree pour l'environnement "
-                f"'{env.name}' : rien n'y sera surveille, et aucune alerte ne "
-                "pourra se declencher."
+                f"no scrape target is declared for the environment '{env.name}': "
+                "nothing will be watched there, and no alert will be able to fire."
             ),
             hint=(
-                f"Renseignez monitoring.environments.{env.name}.targets "
-                "(par exemple ['api.example.net:9090'])."
+                f"Set monitoring.environments.{env.name}.targets "
+                "(for instance ['api.example.net:9090'])."
             ),
             domains=(DOMAIN_NAME,),
         )
@@ -115,7 +114,7 @@ def _check_targets(spec: Any, monitoring: Any) -> list[Issue]:
 
 
 def _check_probes(spec: Any, monitoring: Any) -> list[Issue]:
-    """Controles propres a la famille de sondes externes."""
+    """Checks specific to the external probe family."""
     if not monitoring.uses(RuleFamily.PROBE):
         return []
 
@@ -127,30 +126,29 @@ def _check_probes(spec: Any, monitoring: Any) -> list[Issue]:
                 Issue(
                     level="warning",
                     message=(
-                        f"la famille 'probe' est retenue mais aucune URL n'est "
-                        f"sondee pour l'environnement '{env.name}' : ses alertes "
-                        "ne se declencheront jamais."
+                        f"the 'probe' family is retained but no URL is probed for "
+                        f"the environment '{env.name}': its alerts will never fire."
                     ),
                     hint=(
-                        f"Renseignez monitoring.environments.{env.name}.probe_urls, "
-                        "ou retirez 'probe' de monitoring.rules."
+                        f"Set monitoring.environments.{env.name}.probe_urls, or "
+                        "remove 'probe' from monitoring.rules."
                     ),
                     domains=(DOMAIN_NAME,),
                 )
             )
             continue
-        en_clair = sorted(url for url in urls if url.startswith("http://"))
-        if en_clair:
+        plaintext = sorted(url for url in urls if url.startswith("http://"))
+        if plaintext:
             issues.append(
                 Issue(
                     level="warning",
                     message=(
-                        f"environnement '{env.name}' : les URL sondees en http:// "
-                        f"({', '.join(en_clair)}) n'exposent pas "
-                        "probe_ssl_earliest_cert_expiry ; l'alerte d'expiration "
-                        "de certificat restera muette pour elles."
+                        f"environment '{env.name}': the URLs probed over http:// "
+                        f"({', '.join(plaintext)}) do not expose "
+                        "probe_ssl_earliest_cert_expiry; the certificate expiry "
+                        "alert will stay mute for them."
                     ),
-                    hint="Sondez l'URL en https:// si le service en expose une.",
+                    hint="Probe the https:// URL when the service exposes one.",
                     domains=(DOMAIN_NAME,),
                 )
             )
@@ -158,30 +156,30 @@ def _check_probes(spec: Any, monitoring: Any) -> list[Issue]:
 
 
 def _check_namespaces(spec: Any, monitoring: Any) -> list[Issue]:
-    """Signale un namespace non declare la ou une famille en depend.
+    """Report an undeclared namespace where a family depends on one.
 
-    Le repli sur le nom du service est raisonnable, mais il est faux des que le
-    namespace suit une autre convention — et une regle qui filtre sur un
-    namespace inexistant ne rend aucune serie, donc ne se declenche jamais.
+    Falling back on the service name is reasonable, but it is wrong as soon as the
+    namespace follows another convention — and a rule filtering on a namespace
+    that does not exist returns no series, so it never fires.
     """
-    concernees = [
-        famille.name
-        for famille in selected(monitoring.family_names())
-        if famille.needs_namespace
+    concerned = [
+        family.name
+        for family in selected(monitoring.family_names())
+        if family.needs_namespace
     ]
-    if not concernees:
+    if not concerned:
         return []
     return [
         Issue(
             level="warning",
             message=(
-                f"environnement '{env.name}' : les familles "
-                f"{', '.join(concernees)} filtrent sur un namespace, et aucun "
-                f"n'est declare ; forge emploie '{spec.service.name}'."
+                f"environment '{env.name}': the {', '.join(concerned)} families "
+                f"filter on a namespace, and none is declared; forge uses "
+                f"'{spec.service.name}'."
             ),
             hint=(
-                f"Renseignez monitoring.environments.{env.name}.namespace pour "
-                "lever le doute."
+                f"Set monitoring.environments.{env.name}.namespace to lift the "
+                "doubt."
             ),
             domains=(DOMAIN_NAME,),
         )
@@ -191,41 +189,42 @@ def _check_namespaces(spec: Any, monitoring: Any) -> list[Issue]:
 
 
 def _check_orphan_thresholds(monitoring: Any) -> list[Issue]:
-    """Signale un seuil regle pour une famille absente de `monitoring.rules`.
+    """Report a threshold set for a family absent from `monitoring.rules`.
 
-    Une valeur soigneusement choisie et silencieusement ignoree est pire qu'une
-    erreur : rien ne la distingue d'une valeur appliquee.
+    A carefully chosen and silently ignored value is worse than an error: nothing
+    distinguishes it from a value that is applied.
     """
     from forge.plugins.monitoring.catalog.registry import all_families
 
-    retenues = set(monitoring.family_names())
-    proprietaire = {
-        alerte.threshold_field: famille.name
-        for famille in all_families()
-        for alerte in famille.alerts
-        if alerte.threshold_field
+    retained = set(monitoring.family_names())
+    owner = {
+        alert.threshold_field: family.name
+        for family in all_families()
+        for alert in family.alerts
+        if alert.threshold_field
     }
 
     issues: list[Issue] = []
-    for nom_env in sorted(monitoring.environments):
-        seuils = monitoring.environments[nom_env].thresholds
-        if seuils is None:
+    for env_name in sorted(monitoring.environments):
+        thresholds = monitoring.environments[env_name].thresholds
+        if thresholds is None:
             continue
-        for champ in sorted(seuils.declared()):
-            famille = proprietaire.get(champ, "")
-            if not famille or famille in retenues:
+        for field in sorted(thresholds.declared()):
+            family = owner.get(field, "")
+            if not family or family in retained:
                 continue
             issues.append(
                 Issue(
                     level="warning",
                     message=(
-                        f"monitoring.environments.{nom_env}.thresholds.{champ} "
-                        f"regle un seuil de la famille '{famille}', absente de "
-                        "monitoring.rules : cette valeur ne sera pas appliquee."
+                        f"monitoring.environments.{env_name}.thresholds.{field} "
+                        f"sets a threshold of the '{family}' family, which is "
+                        "absent from monitoring.rules: that value will not be "
+                        "applied."
                     ),
                     hint=(
-                        f"Ajoutez '{famille}' a monitoring.rules, ou retirez "
-                        f"le seuil {champ}."
+                        f"Add '{family}' to monitoring.rules, or remove the "
+                        f"{field} threshold."
                     ),
                     domains=(DOMAIN_NAME,),
                 )
@@ -234,17 +233,17 @@ def _check_orphan_thresholds(monitoring: Any) -> list[Issue]:
 
 
 def probe_hosts(spec: Any) -> tuple[str, ...]:
-    """Noms d'hote sondes, tous environnements confondus, tries.
+    """Probed host names, all environments taken together, sorted.
 
-    Alimente la facette `ingress_hosts` du vocabulaire partage : c'est par elle
-    que forge peut dire « le chart expose boutique.example.net, la sonde regarde
-    api.example.net » sans qu'aucun domaine ne connaisse l'autre.
+    Feeds the `ingress_hosts` facet of the shared vocabulary: it is through it
+    that forge can say "the chart exposes boutique.example.net, the probe looks at
+    api.example.net" without either domain knowing the other.
     """
-    hotes: set[str] = set()
-    for surcharge in spec.monitoring.environments.values():
-        for url in surcharge.probe_urls:
-            sans_schema = url.split("://", 1)[-1]
-            hote = sans_schema.split("/", 1)[0].split(":", 1)[0]
-            if hote:
-                hotes.add(hote)
-    return tuple(sorted(hotes))
+    hosts: set[str] = set()
+    for override in spec.monitoring.environments.values():
+        for url in override.probe_urls:
+            without_scheme = url.split("://", 1)[-1]
+            host = without_scheme.split("/", 1)[0].split(":", 1)[0]
+            if host:
+                hosts.add(host)
+    return tuple(sorted(hosts))

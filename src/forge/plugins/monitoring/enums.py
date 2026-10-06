@@ -1,4 +1,4 @@
-"""Enumerations du domaine monitoring."""
+"""Enumerations of the monitoring domain."""
 
 from __future__ import annotations
 
@@ -6,46 +6,45 @@ from enum import Enum
 
 
 class Severity(str, Enum):
-    """Gravite portee par le label `severity` d'une alerte.
+    """Severity carried by the `severity` label of an alert.
 
-    Deux niveaux, pas cinq : une echelle fine ne survit pas au premier mois
-    d'astreinte. La question est binaire — est-ce que quelqu'un doit se lever
-    maintenant ?
+    Two levels, not five: a fine-grained scale does not survive the first month
+    of on-call duty. The question is binary — does somebody have to get up now?
     """
 
-    #: Le service est degrade ou indisponible : reveiller quelqu'un.
+    #: The service is degraded or unavailable: wake somebody up.
     CRITICAL = "critical"
 
-    #: Le service fonctionne mais quelque chose va mal finir : regarder demain.
+    #: The service works but something is going to end badly: look tomorrow.
     WARNING = "warning"
 
 
 class RuleFamily(str, Enum):
-    """Familles de regles d'alerte que le domaine peut engendrer.
+    """Families of alerting rules the domain can generate.
 
-    L'ordre de declaration est l'ordre canonique : il fixe l'ordre des fichiers
-    de regles, celui des lignes du README et celui des cles de
+    The declaration order is the canonical order: it fixes the order of the rule
+    files, that of the lines of the README and that of the keys of
     `domain.rule_slots`.
 
-    Il suit la progression d'un diagnostic : le service repond-il ? repond-il
-    correctement ? repond-il vite ? a-t-il de quoi tenir ? tient-il debout ?
-    est-il joignable de l'exterieur ?
+    It follows the progression of a diagnosis: does the service answer? does it
+    answer correctly? does it answer quickly? does it have enough to keep going?
+    is it holding up? is it reachable from the outside?
     """
 
-    #: La cible ne repond plus du tout (`up == 0`).
+    #: The target no longer answers at all (`up == 0`).
     AVAILABILITY = "availability"
 
-    #: Trop de reponses en erreur.
+    #: Too many responses in error.
     ERROR_RATE = "error_rate"
 
-    #: Reponses trop lentes (quantile 95 du temps de reponse).
+    #: Responses too slow (95th percentile of the response time).
     LATENCY = "latency"
 
-    #: Consommation proche des limites (CPU, memoire).
+    #: Consumption close to the limits (CPU, memory).
     SATURATION = "saturation"
 
-    #: Redemarrages en boucle des conteneurs.
+    #: Containers restarting in a loop.
     RESTARTS = "restarts"
 
-    #: Sonde externe : le service est-il joignable, son certificat tient-il ?
+    #: External probe: is the service reachable, is its certificate holding?
     PROBE = "probe"
