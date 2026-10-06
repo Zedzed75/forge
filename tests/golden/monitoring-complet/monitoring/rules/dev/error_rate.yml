@@ -45,7 +45,7 @@ groups:
       # monitoring.environments.dev.thresholds.error_rate
       # in forge.yml.
       # -----------------------------------------------------------------------
-      - alert: BoutiqueHighErrorRate
+      - alert: HighErrorRate
         expr: |
           sum(rate(http_requests_total{job="boutique", status=~"5.."}[5m]))
             /

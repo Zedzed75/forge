@@ -46,7 +46,7 @@ groups:
       # monitoring.environments.prod.thresholds.memory_ratio
       # in forge.yml.
       # -----------------------------------------------------------------------
-      - alert: BoutiqueMemoryNearLimit
+      - alert: MemoryNearLimit
         expr: |
           container_memory_working_set_bytes{namespace="boutique-prod", container!=""}
             /
@@ -70,7 +70,7 @@ groups:
       # monitoring.environments.prod.thresholds.cpu_cores
       # in forge.yml.
       # -----------------------------------------------------------------------
-      - alert: BoutiqueHighCpuUsage
+      - alert: HighCpuUsage
         expr: |
           sum by (pod) (
             rate(container_cpu_usage_seconds_total{namespace="boutique-prod", container!=""}[5m])

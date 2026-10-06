@@ -152,9 +152,20 @@ def test_a_number_renders_the_same_in_the_expression_and_in_the_text():
     assert render.percent(0.855) == "85.5"
 
 
-@pytest.mark.parametrize(
-    ("service", "expected"),
-    [("boutique", "Boutique"), ("db-proxy", "DbProxy"), ("mon_service", "MonService")],
-)
-def test_the_alert_prefix_is_a_camel_identifier(service, expected):
-    assert render.alert_prefix(service) == expected
+def test_a_generated_alert_name_is_the_catalogue_name_unchanged():
+    """No service prefix: the service belongs in the `service` label.
+
+    This is the guard on a convention, not on an implementation. Prefixing the
+    name with the service -- `BoutiqueTargetDown` -- would make a cross-service
+    route a regex, and would stop a runbook or a community dashboard keyed on
+    `TargetDown` from applying. Both failures are silent, which is why the
+    assertion is `==` on the whole set rather than a spot check.
+    """
+    _, spec, _ = _spec()
+    catalogue = {alert.name for alert in all_alerts()}
+    for env in derive.environments(spec):
+        for family in env["family_names"]:
+            for alert in env["rules"][family]["alerts"]:
+                assert alert["name"] in catalogue
+                # Ce que le prefixe portait est ici, la ou Alertmanager filtre.
+                assert alert["labels"]["service"] == spec.service.name

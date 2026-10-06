@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from forge.plugins.monitoring import derive, render, tree
+from forge.plugins.monitoring import derive, tree
 from forge.plugins.monitoring.catalog.registry import selected
 from forge.plugins.monitoring.enums import RuleFamily
 from forge.plugins_api import checks
@@ -35,7 +35,6 @@ def build(spec: Any) -> dict[str, Any]:
         "metrics": derive.metrics(spec),
         "blackbox": derive.blackbox(spec),
         "job_name": service.name,
-        "alert_prefix": render.alert_prefix(service.name),
         # -- retained families ----------------------------------------------------
         "families": families,
         "family_names": [family["name"] for family in families],

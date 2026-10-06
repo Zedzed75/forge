@@ -97,13 +97,25 @@ promtool test rules   tests/dev/*.yml
   exists: the guarantee is weaker there than on the rules. Import it and look at
   it.
 
-## If this project predates the alert rename
+## If this project predates the alert renames
 
-The alert names were French and are now English. `forge update --only monitoring`
-rewrites `rules/` and `tests/` for you, and `promtool test rules` is green
-afterwards — it checks every rule against its own test file, and both sides moved
-in the same pass. **That green says nothing about whether your alerting still
-works.**
+The alert names changed twice, and `forge update --only monitoring` applies both
+in one pass:
+
+1. the names were French and are now English — `CibleInjoignable` became
+   `TargetDown`;
+2. they carried your service name in CamelCase as a prefix and no longer do —
+   `<Service>TargetDown` became `TargetDown`. The service is still on the alert,
+   as the `service` label, which is what Alertmanager is built to match on. Note
+   that the generic names collide by design with the ones kube-prometheus-stack
+   and the node-exporter mixins ship: a route on `alertname="TargetDown"` will
+   now catch this service's alert *and* theirs. Add `service` or `env` to the
+   matcher when you mean only this one.
+
+So a name that used to read `<Service>CibleInjoignable` now reads `TargetDown`.
+`promtool test rules` is green afterwards — it checks every rule against its own
+test file, and both sides moved in the same pass. **That green says nothing about
+whether your alerting still works.**
 
 `alertname` is a label, and Alertmanager matches on it from configuration forge
 does not own and cannot see. Three things break, and none of them is reported as
@@ -119,14 +131,14 @@ an error:
 
 The names this project generates now:
 
-- `BoutiqueTargetDown` — The target no longer answers the collector
-- `BoutiqueHighErrorRate` — Too many responses in error
-- `BoutiqueHighLatency` — The service answers too slowly
-- `BoutiqueMemoryNearLimit` — A container is approaching its memory limit
-- `BoutiqueHighCpuUsage` — A pod is durably consuming a lot of CPU
-- `BoutiqueContainerRestartLoop` — A container is restarting in a loop
-- `BoutiqueExternalProbeFailed` — The service is no longer reachable from the outside
-- `BoutiqueCertificateExpiringSoon` — A TLS certificate is approaching its expiry
+- `TargetDown` — The target no longer answers the collector
+- `HighErrorRate` — Too many responses in error
+- `HighLatency` — The service answers too slowly
+- `MemoryNearLimit` — A container is approaching its memory limit
+- `HighCpuUsage` — A pod is durably consuming a lot of CPU
+- `ContainerRestartLoop` — A container is restarting in a loop
+- `ExternalProbeFailed` — The service is no longer reachable from the outside
+- `CertificateExpiringSoon` — A TLS certificate is approaching its expiry
 
 Search your Alertmanager configuration for the old names, update every matcher,
 and re-create any silence that was active. forge's own changelog carries the

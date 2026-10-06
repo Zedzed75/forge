@@ -68,7 +68,6 @@ def project(
     alert: Alert,
     values: dict[str, Any],
     *,
-    alert_prefix: str,
     rule_labels: dict[str, str],
 ) -> dict[str, Any]:
     """Project a catalogue alert into a JSON-serialisable dict.
@@ -90,7 +89,12 @@ def project(
     }
 
     return {
-        "name": f"{alert_prefix}{alert.name}",
+        # The catalogue name, as-is. The service is not prefixed onto it: it is
+        # carried by the `service` label that `derive` puts on every rule, and
+        # that label is the one Alertmanager is built to filter on. A generic
+        # alert name is also what lets a community runbook or dashboard, indexed
+        # on `TargetDown`, apply to this service.
+        "name": alert.name,
         "expr": substitute(alert.expr, resolved),
         "for": alert.for_duration,
         "severity": alert.severity.value,
@@ -125,14 +129,3 @@ def project(
             },
         },
     }
-
-
-def alert_prefix(service_name: str) -> str:
-    """Prefix of the alert names, derived from the service name.
-
-    `boutique` -> `Boutique`, `db-proxy` -> `DbProxy`. An alert name is a
-    CamelCase identifier by Prometheus convention, and prefixing it with the
-    service stops a `TargetDown` alert of two different services from being
-    confused in a common receiver.
-    """
-    return "".join(part.capitalize() for part in service_name.replace("_", "-").split("-"))
