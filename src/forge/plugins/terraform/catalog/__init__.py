@@ -1,1 +1,1 @@
-"""Catalogue du domaine Terraform : familles de ressources et providers."""
+"""Terraform domain catalogue: resource families and providers."""

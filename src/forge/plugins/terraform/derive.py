@@ -1,15 +1,15 @@
-"""Partie statique de la projection : ce qui ne depend pas d'un environnement.
+"""Static part of the projection: what does not depend on an environment.
 
-Providers, variables, sorties, backend, labels : tout ce que le module declare
-une fois pour toutes. La partie qui varie d'un environnement a l'autre vit dans
+Providers, variables, outputs, backend, labels: everything the module declares
+once and for all. The part that varies from one environment to the next lives in
 :mod:`forge.plugins.terraform.derive_env`.
 
-Une regle gouverne ce module : **une seule source pour chaque nom**. La liste
-des variables sert a la fois `variables.tf` du module, `variables.tf` de chaque
-racine, le passage de parametres dans `main.tf` et le `terraform.tfvars`. Une
-variable transmise a un module qui ne la declare pas est une erreur bruyante ;
-une variable declaree et jamais transmise ne l'est pas — elle prend simplement
-sa valeur par defaut, et l'ecart ne se voit jamais.
+One rule governs this module: **a single source for each name**. The list of
+variables serves the module's `variables.tf`, each root's `variables.tf`, the
+parameter passing in `main.tf` and the `terraform.tfvars`, all at once. A variable
+passed to a module that does not declare it is a loud error; a variable declared
+and never passed is not — it simply takes its default value, and the discrepancy
+never shows.
 """
 
 from __future__ import annotations
@@ -26,9 +26,9 @@ from forge.plugins.terraform.constants import DEFAULT_STATE_FILE
 from forge.plugins.terraform.enums import KubernetesAuth, ResourceFamily
 from forge.plugins.terraform.variables import Variable
 
-#: Expression HCL rendue par chaque sortie du module. Les adresses citees ici
-#: doivent correspondre aux ressources des gabarits de famille : c'est le seul
-#: couplage entre ce module et les fichiers `.tf` ecrits a la main.
+#: HCL expression rendered by each output of the module. The addresses quoted here
+#: have to match the resources of the family templates: it is the only coupling
+#: between this module and the hand-written `.tf` files.
 OUTPUT_VALUES: dict[str, str] = {
     "namespace": "local.namespace",
     "resource_quota_name": "kubernetes_resource_quota.this.metadata[0].name",
@@ -73,28 +73,28 @@ ROOT_ONLY_VARIABLES: tuple[Variable, ...] = (
 
 
 def variables(spec: Any) -> list[dict[str, Any]]:
-    """Variables du module, communes puis propres aux familles retenues."""
-    familles = selected(spec.terraform.family_names())
-    return [_variable(variable) for variable in variables_for(familles)]
+    """Variables of the module, common ones then those of the retained families."""
+    families = selected(spec.terraform.family_names())
+    return [_variable(variable) for variable in variables_for(families)]
 
 
 def root_variables(spec: Any) -> list[dict[str, Any]]:
-    """Variables d'une racine d'environnement : celles du module, plus l'acces.
+    """Variables of an environment root: those of the module, plus the access.
 
-    Les variables d'acces au cluster ne sont ajoutees qu'en authentification par
-    kubeconfig : en mode `in_cluster`, le provider lit le jeton monte dans le
-    pod et un chemin de kubeconfig n'aurait aucun sens.
+    The cluster access variables are only added under kubeconfig authentication:
+    in `in_cluster` mode, the provider reads the token mounted in the pod and a
+    kubeconfig path would make no sense.
     """
-    liste = variables(spec)
+    result = variables(spec)
     if spec.terraform.kubernetes.auth is KubernetesAuth.KUBECONFIG:
-        acces = [_variable(variable) for variable in ROOT_ONLY_VARIABLES]
-        acces[0]["default"] = hcl.hcl_value(spec.terraform.kubernetes.config_path)
-        liste = acces + liste
-    return liste
+        access = [_variable(variable) for variable in ROOT_ONLY_VARIABLES]
+        access[0]["default"] = hcl.hcl_value(spec.terraform.kubernetes.config_path)
+        result = access + result
+    return result
 
 
 def _variable(variable: Variable) -> dict[str, Any]:
-    """Rend une variable en dict JSON-serialisable, defaut deja en HCL."""
+    """Render a variable as a JSON-serialisable dict, the default already in HCL."""
     return {
         "name": variable.name,
         "type": variable.type,
@@ -107,8 +107,8 @@ def _variable(variable: Variable) -> dict[str, Any]:
 
 
 def providers(spec: Any) -> list[dict[str, str]]:
-    """Providers exiges, tries par nom local."""
-    familles = selected(spec.terraform.family_names())
+    """Required providers, sorted by local name."""
+    families = selected(spec.terraform.family_names())
     return [
         {
             "name": provider.name,
@@ -116,31 +116,31 @@ def providers(spec: Any) -> list[dict[str, str]]:
             "version": provider.version,
             "reason": provider.reason,
         }
-        for provider in providers_for(familles)
+        for provider in providers_for(families)
     ]
 
 
 def outputs(spec: Any) -> list[dict[str, str]]:
-    """Sorties du module : la sortie de base, puis celles des familles.
+    """Outputs of the module: the base output, then those of the families.
 
-    Dedoublonnees par nom : la famille `namespace` declare la meme sortie que la
-    base, et c'est bien la meme.
+    Deduplicated by name: the `namespace` family declares the same output as the
+    base, and it really is the same one.
     """
     descriptions = dict(BASE_OUTPUTS)
-    for famille in selected(spec.terraform.family_names()):
-        for nom, description in famille.outputs.items():
-            descriptions.setdefault(nom, description)
+    for family in selected(spec.terraform.family_names()):
+        for name, description in family.outputs.items():
+            descriptions.setdefault(name, description)
     return [
-        {"name": nom, "description": description, "value": OUTPUT_VALUES[nom]}
-        for nom, description in descriptions.items()
+        {"name": name, "description": description, "value": OUTPUT_VALUES[name]}
+        for name, description in descriptions.items()
     ]
 
 
 def backend(spec: Any) -> dict[str, Any]:
-    """Backend d'etat : son type, et les cles communes a tous les environnements.
+    """State backend: its type, and the keys common to every environment.
 
-    Les cles propres a un environnement — `key`, `prefix` — sont ajoutees par
-    `derive_env`, pour que deux environnements n'ecrivent jamais le meme etat.
+    The keys specific to an environment — `key`, `prefix` — are added by
+    `derive_env`, so that two environments never write the same state.
     """
     configuration = spec.terraform.backend
     return {
@@ -152,49 +152,49 @@ def backend(spec: Any) -> dict[str, Any]:
 
 
 def kubernetes(spec: Any) -> dict[str, Any]:
-    """Comment le provider joint le cluster."""
-    acces = spec.terraform.kubernetes
+    """How the provider reaches the cluster."""
+    access = spec.terraform.kubernetes
     return {
-        "auth": acces.auth.value,
-        "config_path": acces.config_path,
-        "context_per_environment": acces.context_per_environment,
-        "uses_kubeconfig": acces.auth is KubernetesAuth.KUBECONFIG,
+        "auth": access.auth.value,
+        "config_path": access.config_path,
+        "context_per_environment": access.context_per_environment,
+        "uses_kubeconfig": access.auth is KubernetesAuth.KUBECONFIG,
     }
 
 
 def base_labels(spec: Any) -> dict[str, str]:
-    """Labels metier du service, repris a l'identique par tous les domaines.
+    """Business labels of the service, taken up identically by every domain.
 
-    Les labels `app.kubernetes.io/*` ne figurent pas ici : ils sont calcules
-    dans `locals.tf`, a partir de variables, pour que le module reste juste
-    quand on l'appelle avec d'autres valeurs que celles engendrees.
+    The `app.kubernetes.io/*` labels do not appear here: they are computed in
+    `locals.tf`, from variables, so that the module stays correct when it is
+    called with values other than the generated ones.
     """
     return dict(spec.service.labels)
 
 
 def extras(spec: Any) -> dict[str, bool]:
-    """Fichiers annexes demandes."""
-    annexes = spec.terraform.extras
-    return {"makefile": annexes.makefile, "tflint_config": annexes.tflint_config}
+    """Extra files requested."""
+    requested = spec.terraform.extras
+    return {"makefile": requested.makefile, "tflint_config": requested.tflint_config}
 
 
 def families(spec: Any) -> list[dict[str, Any]]:
-    """Familles retenues, avec ce que le README du module doit en dire."""
+    """Retained families, with what the module README must say about them."""
     return [
         {
-            "name": famille.name,
-            "summary": famille.summary,
-            "details": famille.details,
-            "resources": list(famille.resources),
-            "providers": list(famille.providers),
-            "traps": list(famille.traps),
-            "variables": [variable.name for variable in famille.variables],
-            "outputs": sorted(famille.outputs),
+            "name": family.name,
+            "summary": family.summary,
+            "details": family.details,
+            "resources": list(family.resources),
+            "providers": list(family.providers),
+            "traps": list(family.traps),
+            "variables": [variable.name for variable in family.variables],
+            "outputs": sorted(family.outputs),
         }
-        for famille in selected(spec.terraform.family_names())
+        for family in selected(spec.terraform.family_names())
     ]
 
 
 def creates_namespace(spec: Any) -> bool:
-    """Vrai si Terraform cree le namespace au lieu de s'y rattacher."""
+    """True when Terraform creates the namespace instead of attaching to it."""
     return spec.terraform.uses(ResourceFamily.NAMESPACE)

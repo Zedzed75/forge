@@ -1,6 +1,6 @@
-"""Plugin de domaine Terraform.
+"""Terraform domain plugin.
 
-Premier domaine ecrit de zero : aucun outil legacy a porter, donc aucune
-reference de parite. Les outils reels — `terraform fmt`, `terraform validate`,
-`tflint` — tiennent ce role a leur place.
+The first domain written from scratch: no legacy tool to port, hence no parity
+reference. The real tools — `terraform fmt`, `terraform validate`, `tflint` —
+hold that role in its place.
 """

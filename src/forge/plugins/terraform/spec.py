@@ -1,23 +1,24 @@
-"""Section `terraform:` de forge.yml.
+"""The `terraform:` section of forge.yml.
 
-Premier sous-modele du projet qui ne porte aucun heritage : il n'y avait pas
-d'outil legacy Terraform a convertir. Sa forme suit celle des deux autres
-domaines — un bloc statique, un dict de surcharges cle par environnement, un
-bloc `extras` — pour qu'un `forge.yml` reste lisible d'une section a l'autre.
+The first sub-model of the project that carries no inheritance: there was no
+legacy Terraform tool to convert. Its shape follows that of the two other
+domains — a static block, a dict of overrides keyed by environment name, an
+`extras` block — so that a `forge.yml` stays readable from one section to the
+next.
 
-Ce que ce modele decrit : **le socle sur lequel les autres domaines se
-posent**. Le namespace, son budget, l'identite qui y deploie, ce qui y entre et
-en sort. Pas la charge applicative : c'est le domaine Helm qui la deploie, dans
-le namespace que celui-ci cree.
+What this model describes: **the base layer the other domains rest on**. The
+namespace, its budget, the identity that deploys into it, what goes in and comes
+out. Not the application payload: it is the Helm domain that deploys it, into the
+namespace this one creates.
 
-Ce que ce modele ne peut pas verifier, et qui appartient au controle croise
-(`answers.cross_check`) : les cles de `environments` absentes de
-`service.environments`, la completude des namespaces en strategie `custom`, et
-les plafonds qui portent sur le bloc partage `service:`.
+What this model cannot check, and which belongs to the cross-check
+(`answers.cross_check`): the keys of `environments` absent from
+`service.environments`, the completeness of the namespaces under the `custom`
+strategy, and the caps that bear on the shared `service:` block.
 
-**Aucune valeur secrete n'a sa place ici.** Les cles de backend reconnues comme
-secretes sont refusees par le modele, et le mot de passe de registre est une
-variable Terraform sans defaut, absente des fichiers generes.
+**No secret value has its place here.** The backend keys recognised as secret are
+refused by the model, and the registry password is a Terraform variable with no
+default, absent from the generated files.
 """
 
 from __future__ import annotations
@@ -44,140 +45,141 @@ from forge.spec.types import DnsLabel, ForgeModel, Subdomain
 
 
 class BackendSpec(ForgeModel):
-    """Ou l'etat Terraform est conserve, et comment on l'y adresse."""
+    """Where the Terraform state is kept, and how it is addressed."""
 
-    #: Type de backend.
+    #: Type of backend.
     kind: BackendKind = BackendKind.LOCAL
 
-    #: Cles de configuration du backend, ecrites telles quelles dans
-    #: `backend.tf`. Les cles secretes sont refusees : elles se fournissent par
-    #: `-backend-config` ou par variable d'environnement.
+    #: Configuration keys of the backend, written as-is into `backend.tf`. Secret
+    #: keys are refused: they are supplied through `-backend-config` or through
+    #: an environment variable.
     config: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("config")
     @classmethod
     def _no_secrets(cls, value: dict[str, str]) -> dict[str, str]:
-        interdites = sorted(SECRET_BACKEND_KEYS & set(value))
-        if interdites:
+        forbidden = sorted(SECRET_BACKEND_KEYS & set(value))
+        if forbidden:
             raise ValueError(
-                "cles de backend secretes refusees : "
-                f"{', '.join(interdites)}. Fournissez-les a l'execution "
-                "(terraform init -backend-config=...) ou par variable "
-                "d'environnement ; un fichier genere ne porte jamais de secret."
+                "secret backend keys refused: "
+                f"{', '.join(forbidden)}. Supply them at run time "
+                "(terraform init -backend-config=...) or through an environment "
+                "variable; a generated file never carries a secret."
             )
         return value
 
     @model_validator(mode="after")
     def _required_keys(self) -> BackendSpec:
-        manquantes = [
-            cle for cle in REQUIRED_BACKEND_KEYS[self.kind.value] if cle not in self.config
+        missing = [
+            key for key in REQUIRED_BACKEND_KEYS[self.kind.value] if key not in self.config
         ]
-        if manquantes:
+        if missing:
             raise ValueError(
-                f"backend '{self.kind.value}' : cles obligatoires absentes de "
-                f"terraform.backend.config : {', '.join(manquantes)}."
+                f"backend '{self.kind.value}': mandatory keys absent from "
+                f"terraform.backend.config: {', '.join(missing)}."
             )
         return self
 
 
 class KubernetesAccessSpec(ForgeModel):
-    """Comment le provider Kubernetes joint le cluster."""
+    """How the Kubernetes provider reaches the cluster."""
 
-    #: Mode d'authentification.
+    #: Authentication mode.
     auth: KubernetesAuth = KubernetesAuth.KUBECONFIG
 
-    #: Chemin du kubeconfig, en mode `kubeconfig`. Devient la valeur par defaut
-    #: de la variable `kube_config_path` de chaque racine d'environnement.
+    #: Path of the kubeconfig, in `kubeconfig` mode. Becomes the default value of
+    #: the `kube_config_path` variable of each environment root.
     config_path: str = "~/.kube/config"
 
-    #: Nomme un contexte kubeconfig par environnement. Laisser a `true` : sans
-    #: contexte explicite, le provider emploie le contexte courant de la
-    #: machine, et rien ne dit vers quel cluster l'application est partie.
+    #: Names one kubeconfig context per environment. Leave it at `true`: with no
+    #: explicit context, the provider uses the current context of the machine, and
+    #: nothing says which cluster the application went to.
     context_per_environment: bool = True
 
 
 class QuotaSpec(ForgeModel):
-    """Budget d'un environnement. Toute cle omise garde la valeur par defaut."""
+    """Budget of an environment. Any omitted key keeps the default value."""
 
-    #: Plafond de CPU demandable (ex. "4", "500m").
+    #: Cap on requestable CPU (e.g. "4", "500m").
     cpu: str | None = None
 
-    #: Plafond de memoire demandable, suffixe obligatoire (ex. "8Gi").
+    #: Cap on requestable memory, suffix mandatory (e.g. "8Gi").
     memory: str | None = None
 
-    #: Nombre maximal de pods simultanes.
+    #: Maximum number of simultaneous pods.
     pods: int | None = Field(default=None, gt=0)
 
 
 class TerraformEnvironmentSpec(ForgeModel):
-    """Surcharges d'un environnement. Cle par nom d'environnement."""
+    """Overrides of an environment. Keyed by environment name."""
 
-    #: Namespace explicite. Obligatoire en strategie `custom`, facultatif sinon.
+    #: Explicit namespace. Mandatory under the `custom` strategy, optional
+    #: otherwise.
     namespace: DnsLabel | None = None
 
-    #: Contexte kubeconfig vise par cet environnement.
+    #: kubeconfig context this environment targets.
     kube_context: str | None = None
 
-    #: Budget de cet environnement.
+    #: Budget of this environment.
     quota: QuotaSpec | None = None
 
-    #: Labels ajoutes aux ressources de cet environnement seulement.
+    #: Labels added to the resources of this environment only.
     labels: dict[str, str] = Field(default_factory=dict)
 
-    #: Cles de backend propres a cet environnement — typiquement `key` ou
-    #: `prefix`, pour que deux environnements n'ecrivent pas le meme etat.
+    #: Backend keys specific to this environment — typically `key` or `prefix`,
+    #: so that two environments do not write the same state.
     backend_config: dict[str, str] = Field(default_factory=dict)
 
-    #: Noms DNS couverts par le certificat auto-signe de cet environnement.
+    #: DNS names covered by the self-signed certificate of this environment.
     tls_dns_names: list[Subdomain] = Field(default_factory=list)
 
     @field_validator("backend_config")
     @classmethod
     def _no_secrets(cls, value: dict[str, str]) -> dict[str, str]:
-        interdites = sorted(SECRET_BACKEND_KEYS & set(value))
-        if interdites:
+        forbidden = sorted(SECRET_BACKEND_KEYS & set(value))
+        if forbidden:
             raise ValueError(
-                f"cles de backend secretes refusees : {', '.join(interdites)}."
+                f"secret backend keys refused: {', '.join(forbidden)}."
             )
         return value
 
 
 class TerraformExtras(ForgeModel):
-    """Fichiers annexes du projet genere."""
+    """Extra files of the generated project."""
 
-    #: Makefile de raccourcis (`make init ENV=prod`, `make plan ENV=prod`).
+    #: Makefile of shortcuts (`make init ENV=prod`, `make plan ENV=prod`).
     makefile: bool = True
 
-    #: Fichier `.tflint.hcl` activant le jeu de regles Terraform de tflint.
+    #: A `.tflint.hcl` file enabling the Terraform rule set of tflint.
     tflint_config: bool = True
 
 
 class TerraformSpec(ForgeModel):
-    """Section `terraform:` : le socle d'infrastructure du service."""
+    """The `terraform:` section: the infrastructure base layer of the service."""
 
-    #: Contrainte `required_version`. Bornez toujours la version majeure.
+    #: `required_version` constraint. Always bound the major version.
     terraform_version: str = "~> 1.9"
 
-    #: Ou l'etat est conserve.
+    #: Where the state is kept.
     backend: BackendSpec = Field(default_factory=BackendSpec)
 
-    #: Comment joindre le cluster.
+    #: How the cluster is reached.
     kubernetes: KubernetesAccessSpec = Field(default_factory=KubernetesAccessSpec)
 
-    #: Comment le nom du namespace est derive de l'environnement.
+    #: How the namespace name is derived from the environment.
     namespace_strategy: NamespaceStrategy = NamespaceStrategy.PER_ENV
 
-    #: Familles de ressources retenues. L'ordre d'ecriture n'a pas d'importance :
-    #: le catalogue les remet dans l'ordre canonique.
+    #: Retained resource families. The order they are written in does not matter:
+    #: the catalogue puts them back into canonical order.
     resources: list[ResourceFamily] = Field(
         default_factory=lambda: [ResourceFamily.NAMESPACE], min_length=1
     )
 
-    #: Surcharges par environnement. Un environnement absent prend les valeurs
-    #: derivees ; les noms sont valides par le controle croise du plugin.
+    #: Overrides per environment. An absent environment takes the derived values;
+    #: the names are validated by the plugin cross-check.
     environments: dict[str, TerraformEnvironmentSpec] = Field(default_factory=dict)
 
-    #: Fichiers annexes.
+    #: Extra files.
     extras: TerraformExtras = Field(default_factory=TerraformExtras)
 
     @field_validator("terraform_version")
@@ -185,93 +187,93 @@ class TerraformSpec(ForgeModel):
     def _version_constraint(cls, value: str) -> str:
         if not VERSION_CONSTRAINT_RE.match(value):
             raise ValueError(
-                f"terraform_version '{value}' n'est pas une contrainte de "
-                "version Terraform (ex. '~> 1.9', '>= 1.5, < 2.0'). Une version "
-                "nue figerait le projet sur un correctif precis."
+                f"terraform_version '{value}' is not a Terraform version "
+                "constraint (e.g. '~> 1.9', '>= 1.5, < 2.0'). A bare version would "
+                "freeze the project on one precise patch."
             )
         return value
 
     @field_validator("resources")
     @classmethod
     def _unique_resources(cls, value: list[ResourceFamily]) -> list[ResourceFamily]:
-        require_unique((famille.value for famille in value), "familles de ressources")
+        require_unique((family.value for family in value), "resource families")
         return value
 
     @model_validator(mode="after")
     def _known_families(self) -> TerraformSpec:
-        """Garde-fou : le catalogue et l'enumeration doivent rester d'accord."""
-        connues = set(family_names())
-        inconnues = sorted(f.value for f in self.resources if f.value not in connues)
-        if inconnues:  # pragma: no cover - defaut de programmation du plugin
+        """Guard rail: the catalogue and the enumeration must stay in agreement."""
+        known = set(family_names())
+        unknown = sorted(f.value for f in self.resources if f.value not in known)
+        if unknown:  # pragma: no cover - a programming defect of the plugin
             raise ValueError(
-                f"familles absentes du catalogue : {', '.join(inconnues)}."
+                f"families absent from the catalogue: {', '.join(unknown)}."
             )
         return self
 
     @model_validator(mode="after")
     def _custom_namespaces_declared(self) -> TerraformSpec:
-        """En strategie `custom`, toute surcharge declaree doit nommer son namespace.
+        """Under the `custom` strategy, every declared override must name its namespace.
 
-        Ce controle ne voit que les environnements **presents** dans
-        `terraform.environments` ; ceux qui n'y figurent pas du tout sont
-        rattrapes par le controle croise, seul a connaitre
+        This check only sees the environments **present** in
+        `terraform.environments`; the ones that do not appear there at all are
+        caught by the cross-check, the only place that knows
         `service.environments`.
         """
         if self.namespace_strategy is not NamespaceStrategy.CUSTOM:
             return self
-        muets = sorted(
-            nom for nom, surcharge in self.environments.items() if surcharge.namespace is None
+        silent = sorted(
+            name for name, override in self.environments.items() if override.namespace is None
         )
-        if muets:
+        if silent:
             raise ValueError(
-                'la strategie de namespace "custom" exige un namespace explicite ; '
-                f"absent pour : {', '.join(muets)}."
+                'the "custom" namespace strategy requires an explicit namespace; '
+                f"absent for: {', '.join(silent)}."
             )
         return self
 
     @model_validator(mode="after")
     def _namespace_lengths(self) -> TerraformSpec:
-        trop_longs = sorted(
-            f"{nom} ({surcharge.namespace})"
-            for nom, surcharge in self.environments.items()
-            if surcharge.namespace and len(surcharge.namespace) > MAX_NAMESPACE_LENGTH
+        too_long = sorted(
+            f"{name} ({override.namespace})"
+            for name, override in self.environments.items()
+            if override.namespace and len(override.namespace) > MAX_NAMESPACE_LENGTH
         )
-        if trop_longs:
+        if too_long:
             raise ValueError(
-                f"un nom de namespace fait au plus {MAX_NAMESPACE_LENGTH} "
-                f"caracteres ; trop long pour : {', '.join(trop_longs)}."
+                f"a namespace name is at most {MAX_NAMESPACE_LENGTH} characters; "
+                f"too long for: {', '.join(too_long)}."
             )
         return self
 
-    # -- lecture ------------------------------------------------------------
+    # -- lookups ------------------------------------------------------------
 
     def overrides(self, environment: str) -> TerraformEnvironmentSpec:
-        """Surcharges de `environment`, vides s'il n'en a pas."""
+        """Overrides of `environment`, empty when it has none."""
         return self.environments.get(environment) or TerraformEnvironmentSpec()
 
     def uses(self, family: ResourceFamily) -> bool:
-        """Indique si la famille est retenue."""
+        """Tell whether the family is retained."""
         return family in self.resources
 
     def family_names(self) -> tuple[str, ...]:
-        """Noms des familles retenues, tels qu'ecrits dans la specification."""
-        return tuple(famille.value for famille in self.resources)
+        """Names of the retained families, as written in the specification."""
+        return tuple(family.value for family in self.resources)
 
     def namespace_for(self, service_name: str, environment: str) -> str:
-        """Namespace de `environment`, derive selon la strategie.
+        """Namespace of `environment`, derived according to the strategy.
 
-        En strategie `custom`, un environnement sans surcharge retomberait ici
-        sans reponse : le controle croise l'a deja refuse, et le repli sur le
-        nom derive garde la fonction totale plutot que de lever depuis un
-        chemin de rendu.
+        Under the `custom` strategy, an environment with no override would land
+        here with no answer: the cross-check has already refused it, and falling
+        back on the derived name keeps the function total rather than raising from
+        a rendering path.
         """
-        explicite = self.overrides(environment).namespace
-        if explicite:
-            return explicite
+        explicit = self.overrides(environment).namespace
+        if explicit:
+            return explicit
         if self.namespace_strategy is NamespaceStrategy.SAME:
             return service_name
         return f"{service_name}-{environment}"
 
-    def model_dump_stable(self) -> dict[str, Any]:  # pragma: no cover - confort de debogage
-        """Vue serialisable du modele, pour inspection manuelle."""
+    def model_dump_stable(self) -> dict[str, Any]:  # pragma: no cover - debugging comfort
+        """Serialisable view of the model, for manual inspection."""
         return self.model_dump(mode="json")
