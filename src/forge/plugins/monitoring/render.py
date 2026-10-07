@@ -89,11 +89,11 @@ def project(
     }
 
     return {
-        # The catalogue name, as-is. The service is not prefixed onto it: it is
-        # carried by the `service` label that `derive` puts on every rule, and
-        # that label is the one Alertmanager is built to filter on. A generic
-        # alert name is also what lets a community runbook or dashboard, indexed
-        # on `TargetDown`, apply to this service.
+        # The catalogue name, as it stands. The service is not prefixed onto it:
+        # it is carried by the `service` label that `derive` sets on every rule,
+        # and that label is what Alertmanager is built to match on. A generic
+        # alert name is also what lets a runbook or a community dashboard keyed
+        # on `TargetDown` apply to this service.
         "name": alert.name,
         "expr": substitute(alert.expr, resolved),
         "for": alert.for_duration,

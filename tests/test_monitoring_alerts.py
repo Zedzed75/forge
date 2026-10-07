@@ -167,5 +167,5 @@ def test_a_generated_alert_name_is_the_catalogue_name_unchanged():
         for family in env["family_names"]:
             for alert in env["rules"][family]["alerts"]:
                 assert alert["name"] in catalogue
-                # Ce que le prefixe portait est ici, la ou Alertmanager filtre.
+                # What the prefix carried is here, where Alertmanager matches.
                 assert alert["labels"]["service"] == spec.service.name
