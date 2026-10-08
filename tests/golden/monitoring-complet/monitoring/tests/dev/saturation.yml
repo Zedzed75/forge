@@ -26,7 +26,7 @@ evaluation_interval: 1m
 
 tests:
   # ---------------------------------------------------------------------------
-  # BoutiqueMemoryNearLimit — A container is approaching its memory limit
+  # MemoryNearLimit — A container is approaching its memory limit
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
@@ -39,7 +39,7 @@ tests:
         # (10m): the alert must therefore have moved from "pending" to
         # "firing".
       - eval_time: 15m
-        alertname: BoutiqueMemoryNearLimit
+        alertname: MemoryNearLimit
         exp_alerts:
           - exp_labels:
               container: test-container
@@ -53,7 +53,7 @@ tests:
               description: Container test-container of pod test-pod has exceeded 90 % of its memory limit for 10 minutes. An actual overrun causes an OOMKill, not a slowdown.
 
   # ---------------------------------------------------------------------------
-  # BoutiqueHighCpuUsage — A pod is durably consuming a lot of CPU
+  # HighCpuUsage — A pod is durably consuming a lot of CPU
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
@@ -64,7 +64,7 @@ tests:
         # (10m): the alert must therefore have moved from "pending" to
         # "firing".
       - eval_time: 15m
-        alertname: BoutiqueHighCpuUsage
+        alertname: HighCpuUsage
         exp_alerts:
           - exp_labels:
               env: dev

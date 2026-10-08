@@ -9,7 +9,6 @@
 _commit: <commit>
 _src_path: <src>
 domain:
-    alert_prefix: Boutique
     blackbox:
         address: blackbox-exporter:9115
         job: blackbox
@@ -19,48 +18,48 @@ domain:
     -   name: boutique
     dashboard_file: grafana/dashboards/boutique.json
     dashboard_panels:
-    -   alert: BoutiqueTargetDown
+    -   alert: TargetDown
         expr: up{job="boutique"}
         family: availability
         threshold: ''
         title: The target no longer answers the collector
-    -   alert: BoutiqueHighErrorRate
+    -   alert: HighErrorRate
         expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"5..\"}[5m]))\n\
             \  /\nsum(rate(http_requests_total{job=\"boutique\"}[5m]))"
         family: error_rate
         threshold: '0.2'
         title: Too many responses in error
-    -   alert: BoutiqueHighLatency
+    -   alert: HighLatency
         expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
             boutique\"}[5m]))\n)"
         family: latency
         threshold: '2'
         title: The service answers too slowly
-    -   alert: BoutiqueMemoryNearLimit
+    -   alert: MemoryNearLimit
         expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\", container!=\"\
             \"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"boutique-dev\"\
             , container!=\"\"}"
         family: saturation
         threshold: '0.9'
         title: A container is approaching its memory limit
-    -   alert: BoutiqueHighCpuUsage
+    -   alert: HighCpuUsage
         expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
             boutique-dev\", container!=\"\"}[5m])\n)"
         family: saturation
         threshold: '1.5'
         title: A pod is durably consuming a lot of CPU
-    -   alert: BoutiqueContainerRestartLoop
+    -   alert: ContainerRestartLoop
         expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
             boutique-dev\"}[1h]\n)"
         family: restarts
         threshold: '3'
         title: A container is restarting in a loop
-    -   alert: BoutiqueExternalProbeFailed
+    -   alert: ExternalProbeFailed
         expr: probe_success{job="blackbox"}
         family: probe
         threshold: ''
         title: The service is no longer reachable from the outside
-    -   alert: BoutiqueCertificateExpiringSoon
+    -   alert: CertificateExpiringSoon
         expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"} - time()\n) /\
             \ 86400"
         family: probe
@@ -97,7 +96,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: critical
-                    name: BoutiqueTargetDown
+                    name: TargetDown
                     panel_expr: up{job="boutique"}
                     severity: critical
                     summary: The target no longer answers the collector
@@ -145,7 +144,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: critical
-                    name: BoutiqueHighErrorRate
+                    name: HighErrorRate
                     panel_expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
                         5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
                         }[5m]))"
@@ -196,7 +195,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: warning
-                    name: BoutiqueHighLatency
+                    name: HighLatency
                     panel_expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
                         boutique\"}[5m]))\n)"
                     severity: warning
@@ -256,7 +255,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: critical
-                    name: BoutiqueExternalProbeFailed
+                    name: ExternalProbeFailed
                     panel_expr: probe_success{job="blackbox"}
                     severity: critical
                     summary: The service is no longer reachable from the outside
@@ -290,7 +289,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: warning
-                    name: BoutiqueCertificateExpiringSoon
+                    name: CertificateExpiringSoon
                     panel_expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"\
                         } - time()\n) / 86400"
                     severity: warning
@@ -344,7 +343,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: warning
-                    name: BoutiqueContainerRestartLoop
+                    name: ContainerRestartLoop
                     panel_expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
                         boutique-dev\"}[1h]\n)"
                     severity: warning
@@ -395,7 +394,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: warning
-                    name: BoutiqueMemoryNearLimit
+                    name: MemoryNearLimit
                     panel_expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\"\
                         , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
                         boutique-dev\", container!=\"\"}"
@@ -434,7 +433,7 @@ domain:
                         env: dev
                         service: boutique
                         severity: warning
-                    name: BoutiqueHighCpuUsage
+                    name: HighCpuUsage
                     panel_expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
                         boutique-dev\", container!=\"\"}[5m])\n)"
                     severity: warning
@@ -511,7 +510,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: critical
-                    name: BoutiqueTargetDown
+                    name: TargetDown
                     panel_expr: up{job="boutique"}
                     severity: critical
                     summary: The target no longer answers the collector
@@ -561,7 +560,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: critical
-                    name: BoutiqueHighErrorRate
+                    name: HighErrorRate
                     panel_expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
                         5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
                         }[5m]))"
@@ -614,7 +613,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: warning
-                    name: BoutiqueHighLatency
+                    name: HighLatency
                     panel_expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
                         boutique\"}[5m]))\n)"
                     severity: warning
@@ -676,7 +675,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: critical
-                    name: BoutiqueExternalProbeFailed
+                    name: ExternalProbeFailed
                     panel_expr: probe_success{job="blackbox"}
                     severity: critical
                     summary: The service is no longer reachable from the outside
@@ -712,7 +711,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: warning
-                    name: BoutiqueCertificateExpiringSoon
+                    name: CertificateExpiringSoon
                     panel_expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"\
                         } - time()\n) / 86400"
                     severity: warning
@@ -768,7 +767,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: warning
-                    name: BoutiqueContainerRestartLoop
+                    name: ContainerRestartLoop
                     panel_expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
                         boutique-prod\"}[1h]\n)"
                     severity: warning
@@ -821,7 +820,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: warning
-                    name: BoutiqueMemoryNearLimit
+                    name: MemoryNearLimit
                     panel_expr: "container_memory_working_set_bytes{namespace=\"boutique-prod\"\
                         , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
                         boutique-prod\", container!=\"\"}"
@@ -862,7 +861,7 @@ domain:
                         env: prod
                         service: boutique
                         severity: warning
-                    name: BoutiqueHighCpuUsage
+                    name: HighCpuUsage
                     panel_expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
                         boutique-prod\", container!=\"\"}[5m])\n)"
                     severity: warning

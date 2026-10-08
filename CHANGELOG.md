@@ -41,9 +41,10 @@ next one.
   outside the file matches on these sentences.
 
 - **Generated alert names are English.** The eight alerts produced by the
-  `monitoring` domain were named in French. Each generated name is the service
-  name followed by one of these suffixes, so a service called `boutique` had
-  `BoutiqueCibleInjoignable` and now has `BoutiqueTargetDown`:
+  `monitoring` domain were named in French. Only the words changed here; the
+  service-name prefix in front of them is removed by the next entry, and the two
+  compose — a service called `boutique` had `BoutiqueCibleInjoignable` and now
+  has `TargetDown`:
 
   | Before | After |
   | --- | --- |
@@ -80,6 +81,49 @@ next one.
   re-create any silence that was active. The generated
   `monitoring/README.md` carries the same warning next to the names your project
   produces now.
+
+- **Generated alert names no longer carry the service name.** The eight alert
+  names were prefixed with the service name in CamelCase; they are not any more.
+  A service called `boutique` had `BoutiqueTargetDown` and now has `TargetDown`:
+
+  | Before | After |
+  | --- | --- |
+  | `<Service>TargetDown` | `TargetDown` |
+  | `<Service>HighErrorRate` | `HighErrorRate` |
+  | `<Service>HighLatency` | `HighLatency` |
+  | `<Service>MemoryNearLimit` | `MemoryNearLimit` |
+  | `<Service>HighCpuUsage` | `HighCpuUsage` |
+  | `<Service>ContainerRestartLoop` | `ContainerRestartLoop` |
+  | `<Service>ExternalProbeFailed` | `ExternalProbeFailed` |
+  | `<Service>CertificateExpiringSoon` | `CertificateExpiringSoon` |
+
+  The service is not lost: every generated rule already carries it as the
+  `service` label, next to `env` and `severity`, and that label is the instrument
+  Alertmanager is designed to match on. Carrying it in the identifier as well
+  made a cross-service route a regex (`alertname=~".*TargetDown"`, which also
+  matches an unrelated alert ending in those characters) and stopped a shared
+  runbook or a community Grafana dashboard keyed on `TargetDown` from applying.
+  `TargetDown` and the other names are the Prometheus convention precisely
+  because the series' own labels disambiguate.
+
+  Same files as the entry above, rewritten by the same
+  `forge update --only monitoring`, and the same warning about `promtool test
+  rules`: green across this change, and green however badly it broke your
+  alerting.
+
+  **Migration.** Identical mechanism to the entry above — `alertname` is a label
+  matched from Alertmanager configuration forge neither owns nor can see — so the
+  same three things break silently: **routes** selecting on `alertname` stop
+  matching and fall through to your default receiver, **inhibition rules** stop
+  inhibiting, and **silences** keep showing as active in the UI while silencing
+  nothing. Grep your Alertmanager configuration for the prefixed names, update
+  every matcher, and re-create any silence that was active.
+
+  One new thing to check, which did not apply while the names were prefixed: the
+  generic names **collide by design** with the ones kube-prometheus-stack and the
+  node-exporter mixins ship. A route on `alertname="TargetDown"` now catches this
+  service's alert and theirs. That is the convention working as intended, but if
+  you want only this service, add `service="<your-service>"` to the matcher.
 
 - **Generated CI job identifiers are English.** Every job key and job name in
   the generated `.github/workflows/ci.yml`, and every job key *and* stage name

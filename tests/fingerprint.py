@@ -164,7 +164,7 @@ WHAT THE FINGERPRINT DOES NOT PROMISE
 * Blank lines and trailing whitespace are dropped in the `text` and `template`
   kinds. Neither is behaviour in any file type generated here.
 * Identifiers derived from French words -- a Prometheus alert named
-  `BoutiqueHighLatency`, a role named `ssh_hardening` -- are compared
+  `HighLatency`, a role named `ssh_hardening` -- are compared
   verbatim. Renaming them *will* trip the fingerprint. That is correct: they are
   not prose, they are referenced elsewhere (a promtool test asserts on
   `alertname`), and renaming them is a structural change a reviewer must see.

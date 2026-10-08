@@ -119,20 +119,19 @@ def _environment(spec: Any, env: Any) -> dict[str, Any]:
         **_test_tokens(thresholds),
     }
 
-    prefix = render.alert_prefix(spec.service.name)
     rules: dict[str, Any] = {}
     for family in selected(monitoring.family_names()):
         alerts = []
         for alert in family.alerts:
+            # `service` and `env` are what tell this alert apart from the same
+            # alert of another service: the name itself is generic.
             labels = {
                 "severity": alert.severity.value,
                 "service": spec.service.name,
                 "env": env.name,
                 **override.labels,
             }
-            projected = render.project(
-                alert, values, alert_prefix=prefix, rule_labels=labels
-            )
+            projected = render.project(alert, values, rule_labels=labels)
             projected["panel_expr"] = render.substitute(
                 PANEL_EXPRESSIONS.get(alert.name, alert.expr),
                 {**values, "threshold": values.get(alert.threshold_field or "", "")},
