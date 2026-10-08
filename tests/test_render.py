@@ -310,7 +310,7 @@ def test_the_readme_indexes_the_domains(tmp_path, spec_data):
     scaffold.write_repo_files(tmp_path, spec_data, infos)
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
     assert "| Demo | `demo/` | domaine de demonstration |" in readme
-    assert "boutique" in readme
+    assert "storefront" in readme
     assert "dev, prod" in readme
 
 

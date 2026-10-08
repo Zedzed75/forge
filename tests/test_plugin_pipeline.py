@@ -58,8 +58,8 @@ def _base(**pipeline) -> dict:
     return {
         "forge_version": 1,
         "service": {
-            "name": "boutique",
-            "description": "Boutique en ligne",
+            "name": "storefront",
+            "description": "Online store",
             "owner": "Equipe",
             "environments": [{"name": "dev"}, {"name": "prod", "production": True}],
         },
@@ -421,7 +421,7 @@ def test_the_interview_produces_a_valid_section():
             True,           # trigger on pull requests
             True,           # build an image
             "ghcr.io",      # registry
-            "boutique",     # image repository
+            "storefront",     # image repository
             True,           # deploy
             ["dev"],        # deployed environments
         ]

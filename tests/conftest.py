@@ -151,10 +151,10 @@ def spec_data() -> dict[str, Any]:
     return {
         "forge_version": 1,
         "service": {
-            "name": "boutique",
-            "description": "Boutique en ligne de demonstration",
-            "owner": "Equipe Plateforme",
-            "owner_email": "plateforme@example.net",
+            "name": "storefront",
+            "description": "Demonstration online store",
+            "owner": "Platform Team",
+            "owner_email": "platform@example.net",
             "labels": {"tier": "frontend"},
             "environments": [
                 {"name": "dev", "domain": "dev.example.net"},

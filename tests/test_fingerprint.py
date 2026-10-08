@@ -53,7 +53,7 @@ WORKFLOW = ".github/workflows/ci.yml"
 HANDLERS = "ansible/roles/postgresql/handlers/main.yml"
 TASKS = "ansible/roles/postgresql/tasks/main.yml"
 RULES = "ansible/roles/firewall/tasks/ufw.yml"
-CHART_TEMPLATE = "helm/charts/boutique/templates/deployment-api.yaml"
+CHART_TEMPLATE = "helm/charts/storefront/templates/deployment-api.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +221,7 @@ def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
     _edit(tree, "forge.yml", "description: Online store", "description: Retail storefront")
     _edit(
         tree,
-        "helm/charts/boutique/Chart.yaml",
+        "helm/charts/storefront/Chart.yaml",
         "description: Online store",
         "description: Retail storefront",
     )
@@ -353,7 +353,7 @@ def test_a_workflow_name_is_not_normalised(workflow_tree):
     README badge URL is built from it.
     """
     reference = fp.fingerprint(workflow_tree)
-    _edit(workflow_tree, WORKFLOW, "\nname: boutique\n", "\nname: shop\n")
+    _edit(workflow_tree, WORKFLOW, "\nname: storefront\n", "\nname: shop\n")
     _changed(workflow_tree, reference)
 
 
@@ -362,7 +362,7 @@ def test_a_kubernetes_annotation_value_is_not_normalised(tree):
     reference = fp.fingerprint(tree)
     _edit(
         tree,
-        "helm/charts/boutique/templates/ingress-api.yaml",
+        "helm/charts/storefront/templates/ingress-api.yaml",
         "cert-manager.io/cluster-issuer",
         "cert-manager.io/cluster-issuer-typo",
     )
@@ -375,8 +375,8 @@ def test_a_dangling_helm_include_breaks_the_fingerprint(tree):
     _edit(
         tree,
         CHART_TEMPLATE,
-        'include "boutique.api.labels"',
-        'include "boutique.api.etiquettes"',
+        'include "storefront.api.labels"',
+        'include "storefront.api.etiquettes"',
     )
     report = _changed(tree, reference)
     assert any("UNRESOLVED" in line and "helm_helper_links" in line for line in report), report
@@ -396,9 +396,9 @@ def test_a_renamed_helper_and_its_calls_break_the_fingerprint(tree):
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:  # pragma: no cover
             continue
-        if "boutique.api.labels" in text:
+        if "storefront.api.labels" in text:
             path.write_text(
-                text.replace("boutique.api.labels", "boutique.api.etiquettes"),
+                text.replace("storefront.api.labels", "storefront.api.etiquettes"),
                 encoding="utf-8",
                 newline="\n",
             )
@@ -409,7 +409,7 @@ def test_a_renamed_helper_and_its_calls_break_the_fingerprint(tree):
 def test_a_value_change_breaks_the_fingerprint(tree):
     """The ordinary case: a real value moved in a parsed document."""
     reference = fp.fingerprint(tree)
-    _edit(tree, "helm/charts/boutique/values.yaml", "replicaCount: 1", "replicaCount: 99")
+    _edit(tree, "helm/charts/storefront/values.yaml", "replicaCount: 1", "replicaCount: 99")
     _changed(tree, reference)
 
 

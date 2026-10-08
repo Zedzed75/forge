@@ -44,9 +44,9 @@ def _spec_data(**overrides) -> dict:
     data = {
         "forge_version": 1,
         "service": {
-            "name": "boutique",
-            "description": "Boutique en ligne",
-            "owner": "Equipe Plateforme",
+            "name": "storefront",
+            "description": "Online store",
+            "owner": "Platform Team",
             "environments": [{"name": "prod", "production": True}],
         },
         "helm": {"components": [{"name": "api", "addons": ["service"]}]},
@@ -190,7 +190,7 @@ def test_the_render_is_asked_for_in_the_derived_namespace():
     spec = validate_spec(_spec_data(), _manager())
     template = validators.commands(spec, Path("helm"))[1]
     index = template.argv.index("--namespace")
-    assert template.argv[index + 1] == "boutique-prod"
+    assert template.argv[index + 1] == "storefront-prod"
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@ def test_the_thirteen_families_produce_their_resources(tmp_path):
     data = load_spec_data(COMPLETE_SPEC)
     pipeline.generate(data, validate_spec(data, manager), manager, tmp_path)
 
-    templates = tmp_path / "helm" / "charts" / "boutique" / "templates"
+    templates = tmp_path / "helm" / "charts" / "storefront" / "templates"
     produced = {path.name for path in templates.glob("*.yaml")}
     for expected in (
         "deployment-api.yaml",
@@ -276,7 +276,7 @@ def test_a_component_name_with_a_hyphen_goes_through_values_ref(tmp_path):
     pipeline.generate(data, validate_spec(data, manager), manager, tmp_path)
 
     rendered = (
-        tmp_path / "helm" / "charts" / "boutique" / "templates" / "statefulset-db-proxy.yaml"
+        tmp_path / "helm" / "charts" / "storefront" / "templates" / "statefulset-db-proxy.yaml"
     ).read_text(encoding="utf-8")
     assert '(index .Values "db-proxy")' in rendered
     assert ".Values.db-proxy" not in rendered
@@ -289,7 +289,7 @@ def test_the_free_environment_values_are_rendered(tmp_path):
     pipeline.generate(data, validate_spec(data, manager), manager, tmp_path)
 
     values = (
-        tmp_path / "helm" / "charts" / "boutique" / "values-prod.yaml"
+        tmp_path / "helm" / "charts" / "storefront" / "values-prod.yaml"
     ).read_text(encoding="utf-8")
     assert "monitoring" in values
 

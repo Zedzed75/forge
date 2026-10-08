@@ -37,12 +37,11 @@ runner = CliRunner()
 INSTALL_CASE = "ansible-ci"
 
 #: Answers replaying the full interview: the service block, then the demo domain.
-#: The values are the ones the reference specs use, and they stay French until
-#: the reference specs themselves are translated.
+#: The values are the ones the reference specs use.
 INTERVIEW = [
-    "boutique",                # service name
-    "Boutique en ligne",       # description
-    "Equipe Plateforme",       # owner
+    "storefront",              # service name
+    "Online store",            # description
+    "Platform Team",           # owner
     "",                        # contact address
     "dev,prod",                # environments
     True,                      # is one of them production?
@@ -238,7 +237,7 @@ def test_new_writes_a_replayable_spec(tmp_path):
         dry_run=True,
     )
     data, model = pipeline.load_spec(tmp_path / "forge.yml", manager)
-    assert model.service.name == "boutique"
+    assert model.service.name == "storefront"
     assert model.domain_names() == ("demo",)
     assert [w["name"] for w in data["demo"]["widgets"]] == ["cpu", "requetes"]
 

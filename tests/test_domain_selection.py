@@ -242,9 +242,9 @@ def test_only_cannot_add_a_domain_absent_from_the_specification(domain, tmp_path
 
 #: Answers to the common trunk of `forge new`, shared by every interview.
 COMMON_SERVICE: list = [
-    "boutique",              # service name
-    "Boutique en ligne",     # description
-    "Equipe Plateforme",     # owner
+    "storefront",            # service name
+    "Online store",          # description
+    "Platform Team",         # owner
     "",                      # contact
     "prod",                  # environments
     True,                    # is one of them production?
@@ -261,7 +261,7 @@ def test_the_interview_allows_keeping_helm_alone(tmp_path):
         + [
             ["helm"],                # <- THE CHOICE: helm alone
             "1.36", "0.1.0", "1.0.0",
-            "docker.io", "boutique", "appVersion",
+            "docker.io", "storefront", "appVersion",
             "per_env",
             "api", "deployment", ["service"], "8080",
             False,                   # add another component?

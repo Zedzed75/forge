@@ -64,7 +64,7 @@ def test_both_domains_are_generated_from_a_single_specification(tmp_path, data):
 
     assert result.domains == ["ansible", "helm"]
     assert (tmp_path / "ansible" / "playbooks" / "site.yml").is_file()
-    assert (tmp_path / "helm" / "charts" / "boutique" / "Chart.yaml").is_file()
+    assert (tmp_path / "helm" / "charts" / "storefront" / "Chart.yaml").is_file()
     # One forge.yml, one index README, at the root.
     assert (tmp_path / "forge.yml").is_file()
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
@@ -178,7 +178,7 @@ def test_only_regenerates_one_domain_and_leaves_the_other_intact(tmp_path, data)
     manager = _manager()
     pipeline.generate(data, validate_spec(data, manager), manager, tmp_path)
 
-    witness = tmp_path / "helm" / "charts" / "boutique" / "Chart.yaml"
+    witness = tmp_path / "helm" / "charts" / "storefront" / "Chart.yaml"
     marked = witness.read_text(encoding="utf-8") + "\n# no-regeneration mark\n"
     witness.write_text(marked, encoding="utf-8", newline="\n")
 

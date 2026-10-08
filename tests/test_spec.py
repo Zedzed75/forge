@@ -31,7 +31,7 @@ def test_require_unique_raises_on_a_duplicate():
 
 
 def test_service_refuses_a_non_dns_name(spec_data, manager):
-    spec_data["service"]["name"] = "Boutique_Web"
+    spec_data["service"]["name"] = "Storefront_Web"
     with pytest.raises(SpecValidationError, match="DNS label"):
         validate_spec(spec_data, manager)
 
@@ -50,7 +50,7 @@ def test_service_refuses_duplicate_environments(spec_data, manager):
 
 def test_service_exposes_its_environments_in_order():
     service = ServiceSpec(
-        name="boutique",
+        name="storefront",
         description="d",
         owner="o",
         environments=[{"name": "dev"}, {"name": "prod", "production": True}],

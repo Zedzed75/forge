@@ -41,9 +41,9 @@ def _spec_data(**overrides) -> dict:
     data = {
         "forge_version": 1,
         "service": {
-            "name": "passerelle",
-            "description": "Passerelle applicative",
-            "owner": "Equipe Plateforme",
+            "name": "gateway",
+            "description": "Application gateway",
+            "owner": "Platform Team",
             "environments": [{"name": "prod", "production": True}],
         },
         "ansible": {
@@ -308,7 +308,7 @@ def test_the_readme_announces_exactly_the_generated_files(tmp_path):
 #: Minimal interview: connection, one group, one environment, one machine.
 MINIMAL_INTERVIEW = [
     "debian", "ansible", "22", True, "auto_silent",
-    "gateways", "Passerelles exposees", ["common"], False,
+    "gateways", "Gateways exposed to the outside", ["common"], False,
     False,
     "1", "gw-prod-01", "10.30.0.11",
     False,
@@ -321,9 +321,9 @@ def test_the_interview_produces_a_valid_section():
     from forge.spec.service import ServiceSpec
 
     service = ServiceSpec(
-        name="passerelle",
-        description="Passerelle applicative",
-        owner="Equipe Plateforme",
+        name="gateway",
+        description="Application gateway",
+        owner="Platform Team",
         environments=[{"name": "prod", "production": True}],
     )
     prompter = ScriptedPrompter(list(MINIMAL_INTERVIEW))
@@ -342,9 +342,9 @@ def test_the_interview_does_not_repeat_the_service_block_questions():
     from forge.spec.service import ServiceSpec
 
     service = ServiceSpec(
-        name="passerelle",
-        description="Passerelle applicative",
-        owner="Equipe Plateforme",
+        name="gateway",
+        description="Application gateway",
+        owner="Platform Team",
         environments=[{"name": "prod", "production": True}],
     )
     prompter = ScriptedPrompter(list(MINIMAL_INTERVIEW))
