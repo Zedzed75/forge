@@ -55,8 +55,8 @@ def _base(**terraform) -> dict:
         "forge_version": 1,
         "service": {
             "name": "boutique",
-            "description": "Boutique en ligne",
-            "owner": "Equipe",
+            "description": "Online store",
+            "owner": "Platform Team",
             "environments": [{"name": "dev"}, {"name": "prod", "production": True}],
         },
         "terraform": terraform or {"resources": ["namespace"]},

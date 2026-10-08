@@ -31,7 +31,7 @@ def test_require_unique_raises_on_a_duplicate():
 
 
 def test_service_refuses_a_non_dns_name(spec_data, manager):
-    spec_data["service"]["name"] = "Boutique_Web"
+    spec_data["service"]["name"] = "Online_Store"
     with pytest.raises(SpecValidationError, match="DNS label"):
         validate_spec(spec_data, manager)
 

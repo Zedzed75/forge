@@ -263,7 +263,7 @@ def test_rewrite_src_path_ignores_a_missing_file(tmp_path):
 
 
 def test_the_core_writes_the_non_domain_minimum(tmp_path, spec_data):
-    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+    infos = [DomainInfo(name="demo", title="Demo", summary="demonstration domain")]
     written = scaffold.write_repo_files(tmp_path, spec_data, infos)
     names = {path.name for path in written}
     assert names == {"forge.yml", "README.md", ".gitattributes"}
@@ -272,7 +272,7 @@ def test_the_core_writes_the_non_domain_minimum(tmp_path, spec_data):
 
 def test_the_core_refuses_to_overwrite_a_modified_repository_file(tmp_path, spec_data):
     """Same rule copier applies to domain files: no silent overwrite."""
-    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+    infos = [DomainInfo(name="demo", title="Demo", summary="demonstration domain")]
     scaffold.write_repo_files(tmp_path, spec_data, infos)
     (tmp_path / "README.md").write_text("written by hand\n", encoding="utf-8")
 
@@ -286,7 +286,7 @@ def test_the_core_refuses_to_overwrite_a_modified_repository_file(tmp_path, spec
 
 def test_the_target_s_source_forge_yml_is_not_rewritten(tmp_path, spec_data):
     """Re-serialising the spec would destroy the comments the team put in it."""
-    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+    infos = [DomainInfo(name="demo", title="Demo", summary="demonstration domain")]
     spec_path = tmp_path / "forge.yml"
     original = "# HOUSE NOTE: do not touch\nforge_version: 1\n"
     spec_path.write_text(original, encoding="utf-8")
@@ -306,10 +306,10 @@ def test_a_target_that_is_a_file_gives_a_readable_error(tmp_path, spec_data):
 
 
 def test_the_readme_indexes_the_domains(tmp_path, spec_data):
-    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+    infos = [DomainInfo(name="demo", title="Demo", summary="demonstration domain")]
     scaffold.write_repo_files(tmp_path, spec_data, infos)
     readme = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert "| Demo | `demo/` | domaine de demonstration |" in readme
+    assert "| Demo | `demo/` | demonstration domain |" in readme
     assert "boutique" in readme
     assert "dev, prod" in readme
 

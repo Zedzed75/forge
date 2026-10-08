@@ -68,8 +68,8 @@ def _two_domain_spec() -> dict:
         "forge_version": 1,
         "service": {
             "name": "boutique",
-            "description": "Boutique en ligne",
-            "owner": "Equipe Plateforme",
+            "description": "Online store",
+            "owner": "Platform Team",
             "environments": [{"name": "prod", "production": True}],
         },
         "demo": dict(section),
@@ -83,8 +83,8 @@ def _fake_spec(*domains: str) -> dict:
         "forge_version": 1,
         "service": {
             "name": "boutique",
-            "description": "Boutique en ligne",
-            "owner": "Equipe Plateforme",
+            "description": "Online store",
+            "owner": "Platform Team",
             "environments": [{"name": "dev"}, {"name": "prod", "production": True}],
         },
     }

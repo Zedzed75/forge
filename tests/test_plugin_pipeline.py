@@ -59,8 +59,8 @@ def _base(**pipeline) -> dict:
         "forge_version": 1,
         "service": {
             "name": "boutique",
-            "description": "Boutique en ligne",
-            "owner": "Equipe",
+            "description": "Online store",
+            "owner": "Platform Team",
             "environments": [{"name": "dev"}, {"name": "prod", "production": True}],
         },
         "pipeline": pipeline or {"provider": "github"},
