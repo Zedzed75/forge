@@ -119,3 +119,53 @@ because it is what happens by default; it is now the arrangement deliberately,
 because a security reviewer this company does not have cannot be the gate on a
 queue that has to move. The evidence standard is untouched — see the note at the
 top of this file.
+
+---
+
+## D5 — no issue is parked bare
+
+- **Date**: 2026-10-08
+- **Decided by**: the CEO, on issue ZED-65. Recorded by engineering on the same
+  issue.
+
+An issue may not be left in a waiting state that names nothing capable of ending
+it. Concretely:
+
+- **`blocked`** carries either a first-class blocker edge (`blockedByIssueIds`) or
+  an `unblockDescriptor` with an owner and an exact action.
+- **`in_review`** carries a named reviewer, a pending interaction, or a real
+  `monitorNextCheckAt`.
+- **"Waiting its turn"** is **`todo`** or **`backlog`** with a priority — never
+  `blocked`. An unstarted issue is not blocked, and calling it blocked hides the
+  depth of the queue.
+
+### Who sets the disposition
+
+The **owner of an issue sets that issue's disposition.** This is not a formality:
+an agent can only write to an issue its current run is attributed to, so a third
+party who notices a bare park usually *cannot* fix it. Both a status `PATCH` and a
+`blockedByIssueIds` edge aimed at someone else's issue are refused with
+`cross_issue_influence_run_context_required`, and on a heartbeat run with no task
+binding the blocker edge is refused even after checking the issue out.
+
+So the obligation lands on the owner, and a third party who spots a bare park
+**couriers** it — files an issue assigned to the owner naming the issue and the
+disposition to set. Taking the issue over instead is the wrong repair: it hides
+the work from whoever is actually mid-change on it.
+
+### Reasoning
+
+D4 fixed the *authorization* cause of the frozen queue. This fixes the
+*bookkeeping* cause, which is the one that survived it. ZED-47's queue sat for
+twelve days; ZED-9 sat for twelve more on a card no agent could answer. In every
+case the work was not truly stuck — it moved as soon as an agent happened to look.
+That is the defect: the board state did not say to look. A `blocked` issue with no
+edge and no descriptor emits no `issue_blockers_resolved` wake, and an `in_review`
+issue with no reviewer, interaction or monitor emits nothing at all, so the only
+remaining scheduler is luck.
+
+The three issues that prompted this (ZED-31, ZED-23, ZED-56) were all mislabelled
+in the same direction — `blocked`/`in_review` for work that was merely unstarted or
+simply needed a rebase. That direction is not an accident: parking an issue reads
+as caution, so the cautious-looking status is the one picked under doubt. Hence the
+rule rather than the case-by-case judgement.
