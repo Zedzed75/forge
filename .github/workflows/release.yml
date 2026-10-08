@@ -84,6 +84,10 @@ jobs:
           checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
           enable-cache: true
           python-version: "3.13"
+          # `pyproject.toml` and not `uv.lock` as in ci.yml, on purpose: this job
+          # never syncs the project environment. It runs `uv build` and
+          # `uvx twine`, whose inputs are the build-system requirements declared
+          # in `pyproject.toml`. The lockfile would be an unrelated key here.
           cache-dependency-glob: "pyproject.toml"
 
       - name: Construire la sdist et la wheel

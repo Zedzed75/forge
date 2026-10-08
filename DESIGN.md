@@ -613,7 +613,8 @@ unknown domain), `--dry-run` writes nothing, output is not coloured if
 > answer; Q2, Q3, Q4 and Q8 kept as recommended, without objection. This section
 > is from now on a record of decisions: do not reopen it without a new reason.
 > Q9 is one, which appeared in production on 2026-09-24 and was arbitrated the
-> same day: it is added after them, it reopens none of the eight.
+> same day; Q10 is another, opened on 2026-10-08. They are added after the eight
+> and reopen none of them.
 >
 > These `Q` entries are the **technical** arbitrations of the architecture. The
 > project's standing **policy** decisions — naming, language, what engineering may
@@ -801,6 +802,66 @@ names dependencies without a version.
 > where the collection list is copied over. The first pins in three lines; the
 > second requires that `pipeline` learn the `ansible` domain's versions without
 > importing it — hence a projection, hence a separate decision.
+
+**Q10. forge's own renderer versions** — *a question opened after the fact,
+arbitrated on 2026-10-08.* Q9 pinned what the **generated** projects install.
+What **forge itself** installs was still free: every entry in `pyproject.toml`
+was a floor (`copier>=9.7`, `pydantic>=2.6`, …) with no lockfile anywhere, so
+each CI run resolved whatever PyPI served that day — and `uv`, which did the
+resolving, was unpinned too (fixed separately, in the commit that precedes this
+entry). Two of those floors are not ordinary dependencies: **`copier` and
+`jinja2` are the renderer.** They are the one dependency class that can change
+generated output with no line of this repository having moved, which is exactly
+what CLAUDE.md's *"same spec ⇒ same generated output"*, the golden trees and the
+structural fingerprints exist to guarantee. A fingerprint that moves because a
+transitive renderer bump landed overnight is a false alarm, and false alarms are
+how a signal stops being read. Worse, `jinja2` was not even a declared
+dependency: it arrives through `copier` (`jinja2>=3.1.6`), so it floated at two
+removes.
+→ **DECISION: a lockfile, used by CI; and no ceilings in the published
+metadata.** `uv.lock` is committed, `ci.yml` installs with
+`uv sync --locked --extra dev`, and the constraints in `pyproject.toml` stay
+floors.
+
+- **A lockfile, and not upper bounds.** Bounds were the tempting answer, because
+  they look like Q9's *"the ceiling, and not only the floor"*. The analogy
+  breaks on who owns the file. Q9's ceiling is written into `requirements.yml`,
+  a file **of the user's project**, and the generated header tells them they may
+  widen it by hand. `pyproject.toml` is forge's **published** metadata: a
+  ceiling there is imposed on everyone who runs `pip install iac-forge`, is
+  resolved against *their* dependency set, and cannot be widened by hand at all.
+  `copier<10` would make forge the package that blocks someone else's upgrade,
+  months after we stopped looking. The same decision, read correctly, lands on
+  opposite answers for a generated file and for a published one.
+  *(And bounding `jinja2` would have meant declaring a direct dependency on a
+  library forge never imports — with the standing risk of pinning a version
+  `copier` itself refuses.)*
+- **Assumed consequence: forge tests one version and supports a range.** That
+  asymmetry is deliberate, and it is worth saying out loud rather than leaving
+  it implied: the golden trees and the fingerprints prove determinism **for the
+  locked renderer**, not for every version the floors admit. Nothing here checks
+  that `copier` 9.7 — the declared floor — still renders these templates. The
+  floor states what we believe, the lockfile states what we verified, and they
+  are not the same claim.
+- **The lockfile needs a bump path, or it is Q9's problem upside down.** A
+  pinned renderer that never updates ages exactly the way a pinned action does.
+  `.github/dependabot.yml` therefore watches the `uv` ecosystem — which also
+  retires the reason that file used to give for watching only `github-actions`.
+  A renderer bump then arrives as a reviewable PR, *which may legitimately move
+  the fingerprints*; that movement is read and explained, never re-baselined on
+  sight (DECISIONS.md, the note at the top). That watcher runs
+  `versioning-strategy: lockfile-only`, because its default would rewrite the
+  very floors this decision keeps permissive — and the price of that setting is
+  that it is weak on transitive packages, `jinja2` among them. The watcher is
+  therefore a partial bump path, and `uv lock --upgrade` run by hand is the
+  complete one. Written down in `dependabot.yml`, beside the setting.
+- **Local development syncs from the lockfile too.** `CONTRIBUTING.md` and the
+  README now say `uv sync`, not `uv pip install -e ".[dev]"`. Otherwise a
+  contributor reproducing a CI failure is not reproducing CI's renderer, which
+  is the one difference that would matter.
+- **Rejected: accept the drift and write down why.** Defensible for a resolver.
+  Not for the renderer, in a repository whose central promise is that the same
+  specification yields the same bytes.
 
 ---
 

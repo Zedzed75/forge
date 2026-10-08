@@ -79,19 +79,40 @@ jobs:
           checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
           enable-cache: true
           python-version: ${{ matrix.python-version }}
-          # Sans cette cle, l'action cherche un uv.lock ou un requirements.txt,
-          # n'en trouve aucun, et pose un cache qui ne s'invalide jamais : les
-          # dependances resteraient figees a leur premiere resolution.
-          cache-dependency-glob: "pyproject.toml"
+          # The cache key has to be the file that decides what gets installed,
+          # and since `uv.lock` landed that file is the lockfile, not
+          # `pyproject.toml`. The distinction is not cosmetic: a Dependabot bump
+          # changes `uv.lock` and leaves `pyproject.toml` untouched, so keying on
+          # `pyproject.toml` would serve the pre-bump cache to a post-bump run.
+          # Keying on nothing at all -- the original state here -- was worse
+          # still: with no lockfile to find, the action laid a cache that never
+          # invalidated and froze the dependencies at their first resolution.
+          cache-dependency-glob: "uv.lock"
 
+      # `uv sync --locked` and not `uv pip install -e ".[dev]"`: the lockfile is
+      # what makes the renderer reproducible (DESIGN.md §8 Q10). `--locked`
+      # refuses to resolve anything -- it installs exactly `uv.lock`, and fails
+      # if `uv.lock` has fallen behind `pyproject.toml` instead of quietly
+      # relocking. A dependency change that forgot to run `uv lock` therefore
+      # stops here, not three weeks later on an unrelated commit.
+      #
+      # `--extra dev` because pytest is declared in
+      # `[project.optional-dependencies]`; a bare `uv sync` would skip it.
+      #
+      # No `uv venv` first: `uv sync` creates `.venv` itself, and reuses one that
+      # already exists. The `uv venv --clear` this replaces was a workaround for
+      # the "a virtual environment already exists" error that a bare `uv venv`
+      # hit back when setup-uv made the environment for us -- which v10 no longer
+      # does unless asked (`activate-environment`, default false). Either way
+      # `uv sync` is correct, which is the point of using it instead.
+      #
+      # The validator installs below stay `uv pip install`, deliberately. They
+      # are tools used *against* the generated projects, not dependencies of
+      # forge, so they have no business in the lockfile of a published library.
+      # They survive the later `uv run` calls because an implicit sync is
+      # inexact and does not prune what the lockfile does not name.
       - name: Installer forge
-        run: |
-          # `--clear` et non `uv venv` seul : setup-uv cree desormais
-          # l'environnement lui-meme et pose VIRTUAL_ENV, si bien qu'un
-          # `uv venv` nu echoue sur « a virtual environment already exists ».
-          # `--clear` marche que l'action l'ait cree ou non.
-          uv venv --clear
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
       # La CI fait autorite pour la validation Ansible : ansible-core ne
       # supporte pas Windows comme noeud de controle, le poste de

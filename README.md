@@ -302,13 +302,18 @@ This is the checkout flow, for working **on** forge. To use it, `pip install iac
 is enough — see [Install](#install).
 
 ```bash
-uv venv
-uv pip install --python .venv/Scripts/python.exe -e ".[dev]"
+uv sync --extra dev
 ```
 
-On Linux and macOS, replace `.venv/Scripts/python.exe` with `.venv/bin/python`.
-If `uv` is not on the PATH, it installs with `python -m pip install uv` and is
-then invoked as `python -m uv`.
+This installs `uv.lock` — the exact dependency versions CI uses — and forge in
+editable mode, in `.venv/`. `uv pip install -e ".[dev]"` would resolve the floors
+in `pyproject.toml` afresh instead, which can hand you a different `copier` or
+`jinja2` than CI and so a different rendering (`DESIGN.md` §8 Q10, and
+`CONTRIBUTING.md`).
+
+On Linux and macOS, replace `.venv/Scripts/python.exe` below with
+`.venv/bin/python`. If `uv` is not on the PATH, it installs with
+`python -m pip install uv` and is then invoked as `python -m uv`.
 
 ```bash
 .venv/Scripts/python.exe -m pytest                        # everything
