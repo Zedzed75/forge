@@ -56,7 +56,7 @@ update the "Current state" section, commit, stop.
         and not a copy of `service.environments`: an environment deployed by one
         domain and ignored by the other becomes visible.
   - [x] `forge update --only` and `forge diff` per domain, tested on two domains.
-  - [x] `deux-domaines.yml` specification + golden, and an integration test running
+  - [x] `two-domains.yml` specification + golden, and an integration test running
         the **nine** real validators of the two toolchains.
 - [x] **Phase 6 — The choice of domains, made explicit** (2026-08-25)
   - [x] `CLAUDE.md` carries the **complete** target tree from the brief (five
@@ -78,7 +78,7 @@ update the "Current state" section, commit, stop.
         interview.
   - [x] Validators: `terraform fmt -check`, `terraform init -backend=false`,
         `terraform validate` per environment, `tflint --recursive`.
-  - [x] Golden (`terraform-complet`) + an integration test running the **eight**
+  - [x] Golden (`terraform-full`) + an integration test running the **eight**
         real commands. 48 tests added.
   - [x] CI: the validators of the Helm **and** Terraform domains are installed there.
         Helm had never been added (a gap from phase 4): its integration tests
@@ -150,7 +150,7 @@ The project's promise: **one single description of the service, and you choose
 what you get out of it.** A domain absent from `forge.yml` is never generated;
 `--only` restricts a run; the interview asks which domains to produce.
 
-The two-domain case (`tests/specs/deux-domaines.yml`) is **one** possible use,
+The two-domain case (`tests/specs/two-domains.yml`) is **one** possible use,
 not the normal use: it serves to prove that two domains stay consistent with
 each other when they are requested together. The **nine** external validators of
 the two toolchains pass on it (`ansible-playbook --syntax-check` per
@@ -399,7 +399,7 @@ Reminders for phase 6:
   `helm-forge` in the generated READMEs) must be lifted **in one block**, by
   re-blessing the snapshots in the same commit — it is the right moment,
   since `_legacy/` disappears and parity then stops being useful.
-- `tests/specs/deux-domaines.yml` is the natural candidate for `examples/`. Entry points: `MIGRATION.md` §4 (classification by artefact) and
+- `tests/specs/two-domains.yml` is the natural candidate for `examples/`. Entry points: `MIGRATION.md` §4 (classification by artefact) and
 §7 (state of the Ansible port, including the divergences not to reproduce); `DESIGN.md`
 §3 (`helm:` section) and §8 Q6.
 

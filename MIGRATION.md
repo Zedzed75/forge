@@ -383,7 +383,7 @@ specifications declare `addons: [service]` and `addons: []`, so **none** of the
 nine addons. The completion was therefore written to be **totally inert** to
 them — every block is rendered only if its addon is present. Parity did not have
 to be degraded to make room for the new: it stayed at 32/32 throughout the work,
-and the nine families are proven separately by `tests/golden/helm-complet/`, by
+and the nine families are proven separately by `tests/golden/helm-full/`, by
 `helm lint`, `helm template` and `kubeconform -strict`.
 
 Five defects found **by the completion itself**, corrected:

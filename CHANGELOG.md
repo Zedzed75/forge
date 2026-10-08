@@ -216,7 +216,7 @@ next one.
 
 - **The `demo` domain is written in English too.** Its templates, catalogue
   entries, validator label and interview prompts are now English, and the
-  `demo-complet` and `demo-minimal` golden trees moved with them.
+  `demo-full` and `demo-minimal` golden trees moved with them.
 
   **No migration, and this one cannot reach you.** `demo` is not a shipped
   domain: it is the fixture the core's own suite runs the plugin contract
