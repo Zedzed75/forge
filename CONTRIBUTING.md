@@ -136,6 +136,25 @@ follow `CLAUDE.md`, not the file next to yours. `DESIGN.md` records the
 architectural decisions and the reasoning behind them; read it before proposing
 a structural change.
 
+`tests/test_french_guard.py` enforces that for `src/forge/**/*.py`, for the
+plugin templates and for `tests/**/*.py`. It is a ratchet, not a clean sheet:
+`tests/french_baseline.txt` records how much French each file still has, and
+that file **only ever shrinks**. So:
+
+- French in a file the baseline does not list fails the suite. Translate the
+  line; do not add an entry.
+- French the project needs to keep — a fixture asserting that a non-ASCII name
+  is rejected, say — goes in the `[allowed]` section with a justification.
+- Translating lines also fails, with the number to lower the entry to. Record
+  it; that is how the remaining work stays countable.
+
+The guard reads two signals and is deliberately conservative, so it catches new
+French rather than proving none remains — `tests/french_guard.py` explains both
+signals and the blind spot. Two review tools live in `tests/review/`: given two
+revisions, `skeleton.py` proves no condition or exception type changed, and
+`keys.py` proves no spec, section or catalog key was renamed. Run them on a PR
+that rewrites prose across a domain, where a golden diff proves nothing.
+
 ## Reporting bugs and requesting features
 
 Use the issue templates under `.github/ISSUE_TEMPLATE/`. For a bug, the single
