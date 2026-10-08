@@ -30,10 +30,18 @@ Scope, and why `tests/` is in it
 
 `src/forge/**/*.py` and `src/forge/plugins/*/template/**` — the templates are
 where the French that *reaches users* lives. `tests/**/*.py` is in scope too:
-ZED-50 left that call open, and the measurement settles it. The tree carries
-exactly one French line under `tests/` (a rejected-input fixture that has to
-stay French to mean anything), so including it costs one allowlist entry and
-stops the next French docstring landing here instead.
+ZED-50 left that call open, and the measurement settles it. Outside this
+module's own two files, which necessarily spell the alphabet and the word list
+they detect, `tests/` carries exactly one French line — a rejected-input
+fixture that has to stay French to mean anything — so including it costs one
+allowlist entry and stops the next French docstring landing here instead of in
+`src/`.
+
+On the tree this landed on, both signals report zero across `src/forge/` and
+every plugin template, so `tests/french_baseline.txt` ships with an empty
+`[baseline]` section. That is the first measured answer the repository has ever
+had to the question in the first line, and it is why this is a gate rather than
+a backlog.
 
 Everything else stays French by the hard rule in `CLAUDE.md` ("Comments/docs in
 French; identifiers, keys and file names in English"): `.github/`, `DESIGN.md`,

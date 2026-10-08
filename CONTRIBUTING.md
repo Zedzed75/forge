@@ -137,16 +137,22 @@ architectural decisions and the reasoning behind them; read it before proposing
 a structural change.
 
 `tests/test_french_guard.py` enforces that for `src/forge/**/*.py`, for the
-plugin templates and for `tests/**/*.py`. It is a ratchet, not a clean sheet:
-`tests/french_baseline.txt` records how much French each file still has, and
-that file **only ever shrinks**. So:
+plugin templates and for `tests/**/*.py`, and those are measured clean — so if
+it goes red, the French is yours. Translate the line.
 
-- French in a file the baseline does not list fails the suite. Translate the
-  line; do not add an entry.
-- French the project needs to keep — a fixture asserting that a non-ASCII name
-  is rejected, say — goes in the `[allowed]` section with a justification.
-- Translating lines also fails, with the number to lower the entry to. Record
-  it; that is how the remaining work stays countable.
+`tests/french_baseline.txt` holds the two escape hatches, and they are not
+interchangeable:
+
+- `[allowed]` is for French that has to stay French to work — a fixture
+  asserting that a non-ASCII name is rejected, say. One justification per
+  entry, permanent, and reviewed as such.
+- `[baseline]` is a per-file line count for French awaiting translation. It
+  ships **empty** and **only ever shrinks**: translating lines fails too, with
+  the number to lower the entry to, so the remaining work stays countable.
+  Adding an entry means landing new French and needs an argument on the PR — it
+  is not the way to turn a red build green. The section exists for a widening
+  of the scope, which cannot translate thousands of lines in the same commit
+  that starts scanning them.
 
 The guard reads two signals and is deliberately conservative, so it catches new
 French rather than proving none remains — `tests/french_guard.py` explains both

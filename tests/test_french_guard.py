@@ -7,10 +7,12 @@ bytes: that `—` is not an accent, that `role` alone is not French, that the
 PromQL `le=` label is not an article. They are the part that would have stopped
 the scan which once reported 74 phantom problems in `helm`.
 
-*The ratchet tests* compare the tree against `french_baseline.txt`. They fail
-when French appears somewhere the baseline does not list it, **and** when a
-baseline entry is larger than the tree needs — so the file cannot quietly rot
-into a permanent amnesty.
+*The ratchet tests* compare the tree against `french_baseline.txt`. Its
+`[baseline]` section is empty — `src/forge/` and the plugin templates measure
+clean — so today these simply fail on the next French line. The ratchet
+machinery is still exercised, because it is what a widening of the scope will
+need: they also fail when a baseline entry is *larger* than the tree needs, so
+an entry cannot quietly rot into a permanent amnesty.
 """
 
 from __future__ import annotations
