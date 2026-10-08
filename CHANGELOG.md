@@ -166,6 +166,29 @@ next one.
   which move with them. Both are listed here because they change bytes that
   `forge update` will rewrite in your working tree.
 
+- **Generated projects are written in English.** The header comments, task and
+  resource names, variable documentation and GitHub Actions step labels produced
+  by the `ansible`, `helm`, `terraform`, `monitoring` and `pipeline` domains are
+  now English, as are the repository-root `README.md`, `forge.yml` header and
+  `.gitattributes` that forge scaffolds around them.
+
+  No migration, but expect a large diff: this touches the prose in nearly every
+  generated file. If you have edited a generated file by hand, `forge update`
+  will report conflicts there — run `forge diff` first to see how much moved.
+
+- **The `demo` domain is written in English too.** Its templates, catalogue
+  entries, validator label and interview prompts are now English, and the
+  `demo-full` and `demo-minimal` golden trees moved with them.
+
+  **No migration, and this one cannot reach you.** `demo` is not a shipped
+  domain: it is the fixture the core's own suite runs the plugin contract
+  against, it is absent from `BUILTIN_PLUGINS`, and it loads only when
+  `FORGE_PLUGINS` names it explicitly. No `forge generate` a user can run
+  produces a `demo/` directory, so no `forge update` rewrites one. It is
+  recorded here because it moved a golden — the trigger this changelog is
+  written against — not because it changes anything forge puts in your
+  repository.
+
 - **`forge update` now explains itself instead of failing obscurely when the
   template is not git-tracked.** copier merges by comparing two git references, so
   `forge update` needs the template to be a git repository. A checkout is one and is
@@ -203,28 +226,5 @@ next one.
 
   Nothing changes for anyone running forge from a checkout: same output, byte for
   byte.
-
-- **Generated projects are written in English.** The header comments, task and
-  resource names, variable documentation and GitHub Actions step labels produced
-  by the `ansible`, `helm`, `terraform`, `monitoring` and `pipeline` domains are
-  now English, as are the repository-root `README.md`, `forge.yml` header and
-  `.gitattributes` that forge scaffolds around them.
-
-  No migration, but expect a large diff: this touches the prose in nearly every
-  generated file. If you have edited a generated file by hand, `forge update`
-  will report conflicts there — run `forge diff` first to see how much moved.
-
-- **The `demo` domain is written in English too.** Its templates, catalogue
-  entries, validator label and interview prompts are now English, and the
-  `demo-full` and `demo-minimal` golden trees moved with them.
-
-  **No migration, and this one cannot reach you.** `demo` is not a shipped
-  domain: it is the fixture the core's own suite runs the plugin contract
-  against, it is absent from `BUILTIN_PLUGINS`, and it loads only when
-  `FORGE_PLUGINS` names it explicitly. No `forge generate` a user can run
-  produces a `demo/` directory, so no `forge update` rewrites one. It is
-  recorded here because it moved a golden — the trigger this changelog is
-  written against — not because it changes anything forge puts in your
-  repository.
 
 [Unreleased]: https://github.com/Zedzed75/forge/commits/master
