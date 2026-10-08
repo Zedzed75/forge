@@ -9,3 +9,15 @@ dist/
 
 # Sorties de test hors tests/golden (qui, lui, est versionne)
 /tmp/
+
+# Resolution lock written by `uv run` and `uv lock`. Not committed, because
+# nothing reads it: CI installs with `uv pip install -e ".[dev]"`, which ignores
+# the file, and switching to `uv sync` would uninstall the validators installed
+# alongside it (ansible-core, ansible-lint, yamllint). A lock nobody consumes
+# buys no reproducibility.
+#
+# Leaving it untracked, on the other hand, was expensive: the first `uv run` of
+# the workflow dirtied CI's own checkout, and
+# `tests/conftest.py::template_is_dirty` then skipped the only test of
+# `forge update` -- every run, on all three Python versions, unnoticed.
+uv.lock
