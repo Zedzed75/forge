@@ -173,8 +173,8 @@ architectural decisions and the reasoning behind them; read it before proposing
 a structural change.
 
 `tests/test_french_guard.py` enforces that for `src/forge/**/*.py`, for the
-plugin templates and for `tests/**/*.py`, and those are measured clean — so if
-it goes red, the French is yours. Translate the line.
+plugin templates, for `partials/` and for `tests/**/*.py`, and those are
+measured clean — so if it goes red, the French is yours. Translate the line.
 
 `tests/french_baseline.txt` holds the two escape hatches, and they are not
 interchangeable:

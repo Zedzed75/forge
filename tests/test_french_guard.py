@@ -320,6 +320,34 @@ def test_french_added_to_a_template_is_caught(tmp_path):
     assert {hit.signal for hit in hits} == {ACCENT, WORDS}
 
 
+def test_french_added_to_a_rendered_partial_is_caught(tmp_path):
+    """`partials/` writes the header of every generated file, of every domain.
+
+    The narrowest real hole the first version of this guard had: a scan limited
+    to `template/**` leaves `partials/header.jinja` unwatched, and that file's
+    `file_header` macro is the one piece of prose that reaches *every* file of
+    *every* generated project.
+    """
+    _write(
+        tmp_path,
+        "partials/header.jinja",
+        "# Fichier genere par forge, pour chaque domaine\n",
+    )
+    assert [hit.path for hit in scan_tree(tmp_path)] == ["partials/header.jinja"]
+
+
+def test_the_real_partials_directory_is_in_scope():
+    """Pins the glob against the tree, not against a fixture.
+
+    `test_french_added_to_a_rendered_partial_is_caught` would still pass if
+    `partials/` were renamed or the macros moved, because it builds its own
+    tree. This one fails if the directory the templates actually import stops
+    being scanned.
+    """
+    scanned = {path.relative_to(REPO_ROOT).as_posix() for path in scanned_files()}
+    assert "partials/header.jinja" in scanned
+
+
 def test_out_of_scope_french_is_left_alone(tmp_path):
     """`CLAUDE.md` keeps these French on purpose; the guard must not argue."""
     _write(tmp_path, "DESIGN.md", "Decision Q1 : les delimiteurs pour chaque gabarit\n")

@@ -41,19 +41,19 @@ see `CONTENT_WORDS` for the list and `_prose_values` for the place.
 Scope, and why `tests/` is in it
 --------------------------------
 
-`src/forge/**/*.py` and `src/forge/plugins/*/template/**` — the templates are
-where the French that *reaches users* lives. `tests/**/*.py` is in scope too,
+`src/forge/**/*.py`, `src/forge/plugins/*/template/**` and `partials/**` — the
+templates are where the French that *reaches users* lives, and `partials/` is
+where the macros that write their headers live. `tests/**/*.py` is in scope too,
 and the reason is stronger than ZED-50 thought: the fixtures in `tests/` are
 copied verbatim into the golden trees, so a French `description` there *is*
 French in generated output. ZED-50 claimed `tests/` carried "exactly one French
 line"; that was true of what it could detect and false of the tree, which held
 32 more. ZED-69 added the third signal and that sentence is now gone.
 
-On the tree this landed on, all three signals report zero across `src/forge/`
-and every plugin template, so `tests/french_baseline.txt` ships with an empty
-`[baseline]` section. That is the first measured answer the repository has ever
-had to the question in the first line, and it is why this is a gate rather than
-a backlog.
+On the tree this landed on, all three signals report zero across all of it, so
+`tests/french_baseline.txt` ships with an empty `[baseline]` section. That is
+the first measured answer the repository has ever had to the question in the
+first line, and it is why this is a gate rather than a backlog.
 
 What none of the three detects
 ------------------------------
@@ -88,6 +88,13 @@ Everything else stays French by the hard rule in `CLAUDE.md` ("Comments/docs in
 French; identifiers, keys and file names in English"): `.github/`, `DESIGN.md`,
 `MIGRATION.md`, `PLAN.md`, `CHANGELOG.md`, `pyproject.toml` and the repository
 `copier.yml` are **not** scanned.
+
+`examples/` is the one deliberate omission left. Those six specs and their
+README are what a new user reads and copies, so they are arguably user-facing
+prose rather than internal notes — but that is exactly the question ZED-62 has
+to settle between `CONTRIBUTING.md` and `CLAUDE.md`, and widening the scope on
+a guess is how this guard would become the thing people disable. They measure
+clean today either way.
 """
 
 from __future__ import annotations
@@ -257,9 +264,16 @@ SIGNALS = (ACCENT, WORDS, NOUNS)
 #: Globs scanned, relative to `REPO_ROOT`. `template/**/*` deliberately takes
 #: every extension: a `.jinja`, a `.yml` and a `.txt` under `template/` all
 #: end up in a generated project.
+#:
+#: `partials/` is not a plugin template and is scanned anyway, because its
+#: macros are what *write* the header of every generated file. It is the highest
+#: leverage prose in the repository per line: `file_header` and `var_doc` reach
+#: every file of every domain, and a French word added there would ship to every
+#: user while a scan restricted to `template/**` stayed green.
 SCANNED_GLOBS = (
     "src/forge/**/*.py",
     "src/forge/plugins/*/template/**/*",
+    "partials/**/*",
     "tests/**/*.py",
 )
 
