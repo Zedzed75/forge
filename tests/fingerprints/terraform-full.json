@@ -43,6 +43,6 @@
     "terraform/modules/boutique/variables.tf": "- text 6d3bad92c5e69c18",
     "terraform/modules/boutique/versions.tf": "- text ca3f8066d93da5c3"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": []
 }

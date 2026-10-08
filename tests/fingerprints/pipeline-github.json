@@ -48,7 +48,7 @@
     "terraform/modules/boutique/variables.tf": "- text 87822f2ef86b34d3",
     "terraform/modules/boutique/versions.tf": "- text e4a3d52ae56a3f95"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": [
     "D0 = helm/charts/boutique/templates/_helpers.tpl#0",
     "D1 = helm/charts/boutique/templates/_helpers.tpl#1",

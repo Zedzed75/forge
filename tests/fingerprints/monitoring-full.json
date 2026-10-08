@@ -36,6 +36,6 @@
     "monitoring/tests/prod/restarts.yml": "- structured 149381586ab18896",
     "monitoring/tests/prod/saturation.yml": "- structured 992b90bcca632a0f"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": []
 }

@@ -9,6 +9,6 @@
     "demo/fins-de-ligne.txt": "- prose e3b0c44298fc1c14",
     "forge.yml": "- structured 43ca1ce94193a91c"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": []
 }

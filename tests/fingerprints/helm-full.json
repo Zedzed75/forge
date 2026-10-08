@@ -35,7 +35,7 @@
     "helm/charts/boutique/values-prod.yaml": "- structured e918e03b9e4a861a",
     "helm/charts/boutique/values.yaml": "- structured 6113896c7a39d331"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": [
     "D0 = helm/charts/boutique/templates/_helpers.tpl#0",
     "D1 = helm/charts/boutique/templates/_helpers.tpl#1",
