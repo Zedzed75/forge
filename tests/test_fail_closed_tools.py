@@ -186,7 +186,12 @@ _SKIPPING_SUITE = """
 @pytest.fixture
 def skipping_suite(pytester: pytest.Pytester, monkeypatch):
     """Lay out the throwaway suite plus the hook under test, and nothing else."""
-    pytester.makeconftest("from tests.conftest import pytest_runtest_makereport  # noqa: F401")
+    pytester.makeconftest(
+        "from tests.conftest import (  # noqa: F401\n"
+        "    pytest_runtest_makereport,\n"
+        "    pytest_terminal_summary,\n"
+        ")\n"
+    )
     pytester.makeini("[pytest]\nmarkers = integration: needs an external tool\n")
     pytester.makepyfile(test_skipping=_SKIPPING_SUITE)
     # The subprocess starts in the throwaway directory, where `tests` is not
@@ -217,6 +222,27 @@ def test_both_skips_stand_when_the_flag_is_unset(skipping_suite, monkeypatch):
     monkeypatch.delenv(REQUIRE_TOOLS_ENV, raising=False)
     result = skipping_suite.runpytest_subprocess("-rs")
     result.assert_outcomes(skipped=2, failed=0)
+
+
+def test_the_log_names_the_integration_tests_that_ran(skipping_suite, monkeypatch):
+    """The green log has to say "this ran", not leave it to be inferred."""
+    monkeypatch.setenv(REQUIRE_TOOLS_ENV, "1")
+    result = skipping_suite.runpytest_subprocess("-rs")
+    result.stdout.fnmatch_lines(
+        [
+            f"*integration tests that ran ({REQUIRE_TOOLS_ENV} is set)*",
+            "FAILED test_skipping.py::test_marked",
+        ]
+    )
+    # The unmarked test is not an integration test and has no business in the
+    # block: a list padded with everything is a list nobody reads.
+    assert "test_unmarked" not in result.stdout.str().split("integration tests that ran")[-1]
+
+
+def test_the_block_stays_out_of_the_way_when_the_flag_is_unset(skipping_suite, monkeypatch):
+    monkeypatch.delenv(REQUIRE_TOOLS_ENV, raising=False)
+    result = skipping_suite.runpytest_subprocess("-rs")
+    assert "integration tests that ran" not in result.stdout.str()
 
 
 def test_a_passing_integration_test_is_left_alone(pytester, monkeypatch):
