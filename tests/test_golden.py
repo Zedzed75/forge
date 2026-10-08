@@ -33,7 +33,7 @@ from tests.conftest import (
 CASES = spec_files()
 
 #: Reference case of the demonstration domain, targeted by the focused tests.
-DEMO_CASE = next(path for path in CASES if path.stem == "demo-complet")
+DEMO_CASE = next(path for path in CASES if path.stem == "demo-full")
 
 #: File of the demo template deliberately stored with CRLF (cf. .gitattributes).
 CRLF_WITNESS = "fins-de-ligne.txt"

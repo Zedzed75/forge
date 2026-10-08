@@ -35,7 +35,7 @@ from tests.conftest import SPECS_DIR
 from tests.fake_domains.unknown import UNKNOWN_TOOL
 
 SPEC_GITHUB = SPECS_DIR / "pipeline-github.yml"
-SPEC_GITLAB = SPECS_DIR / "pipeline-seul.yml"
+SPEC_GITLAB = SPECS_DIR / "pipeline-only.yml"
 
 #: Fake domain the pipeline plugin has never seen.
 UNKNOWN_PLUGIN = "tests.fake_domains.unknown"

@@ -267,7 +267,7 @@ def render_all_plugins(spec_path: Path, target: Path) -> Path:
     return target
 
 
-def build_project(target: Path, spec_name: str = "demo-complet") -> tuple[Any, ForgeManager]:
+def build_project(target: Path, spec_name: str = "demo-full") -> tuple[Any, ForgeManager]:
     """Generate a demonstration project into `target` (a real copier render)."""
     from forge import pipeline
 

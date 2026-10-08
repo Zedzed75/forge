@@ -33,7 +33,7 @@ from forge.spec.io import load_spec_data
 from tests.conftest import REPO_ROOT
 
 PLUGIN = "forge.plugins.terraform.plugin"
-COMPLETE_SPEC = REPO_ROOT / "tests" / "specs" / "terraform-complet.yml"
+COMPLETE_SPEC = REPO_ROOT / "tests" / "specs" / "terraform-full.yml"
 
 
 def _manager() -> ForgeManager:

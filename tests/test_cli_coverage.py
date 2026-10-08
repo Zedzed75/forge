@@ -231,7 +231,7 @@ def test_generate_refuses_to_overwrite_a_modified_file_without_force(tmp_path, m
     target.write_text("edited by hand\n", encoding="utf-8")
 
     result = _invoke(
-        ["generate", "-s", str(SPECS_DIR / "demo-complet.yml"), "-o", str(tmp_path)],
+        ["generate", "-s", str(SPECS_DIR / "demo-full.yml"), "-o", str(tmp_path)],
         monkeypatch,
     )
     assert result.exit_code == 1
@@ -241,7 +241,7 @@ def test_generate_refuses_to_overwrite_a_modified_file_without_force(tmp_path, m
         [
             "generate",
             "-s",
-            str(SPECS_DIR / "demo-complet.yml"),
+            str(SPECS_DIR / "demo-full.yml"),
             "-o",
             str(tmp_path),
             "--force",
@@ -270,7 +270,7 @@ def test_generate_towards_a_file_gives_a_readable_error(tmp_path, monkeypatch):
     file_path = tmp_path / "report.txt"
     file_path.write_text("x", encoding="utf-8")
     result = _invoke(
-        ["generate", "-s", str(SPECS_DIR / "demo-complet.yml"), "-o", str(file_path)],
+        ["generate", "-s", str(SPECS_DIR / "demo-full.yml"), "-o", str(file_path)],
         monkeypatch,
     )
     assert result.exit_code == 1
@@ -380,7 +380,7 @@ def test_update_applies_a_template_change(tmp_path, monkeypatch):
     monkeypatch.setenv("FORGE_PLUGINS", DEMO_PLUGIN)
 
     manager = _manager()
-    data, model = load_case(SPECS_DIR / "demo-complet.yml", manager)
+    data, model = load_case(SPECS_DIR / "demo-full.yml", manager)
     pipeline.generate(data, model, manager, target)
 
     delivered = target / "demo" / "README.md"
@@ -416,7 +416,7 @@ def test_update_refuses_a_moved_template_without_a_commit(tmp_path, monkeypatch)
     monkeypatch.setenv("FORGE_TEMPLATE_SRC", str(template))
 
     manager = _manager()
-    data, model = load_case(SPECS_DIR / "demo-complet.yml", manager)
+    data, model = load_case(SPECS_DIR / "demo-full.yml", manager)
     pipeline.generate(data, model, manager, target)
 
     _git(target, "init", "-q")

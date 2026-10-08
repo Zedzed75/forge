@@ -3,7 +3,7 @@
 Parity with the original generator served throughout the port, then was removed
 in phase 10 along with `_legacy/`. It had already stopped covering the essential:
 the nine resource families created in phase 4 did not exist in the original tool,
-and it is `tests/golden/helm-complet/` and the real validators that hold them.
+and it is `tests/golden/helm-full/` and the real validators that hold them.
 
 This module covers what neither of them says: the refusals, the normalisations
 forced upon the model, and the guards only the model or the cross-check can
@@ -30,7 +30,7 @@ from tests.conftest import REPO_ROOT
 HELM_PLUGIN = "forge.plugins.helm.plugin"
 
 #: Golden specification exercising the thirteen families.
-COMPLETE_SPEC = REPO_ROOT / "tests" / "specs" / "helm-complet.yml"
+COMPLETE_SPEC = REPO_ROOT / "tests" / "specs" / "helm-full.yml"
 
 
 def _manager() -> ForgeManager:
