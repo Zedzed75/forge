@@ -179,8 +179,11 @@ def test_a_specification_with_no_domain_says_so_plainly(tmp_path):
             "forge_version": 1,
             "service": {
                 "name": "nu",
-                "description": "Service sans domaine",
-                "owner": "Equipe",
+                # Deliberately not "... no domain": line 194 asserts that string
+                # appears in the CLI's own output, and a description carrying it
+                # would let that assertion pass on the echo instead.
+                "description": "Service without a domain",
+                "owner": "Platform Team",
                 "environments": [{"name": "prod"}],
             },
         },
@@ -243,8 +246,8 @@ def test_only_cannot_add_a_domain_absent_from_the_specification(domain, tmp_path
 #: Answers to the common trunk of `forge new`, shared by every interview.
 COMMON_SERVICE: list = [
     "boutique",              # service name
-    "Boutique en ligne",     # description
-    "Equipe Plateforme",     # owner
+    "Online store",          # description
+    "Platform Team",         # owner
     "",                      # contact
     "prod",                  # environments
     True,                    # is one of them production?

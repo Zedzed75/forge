@@ -37,12 +37,12 @@ runner = CliRunner()
 INSTALL_CASE = "ansible-ci"
 
 #: Answers replaying the full interview: the service block, then the demo domain.
-#: The values are the ones the reference specs use, and they stay French until
-#: the reference specs themselves are translated.
+#: The values are the ones the reference specs use. Nothing asserts on the prose:
+#: these are the answers typed at the prompt, never an expected output.
 INTERVIEW = [
     "boutique",                # service name
-    "Boutique en ligne",       # description
-    "Equipe Plateforme",       # owner
+    "Online store",            # description
+    "Platform Team",           # owner
     "",                        # contact address
     "dev,prod",                # environments
     True,                      # is one of them production?

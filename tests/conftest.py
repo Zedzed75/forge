@@ -220,16 +220,18 @@ def demo_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def spec_data() -> dict[str, Any]:
     """Minimal valid specification, which each test may modify.
 
-    The sample values are the ones the reference specs and the golden trees use.
-    They stay as they are until the templates and the fixtures are translated
-    together; changing them here alone would make the two drift apart.
+    The sample values mirror the vocabulary of the reference specs in
+    `tests/specs/`, so a reader comparing the two sees one service described
+    once. The prose is only an input here: no test compares the rendering of
+    this fixture against a golden tree, which is why it could be translated on
+    its own.
     """
     return {
         "forge_version": 1,
         "service": {
             "name": "boutique",
-            "description": "Boutique en ligne de demonstration",
-            "owner": "Equipe Plateforme",
+            "description": "Demonstration online store",
+            "owner": "Platform Team",
             "owner_email": "plateforme@example.net",
             "labels": {"tier": "frontend"},
             "environments": [

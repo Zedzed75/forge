@@ -45,8 +45,8 @@ def _spec_data(**overrides) -> dict:
         "forge_version": 1,
         "service": {
             "name": "boutique",
-            "description": "Boutique en ligne",
-            "owner": "Equipe Plateforme",
+            "description": "Online store",
+            "owner": "Platform Team",
             "environments": [{"name": "prod", "production": True}],
         },
         "helm": {"components": [{"name": "api", "addons": ["service"]}]},
