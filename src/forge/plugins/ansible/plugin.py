@@ -1,9 +1,9 @@
-"""Plugin de domaine Ansible : implementation des hooks de forge.
+"""Ansible domain plugin: implementation of the forge hooks.
 
-Ce module ne contient aucune logique : il branche le contrat de plugin
-(`DESIGN.md` §2.2) sur les modules qui font le travail — `spec` pour le modele,
-`answers` pour la projection vers copier, `validators` pour les commandes
-externes, `catalog` pour le catalogue de roles, `interview` pour l'entretien.
+This module holds no logic: it wires the plugin contract (`DESIGN.md` §2.2) onto
+the modules that do the work — `spec` for the model, `answers` for the projection
+towards copier, `validators` for the external commands, `catalog` for the role
+catalogue, `interview` for the interview.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ def forge_domain() -> DomainInfo:
         name="ansible",
         title="Ansible",
         summary="Complete Ansible project: commented inventories, playbooks and roles",
-        # Apres le socle, avant la charge applicative : configurer les machines
-        # qui accueilleront le service, pas le service lui-meme.
+        # After the base layer, before the application payload: configure the
+        # machines that will host the service, not the service itself.
         deploy_order=30,
     )
 
@@ -50,41 +50,41 @@ def forge_answers(spec: Any) -> dict[str, Any]:
 
 @hookimpl
 def forge_projection(spec: Any) -> Projection:
-    """Ce que le domaine Ansible affirme produire.
+    """What the Ansible domain claims to produce.
 
-    `environments` ne recopie pas `service.environments` : Ansible y declare les
-    environnements pour lesquels il a **reellement** des machines. Un
-    environnement sans hote produit bien un inventaire, mais vide : le signaler
-    est le genre de constat qu'aucun domaine ne peut faire seul, et que la
-    comparaison de projections rend visible.
+    `environments` does not copy `service.environments`: Ansible declares there
+    the environments it **actually** has machines for. An environment with no host
+    does produce an inventory, but an empty one: reporting it is the kind of
+    observation no domain can make on its own, and that comparing projections
+    makes visible.
 
-    La facette est nommee `inventory_hosts`, et non `hosts` : le vocabulaire des
-    facettes est un espace de noms partage entre domaines (cf.
-    `forge.validate.consistency.FACET_VOCABULARY`). Helm declare des hotes lui
-    aussi, mais ce sont des noms de domaine d'Ingress : les confondre produisait
-    un faux positif sur toute specification a deux domaines.
+    The facet is named `inventory_hosts`, not `hosts`: the facet vocabulary is a
+    namespace shared between domains (cf.
+    `forge.validate.consistency.FACET_VOCABULARY`). Helm declares hosts too, but
+    they are Ingress domain names: conflating them produced a false positive on
+    every two-domain specification.
     """
     ansible: AnsibleSpec = spec.ansible
-    materialises = tuple(
+    materialised = tuple(
         env.name
         for env in spec.service.environments
-        if any(hotes for hotes in ansible.hosts.get(env.name, {}).values())
+        if any(hosts for hosts in ansible.hosts.get(env.name, {}).values())
     )
-    hotes = sorted(
+    hosts = sorted(
         {
-            hote.name
-            for par_groupe in ansible.hosts.values()
-            for hotes in par_groupe.values()
-            for hote in hotes
+            host.name
+            for by_group in ansible.hosts.values()
+            for group_hosts in by_group.values()
+            for host in group_hosts
         }
     )
     return Projection(
         service_name=spec.service.name,
-        environments=materialises,
+        environments=materialised,
         labels=dict(spec.service.labels),
         facets={
-            "inventory_hosts": tuple(hotes),
-            "groups": tuple(groupe.name for groupe in ansible.groups),
+            "inventory_hosts": tuple(hosts),
+            "groups": tuple(group.name for group in ansible.groups),
         },
     )
 
@@ -96,20 +96,20 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 @hookimpl
 def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Comment ce domaine se deploie. Le coeur ne l'execute jamais."""
+    """How this domain deploys itself. The core never runs it."""
     return validators_module.deploy_commands(spec, outdir, environment)
 
 
 @hookimpl
 def forge_check_spec(spec: Any) -> list[Issue]:
-    """Controles que la comparaison de projections ne peut pas exprimer.
+    """Checks the comparison of projections cannot express.
 
-    Le sous-modele d'un plugin ne voit que sa propre section : il ne peut donc
-    pas verifier lui-meme que les environnements cites dans `ansible.hosts`
-    existent bien dans `service.environments`. Ce hook, appele avec la spec
-    complete et **avant tout rendu**, comble ce trou : une specification
-    incoherente est refusee au moment de la generation, pas seulement au
-    `forge validate` suivant (arbitrage R2 de la revue d'interface).
+    The sub-model of a plugin only sees its own section: it therefore cannot check
+    by itself that the environments quoted in `ansible.hosts` really exist in
+    `service.environments`. This hook, called with the complete spec and **before
+    any rendering**, fills that hole: an incoherent specification is refused at
+    generation time, not merely at the next `forge validate` (arbitration R2 of
+    the interface review).
     """
     if getattr(spec, "ansible", None) is None:
         return []

@@ -1,14 +1,14 @@
-"""Commandes de validation du projet Ansible genere.
+"""Validation commands for the generated Ansible project.
 
-Portage de la partie « quoi lancer » de `ansible_forge.verify` (MIGRATION.md §3) :
-l'execution, le delai, la detection d'outil manquant et le rapport appartiennent
-au coeur (`forge.validate.runner`). Ici, uniquement la liste des commandes.
+Port of the "what to run" part of `ansible_forge.verify` (MIGRATION.md §3):
+execution, timeout, missing-tool detection and reporting belong to the core
+(`forge.validate.runner`). Here, only the list of commands.
 
-CLAUDE.md exige que tout projet genere passe `ansible-playbook --syntax-check`
-et `ansible-lint`. Ni l'un ni l'autre n'est une dependance de forge : la
-generation n'en a pas besoin, seule la verification les reclame — d'ou
-`requires_linux`, qui autorise le repli WSL sous Windows (ansible-core ne
-supporte pas Windows comme noeud de controle).
+CLAUDE.md requires that every generated project pass
+`ansible-playbook --syntax-check` and `ansible-lint`. Neither is a dependency of
+forge: generation does not need them, only verification asks for them — hence
+`requires_linux`, which allows the WSL fallback on Windows (ansible-core does not
+support Windows as a control node).
 """
 
 from __future__ import annotations
@@ -19,50 +19,49 @@ from typing import Any
 
 from forge.plugins_api.types import Command
 
-#: Delai maximal accorde a une commande, en secondes.
+#: Maximum time granted to a command, in seconds.
 TIMEOUT = 600
 
-#: Variable d'environnement designant les collections Galaxy installees.
-#: Sans elles, `--syntax-check` echoue sur les modules cites par les roles
-#: (`community.general.timezone`…) : ce n'est pas un defaut du projet genere,
-#: c'est un prerequis d'execution, que `requirements.yml` documente.
+#: Environment variable pointing at the installed Galaxy collections.
+#: Without them, `--syntax-check` fails on the modules the roles quote
+#: (`community.general.timezone`…): that is not a defect of the generated
+#: project, it is a runtime prerequisite, which `requirements.yml` documents.
 COLLECTIONS_ENV_VAR = "FORGE_ANSIBLE_COLLECTIONS"
 
-#: Emplacement par defaut, repris de la convention du harnais legacy.
-COLLECTIONS_DEFAUT = "/opt/forge-collections"
+#: Default location, taken from the convention of the legacy harness.
+DEFAULT_COLLECTIONS = "/opt/forge-collections"
 
 
-def environnement() -> tuple[tuple[str, str], ...]:
-    """Variables d'environnement passees aux deux outils.
+def tool_environment() -> tuple[tuple[str, str], ...]:
+    """Environment variables passed to both tools.
 
-    La couleur est desactivee pour que le rapport reste lisible et comparable ;
-    le chemin des collections est transmis s'il est configure.
+    Colour is disabled so that the report stays readable and comparable; the path
+    to the collections is passed on when it is configured.
     """
     variables = {"ANSIBLE_FORCE_COLOR": "0"}
-    collections = os.environ.get(COLLECTIONS_ENV_VAR, COLLECTIONS_DEFAUT)
+    collections = os.environ.get(COLLECTIONS_ENV_VAR, DEFAULT_COLLECTIONS)
     if collections:
         variables["ANSIBLE_COLLECTIONS_PATH"] = collections
     return tuple(sorted(variables.items()))
 
-#: Message d'installation commun aux deux outils.
+#: Installation message common to both tools.
 INSTALL_HINT = (
-    "pipx install ansible-core ansible-lint (ou "
-    "python -m pip install ansible-core ansible-lint). Sous Windows, "
-    "installez-les dans une distribution WSL : ansible-core ne supporte pas "
-    "Windows comme noeud de controle."
+    "pipx install ansible-core ansible-lint (or "
+    "python -m pip install ansible-core ansible-lint). On Windows, install them "
+    "inside a WSL distribution: ansible-core does not support Windows as a "
+    "control node."
 )
 
 
 def commands(spec: Any, outdir: Path) -> list[Command]:
-    """Commandes validant le projet genere, dans l'ordre d'execution.
+    """Commands validating the generated project, in execution order.
 
-    Une verification de syntaxe par environnement — un inventaire incomplet ne
-    se voit que sur l'environnement concerne — puis un passage d'ansible-lint
-    sur l'ensemble du projet.
+    One syntax check per environment — an incomplete inventory only shows on the
+    environment concerned — then one pass of ansible-lint over the whole project.
     """
-    liste: list[Command] = []
+    commands_list: list[Command] = []
     for env in spec.service.environments:
-        liste.append(
+        commands_list.append(
             Command(
                 label=f"syntax-check ({env.name})",
                 tool="ansible-playbook",
@@ -74,33 +73,33 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                 ),
                 cwd=outdir,
                 timeout=TIMEOUT,
-                env=environnement(),
+                env=tool_environment(),
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
         )
-    liste.append(
+    commands_list.append(
         Command(
             label="ansible-lint",
             tool="ansible-lint",
             argv=("--offline", "--nocolor"),
             cwd=outdir,
             timeout=TIMEOUT,
-            env=environnement(),
+            env=tool_environment(),
             install_hint=INSTALL_HINT,
             requires_linux=True,
         )
     )
-    return liste
+    return commands_list
 
 
 def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Commandes deployant le projet sur `environment` (hook `forge_deploy`).
+    """Commands deploying the project onto `environment` (`forge_deploy` hook).
 
-    Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+    The core never runs them: they are written into a pipeline.
 
-    `--diff` est present a dessein : le journal du pipeline devient la trace de
-    ce qui a change sur les machines, ce qu'aucun autre artefact ne conserve.
+    `--diff` is there on purpose: the pipeline log becomes the trace of what
+    changed on the machines, which no other artefact keeps.
     """
     return [
         Command(
@@ -109,7 +108,7 @@ def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
             argv=("-i", f"inventories/{environment}", "playbooks/site.yml", "--diff"),
             cwd=outdir,
             timeout=TIMEOUT,
-            env=environnement(),
+            env=tool_environment(),
             install_hint=INSTALL_HINT,
             requires_linux=True,
         )

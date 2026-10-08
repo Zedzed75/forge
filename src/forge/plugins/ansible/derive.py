@@ -1,16 +1,16 @@
-"""Valeurs derivees de la specification Ansible, pretes pour les gabarits.
+"""Values derived from the Ansible specification, ready for the templates.
 
-Ce module est le portage du **calcul de donnees** que faisaient
-`ansible_forge.engine.planner` et `ansible_forge.engine.role_planner` avant de
-rendre quoi que ce soit : tris, dedoublonnages, valeurs deduites, documentation
-des variables. Le rendu et l'ecriture, eux, sont desormais l'affaire de copier.
+This module is the port of the **data computation** that
+`ansible_forge.engine.planner` and `ansible_forge.engine.role_planner` performed
+before rendering anything: sorts, deduplications, deduced values, variable
+documentation. Rendering and writing are copier's business now.
 
-Regle absolue : **toute sortie est JSON-serialisable et d'ordre fige**. Jamais
-d'objet pydantic, jamais d'`Enum`, jamais de `set` : ce dict est ecrit tel quel
-dans `.copier-answers.yml` et rejoue par `copier update`.
+Absolute rule: **every output is JSON-serialisable and of frozen order**. Never a
+pydantic object, never an `Enum`, never a `set`: this dict is written as-is into
+`.copier-answers.yml` and replayed by `copier update`.
 
-Chaque fonction porte, en commentaire, le nom de la fonction legacy dont elle
-reproduit le comportement — c'est ce qui rend la parite verifiable.
+Every function carries, as a comment, the name of the legacy function whose
+behaviour it reproduces — that is what makes parity checkable.
 """
 
 from __future__ import annotations
@@ -32,9 +32,9 @@ from forge.plugins.ansible.catalog.registry import (
 #: phase 10, and the constraint with them.
 UNDOCUMENTED = "TODO: describe what this variable does and its allowed values."
 
-#: Plateformes Galaxy declarees dans `meta/main.yml`, par famille d'OS.
-#: Portage de `role_planner.PLATFORMS` (clefs converties en chaines : le dict
-#: `domain` ne doit contenir aucun `Enum`).
+#: Galaxy platforms declared in `meta/main.yml`, per OS family.
+#: Port of `role_planner.PLATFORMS` (keys converted to strings: the `domain` dict
+#: must contain no `Enum`).
 PLATFORMS: dict[str, tuple[str, ...]] = {
     "debian": ("Debian", "Ubuntu"),
     "redhat": ("EL", "Fedora"),
@@ -134,19 +134,19 @@ INTERNAL_VARS: dict[str, tuple[dict[str, str], ...]] = {
 
 
 # ---------------------------------------------------------------------------
-# Variables libres
+# Free-form variables
 # ---------------------------------------------------------------------------
 
 
 def free_vars(values: dict[str, Any]) -> list[dict[str, Any]]:
-    """Convertit un dictionnaire de variables libres en entrees documentees.
+    """Convert a dictionary of free-form variables into documented entries.
 
-    Portage de `planner._free_vars`. Le tri par nom est ce qui rend les fichiers
-    `group_vars` et `host_vars` reproductibles quel que soit l'ordre de saisie.
+    Port of `planner._free_vars`. Sorting by name is what makes the `group_vars`
+    and `host_vars` files reproducible whatever the order they were typed in.
     """
     return [
-        {"name": nom, "description": UNDOCUMENTED, "value": values[nom]}
-        for nom in sorted(values)
+        {"name": name, "description": UNDOCUMENTED, "value": values[name]}
+        for name in sorted(values)
     ]
 
 
@@ -156,12 +156,12 @@ def free_vars(values: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def option_context(role: RoleDefinition) -> list[dict[str, Any]]:
-    """Decrit les options d'un role pour les gabarits (nom de variable prefixe).
+    """Describe the options of a role for the templates (prefixed variable name).
 
-    Portage de `role_planner.option_context`. `default` est la valeur du
-    **catalogue**, pas celle choisie dans la spec : `roles/<r>/defaults/main.yml`
-    documente le role tel qu'il est reutilisable, et les choix du projet vont
-    dans `group_vars/all.yml` (cf. :func:`role_overrides`).
+    Port of `role_planner.option_context`. `default` is the **catalogue** value,
+    not the one chosen in the spec: `roles/<r>/defaults/main.yml` documents the
+    role as it is reusable, and the project choices go into `group_vars/all.yml`
+    (cf. :func:`role_overrides`).
     """
     return [
         {
@@ -182,11 +182,11 @@ def role_context(
     os_family: str,
     example_group: str,
 ) -> dict[str, Any]:
-    """Contexte complet d'un role : catalogue + valeurs deduites du projet.
+    """Complete context of a role: catalogue plus values deduced from the project.
 
-    Portage du `shared_context` de `role_planner.plan_role`, augmente des champs
-    du `RoleDefinition` que les gabarits lisaient directement sur l'objet
-    (`name`, `summary`, `tags`, `handlers`, `collections`).
+    Port of the `shared_context` of `role_planner.plan_role`, augmented with the
+    `RoleDefinition` fields the templates read directly off the object (`name`,
+    `summary`, `tags`, `handlers`, `collections`).
     """
     role = get_role(role_name)
     return {
@@ -205,189 +205,189 @@ def role_context(
 
 
 def first_group_using(groups: list[Any]) -> dict[str, str]:
-    """Associe chaque role au premier groupe qui l'applique (exemple du README).
+    """Map each role to the first group that applies it (the README example).
 
-    Portage de `planner._first_group_using` : l'ordre de `groups` n'est pas trie,
-    c'est celui de la specification.
+    Port of `planner._first_group_using`: the order of `groups` is not sorted, it
+    is that of the specification.
     """
     mapping: dict[str, str] = {}
-    for groupe in groups:
-        for nom in groupe.roles:
-            mapping.setdefault(nom, groupe.name)
+    for group in groups:
+        for name in group.roles:
+            mapping.setdefault(name, group.name)
     return mapping
 
 
 def role_contexts(ansible: Any, *, author: str) -> list[dict[str, Any]]:
-    """Contextes des roles reellement appliques, dans l'ordre du catalogue.
+    """Contexts of the roles actually applied, in catalogue order.
 
-    Portage de `planner._roles` : l'ordre vient du catalogue, jamais de
-    l'alphabet, et le groupe d'exemple retombe sur le premier groupe declare.
+    Port of `planner._roles`: the order comes from the catalogue, never from the
+    alphabet, and the example group falls back to the first declared group.
     """
-    exemples = first_group_using(ansible.groups)
-    defaut = ansible.groups[0].name
+    examples = first_group_using(ansible.groups)
+    fallback = ansible.groups[0].name
     return [
         role_context(
-            nom,
+            name,
             author=author,
             os_family=ansible.os_family.value,
-            example_group=exemples.get(nom, defaut),
+            example_group=examples.get(name, fallback),
         )
-        for nom in ansible.ordered_used_roles()
+        for name in ansible.ordered_used_roles()
     ]
 
 
-def role_slots(contextes: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    """Un emplacement par role du catalogue, vide si le role n'est pas applique.
+def role_slots(contexts: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """One slot per catalogue role, empty when the role is not applied.
 
-    Sert aux gabarits propres a un role :
+    Serves the templates specific to a role:
     `roles/[% yield r from domain.role_slots.firewall %][[ r.name ]][% endyield %]/...`
-    Une liste vide fait disparaitre le fichier ; les sept clefs sont **toujours**
-    presentes, pour qu'un gabarit ne puisse jamais referencer une clef absente.
+    An empty list makes the file disappear; the seven keys are **always** present,
+    so that a template can never reference a missing key.
     """
-    par_nom = {contexte["name"]: contexte for contexte in contextes}
+    by_name = {context["name"]: context for context in contexts}
     return {
-        nom: ([par_nom[nom]] if nom in par_nom else [])
-        for nom in role_names()
+        name: ([by_name[name]] if name in by_name else [])
+        for name in role_names()
     }
 
 
 def collection_users(ansible: Any) -> dict[str, list[str]]:
-    """Associe chaque collection Galaxy aux roles qui l'exigent.
+    """Map each Galaxy collection to the roles that require it.
 
-    Portage de `planner._collection_users` : collections triees par nom, roles
-    tries par nom a l'interieur de chaque collection.
+    Port of `planner._collection_users`: collections sorted by name, roles sorted
+    by name within each collection.
     """
-    utilisateurs: dict[str, list[str]] = {}
-    for nom_role in ansible.ordered_used_roles():
-        for collection in get_role(nom_role).collections:
-            utilisateurs.setdefault(collection, []).append(nom_role)
-    return {nom: sorted(roles) for nom, roles in sorted(utilisateurs.items())}
+    users: dict[str, list[str]] = {}
+    for role_name in ansible.ordered_used_roles():
+        for collection in get_role(role_name).collections:
+            users.setdefault(collection, []).append(role_name)
+    return {name: sorted(roles) for name, roles in sorted(users.items())}
 
 
 def collections(ansible: Any) -> list[dict[str, str]]:
-    """Collections Galaxy requises par les roles appliques, avec leur contrainte de version.
+    """Galaxy collections the applied roles require, with their version constraint.
 
-    Triees par nom et dedoublonnees. Chaque entree porte de quoi ecrire une
-    dependance complete : le nom, l'intervalle accepte, la version contre
-    laquelle forge valide, et la raison du plancher reprise en commentaire.
+    Sorted by name and deduplicated. Each entry carries what it takes to write a
+    complete dependency: the name, the accepted range, the version forge
+    validates against, and the reason for the floor, echoed as a comment.
     """
     return [
         {
-            "name": besoin.name,
-            "version": besoin.version,
-            "validated": besoin.validated,
-            "reason": besoin.reason,
+            "name": requirement.name,
+            "version": requirement.version,
+            "validated": requirement.validated,
+            "reason": requirement.reason,
         }
-        for besoin in collection_requirements_for(ansible.ordered_used_roles())
+        for requirement in collection_requirements_for(ansible.ordered_used_roles())
     ]
 
 
 def _role_collections(names: tuple[str, ...]) -> list[dict[str, str]]:
-    """Collections d'un role : le nom et l'intervalle, rien de plus.
+    """Collections of a role: the name and the range, nothing more.
 
-    La justification du plancher n'est portee qu'une fois, par `collections` :
-    la repeter par role la recopierait dans `.copier-answers.yml` autant de fois
-    qu'il y a de roles, pour un fichier cense rester relisible.
+    The justification of the floor is carried only once, by `collections`:
+    repeating it per role would copy it into `.copier-answers.yml` as many times
+    as there are roles, in a file meant to stay readable.
     """
     return [
-        {"name": besoin.name, "version": besoin.version}
-        for besoin in requirements_for(names)
+        {"name": requirement.name, "version": requirement.version}
+        for requirement in requirements_for(names)
     ]
 
 
 def role_overrides(ansible: Any) -> list[dict[str, Any]]:
-    """Options de role dont la valeur choisie differe du defaut du catalogue.
+    """Role options whose chosen value differs from the catalogue default.
 
-    Portage de `planner._role_overrides`. Seules ces valeurs sont ecrites dans
-    `group_vars/all.yml` : les autres restent documentees a un seul endroit,
-    `roles/<role>/defaults/main.yml`. L'ordre est celui du catalogue (roles),
-    puis celui de declaration des options.
+    Port of `planner._role_overrides`. Only these values are written into
+    `group_vars/all.yml`: the others stay documented in a single place,
+    `roles/<role>/defaults/main.yml`. The order is that of the catalogue (roles),
+    then that of the declaration of the options.
     """
-    surcharges: list[dict[str, Any]] = []
-    for nom_role in ansible.ordered_used_roles():
-        role = get_role(nom_role)
-        choisies = ansible.role_options(nom_role)
+    overrides: list[dict[str, Any]] = []
+    for role_name in ansible.ordered_used_roles():
+        role = get_role(role_name)
+        chosen = ansible.role_options(role_name)
         for option in role.options:
-            valeur = choisies.get(option.name, option.default)
-            if valeur != option.default:
-                surcharges.append(
+            value = chosen.get(option.name, option.default)
+            if value != option.default:
+                overrides.append(
                     {
                         "name": f"{role.name}_{option.name}",
                         "description": option.description,
                         "allowed": option.allowed,
-                        "value": valeur,
+                        "value": value,
                     }
                 )
-    return surcharges
+    return overrides
 
 
 # ---------------------------------------------------------------------------
-# Groupes, hotes et environnements
+# Groups, hosts and environments
 # ---------------------------------------------------------------------------
 
 
-def _group_base(groupe: Any, contextes: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Partie commune aux groupes de projet et aux groupes d'inventaire.
+def _group_base(group: Any, contexts: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Part shared by the project groups and the inventory groups.
 
-    Les deux niveaux exposent la meme forme — `role_names` pour les simples noms
-    (l'inventaire et le README les joignent par des virgules), `roles` pour les
-    definitions completes — afin qu'un gabarit n'ait jamais a se demander a quel
-    niveau il se trouve. Les definitions sont donc repetees dans le fichier de
-    reponses ; c'est le prix assume de cette uniformite.
+    Both levels expose the same shape — `role_names` for the plain names (the
+    inventory and the README join them with commas), `roles` for the complete
+    definitions — so that a template never has to wonder which level it is at.
+    The definitions are therefore repeated in the answers file; that is the
+    accepted price of this uniformity.
     """
     return {
-        "name": groupe.name,
-        "description": groupe.description,
-        "role_names": list(groupe.roles),
-        "roles": [contextes[nom] for nom in groupe.roles],
+        "name": group.name,
+        "description": group.description,
+        "role_names": list(group.roles),
+        "roles": [contexts[name] for name in group.roles],
     }
 
 
 def project_groups(
-    ansible: Any, contextes: list[dict[str, Any]]
+    ansible: Any, contexts: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Groupes du projet, dans l'ordre **non trie** de la specification.
+    """Project groups, in the **unsorted** order of the specification.
 
-    Portage des contextes de `planner._root_vars` et `planner._playbooks` :
-    `group_vars/<groupe>.yml` et `playbooks/<groupe>.yml` recoivent les
-    definitions completes des roles du groupe, plus ses variables libres.
+    Port of the contexts of `planner._root_vars` and `planner._playbooks`:
+    `group_vars/<group>.yml` and `playbooks/<group>.yml` receive the complete
+    definitions of the group roles, plus its free-form variables.
     """
-    par_nom = {contexte["name"]: contexte for contexte in contextes}
+    by_name = {context["name"]: context for context in contexts}
     return [
-        {**_group_base(groupe, par_nom), "variables": free_vars(groupe.vars)}
-        for groupe in ansible.groups
+        {**_group_base(group, by_name), "variables": free_vars(group.vars)}
+        for group in ansible.groups
     ]
 
 
-def host_context(hote: Any) -> dict[str, Any]:
-    """Une machine d'inventaire, telle que la voient `hosts.yml` et `host_vars`."""
+def host_context(host: Any) -> dict[str, Any]:
+    """One inventory machine, as `hosts.yml` and `host_vars` see it."""
     return {
-        "name": hote.name,
-        "ansible_host": hote.ansible_host,
-        "ansible_port": hote.ansible_port,
-        "ansible_user": hote.ansible_user,
-        "vars": dict(hote.vars),
-        "variables": free_vars(hote.vars),
+        "name": host.name,
+        "ansible_host": host.ansible_host,
+        "ansible_port": host.ansible_port,
+        "ansible_user": host.ansible_user,
+        "vars": dict(host.vars),
+        "variables": free_vars(host.vars),
     }
 
 
 def vault_secrets(ansible: Any, env_name: str) -> list[dict[str, str]]:
-    """Secrets attendus par les roles selectionnes, pour un environnement.
+    """Secrets the selected roles expect, for one environment.
 
-    Portage de `planner._vault_secrets` : aujourd'hui seul `postgresql` declare
-    des mots de passe ; a defaut, un secret d'exemple est ecrit pour que le
-    fichier modele ne soit jamais vide.
+    Port of `planner._vault_secrets`: today only `postgresql` declares passwords;
+    failing that, an example secret is written so that the template file is never
+    empty.
     """
     secrets: list[dict[str, str]] = []
     if "postgresql" in ansible.used_roles():
-        for utilisateur in ansible.role_options("postgresql").get("db_users", []):
-            variable = utilisateur.get("password_var")
+        for user in ansible.role_options("postgresql").get("db_users", []):
+            variable = user.get("password_var")
             if variable:
                 secrets.append(
                     {
                         "name": variable,
                         "description": (
-                            f"Password of the \"{utilisateur.get('name', '?')}\" PostgreSQL "
+                            f"Password of the \"{user.get('name', '?')}\" PostgreSQL "
                             f"role in the \"{env_name}\" environment."
                         ),
                         "placeholder": "CHANGE-ME",
@@ -407,47 +407,47 @@ def vault_secrets(ansible: Any, env_name: str) -> list[dict[str, str]]:
     return secrets
 
 
-def environments(spec: Any, contextes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Un environnement par entree de `service.environments`, ordre de promotion.
+def environments(spec: Any, contexts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One environment per `service.environments` entry, in promotion order.
 
-    Reunit ce que `planner._inventories` calculait par environnement : groupes
-    d'inventaire (hotes tries par nom), liste **plate** des hotes, variables de
-    portee `all`, variables par groupe et secrets de coffre.
+    Gathers what `planner._inventories` computed per environment: inventory
+    groups (hosts sorted by name), the **flat** list of hosts, `all`-scoped
+    variables, per-group variables and vault secrets.
     """
     ansible = spec.ansible
-    par_nom = {contexte["name"]: contexte for contexte in contextes}
-    resultat: list[dict[str, Any]] = []
+    by_name = {context["name"]: context for context in contexts}
+    result: list[dict[str, Any]] = []
     for env in spec.service.environments:
-        par_groupe = ansible.hosts.get(env.name, {})
-        portees = ansible.group_vars.get(env.name, {})
-        groupes = []
-        for groupe in ansible.groups:
-            hotes = sorted(par_groupe.get(groupe.name, []), key=lambda h: h.name)
-            groupes.append(
+        by_group = ansible.hosts.get(env.name, {})
+        scopes = ansible.group_vars.get(env.name, {})
+        groups = []
+        for group in ansible.groups:
+            hosts = sorted(by_group.get(group.name, []), key=lambda h: h.name)
+            groups.append(
                 {
-                    **_group_base(groupe, par_nom),
-                    "hosts": [host_context(hote) for hote in hotes],
-                    "variables": free_vars(portees.get(groupe.name, {})),
+                    **_group_base(group, by_name),
+                    "hosts": [host_context(host) for host in hosts],
+                    "variables": free_vars(scopes.get(group.name, {})),
                 }
             )
-        plats = sorted(
-            (hote for hotes in par_groupe.values() for hote in hotes),
+        flat = sorted(
+            (host for hosts in by_group.values() for host in hosts),
             key=lambda h: h.name,
         )
-        resultat.append(
+        result.append(
             {
                 "name": env.name,
                 "domain": env.domain or "",
                 "production": env.production,
-                "host_count": len(plats),
-                "groups": groupes,
-                "hosts": [host_context(hote) for hote in plats],
-                "vars_all": free_vars(portees.get("all", {})),
+                "host_count": len(flat),
+                "groups": groups,
+                "hosts": [host_context(host) for host in flat],
+                "vars_all": free_vars(scopes.get("all", {})),
                 "group_vars": {
-                    groupe.name: free_vars(portees.get(groupe.name, {}))
-                    for groupe in ansible.groups
+                    group.name: free_vars(scopes.get(group.name, {}))
+                    for group in ansible.groups
                 },
                 "vault_secrets": vault_secrets(ansible, env.name),
             }
         )
-    return resultat
+    return result

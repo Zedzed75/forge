@@ -1,20 +1,20 @@
-"""Arborescence ASCII du projet genere — **seul vestige du planner legacy**.
+"""ASCII tree of the generated project — **the only relic of the legacy planner**.
 
-Le README du projet genere affiche l'arborescence complete de ce projet. copier
-ne peut pas la fournir : au moment ou il rend un fichier, il ne sait pas encore
-quels autres fichiers il ecrira. Il faut donc reconstruire la liste des chemins
-sans rien rendre.
+The README of the generated project displays the complete tree of that project.
+copier cannot supply it: at the moment it renders a file, it does not yet know
+which other files it will write. The list of paths must therefore be rebuilt
+without rendering anything.
 
-:func:`expected_paths` est la reduction de `ansible_forge.engine.planner.plan`
-a ses seuls chemins : meme decoupage en sections, memes conditions, mais aucun
-contenu. C'est le **seul** endroit de forge qui duplique la connaissance de
-l'arborescence de gabarit : si un gabarit est ajoute, retire ou renomme, il faut
-le repercuter ici, sinon le README ment. Le test de parite le detecte, parce
-qu'il compare `README.md` octet pour octet.
+:func:`expected_paths` is `ansible_forge.engine.planner.plan` reduced to its paths
+alone: the same split into sections, the same conditions, but no content. It is
+the **only** place in forge that duplicates the knowledge of the template tree: if
+a template is added, removed or renamed, it has to be reflected here, otherwise
+the README lies. The parity test catches it, because it compares `README.md` byte
+for byte.
 
-:func:`build_tree` est le portage litteral de `ansible_forge.engine.writer.build_tree`
-— memes caracteres de branche, meme tri (repertoires d'abord, puis fichiers,
-chacun par ordre alphabetique), meme dedoublonnage.
+:func:`build_tree` is the literal port of `ansible_forge.engine.writer.build_tree`
+— the same branch characters, the same sort (directories first, then files, each
+alphabetically), the same deduplication.
 """
 
 from __future__ import annotations
@@ -22,22 +22,22 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import Any
 
-#: Caracteres de dessin de l'arborescence (portage de `writer`).
+#: Characters drawing the tree (port of `writer`).
 _BRANCH = "├── "
 _LAST_BRANCH = "└── "
 _VERTICAL = "│   "
 _SPACE = "    "
 
-#: Fichiers ecrits pour **tous** les roles, sous `roles/<role>/`.
+#: Files written for **every** role, under `roles/<role>/`.
 SHARED_ROLE_FILES: tuple[str, ...] = (
     "defaults/main.yml",
     "meta/main.yml",
     "README.md",
 )
 
-#: Fichiers propres a chaque role, sous `roles/<role>/`.
-#: Portage des destinations de `role_planner.ROLE_FILES` (les sources de gabarit
-#: ne servent plus a rien : copier les trouve tout seul dans `template/roles/`).
+#: Files specific to each role, under `roles/<role>/`.
+#: Port of the destinations of `role_planner.ROLE_FILES` (the template sources
+#: are of no use any more: copier finds them on its own in `template/roles/`).
 ROLE_FILES: dict[str, tuple[str, ...]] = {
     "common": (
         "tasks/main.yml",
@@ -85,98 +85,99 @@ ROLE_FILES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-#: Chemins affiches dans l'arborescence sans etre ecrits par forge.
+#: Paths displayed in the tree without being written by forge.
 #:
-#: Le planner legacy ecrivait une copie de la specification dans le projet
-#: (option `embed_spec`). forge ne le fait plus : la specification unifiee vit a
-#: la racine du depot cible, au-dessus de `ansible/` (MIGRATION.md §7, ecart 3).
-#: L'entree est conservee dans l'arborescence pour que `README.md` reste
-#: identique a l'instantane de parite ; c'est un choix assume, a lever en meme
-#: temps que les autres mentions legacy du README (`ansible-forge generate`).
+#: The legacy planner wrote a copy of the specification into the project (the
+#: `embed_spec` option). forge no longer does: the unified specification lives at
+#: the root of the target repository, above `ansible/` (MIGRATION.md §7,
+#: divergence 3). The entry is kept in the tree so that `README.md` stays
+#: identical to the parity snapshot; it is a deliberate choice, to be lifted at
+#: the same time as the other legacy mentions of the README
+#: (`ansible-forge generate`).
 LEGACY_TREE_ENTRIES: tuple[str, ...] = ("forge.yml",)
 
-#: Fichiers ecrits par copier mais volontairement absents de l'arborescence :
-#: `.copier-answers.yml` est de la plomberie de generation, pas du projet
-#: Ansible (MIGRATION.md §7, ecart 1).
+#: Files written by copier but deliberately absent from the tree:
+#: `.copier-answers.yml` is generation plumbing, not part of the Ansible project
+#: (MIGRATION.md §7, divergence 1).
 HIDDEN_ENTRIES: tuple[str, ...] = (".copier-answers.yml",)
 
 
 def expected_paths(spec: Any) -> list[str]:
-    """Chemins que forge va ecrire, tries — reduction du planner a ses chemins.
+    """Paths forge is going to write, sorted — the planner reduced to its paths.
 
-    Suit section par section l'ordre de `planner.plan` : fichiers de projet,
-    variables de racine, inventaires, playbooks, roles, README.
+    Follows the order of `planner.plan` section by section: project files, root
+    variables, inventories, playbooks, roles, README.
     """
     ansible = spec.ansible
     options = ansible.options
-    chemins: list[str] = ["ansible.cfg", "requirements.yml"]
+    paths: list[str] = ["ansible.cfg", "requirements.yml"]
 
     if options.write_lint_config:
-        chemins += [".gitignore", ".yamllint", ".ansible-lint"]
+        paths += [".gitignore", ".yamllint", ".ansible-lint"]
     if options.write_ci:
-        chemins.append(".github/workflows/ansible-lint.yml")
-    chemins.extend(LEGACY_TREE_ENTRIES)
+        paths.append(".github/workflows/ansible-lint.yml")
+    paths.extend(LEGACY_TREE_ENTRIES)
 
-    chemins.append("group_vars/all.yml")
-    chemins += [f"group_vars/{groupe.name}.yml" for groupe in ansible.groups]
+    paths.append("group_vars/all.yml")
+    paths += [f"group_vars/{group.name}.yml" for group in ansible.groups]
 
     for env in spec.service.environments:
         base = f"inventories/{env.name}"
-        chemins.append(f"{base}/hosts.yml")
-        chemins.append(f"{base}/group_vars/all/main.yml")
+        paths.append(f"{base}/hosts.yml")
+        paths.append(f"{base}/group_vars/all/main.yml")
         if options.use_vault:
-            chemins.append(f"{base}/group_vars/all/vault.yml.example")
-        chemins += [f"{base}/group_vars/{groupe.name}.yml" for groupe in ansible.groups]
-        par_groupe = ansible.hosts.get(env.name, {})
-        noms = sorted(hote.name for hotes in par_groupe.values() for hote in hotes)
-        chemins += [f"{base}/host_vars/{nom}.yml" for nom in noms]
+            paths.append(f"{base}/group_vars/all/vault.yml.example")
+        paths += [f"{base}/group_vars/{group.name}.yml" for group in ansible.groups]
+        by_group = ansible.hosts.get(env.name, {})
+        names = sorted(host.name for hosts in by_group.values() for host in hosts)
+        paths += [f"{base}/host_vars/{name}.yml" for name in names]
 
-    chemins += ["playbooks/site.yml", "playbooks/ping.yml"]
-    chemins += [f"playbooks/{groupe.name}.yml" for groupe in ansible.groups]
+    paths += ["playbooks/site.yml", "playbooks/ping.yml"]
+    paths += [f"playbooks/{group.name}.yml" for group in ansible.groups]
 
-    for nom_role in ansible.ordered_used_roles():
-        chemins += [f"roles/{nom_role}/{fichier}" for fichier in SHARED_ROLE_FILES]
-        chemins += [f"roles/{nom_role}/{fichier}" for fichier in ROLE_FILES[nom_role]]
+    for role_name in ansible.ordered_used_roles():
+        paths += [f"roles/{role_name}/{file}" for file in SHARED_ROLE_FILES]
+        paths += [f"roles/{role_name}/{file}" for file in ROLE_FILES[role_name]]
 
-    chemins.append("README.md")
-    return sorted(chemins)
+    paths.append("README.md")
+    return sorted(paths)
 
 
 def build_tree(paths: list[str], root: str) -> str:
-    """Rend une arborescence lisible a partir d'une liste de chemins relatifs.
+    """Render a readable tree from a list of relative paths.
 
-    Portage litteral de `writer.build_tree` : `sorted(set(...))` en entree, puis
-    rendu recursif.
+    Literal port of `writer.build_tree`: `sorted(set(...))` on the way in, then a
+    recursive rendering.
     """
-    arbre = _nest(sorted(set(paths)))
-    lignes = [f"{root}/"]
-    lignes.extend(_render(arbre, prefix=""))
-    return "\n".join(lignes)
+    tree = _nest(sorted(set(paths)))
+    lines = [f"{root}/"]
+    lines.extend(_render(tree, prefix=""))
+    return "\n".join(lines)
 
 
 def _nest(paths: list[str]) -> dict[str, dict]:
-    """Transforme une liste de chemins plats en dictionnaire imbrique."""
-    racine: dict[str, dict] = {}
-    for chemin in paths:
-        noeud = racine
-        for part in PurePosixPath(chemin).parts:
-            noeud = noeud.setdefault(part, {})
-    return racine
+    """Turn a list of flat paths into a nested dictionary."""
+    root: dict[str, dict] = {}
+    for path in paths:
+        node = root
+        for part in PurePosixPath(path).parts:
+            node = node.setdefault(part, {})
+    return root
 
 
 def _render(node: dict[str, dict], prefix: str) -> list[str]:
-    """Rend recursivement un niveau de l'arborescence.
+    """Recursively render one level of the tree.
 
-    Les repertoires (noeuds ayant des enfants) sont listes avant les fichiers,
-    puis tries par nom : l'affichage est stable d'une execution a l'autre.
+    Directories (nodes that have children) are listed before files, then sorted by
+    name: the display is stable from one run to the next.
     """
-    entrees = sorted(node.items(), key=lambda item: (not item[1], item[0]))
-    lignes: list[str] = []
-    for index, (nom, enfants) in enumerate(entrees):
-        dernier = index == len(entrees) - 1
-        connecteur = _LAST_BRANCH if dernier else _BRANCH
-        suffixe = "/" if enfants else ""
-        lignes.append(f"{prefix}{connecteur}{nom}{suffixe}")
-        if enfants:
-            lignes.extend(_render(enfants, prefix + (_SPACE if dernier else _VERTICAL)))
-    return lignes
+    entries = sorted(node.items(), key=lambda item: (not item[1], item[0]))
+    lines: list[str] = []
+    for index, (name, children) in enumerate(entries):
+        last = index == len(entries) - 1
+        connector = _LAST_BRANCH if last else _BRANCH
+        suffix = "/" if children else ""
+        lines.append(f"{prefix}{connector}{name}{suffix}")
+        if children:
+            lines.extend(_render(children, prefix + (_SPACE if last else _VERTICAL)))
+    return lines

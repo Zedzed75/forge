@@ -1,23 +1,22 @@
-"""Projection de la specification unifiee vers le dict `domain` de copier.
+"""Projection of the unified specification into copier's `domain` dict.
 
-C'est l'implementation du hook `forge_answers` (DESIGN.md §2.2) pour le domaine
-Ansible, et la piece centrale du portage : tous les gabarits lisent ce que ce
-module produit.
+This is the implementation of the `forge_answers` hook (DESIGN.md §2.2) for the
+Ansible domain, and the central piece of the port: every template reads what this
+module produces.
 
-Contrat, tenu par :func:`build` :
+The contract, upheld by :func:`build`:
 
-* **memes noms que dans le planner legacy** — convertir un gabarit se reduit a
-  changer les delimiteurs et a prefixer `domain.` (ou a utiliser la variable de
-  boucle d'un `yield`) ;
-* **JSON-serialisable** — aucun objet pydantic, aucun `Enum`, aucun `set` : le
-  dict est ecrit tel quel dans `.copier-answers.yml` et rejoue par
-  `copier update` ;
-* **ordre fige** — cles inserees dans un ordre stable, listes triees de facon
-  explicite, jamais par hasard.
+* **the same names as in the legacy planner** — converting a template comes down
+  to changing the delimiters and prefixing `domain.` (or using the loop variable
+  of a `yield`);
+* **JSON-serialisable** — no pydantic object, no `Enum`, no `set`: the dict is
+  written as-is into `.copier-answers.yml` and replayed by `copier update`;
+* **frozen order** — keys inserted in a stable order, lists sorted explicitly,
+  never by accident.
 
-Le calcul lui-meme vit dans :mod:`forge.plugins.ansible.derive` (valeurs
-derivees) et :mod:`forge.plugins.ansible.tree` (arborescence du README) ; ce
-module ne fait que l'assembler.
+The computation itself lives in :mod:`forge.plugins.ansible.derive` (derived
+values) and :mod:`forge.plugins.ansible.tree` (the README tree); this module only
+assembles it.
 """
 
 from __future__ import annotations
@@ -31,23 +30,23 @@ from forge.plugins_api.types import Issue
 
 
 def build(spec: Any) -> dict[str, Any]:
-    """Construit le dict `domain` passe a copier pour le domaine Ansible.
+    """Build the `domain` dict passed to copier for the Ansible domain.
 
-    `spec` est le modele racine assemble : `spec.service` (bloc partage) et
-    `spec.ansible` (instance d'`AnsibleSpec`).
+    `spec` is the assembled root model: `spec.service` (shared block) and
+    `spec.ansible` (an `AnsibleSpec` instance).
     """
     service = spec.service
     ansible = spec.ansible
 
-    # Auteur des roles generes : le responsable du service, a defaut son nom.
-    # Portage de `planner._roles` (`spec.author or spec.project_name`).
+    # Author of the generated roles: the owner of the service, failing that its
+    # name. Port of `planner._roles` (`spec.author or spec.project_name`).
     author = service.owner or service.name
 
-    contextes = derive.role_contexts(ansible, author=author)
-    environments = derive.environments(spec, contextes)
+    contexts = derive.role_contexts(ansible, author=author)
+    environments = derive.environments(spec, contexts)
 
     return {
-        # -- identite et parametres de connexion ---------------------------
+        # -- identity and connection settings -------------------------------
         "author": author,
         "default_env": service.environments[0].name,
         "env_names": [env.name for env in service.environments],
@@ -61,15 +60,15 @@ def build(spec: Any) -> dict[str, Any]:
             "write_lint_config": ansible.options.write_lint_config,
             "write_ci": ansible.options.write_ci,
         },
-        # -- dependances Galaxy --------------------------------------------
+        # -- Galaxy dependencies --------------------------------------------
         "collections": derive.collections(ansible),
         "collection_users": derive.collection_users(ansible),
-        # -- roles ----------------------------------------------------------
-        "roles": contextes,
-        "role_slots": derive.role_slots(contextes),
+        # -- roles ------------------------------------------------------------
+        "roles": contexts,
+        "role_slots": derive.role_slots(contexts),
         "role_overrides": derive.role_overrides(ansible),
-        # -- groupes et environnements --------------------------------------
-        "groups": derive.project_groups(ansible, contextes),
+        # -- groups and environments ------------------------------------------
+        "groups": derive.project_groups(ansible, contexts),
         "environments": environments,
         # -- documentation ---------------------------------------------------
         "tree": tree.build_tree(tree.expected_paths(spec), service.name),
@@ -77,22 +76,22 @@ def build(spec: Any) -> dict[str, Any]:
 
 
 def cross_check(spec: Any) -> list[Issue]:
-    """Verifie que `ansible.hosts` et `ansible.group_vars` citent des environnements connus.
+    """Check that `ansible.hosts` and `ansible.group_vars` quote known environments.
 
-    `AnsibleSpec` ne voit que sa propre section : elle peut verifier que les
-    groupes cites existent, jamais que les environnements existent, puisque
-    ceux-ci sont declares dans le bloc partage `service:`. Ce controle croise
-    comble ce trou (cf. `plugin.forge_consistency`).
+    `AnsibleSpec` only sees its own section: it can check that the groups quoted
+    exist, never that the environments exist, since those are declared in the
+    shared `service:` block. This cross-check fills that hole (cf.
+    `plugin.forge_consistency`).
 
-    Retourne un `Issue` de niveau `error` par environnement inconnu, dans
-    l'ordre alphabetique — la liste est affichee telle quelle a l'utilisateur.
+    Returns one `error` level `Issue` per unknown environment, in alphabetical
+    order — the list is displayed to the user as-is.
     """
     ansible = getattr(spec, "ansible", None)
     if ansible is None:
         return []
 
-    # Un environnement peut etre cite par les deux sections : le controle
-    # partage ne le signale qu'une fois, en nommant les sections fautives.
+    # An environment can be quoted by both sections: the shared check reports it
+    # only once, naming the sections at fault.
     issues = checks.unknown_environments(
         spec,
         "ansible",
@@ -103,33 +102,33 @@ def cross_check(spec: Any) -> list[Issue]:
 
 
 def _check_env_names(spec: Any) -> list[Issue]:
-    """Refuse les noms d'environnement qu'Ansible ne sait pas porter.
+    """Refuse the environment names Ansible cannot carry.
 
-    `service.environments[].name` est un **label DNS** : le coeur y accepte le
-    tiret, parce que Kubernetes en a besoin. Ansible, lui, emploie ce nom comme
-    nom de groupe d'inventaire, et ses noms de groupe interdisent le tiret. Un
-    environnement `pre-prod` passerait donc la validation du coeur et produirait
-    un projet Ansible invalide.
+    `service.environments[].name` is a **DNS label**: the core accepts the hyphen
+    in it, because Kubernetes needs it. Ansible, on the other hand, uses that name
+    as an inventory group name, and its group names forbid the hyphen. An
+    environment named `pre-prod` would therefore pass the core validation and
+    produce an invalid Ansible project.
 
-    Le controle appartient au plugin, pas au coeur : c'est une regle d'Ansible,
-    et le coeur n'a pas a la connaitre.
+    The check belongs to the plugin, not to the core: it is an Ansible rule, and
+    the core has no business knowing it.
     """
-    fautifs = [
+    offenders = [
         env.name
         for env in spec.service.environments
         if not ENV_NAME_RE.match(env.name)
     ]
-    if not fautifs:
+    if not offenders:
         return []
     return [
         Issue(
             level="error",
             message=(
-                f"nom(s) d'environnement incompatible(s) avec Ansible : "
-                f"{', '.join(fautifs)}. Le nom sert de nom de groupe "
-                "d'inventaire, et Ansible y interdit le tiret."
+                f"environment name(s) incompatible with Ansible: "
+                f"{', '.join(offenders)}. The name is used as an inventory group "
+                "name, and Ansible forbids the hyphen there."
             ),
-            hint="Employez des soulignes : 'pre_prod' plutot que 'pre-prod'.",
+            hint="Use underscores: 'pre_prod' rather than 'pre-prod'.",
             domains=("ansible",),
         )
     ]

@@ -1,9 +1,8 @@
-"""Structures décrivant un rôle du catalogue.
+"""Structures describing a role of the catalogue.
 
-Un rôle du catalogue est **de la donnée**, pas du code : chaque `RoleDefinition`
-porte à la fois les questions posées à l'utilisateur, les valeurs par défaut et
-les textes de commentaire réutilisés dans les fichiers Ansible générés. Les
-templates Jinja2 restent ainsi de simples formateurs.
+A catalogue role is **data**, not code: each `RoleDefinition` carries at once the
+questions asked of the user, the default values and the comment texts reused in
+the generated Ansible files. The Jinja2 templates thus stay plain formatters.
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ from typing import Any
 
 
 class OptionKind(str, Enum):
-    """Type d'une option de rôle, utilisé par la CLI interactive et la validation."""
+    """Type of a role option, used by the interactive CLI and by validation."""
 
     TEXT = "text"
     BOOL = "bool"
@@ -26,20 +25,20 @@ class OptionKind(str, Enum):
 
 @dataclass(frozen=True)
 class RoleOption:
-    """Une variable configurable d'un rôle.
+    """A configurable variable of a role.
 
-    Attributs :
-        name: nom de la variable générée (préfixée par le nom du rôle).
-        question: libellé affiché en mode interactif.
-        description: rôle de la variable, repris en commentaire dans
+    Attributes:
+        name: name of the generated variable (prefixed with the role name).
+        question: label displayed in interactive mode.
+        description: what the variable is for, echoed as a comment in
             ``defaults/main.yml``.
-        allowed: description des valeurs admises, reprise en commentaire.
-        default: valeur par défaut, doit être déterministe.
-        kind: type d'option, pilote le widget de saisie et la validation.
-        choices: valeurs possibles pour ``kind == CHOICE``.
-        item_kind: type des éléments pour ``kind == LIST`` ; évite de deviner
-            le type à partir d'une valeur par défaut parfois vide.
-        fields: sous-options pour ``kind == RECORDS`` (liste de dictionnaires).
+        allowed: description of the accepted values, echoed as a comment.
+        default: default value, which must be deterministic.
+        kind: option type; drives the input widget and the validation.
+        choices: possible values for ``kind == CHOICE``.
+        item_kind: type of the items for ``kind == LIST``; avoids guessing the
+            type from a default value that is sometimes empty.
+        fields: sub-options for ``kind == RECORDS`` (a list of dictionaries).
     """
 
     name: str
@@ -55,15 +54,16 @@ class RoleOption:
 
 @dataclass(frozen=True)
 class RoleDefinition:
-    """Un rôle proposé dans le catalogue.
+    """A role offered in the catalogue.
 
-    Attributs :
-        name: identifiant du rôle, aussi nom du répertoire ``roles/<name>``.
-        summary: description courte affichée dans le questionnaire.
-        options: options configurables du rôle.
-        collections: collections Galaxy requises, ajoutées à ``requirements.yml``.
-        handlers: noms des handlers exposés, cités dans le README du rôle.
-        os_families: familles d'OS supportées (vide = toutes).
+    Attributes:
+        name: identifier of the role, also the name of the ``roles/<name>``
+            directory.
+        summary: short description displayed in the questionnaire.
+        options: configurable options of the role.
+        collections: required Galaxy collections, added to ``requirements.yml``.
+        handlers: names of the exposed handlers, quoted in the role README.
+        os_families: supported OS families (empty = all of them).
     """
 
     name: str
@@ -75,12 +75,12 @@ class RoleDefinition:
     tags: tuple[str, ...] = field(default_factory=tuple)
 
     def option(self, name: str) -> RoleOption | None:
-        """Retourne l'option nommée, ou ``None`` si elle n'existe pas."""
+        """Return the named option, or ``None`` when it does not exist."""
         for opt in self.options:
             if opt.name == name:
                 return opt
         return None
 
     def default_options(self) -> dict[str, Any]:
-        """Retourne le dictionnaire des valeurs par défaut de toutes les options."""
+        """Return the dictionary of the default values of every option."""
         return {opt.name: opt.default for opt in self.options}

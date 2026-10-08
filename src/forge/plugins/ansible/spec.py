@@ -1,18 +1,18 @@
-"""Section `ansible:` de forge.yml.
+"""The `ansible:` section of forge.yml.
 
-Portage de `ansible_forge.models.spec` (MIGRATION.md §3). L'identite du projet
-— nom, description, auteur, liste des environnements — est montee dans le bloc
-partage `service:` du coeur ; ce qui reste ici decrit **comment Ansible parle
-aux machines** : famille d'OS, compte distant, groupes, hotes, roles.
+Port of `ansible_forge.models.spec` (MIGRATION.md §3). The identity of the
+project — name, description, author, list of environments — moved up into the
+core's shared `service:` block; what remains here describes **how Ansible talks
+to the machines**: OS family, remote account, groups, hosts, roles.
 
-Deux normalisations du legacy sont conservees telles quelles, parce qu'elles
-rendent une specification partielle equivalente a une specification complete —
-et donc le rendu reproductible :
+Two normalisations of the legacy tool are kept as they are, because they make a
+partial specification equivalent to a complete one — and therefore the rendering
+reproducible:
 
-* les options de role absentes prennent le defaut du catalogue, et le dict est
-  reordonne selon l'ordre de declaration des options ;
-* un role applique par un groupe mais absent de `roles:` est ajoute avec ses
-  defauts, puis toute la liste est triee dans l'ordre fige du catalogue.
+* missing role options take the catalogue default, and the dict is reordered
+  according to the declaration order of the options;
+* a role applied by a group but absent from `roles:` is added with its defaults,
+  then the whole list is sorted into the frozen order of the catalogue.
 """
 
 from __future__ import annotations
@@ -40,10 +40,10 @@ from forge.spec.types import ForgeModel
 
 
 class OSFamily(str, Enum):
-    """Famille de systeme d'exploitation ciblee par le projet.
+    """Operating system family targeted by the project.
 
-    Elle conditionne les paquets, les services et les chemins de configuration
-    employes par les roles generes.
+    It conditions the packages, the services and the configuration paths the
+    generated roles use.
     """
 
     DEBIAN = "debian"
@@ -51,21 +51,21 @@ class OSFamily(str, Enum):
 
 
 class HostSpec(ForgeModel):
-    """Une machine d'inventaire."""
+    """One inventory machine."""
 
-    #: Nom d'inventaire de la machine ; sert de nom de fichier host_vars.
+    #: Inventory name of the machine; serves as the host_vars file name.
     name: str
 
-    #: Adresse ou nom resolvable employe pour la connexion SSH.
+    #: Address or resolvable name used for the SSH connection.
     ansible_host: str
 
-    #: Port SSH propre a cette machine ; absent = valeur globale du projet.
+    #: SSH port specific to this machine; absent = the project-wide value.
     ansible_port: int | None = None
 
-    #: Compte SSH propre a cette machine ; absent = valeur globale du projet.
+    #: SSH account specific to this machine; absent = the project-wide value.
     ansible_user: str | None = None
 
-    #: Variables libres ecrites dans host_vars/<machine>.yml.
+    #: Free-form variables written into host_vars/<machine>.yml.
     vars: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("name")
@@ -73,8 +73,8 @@ class HostSpec(ForgeModel):
     def _valid_name(cls, value: str) -> str:
         if not HOST_NAME_RE.match(value):
             raise ValueError(
-                f"Nom d'hote invalide : '{value}'. Attendu : minuscules, chiffres, "
-                "points, tirets et soulignes."
+                f"Invalid host name: '{value}'. Expected: lowercase letters, digits, "
+                "dots, hyphens and underscores."
             )
         return value
 
@@ -82,7 +82,7 @@ class HostSpec(ForgeModel):
     @classmethod
     def _valid_port(cls, value: int | None) -> int | None:
         if value is not None and not MIN_PORT <= value <= MAX_PORT:
-            raise ValueError(f"Port SSH hors bornes : {value} (attendu {MIN_PORT}-{MAX_PORT}).")
+            raise ValueError(f"SSH port out of bounds: {value} (expected {MIN_PORT}-{MAX_PORT}).")
         return value
 
     @field_validator("vars")
@@ -92,18 +92,18 @@ class HostSpec(ForgeModel):
 
 
 class GroupSpec(ForgeModel):
-    """Un groupe d'hotes et les roles qui lui sont appliques."""
+    """A host group and the roles applied to it."""
 
-    #: Nom du groupe Ansible.
+    #: Name of the Ansible group.
     name: str
 
-    #: Description reprise dans l'inventaire et les playbooks generes.
+    #: Description echoed in the generated inventory and playbooks.
     description: str = ""
 
-    #: Roles appliques au groupe ; reordonnes dans l'ordre du catalogue.
+    #: Roles applied to the group; reordered into catalogue order.
     roles: list[str] = Field(default_factory=lambda: ["common"])
 
-    #: Variables libres ecrites dans group_vars/<groupe>.yml.
+    #: Free-form variables written into group_vars/<group>.yml.
     vars: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("name")
@@ -111,13 +111,13 @@ class GroupSpec(ForgeModel):
     def _valid_name(cls, value: str) -> str:
         if not GROUP_NAME_RE.match(value):
             raise ValueError(
-                f"Nom de groupe invalide : '{value}'. Attendu : minuscules, chiffres "
-                "et soulignes (les tirets sont interdits par Ansible)."
+                f"Invalid group name: '{value}'. Expected: lowercase letters, digits "
+                "and underscores (hyphens are forbidden by Ansible)."
             )
         if value in RESERVED_GROUP_NAMES:
-            reserves = ", ".join(sorted(RESERVED_GROUP_NAMES))
+            reserved = ", ".join(sorted(RESERVED_GROUP_NAMES))
             raise ValueError(
-                f"Le nom de groupe '{value}' est reserve par Ansible ({reserves})."
+                f"The group name '{value}' is reserved by Ansible ({reserved})."
             )
         return value
 
@@ -125,17 +125,17 @@ class GroupSpec(ForgeModel):
     @classmethod
     def _valid_roles(cls, value: list[str]) -> list[str]:
         if not value:
-            raise ValueError("Un groupe doit appliquer au moins un role.")
-        doublons = find_duplicates(value)
-        if doublons:
+            raise ValueError("A group must apply at least one role.")
+        duplicates = find_duplicates(value)
+        if duplicates:
             raise ValueError(
-                f"Role(s) en double dans le groupe : {', '.join(sorted(doublons))}."
+                f"Duplicate role(s) in the group: {', '.join(sorted(duplicates))}."
             )
-        connus = role_names()
-        inconnus = [nom for nom in value if nom not in connus]
-        if inconnus:
+        known = role_names()
+        unknown = [name for name in value if name not in known]
+        if unknown:
             raise ValueError(
-                f"Role inconnu : '{inconnus[0]}'. Roles disponibles : {', '.join(connus)}."
+                f"Unknown role: '{unknown[0]}'. Available roles: {', '.join(known)}."
             )
         return sort_roles(value)
 
@@ -146,29 +146,29 @@ class GroupSpec(ForgeModel):
 
 
 class RoleConfig(ForgeModel):
-    """Les options choisies pour un role du catalogue."""
+    """The options chosen for a role of the catalogue."""
 
-    #: Nom du role, tel qu'il figure au catalogue.
+    #: Name of the role, as it appears in the catalogue.
     name: str
 
-    #: Options du role ; completees par les defauts du catalogue a la validation.
+    #: Options of the role; completed with the catalogue defaults at validation.
     options: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
     def _fill_defaults(cls, data: Any) -> Any:
-        """Complete et reordonne les options a partir du catalogue.
+        """Complete and reorder the options from the catalogue.
 
-        C'est ce qui rend un forge.yml partiel equivalent a un forge.yml complet :
-        les deux produisent le meme objet, donc la meme sortie.
+        This is what makes a partial forge.yml equivalent to a complete one: both
+        produce the same object, hence the same output.
         """
         if not isinstance(data, dict):
             return data
-        nom = data.get("name")
-        if not isinstance(nom, str) or nom not in role_names():
-            return data  # nom invalide : le validateur de champ dira pourquoi
+        name = data.get("name")
+        if not isinstance(name, str) or name not in role_names():
+            return data  # invalid name: the field validator will say why
         data = dict(data)
-        data["options"] = validate_options(nom, data.get("options") or {})
+        data["options"] = validate_options(name, data.get("options") or {})
         return data
 
     @field_validator("name")
@@ -176,55 +176,55 @@ class RoleConfig(ForgeModel):
     def _valid_name(cls, value: str) -> str:
         if value not in role_names():
             raise ValueError(
-                f"Role inconnu : '{value}'. Roles disponibles : {', '.join(role_names())}."
+                f"Unknown role: '{value}'. Available roles: {', '.join(role_names())}."
             )
         return value
 
 
 class GenerationOptions(ForgeModel):
-    """Ce que le projet genere embarque, en plus des roles et de l'inventaire."""
+    """What the generated project ships, beyond the roles and the inventory."""
 
-    #: Ecrit un fichier d'exemple de coffre par environnement.
+    #: Writes one example vault file per environment.
     use_vault: bool = True
 
-    #: Ecrit .ansible-lint, .yamllint et .gitignore a la racine du projet.
+    #: Writes .ansible-lint, .yamllint and .gitignore at the project root.
     write_lint_config: bool = True
 
-    #: Ecrit un workflow GitHub Actions lancant ansible-lint.
+    #: Writes a GitHub Actions workflow running ansible-lint.
     write_ci: bool = False
 
 
 class AnsibleSpec(ForgeModel):
-    """Section `ansible:` complete."""
+    """The complete `ansible:` section."""
 
-    #: Famille d'OS ciblee : conditionne paquets, services et chemins.
+    #: Targeted OS family: conditions packages, services and paths.
     os_family: OSFamily = OSFamily.DEBIAN
 
-    #: Compte SSH employe par defaut pour joindre les machines.
+    #: SSH account used by default to reach the machines.
     remote_user: str = "ansible"
 
-    #: Passe par `become` (sudo) pour les taches privilegiees.
+    #: Goes through `become` (sudo) for the privileged tasks.
     become: bool = True
 
-    #: Port SSH employe par defaut.
+    #: SSH port used by default.
     ssh_port: int = 22
 
-    #: Interpreteur Python des machines cibles (`auto_silent` ou chemin absolu).
+    #: Python interpreter of the target machines (`auto_silent` or an absolute path).
     python_interpreter: str = "auto_silent"
 
-    #: Ce que le projet genere embarque en plus des roles.
+    #: What the generated project ships beyond the roles.
     options: GenerationOptions = Field(default_factory=GenerationOptions)
 
-    #: Groupes d'hotes ; l'ordre est celui de l'inventaire et de site.yml.
+    #: Host groups; the order is that of the inventory and of site.yml.
     groups: list[GroupSpec] = Field(min_length=1)
 
-    #: Machines par environnement puis par groupe : hosts[env][groupe].
+    #: Machines per environment then per group: hosts[env][group].
     hosts: dict[str, dict[str, list[HostSpec]]] = Field(default_factory=dict)
 
-    #: Variables d'inventaire par environnement puis par portee (`all` ou groupe).
+    #: Inventory variables per environment then per scope (`all` or a group).
     group_vars: dict[str, dict[str, dict[str, Any]]] = Field(default_factory=dict)
 
-    #: Options des roles ; completee a la validation par les roles appliques.
+    #: Role options; completed at validation with the applied roles.
     roles: list[RoleConfig] = Field(default_factory=list)
 
     # -- validation ---------------------------------------------------------
@@ -233,75 +233,75 @@ class AnsibleSpec(ForgeModel):
     @classmethod
     def _valid_port(cls, value: int) -> int:
         if not MIN_PORT <= value <= MAX_PORT:
-            raise ValueError(f"Port SSH hors bornes : {value} (attendu {MIN_PORT}-{MAX_PORT}).")
+            raise ValueError(f"SSH port out of bounds: {value} (expected {MIN_PORT}-{MAX_PORT}).")
         return value
 
     @field_validator("groups")
     @classmethod
     def _unique_groups(cls, value: list[GroupSpec]) -> list[GroupSpec]:
-        doublons = find_duplicates(groupe.name for groupe in value)
-        if doublons:
-            raise ValueError(f"Groupe(s) en double : {', '.join(sorted(doublons))}.")
+        duplicates = find_duplicates(group.name for group in value)
+        if duplicates:
+            raise ValueError(f"Duplicate group(s): {', '.join(sorted(duplicates))}.")
         return value
 
     @model_validator(mode="after")
     def _check_references(self) -> AnsibleSpec:
-        """Verifie que hosts et group_vars ne citent que des groupes declares."""
-        connus = {groupe.name for groupe in self.groups}
-        for env, par_groupe in self.hosts.items():
-            inconnus = sorted(set(par_groupe) - connus)
-            if inconnus:
+        """Check that hosts and group_vars only quote declared groups."""
+        known = {group.name for group in self.groups}
+        for env, by_group in self.hosts.items():
+            unknown = sorted(set(by_group) - known)
+            if unknown:
                 raise ValueError(
-                    f"L'environnement '{env}' reference des groupes inconnus : "
-                    f"{', '.join(inconnus)}."
+                    f"The environment '{env}' references unknown groups: "
+                    f"{', '.join(unknown)}."
                 )
-            noms = [hote.name for groupe in par_groupe.values() for hote in groupe]
-            doublons = find_duplicates(noms)
-            if doublons:
+            names = [host.name for group in by_group.values() for host in group]
+            duplicates = find_duplicates(names)
+            if duplicates:
                 raise ValueError(
-                    f"Hote(s) declare(s) plusieurs fois dans l'environnement '{env}' : "
-                    f"{', '.join(sorted(doublons))}."
+                    f"Host(s) declared more than once in the environment '{env}': "
+                    f"{', '.join(sorted(duplicates))}."
                 )
-        for env, par_portee in self.group_vars.items():
-            inconnus = sorted(set(par_portee) - connus - {"all"})
-            if inconnus:
+        for env, by_scope in self.group_vars.items():
+            unknown = sorted(set(by_scope) - known - {"all"})
+            if unknown:
                 raise ValueError(
-                    f"L'environnement '{env}' definit des variables pour des groupes "
-                    f"inconnus : {', '.join(inconnus)}."
+                    f"The environment '{env}' defines variables for unknown groups: "
+                    f"{', '.join(unknown)}."
                 )
-            for portee, variables in par_portee.items():
-                check_var_names(variables, f"inventories/{env}/group_vars/{portee}")
+            for scope, variables in by_scope.items():
+                check_var_names(variables, f"inventories/{env}/group_vars/{scope}")
         return self
 
     @model_validator(mode="after")
     def _fill_missing_roles(self) -> AnsibleSpec:
-        """Ajoute les roles appliques mais non configures, puis trie le catalogue."""
-        configures = {config.name for config in self.roles}
-        for nom in sorted(self.used_roles() - configures):
-            self.roles.append(RoleConfig(name=nom))
-        ordre = role_names()
-        self.roles.sort(key=lambda config: ordre.index(config.name))
+        """Add the roles that are applied but not configured, then sort by catalogue."""
+        configured = {config.name for config in self.roles}
+        for name in sorted(self.used_roles() - configured):
+            self.roles.append(RoleConfig(name=name))
+        order = role_names()
+        self.roles.sort(key=lambda config: order.index(config.name))
         return self
 
-    # -- consultation -------------------------------------------------------
+    # -- lookups ------------------------------------------------------------
 
     def used_roles(self) -> set[str]:
-        """Roles reellement appliques par au moins un groupe."""
-        return {nom for groupe in self.groups for nom in groupe.roles}
+        """Roles actually applied by at least one group."""
+        return {name for group in self.groups for name in group.roles}
 
     def ordered_used_roles(self) -> list[str]:
-        """Roles appliques, dans l'ordre fige du catalogue."""
+        """Applied roles, in the frozen order of the catalogue."""
         return sort_roles(self.used_roles())
 
     def group(self, name: str) -> GroupSpec:
-        """Retourne le groupe `name`, ou leve `KeyError`."""
-        for groupe in self.groups:
-            if groupe.name == name:
-                return groupe
+        """Return the `name` group, or raise `KeyError`."""
+        for group in self.groups:
+            if group.name == name:
+                return group
         raise KeyError(name)
 
     def role_options(self, name: str) -> dict[str, Any]:
-        """Options retenues pour le role `name`, defauts du catalogue compris."""
+        """Options retained for the `name` role, catalogue defaults included."""
         for config in self.roles:
             if config.name == name:
                 return config.options
