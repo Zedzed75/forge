@@ -21,10 +21,39 @@
 # ---------------------------------------------------------------------------
 name: CI
 
+# A push to a PR branch used to fire everything twice: once for `push`
+# (branches: ["**"]) and once for `pull_request`. Eight jobs per commit instead
+# of four, for an identical result, and you could read it straight off the run
+# list -- a `push` run and a `pull_request` run seconds apart on every branch.
+# `push` now keeps master only, the one branch whose merge commit no PR covers;
+# everything else is already covered by `pull_request`.
+#
+# The reason is *not* cost. This change was written while the repository was
+# private and every minute was metered, but the repository is public now and the
+# minutes are free, so that argument has expired -- and it was never the right
+# one anyway: what froze Actions (ZED-70) was the account's default $0 spending
+# limit, not this doubling. Billing was a ceiling, not a rate.
+#
+# What survives is a correctness argument. Two runs of the same workflow on one
+# commit publish the *same check names* twice, so "did `tests (3.13)` pass on
+# this SHA" stops having a single answer -- and the merge policies read check
+# names to decide what is gating (D4's six-checks clause, D9's authorisations).
+# One event per commit keeps that unambiguous. The saved queue time is a bonus.
 on:
   push:
-    branches: ["**"]
+    branches: ["master"]
   pull_request:
+
+# Two commits pushed back to back on the same PR used to leave the first matrix
+# running to completion even though nobody was waiting for its result any more.
+# The superseded run is cancelled instead.
+#
+# The key includes `github.ref`, so two distinct PRs never cancel each other.
+# master is excluded: its result history must stay complete, and a commit on
+# master must never be cancelled by the next one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   tests:
