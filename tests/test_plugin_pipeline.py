@@ -12,8 +12,9 @@ it held by accident.
 This module also locks down the three defects found before phase 8 was parked,
 each by a test that would fail if they came back.
 
-The plugin's own messages are still French: the domains are translated with
-their templates, so the assertions below quote them as they are.
+The job keys and labels the plugin writes into the generated CI file are still
+French, and stay quoted as they are: they belong to the generated output, not to
+the plugin's own prose.
 """
 
 from __future__ import annotations
@@ -257,18 +258,18 @@ def test_a_production_deployed_without_a_guard_is_reported():
         provider="github",
         deploy={"environments": ["prod"], "manual_for_production": False},
     )
-    assert any("sans approbation humaine" in m for m in _issues(given, "warning"))
+    assert any("no human approval" in m for m in _issues(given, "warning"))
 
 
 def test_a_registry_the_token_does_not_open_is_reported():
     """forge can neither guess nor write a registry secret."""
     given = _base(provider="github", build={"registry": "registry.example.net"})
-    assert any("n'ouvre pas" in message for message in _issues(given, "warning"))
+    assert any("does not open" in message for message in _issues(given, "warning"))
 
 
 def test_the_default_registry_triggers_nothing():
     given = _base(provider="github", build={"registry": "ghcr.io"})
-    assert not any("n'ouvre pas" in message for message in _issues(given, "warning"))
+    assert not any("does not open" in message for message in _issues(given, "warning"))
 
 
 def test_the_cross_check_is_silent_without_a_pipeline_section():

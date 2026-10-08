@@ -1,21 +1,21 @@
-"""Plugin de domaine pipeline : implementation des hooks de forge.
+"""Pipeline domain plugin: implementation of the forge hooks.
 
-Ce plugin se distingue des trois autres sur un seul point : son `forge_answers`
-declare le parametre `context`. pluggy n'appelle un hookimpl qu'avec les
-arguments qu'il nomme — les trois autres domaines n'ont donc rien eu a changer
-quand ce parametre a ete ajoute au hookspec.
+This plugin differs from the three others on one single point: its
+`forge_answers` declares the `context` parameter. pluggy only calls a hookimpl
+with the arguments it names — the three other domains therefore had nothing to
+change when that parameter was added to the hookspec.
 
-Ce qu'il **ne** fait pas, et qui est le fond de la phase 8 :
+What it does **not** do, and which is the substance of phase 8:
 
-* il ne connait aucun domaine par son nom — le mot « helm » n'apparait dans ce
-  paquet que dans de la documentation et dans la table d'installation des
-  outils, ou il designe un binaire, pas une section de forge.yml ;
-* il n'invente aucune commande — chaque domaine declare les siennes
-  (`forge_validators`, `forge_deploy`), et un domaine muet sur le deploiement
-  est nomme dans le pipeline genere plutot que devine ;
-* il ne fait rien du coeur un ordonnanceur — le coeur assemble un
-  `GenerationContext` a partir de hooks qu'il appelait deja, et n'en tire
-  aucune conclusion.
+* it knows no domain by its name — the word "helm" appears in this package only
+  in documentation and in the tool installation table, where it designates a
+  binary, not a section of forge.yml;
+* it invents no command — each domain declares its own (`forge_validators`,
+  `forge_deploy`), and a domain silent about deployment is named in the generated
+  pipeline rather than guessed;
+* it does not make the core a scheduler — the core assembles a
+  `GenerationContext` from hooks it already called, and draws no conclusion from
+  it.
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ def forge_domain() -> DomainInfo:
         name="pipeline",
         title="Pipeline",
         summary="Integration pipeline: one job per domain, build, deploy",
-        # Un fichier de CI n'existe que la ou son outil le lit : ni GitHub ni
-        # GitLab ne le cherchent dans un sous-repertoire. Seul domaine du projet
-        # dont la sortie est la racine du depot.
+        # A CI file only exists where its tool reads it: neither GitHub nor
+        # GitLab looks for it in a subdirectory. The only domain of the project
+        # whose output is the root of the repository.
         outdir=".",
     )
 
@@ -64,7 +64,7 @@ def forge_template_subdir() -> str:
 
 @hookimpl
 def forge_answers(spec: Any, context: GenerationContext) -> dict[str, Any]:
-    """Seul hookimpl du projet a declarer `context` : c'est sa raison d'etre."""
+    """The only hookimpl of the project to declare `context`: it is its reason for being."""
     return answers_module.build(spec, context)
 
 
@@ -75,7 +75,7 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 @hookimpl
 def forge_check_spec(spec: Any) -> list[Issue]:
-    """Controles que le sous-modele ne peut pas faire : il ne voit pas `service:`."""
+    """Checks the sub-model cannot do: it does not see `service:`."""
     if getattr(spec, "pipeline", None) is None:
         return []
     return answers_module.cross_check(spec)
@@ -83,37 +83,37 @@ def forge_check_spec(spec: Any) -> list[Issue]:
 
 @hookimpl
 def forge_catalog() -> list[CatalogEntry]:
-    """Outils que le pipeline sait installer.
+    """Tools the pipeline knows how to install.
 
-    Le catalogue de ce domaine n'est pas une liste de ressources mais la reponse
-    a la seule question qu'un utilisateur se pose ici : « mon pipeline
-    saura-t-il installer ce que mes domaines veulent lancer ? »
+    The catalogue of this domain is not a list of resources but the answer to the
+    only question a user asks here: "will my pipeline know how to install what my
+    domains want to run?"
     """
     return [
         CatalogEntry(
-            name=recette.name,
-            summary=recette.summary,
-            details=_details(recette),
+            name=recipe.name,
+            summary=recipe.summary,
+            details=_details(recipe),
         )
-        for recette in tools_module.INSTALLS
+        for recipe in tools_module.INSTALLS
     ]
 
 
-def _details(recette: Any) -> str:
-    """Comment le pipeline installe cet outil, litteralement."""
-    lignes = [f"Installe par le pipeline avec :", ""]
-    if recette.requires:
-        lignes.append(f"  # paquets systeme : {', '.join(recette.requires)}")
-    lignes += [f"  {ligne}" for ligne in recette.steps]
-    if recette.exports:
-        lignes += ["", "Variables posees ensuite :"]
-        lignes += [f"  {cle}={valeur}" for cle, valeur in sorted(recette.exports.items())]
-    lignes += [
+def _details(recipe: Any) -> str:
+    """How the pipeline installs this tool, literally."""
+    lines = ["Installed by the pipeline with:", ""]
+    if recipe.requires:
+        lines.append(f"  # system packages: {', '.join(recipe.requires)}")
+    lines += [f"  {line}" for line in recipe.steps]
+    if recipe.exports:
+        lines += ["", "Variables set afterwards:"]
+        lines += [f"  {key}={value}" for key, value in sorted(recipe.exports.items())]
+    lines += [
         "",
-        "Un outil absent de cette liste n'est jamais devine : le pipeline genere",
-        "porte une etape qui echoue en le nommant.",
+        "A tool absent from this list is never guessed: the generated pipeline",
+        "carries a step that fails while naming it.",
     ]
-    return "\n".join(lignes)
+    return "\n".join(lines)
 
 
 @hookimpl
