@@ -2,7 +2,8 @@
 
 Phase 1 deliverable. Every statement about copier's behaviour has been
 **verified experimentally** (copier 9.17.2); the raw findings are recorded in
-`MIGRATION.md` §2.
+`MIGRATION.md` §2. The technical arbitrations are in §8 below; the project's
+standing policy decisions (`D1` …) are in `DECISIONS.md`.
 
 ---
 
@@ -613,6 +614,10 @@ unknown domain), `--dry-run` writes nothing, output is not coloured if
 > is from now on a record of decisions: do not reopen it without a new reason.
 > Q9 is one, which appeared in production on 2026-09-24 and was arbitrated the
 > same day: it is added after them, it reopens none of the eight.
+>
+> These `Q` entries are the **technical** arbitrations of the architecture. The
+> project's standing **policy** decisions — naming, language, what engineering may
+> merge without a card — are numbered `D1`, `D2`, … and live in `DECISIONS.md`.
 
 **Q1. Delimiters of the Ansible templates.** The legacy uses `{{ }}` plus
 `j()`/`jstr()` helpers and 6 `{% raw %}` blocks to emit Jinja destined for
