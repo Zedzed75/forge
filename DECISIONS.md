@@ -21,7 +21,7 @@ what a PR predicted is still a stop-and-report, never a re-bless.
 - **Decided by**: the board, approving the public-release plan on issue ZED-2
   (07:13 UTC). Recorded on ZED-9.
 
-The distribution published to PyPI is named **`iac-forge`**. The CLI command and
+The distribution is published to PyPI under the name **`iac-forge`**. The CLI command and
 the import package both stay **`forge`**, and neither is to be aligned with the
 distribution name.
 
