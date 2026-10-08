@@ -24,7 +24,7 @@
     "ansible/.yamllint": "- structured b78e6035e58a0c88",
     "ansible/README.md": "- prose fc36c12d6c71e6b8",
     "ansible/ansible.cfg": "- text 671c393e7df1cf2f",
-    "ansible/group_vars/all.yml": "- structured 560e524b835eac83",
+    "ansible/group_vars/all.yml": "- structured 55e28e022a58dbe3",
     "ansible/group_vars/dbservers.yml": "- structured 91204b2a18a03e21",
     "ansible/inventories/dev/group_vars/all/main.yml": "- structured 512cd23f09a9cd18",
     "ansible/inventories/dev/group_vars/all/vault.yml.example": "- structured 8e53fb4141585bc5",
@@ -95,7 +95,7 @@
     "helm/charts/boutique/values-prod.yaml": "- structured 53c925ef4d855ad2",
     "helm/charts/boutique/values.yaml": "- structured 0a2ecaf1583d4b6c"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": [
     "D0 = helm/charts/boutique/templates/_helpers.tpl#0",
     "D1 = helm/charts/boutique/templates/_helpers.tpl#1",

@@ -53,6 +53,7 @@ WORKFLOW = ".github/workflows/ci.yml"
 HANDLERS = "ansible/roles/postgresql/handlers/main.yml"
 TASKS = "ansible/roles/postgresql/tasks/main.yml"
 RULES = "ansible/roles/firewall/tasks/ufw.yml"
+GROUP_VARS = "ansible/group_vars/all.yml"
 CHART_TEMPLATE = "helm/charts/boutique/templates/deployment-api.yaml"
 
 
@@ -215,7 +216,14 @@ def test_an_added_comment_line_leaves_the_fingerprint_untouched(tree):
 
 
 def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
-    """`description`, `summary`, and an Ansible task name, in their own files."""
+    """`description`, its `project_description` alias, and an Ansible task name.
+
+    The alias is why the last edit is here. `ansible/group_vars/all.yml` carries
+    the `service.description` value under a key of its own, so rewording one
+    service description in the spec touches two parsed documents under two
+    different key names. Both have to be blind to it: leave either one out and
+    the reword reads as a structural change in that file alone.
+    """
     reference = fp.fingerprint(tree)
 
     _edit(tree, "forge.yml", "description: Online store", "description: Retail storefront")
@@ -237,6 +245,13 @@ def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
         TASKS,
         "- name: Install PostgreSQL and its dependencies",
         "- name: Install the PostgreSQL packages",
+    )
+    # The same string as `forge.yml`'s `description`, under its alias.
+    _edit(
+        tree,
+        GROUP_VARS,
+        "project_description: Online store",
+        "project_description: Online shop",
     )
     _unchanged(tree, reference)
 
@@ -472,9 +487,16 @@ def test_annotation_mappings_in_parsed_yaml_hold_no_unknown_prose(case):
 
     Only string values count. A Grafana dashboard has an `annotations: {list:
     [...]}` block of its own, unrelated to Kubernetes and not prose.
+
+    The two names are spelled out rather than read from `fp.PROSE_KEYS`. That
+    set holds the prose keys of the whole project, including ones that exist
+    nowhere near an `annotations:` mapping -- `project_description` lives in an
+    Ansible `group_vars` file. Deriving the tolerated names from it would let a
+    key added for some other file quietly widen this guard, which is the
+    opposite of what it is for.
     """
     root = GOLDEN_DIR / case
-    known = set(fp.PROSE_KEYS)
+    known = {"description", "summary"}
     unexpected: list[str] = []
     for relative in fp.tree_paths(root):
         if fp.classify(root, relative) != fp.STRUCTURED:
@@ -492,6 +514,81 @@ def test_annotation_mappings_in_parsed_yaml_hold_no_unknown_prose(case):
                     for key, value in annotations.items()
                     if key not in known and isinstance(value, str)
                 )
+    assert not unexpected, unexpected
+
+
+def test_the_prose_key_set_is_pinned():
+    """Widening `PROSE_KEYS` has to be a decision, not a way to get to green.
+
+    Every name in this set is a field the fingerprint stops looking at, so the
+    set is the one place in the module where adding a line *removes* a claim a
+    reviewer would otherwise have had to examine. The cheapest way to make a
+    tripped fingerprint go away is to add the key that tripped it, and nothing
+    about that edit looks like a weakening of the harness when it arrives in a
+    diff of translated templates.
+
+    So the membership is stated here, where changing it is visibly a change to
+    what the suite asserts. The reasoning for each name, and for the four
+    `service.owner` keys deliberately left out, is next to `PROSE_KEYS` itself.
+    """
+    assert set(fp.PROSE_KEYS) == {"description", "summary", "project_description"}
+
+
+def _prose_values(node: object) -> set[str]:
+    """Every non-empty string a spec puts under a prose key, at any depth."""
+    found: set[str] = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in fp.PROSE_KEYS and isinstance(value, str) and value.strip():
+                found.add(value)
+            else:
+                found |= _prose_values(value)
+    elif isinstance(node, list):
+        for item in node:
+            found |= _prose_values(item)
+    return found
+
+
+def test_every_prose_alias_in_a_parsed_document_is_a_known_prose_key():
+    """The audit behind `project_description`, kept honest across the trees.
+
+    `PROSE_KEYS` matches on the key name, so a prose spec field emitted under a
+    *different* name is compared verbatim until someone notices. That is the
+    defect this set was widened to fix, and noticing it took a selective revert
+    of nine specs. This test does the noticing instead: it takes the prose
+    values out of each reference spec and looks for them in the parsed documents
+    of the matching golden tree, under any key that is not a prose key.
+
+    A hit is not necessarily a bug -- it is a place where rewording the spec
+    moves a structural fingerprint. Either the key belongs in `PROSE_KEYS`, or
+    the value is load-bearing there and the exception has to be argued.
+
+    Scope: values the *spec* already calls prose, by sitting under a prose key
+    at any depth -- `service.description`, `role.summary`, `alert.summary`.
+    `service.owner` is not among them and is not meant to be; it is an
+    identifier, and the reasoning is next to `PROSE_KEYS`.
+    """
+    unexpected: list[str] = []
+    for path in spec_files():
+        prose = _prose_values(yaml.safe_load(path.read_text(encoding="utf-8")))
+        if not prose:
+            continue
+        root = GOLDEN_DIR / path.stem
+        for relative in fp.tree_paths(root):
+            if fp.classify(root, relative) != fp.STRUCTURED:
+                continue
+            documents = fp._parsed_documents(root, relative)
+            if documents is None:
+                continue
+            for document in documents:
+                for pointer, mapping in fp._walk_mappings(document, relative.as_posix()):
+                    unexpected.extend(
+                        f"{path.stem}: {pointer}/{key}"
+                        for key, value in mapping.items()
+                        if isinstance(value, str)
+                        and value in prose
+                        and key not in fp.PROSE_KEYS
+                    )
     assert not unexpected, unexpected
 
 

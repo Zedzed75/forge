@@ -15,7 +15,7 @@
     "ansible/.yamllint": "- structured b78e6035e58a0c88",
     "ansible/README.md": "- prose 307bddf8ca0ac8ec",
     "ansible/ansible.cfg": "- text 5ba6becebc7468a8",
-    "ansible/group_vars/all.yml": "- structured f5df6a38f47346b3",
+    "ansible/group_vars/all.yml": "- structured 1daf099c785132ac",
     "ansible/group_vars/gateways.yml": "- structured 91204b2a18a03e21",
     "ansible/inventories/prod/group_vars/all/main.yml": "- structured 7c66428131964675",
     "ansible/inventories/prod/group_vars/gateways.yml": "- structured 91204b2a18a03e21",
@@ -41,6 +41,6 @@
     "ansible/roles/ssh_hardening/vars/main.yml": "- structured e78663f50ef17037",
     "forge.yml": "- structured c69f5688c99539b8"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": []
 }

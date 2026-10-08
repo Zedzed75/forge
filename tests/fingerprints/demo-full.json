@@ -13,6 +13,6 @@
     "demo/widgets/cpu/detail.yml": "- structured e173ba401538e58f",
     "forge.yml": "- structured 4be3a9fa2aa0e7eb"
   },
-  "fingerprint_version": 1,
+  "fingerprint_version": 2,
   "helm_helper_links": []
 }

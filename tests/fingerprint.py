@@ -39,11 +39,20 @@ Files are classified into four kinds, and each kind keeps a different thing.
     The parsed structure is compared, so every comment disappears for free and
     no comment-stripping heuristic can get it wrong. On top of that:
 
-    * a mapping key named `description` or `summary` has its string value
-      replaced by a constant. In this project those two keys are prose
-      everywhere they occur: `service.description`, `Chart.yaml`, Ansible
+    * a mapping key named `description`, `summary` or `project_description` has
+      its string value replaced by a constant. In this project those keys are
+      prose everywhere they occur: `service.description`, `Chart.yaml`, Ansible
       `galaxy_info`, Terraform-facing answers, and the `annotations` of every
       Prometheus alert. Nothing reads them.
+
+      `project_description` is in that set because it is an *alias*: the Ansible
+      `group_vars/all.yml` carries the `service.description` value under that
+      name, and nothing else ever uses the key. Leaving it out made one and the
+      same prose string normalised away in `forge.yml` under `description` and
+      compared verbatim one file away under `project_description`, so a service
+      description reworded in the spec moved the fingerprint of exactly one file
+      of one tree and read as a structural regression. The audit behind this is
+      in `PROSE_KEYS` below, together with the keys deliberately left out.
     * an Ansible task `name` is replaced by a constant -- but only at task
       positions, never as a generic key. `name` is load-bearing almost
       everywhere else: `metadata.name` in a manifest, `name:` as an argument to
@@ -194,13 +203,38 @@ FINGERPRINTS_DIR = REPO_ROOT / "tests" / "fingerprints"
 #: Schema version of a stored fingerprint. Bump it when the canonical form
 #: changes, so a stale reference fails loudly instead of comparing apples to
 #: oranges.
-FINGERPRINT_VERSION = 1
+#:
+#: 2 -- `project_description` joined `PROSE_KEYS`, which changes the digest of
+#: every `group_vars/all.yml`. A reference blessed under 1 is not comparable
+#: there, and with a dozen branches carrying blessed fingerprints at the time,
+#: the difference had to announce itself as a form change rather than as a
+#: structural move in that one file.
+FINGERPRINT_VERSION = 2
 
 #: Replaces the value of every field this module treats as prose.
 PROSE = "<prose>"
 
 #: Mapping keys whose value is prose everywhere in this project's YAML.
-PROSE_KEYS = frozenset({"description", "summary"})
+#:
+#: The set is keyed on the key *name*, not on where the value came from, so an
+#: alias -- a prose spec field emitted under a different key -- has to be listed
+#: explicitly or it is compared verbatim. Every template emitting a prose field
+#: into parseable YAML was audited for that; `project_description` in
+#: `ansible/group_vars/all.yml` is the only alias, and it is here. The others
+#: all emit under `description` or `summary` already (`Chart.yaml`, Ansible role
+#: `meta/main.yml` from `role.summary`, Prometheus alert annotations from
+#: `alert.summary`, `forge.yml` and the `.copier-answers.yml`), or land in a
+#: comment, which parsing drops anyway, or in a `.md`, which is the `prose` kind.
+#:
+#: Deliberately **not** here: `owner`, `galaxy_info.author`, `maintainers[].name`
+#: and `maintainer_name`, the four keys carrying `service.owner`. Adding them
+#: would make the fingerprint blind to a change of owner, and a change of owner
+#: is a real change to a structured document -- an identifier a person looks up,
+#: not a sentence a reader skims. When renaming the owner of the nine reference
+#: specs moved 31 fingerprint entries, the guard was right and the entries were
+#: reviewed; the alternative was to buy that quiet at the price of never seeing
+#: it again. `test_the_prose_key_set_is_pinned` keeps this a decision.
+PROSE_KEYS = frozenset({"description", "summary", "project_description"})
 
 #: Keys of an Ansible task whose value is itself a sequence of tasks.
 _TASK_SEQUENCE_KEYS = frozenset({"block", "rescue", "always"})
