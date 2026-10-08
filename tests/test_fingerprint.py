@@ -21,7 +21,7 @@ been reviewed and is intended:
 
 Reading the canonical form of one file, to find out *why* a fingerprint moved:
 
-    python -m tests.fingerprint tests/golden/deux-domaines ansible/roles/common/tasks/main.yml
+    python -m tests.fingerprint tests/golden/two-domains ansible/roles/common/tasks/main.yml
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ CASES = [path.stem for path in spec_files()]
 
 #: Tree used by the sensitivity tests: the only reference case carrying both an
 #: Ansible project (handlers and `notify:`) and a Helm chart (helpers).
-MIXED_CASE = "deux-domaines"
+MIXED_CASE = "two-domains"
 
 #: Tree used by the GitHub Actions tests: the reference case whose repository
 #: root is a workflow, with several jobs and a step label in each.
@@ -424,7 +424,7 @@ def test_an_added_and_a_removed_file_are_both_reported(tree):
 
 def test_a_terraform_variable_description_is_prose_but_its_default_is_not():
     """Both halves of the one normalisation applied to HCL, on the same file."""
-    tree = GOLDEN_DIR / "terraform-complet"
+    tree = GOLDEN_DIR / "terraform-full"
     relative = Path("terraform/environments/dev/variables.tf")
     _, canonical = fp.canonical_text(tree, relative)
     assert f'description = "{fp.PROSE}"' in canonical

@@ -38,7 +38,7 @@ from tests.scripted_prompter import ScriptedPrompter
 
 runner = CliRunner()
 
-SPEC_BOTH = SPECS_DIR / "deux-domaines.yml"
+SPEC_BOTH = SPECS_DIR / "two-domains.yml"
 
 
 def _manager() -> ForgeManager:
@@ -60,10 +60,10 @@ OUTDIRS: dict[str, str] = {name: _manager().domain(name).info.outdir for name in
 #: domain without adding its own.
 SINGLE_DOMAIN_SPECS: dict[str, Path] = {
     "ansible": SPECS_DIR / "ansible-ci.yml",
-    "helm": SPECS_DIR / "helm-complet.yml",
-    "terraform": SPECS_DIR / "terraform-complet.yml",
-    "monitoring": SPECS_DIR / "monitoring-complet.yml",
-    "pipeline": SPECS_DIR / "pipeline-seul.yml",
+    "helm": SPECS_DIR / "helm-full.yml",
+    "terraform": SPECS_DIR / "terraform-full.yml",
+    "monitoring": SPECS_DIR / "monitoring-full.yml",
+    "pipeline": SPECS_DIR / "pipeline-only.yml",
 }
 
 

@@ -28,7 +28,7 @@ from tests.conftest import REPO_ROOT
 runner = CliRunner()
 
 #: Specification asking for both domains.
-SPEC_BOTH = REPO_ROOT / "tests" / "specs" / "deux-domaines.yml"
+SPEC_BOTH = REPO_ROOT / "tests" / "specs" / "two-domains.yml"
 
 
 def _manager() -> ForgeManager:

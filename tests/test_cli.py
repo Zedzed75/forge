@@ -125,7 +125,7 @@ def test_catalog_refuses_an_unknown_domain(monkeypatch):
 
 def test_generate_produces_the_expected_tree(tmp_path, monkeypatch):
     result = _invoke(
-        ["generate", "-s", str(SPECS_DIR / "demo-complet.yml"), "-o", str(tmp_path)],
+        ["generate", "-s", str(SPECS_DIR / "demo-full.yml"), "-o", str(tmp_path)],
         monkeypatch,
     )
     assert result.exit_code == 0, result.stdout
@@ -140,7 +140,7 @@ def test_generate_in_dry_run_writes_nothing(tmp_path, monkeypatch):
         [
             "generate",
             "-s",
-            str(SPECS_DIR / "demo-complet.yml"),
+            str(SPECS_DIR / "demo-full.yml"),
             "-o",
             str(tmp_path),
             "--dry-run",
@@ -156,7 +156,7 @@ def test_generate_refuses_an_unknown_domain(tmp_path, monkeypatch):
         [
             "generate",
             "-s",
-            str(SPECS_DIR / "demo-complet.yml"),
+            str(SPECS_DIR / "demo-full.yml"),
             "-o",
             str(tmp_path),
             "--only",

@@ -29,7 +29,7 @@ from forge.spec.io import load_spec_data
 from tests.conftest import SPECS_DIR
 
 PLUGIN = "forge.plugins.monitoring.plugin"
-COMPLETE_SPEC = SPECS_DIR / "monitoring-complet.yml"
+COMPLETE_SPEC = SPECS_DIR / "monitoring-full.yml"
 
 
 def _manager() -> ForgeManager:
