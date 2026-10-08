@@ -12,8 +12,8 @@ forge_version: 1
 
 service:
   name: boutique
-  description: Boutique en ligne, socle d'infrastructure
-  owner: Equipe Plateforme
+  description: Online store, infrastructure foundation
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     tier: frontend

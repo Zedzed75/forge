@@ -9,8 +9,8 @@ forge_version: 1
 
 service:
   name: boutique
-  description: Boutique en ligne, supervision
-  owner: Equipe Plateforme
+  description: Online store, monitoring
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     tier: frontend

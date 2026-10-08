@@ -6,8 +6,8 @@ forge_version: 1
 
 service:
   name: boutique
-  description: "Boutique en ligne de demonstration"
-  owner: "Equipe Plateforme"
+  description: "Demonstration online store"
+  owner: "Platform Team"
   owner_email: plateforme@example.net
   labels:
     app.kubernetes.io/part-of: commerce

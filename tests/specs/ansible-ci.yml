@@ -8,8 +8,8 @@ forge_version: 1
 
 service:
   name: passerelle
-  description: "Passerelle applicative"
-  owner: "Equipe Plateforme"
+  description: "Application gateway"
+  owner: "Platform Team"
   environments:
     - name: prod
       production: true
@@ -24,7 +24,7 @@ ansible:
     write_ci: true
   groups:
     - name: gateways
-      description: "Passerelles exposées"
+      description: "Gateways exposed to the outside"
       roles:
         - common
         - ssh_hardening

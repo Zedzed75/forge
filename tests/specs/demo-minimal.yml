@@ -6,8 +6,8 @@ forge_version: 1
 
 service:
   name: api
-  description: "Service minimal"
-  owner: "Equipe Plateforme"
+  description: "Minimal service"
+  owner: "Platform Team"
   environments:
     - name: prod
       production: true
