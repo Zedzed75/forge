@@ -19,6 +19,12 @@ from forge.plugins_api.manager import ForgeManager
 from forge.spec.assembly import validate_spec
 from forge.spec.io import load_spec_data
 
+#: `pytester` runs a real pytest on a throwaway test file. It is how
+#: `pytest_runtest_makereport` below is tested end to end rather than by calling
+#: the generator by hand: a report-mangling hook that is only unit-tested is a
+#: hook nobody has seen wired up.
+pytest_plugins = ["pytester"]
+
 #: Module of the demonstration plugin, as `FORGE_PLUGINS` expects it.
 DEMO_PLUGIN = "forge.plugins.demo.plugin"
 
@@ -93,6 +99,49 @@ def require_tools(domain: str, *names: str, requires_linux: bool = True) -> None
             pytrace=False,
         )
     pytest.skip(reason)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
+    """Under `FORGE_REQUIRE_TOOLS`, a skipped `integration` test fails the run.
+
+    `require_tools` closes the hole it knows about: a validator binary that is
+    not there. It cannot close the one next to it -- an integration test that
+    skips itself for some *other* reason. That hole was open and occupied: the
+    single test of `forge update` skipped in every CI run, on all three Python
+    versions, because `uv run` wrote an untracked `uv.lock` and
+    `template_is_dirty` then did exactly what it was written to do. Nobody saw
+    it, because the build was green and the skip line scrolled past.
+
+    So the rule is stated once here, for the whole marker, instead of at each
+    call site: a run that claims to prove something about generated projects may
+    not let an integration test report success without having run. A test that
+    legitimately has to skip in CI is not an integration test and must lose the
+    marker -- the structural skip in `test_plugins.py` carries no marker and is
+    deliberately left alone.
+    """
+    report = yield
+    if (
+        not report.skipped
+        or hasattr(report, "wasxfail")  # an xfail is a result, not an absence
+        or not tools_are_required()
+        or item.get_closest_marker("integration") is None
+    ):
+        return report
+
+    # A skipped report carries `(path, lineno, "Skipped: <reason>")`.
+    reason = report.longrepr[2] if isinstance(report.longrepr, tuple) else str(report.longrepr)
+    report.outcome = "failed"
+    report.longrepr = (
+        f"{reason.removeprefix('Skipped: ')}\n"
+        f"{REQUIRE_TOOLS_ENV} is set: an `integration` test may not skip here. "
+        "This run is supposed to prove that the generated projects are valid; a "
+        "test that did not run proves nothing, and a skip that nobody reads is "
+        "worse than a missing test because it reads like coverage. Fix the cause "
+        f"named above, drop the `integration` marker, or unset {REQUIRE_TOOLS_ENV} "
+        "to get the development behaviour back."
+    )
+    return report
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

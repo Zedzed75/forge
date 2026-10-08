@@ -10,6 +10,13 @@ day must not be the first time the code path runs. So the two branches are
 asserted directly, on a deliberately absent tool, plus the anti-drift guard that
 matters most: that all seven integration tests really do go through the one
 shared helper.
+
+The flag governs a second rule, added after the hole was found still open next
+to it: under `FORGE_REQUIRE_TOOLS`, an `integration` test that skips for *any*
+reason fails the run. `require_tools` could not have caught the case that
+motivated it -- `forge update` skipping on a dirty checkout, silently, in every
+CI run -- because no tool was missing. That rule lives in
+`tests/conftest.py::pytest_runtest_makereport` and is asserted here too.
 """
 
 from __future__ import annotations
@@ -150,6 +157,90 @@ def test_the_flag_is_read_as_unset(value, monkeypatch):
 def test_the_flag_is_unset_by_default(monkeypatch):
     monkeypatch.delenv(REQUIRE_TOOLS_ENV, raising=False)
     assert not tools_are_required()
+
+
+# ---------------------------------------------------------------------------
+# A skipped integration test is a failure, whatever the reason
+# ---------------------------------------------------------------------------
+# `require_tools` only governs the skips it owns. These exercise the hook that
+# governs every other one, on a throwaway test file run by a real pytest: the
+# reason a skip appears is irrelevant, only that it appeared under the flag.
+# ---------------------------------------------------------------------------
+
+#: A throwaway suite with one skipping integration test and one skipping plain
+#: test. The plain one is the control: the hook must not touch it, because the
+#: real suite has a legitimate unmarked skip (`test_plugins.py`) that must
+#: survive the flag.
+_SKIPPING_SUITE = """
+    import pytest
+
+    @pytest.mark.integration
+    def test_marked():
+        pytest.skip("the dirt the hook is supposed to catch")
+
+    def test_unmarked():
+        pytest.skip("structural, and none of the hook's business")
+"""
+
+
+@pytest.fixture
+def skipping_suite(pytester: pytest.Pytester, monkeypatch):
+    """Lay out the throwaway suite plus the hook under test, and nothing else."""
+    pytester.makeconftest("from tests.conftest import pytest_runtest_makereport  # noqa: F401")
+    pytester.makeini("[pytest]\nmarkers = integration: needs an external tool\n")
+    pytester.makepyfile(test_skipping=_SKIPPING_SUITE)
+    # The subprocess starts in the throwaway directory, where `tests` is not
+    # importable: the repository root has to be handed over explicitly.
+    monkeypatch.setenv("PYTHONPATH", str(REPO_ROOT))
+    return pytester
+
+
+def test_a_skipped_integration_test_fails_when_the_flag_is_set(skipping_suite, monkeypatch):
+    """The regression this closes: the skip is now red instead of invisible."""
+    monkeypatch.setenv(REQUIRE_TOOLS_ENV, "1")
+    result = skipping_suite.runpytest_subprocess("-rs")
+    result.assert_outcomes(failed=1, skipped=1)
+    result.stdout.fnmatch_lines(["*the dirt the hook is supposed to catch*"])
+    result.stdout.fnmatch_lines([f"*{REQUIRE_TOOLS_ENV} is set*"])
+
+
+def test_an_unmarked_skip_survives_the_flag(skipping_suite, monkeypatch):
+    """`test_plugins.py`'s structural skip is intended, and must stay a skip."""
+    monkeypatch.setenv(REQUIRE_TOOLS_ENV, "1")
+    result = skipping_suite.runpytest_subprocess("-rs")
+    result.stdout.fnmatch_lines(["*none of the hook's business*"])
+    result.assert_outcomes(skipped=1, failed=1)
+
+
+def test_both_skips_stand_when_the_flag_is_unset(skipping_suite, monkeypatch):
+    """A development machine keeps skipping what it cannot run."""
+    monkeypatch.delenv(REQUIRE_TOOLS_ENV, raising=False)
+    result = skipping_suite.runpytest_subprocess("-rs")
+    result.assert_outcomes(skipped=2, failed=0)
+
+
+def test_a_passing_integration_test_is_left_alone(pytester, monkeypatch):
+    """The hook must only ever touch a skip; anything else would be a trap."""
+    pytester.makeconftest("from tests.conftest import pytest_runtest_makereport  # noqa: F401")
+    pytester.makeini("[pytest]\nmarkers = integration: needs an external tool\n")
+    pytester.makepyfile(
+        test_running="""
+        import pytest
+
+        @pytest.mark.integration
+        def test_marked():
+            assert True
+
+        @pytest.mark.integration
+        @pytest.mark.xfail(reason="an xfail is a result, not an absence")
+        def test_expected_failure():
+            assert False
+        """
+    )
+    monkeypatch.setenv("PYTHONPATH", str(REPO_ROOT))
+    monkeypatch.setenv(REQUIRE_TOOLS_ENV, "1")
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=1, xfailed=1, failed=0)
 
 
 # ---------------------------------------------------------------------------

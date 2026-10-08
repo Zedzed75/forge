@@ -180,6 +180,14 @@ jobs:
       # the generated projects. With it, a green check positively proves that
       # all five domains' real validators ran.
       #
+      # The same flag also forbids an `integration` test from skipping for any
+      # other reason (tests/conftest.py::pytest_runtest_makereport). The first
+      # rule only covered a missing binary, and the hole next to it was already
+      # occupied: the only test of `forge update` skipped in every run, because
+      # `uv run` wrote an untracked `uv.lock` and the checkout was therefore
+      # dirty. `uv.lock` is gitignored now, and should anything else dirty the
+      # tree, this job goes red instead of quietly asserting less.
+      #
       # `-rs` and no `-q`: `pyproject.toml` already puts `-q` in `addopts`, so
       # `pytest -q` was really `-qq`, which suppresses the count line. The CI log
       # therefore never said how many tests ran or how many skipped -- on a
