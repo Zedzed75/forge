@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# Dependabot: the bump path that makes SHA pinning sustainable.
+# ---------------------------------------------------------------------------
+# Every `uses:` in .github/workflows/ is pinned to a full commit SHA rather than
+# a floating tag, because a tag is mutable and a SHA is not. Pinning alone is
+# only half a policy: a pinned action never updates, and "never updates" is how a
+# repository ends up three years behind on actions/checkout, carrying whatever
+# bug or vulnerability that snapshot had.
+#
+# Dependabot closes that half. For `github-actions` it understands the pinned
+# form specifically: it rewrites the SHA *and* the trailing `# vX.Y.Z` comment,
+# so the comment cannot drift away from the commit it claims to describe. That is
+# the reason the comment is mandatory in the workflows and not just a courtesy.
+#
+# Only GitHub Actions is watched here. Python dependencies are declared in
+# pyproject.toml without a lockfile, and the validator binaries in ci.yml are
+# pinned by version in `run:` steps that Dependabot cannot parse -- those are
+# upgraded by hand, deliberately, one bump per commit (see the procedure in
+# ci.yml). Adding an ecosystem Dependabot can only half-see would produce noise,
+# not coverage.
+# ---------------------------------------------------------------------------
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    # `/` means "the workflows of this repository": for github-actions the
+    # directory is always the repository root, never .github/workflows.
+    directory: /
+    schedule:
+      interval: weekly
+    # One PR per week per action at most. Action bumps are rare and each one
+    # deserves to be read, so there is no reason to batch them into a single
+    # unreviewable diff.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
