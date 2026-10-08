@@ -1,7 +1,9 @@
 # What `tests/test_french_guard.py` tolerates, and why.
 #
-# Read `tests/french_guard.py` for what the two signals are and why. This file
-# is the data.
+# Read `tests/french_guard.py` for what the three signals are and why, and for
+# the list of French this guard still cannot see -- an empty `[baseline]` below
+# means "nothing the signals detect", never "no French left". This file is the
+# data.
 #
 # Format: pipe-separated, because template paths contain spaces.
 #   [baseline]  signal | max lines | path | owning issue and note
@@ -17,10 +19,16 @@
 #
 # It is empty, and that is a measurement rather than a default: on the tree this
 # landed on, `src/forge/**/*.py` and every plugin template hold zero French
-# lines by either signal. ZED-10, ZED-11, ZED-24, ZED-54 and ZED-19 between them
-# finished the job; this file is the first thing in the repository able to say so
-# rather than assert it. The gate is green, so it fails on the next French line
-# instead of on a backlog.
+# lines by any of the three signals. ZED-10, ZED-11, ZED-24, ZED-54 and ZED-19
+# between them finished the job; this file is the first thing in the repository
+# able to say so rather than assert it. The gate is green, so it fails on the
+# next French line instead of on a backlog.
+#
+# It stayed empty through ZED-69, which is the interesting part. ZED-69 added a
+# third signal that fires on 32 French values in `tests/` -- short noun phrases
+# the first two could not see -- and the section is still empty because ZED-60
+# translated those 32 lines first. A new signal is allowed to find French; it is
+# not allowed to park it here.
 #
 # A count here is an upper bound: translate lines and the guard tells you to
 # lower the number; reach zero and it tells you to delete the entry. Adding an
@@ -42,6 +50,8 @@
 
 accent | tests/french_guard.py | spells the accented alphabet it detects, and quotes the `—` and `§` that a byte-oriented grep confuses with it
 words | tests/french_guard.py | carries the French word list, and names `aux`/`qui`/`doit`/`pour` while justifying them
+nouns | tests/french_guard.py | documents the content-word signal, and quotes the `"Boutique en ligne"` value it was built to catch
 accent | tests/test_french_guard.py | its fixtures are French prose by construction — that is what it asserts on
 words | tests/test_french_guard.py | same: the positive fixtures must contain real French for the assertions to mean anything
+nouns | tests/test_french_guard.py | same again, for the short noun phrases: `"Equipe Plateforme"` has to be French for the assertion to hold
 accent | tests/test_plugin_monitoring.py | the `"métrique"` fixture proves a non-ASCII metric name is rejected; translating it would delete the test

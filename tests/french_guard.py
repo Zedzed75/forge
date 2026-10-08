@@ -5,8 +5,8 @@ ZED-10 translated `src/forge/` outside `plugins/`, ZED-11 translated
 nothing in the repository could measure the claim. This module is that
 measurement; `test_french_guard.py` turns it into a gate.
 
-Two signals, and a list of words deliberately left out of both
-----------------------------------------------------------------
+Three signals, and the words deliberately left out of each
+----------------------------------------------------------
 
 **Accented characters.** Cheap and almost noise-free, but it has to be read as
 *text*, not as bytes: `git grep '[éèê…]'` in the C locale matches `—`, `§` and
@@ -25,23 +25,64 @@ all — a scan built on them flagged 75 lines across the five ZED-24 branches
 and every single one was an English false positive. Requiring **two** distinct
 words from a conservative list is what separates real French prose from those.
 
+**One French content word in a prose-shaped value.** The two signals above are
+strong on French *prose* and were blind to French *values* — the short noun
+phrases a `description` or an `owner` field holds. `Boutique en ligne` carries
+no accent and exactly one function word (`en`, which is rejected anyway);
+`Equipe Plateforme` carries none at all. ZED-69 measured the gap: eleven test
+modules held 32 such lines that the first two signals reported as clean, and
+every one of them was found by a human reading the diff rather than by the
+gate. Lowering `MIN_WORDS_PER_LINE` to 1 is not the fix — ZED-50 tried it and
+got 75 English false positives. This signal is a *different* list (French
+content words, not function words) read in a *narrower place* (the value side
+of a line, not the whole line), which is what makes a threshold of one safe:
+see `CONTENT_WORDS` for the list and `_prose_values` for the place.
+
 Scope, and why `tests/` is in it
 --------------------------------
 
 `src/forge/**/*.py` and `src/forge/plugins/*/template/**` — the templates are
-where the French that *reaches users* lives. `tests/**/*.py` is in scope too:
-ZED-50 left that call open, and the measurement settles it. Outside this
-module's own two files, which necessarily spell the alphabet and the word list
-they detect, `tests/` carries exactly one French line — a rejected-input
-fixture that has to stay French to mean anything — so including it costs one
-allowlist entry and stops the next French docstring landing here instead of in
-`src/`.
+where the French that *reaches users* lives. `tests/**/*.py` is in scope too,
+and the reason is stronger than ZED-50 thought: the fixtures in `tests/` are
+copied verbatim into the golden trees, so a French `description` there *is*
+French in generated output. ZED-50 claimed `tests/` carried "exactly one French
+line"; that was true of what it could detect and false of the tree, which held
+32 more. ZED-69 added the third signal and that sentence is now gone.
 
-On the tree this landed on, both signals report zero across `src/forge/` and
-every plugin template, so `tests/french_baseline.txt` ships with an empty
+On the tree this landed on, all three signals report zero across `src/forge/`
+and every plugin template, so `tests/french_baseline.txt` ships with an empty
 `[baseline]` section. That is the first measured answer the repository has ever
 had to the question in the first line, and it is why this is a gate rather than
 a backlog.
+
+What none of the three detects
+------------------------------
+
+Stated here so that "the baseline is empty" is never read as "there is no
+French left". `test_the_blind_spot_is_known` and
+`test_the_value_blind_spots_are_known` pin these on real lines:
+
+* **De-accented French built only from rejected words.** `Definitions des roles
+  du catalogue, un module par role` is French and fires nothing, because every
+  word in it is on `REJECTED_WORDS`. That is the price of zero false positives.
+* **French identifiers.** `boutique`, `passerelle` and `plateforme` are the
+  fixture service names, and they appear in ~60 paths, hostnames and slugs
+  (`helm/charts/boutique/`, `plateforme@example.net`, `boutique-prod`).
+  `_prose_values` skips identifier-shaped values for exactly that reason, so
+  `"name": "boutique"` is clean by design — renaming those is ZED-59's job, not
+  a signal's. The cost is that a French value which is *only* an identifier,
+  like `"Boutique_Web"` in `test_spec.py`, is missed too.
+* **Content words that are also English.** `demonstration`, `service`,
+  `applicative` and `catalogue` are spelled the same in both languages and are
+  on `REJECTED_CONTENT_WORDS`. `Boutique en ligne de demonstration` is caught by
+  `ligne`, not by `demonstration`.
+* **Anything spanning two lines.** Every signal is line-oriented. For `words`
+  that loses any French sentence wrapped across a concatenation; for `nouns`
+  the gap is narrower — it takes a concatenation through the middle of a noun,
+  since the phrase on one line still fires.
+
+A reviewer who reads the prose is still the last word. These signals catch
+regressions; they do not certify a tree.
 
 Everything else stays French by the hard rule in `CLAUDE.md` ("Comments/docs in
 French; identifiers, keys and file names in English"): `.github/`, `DESIGN.md`,
@@ -129,15 +170,89 @@ REJECTED_WORDS = frozenset(
 #: zero false positives across the five ZED-24 branches.
 MIN_WORDS_PER_LINE = 2
 
+#: French content words — nouns and adjectives, not grammar — with no English
+#: spelling at all. These are what a `description` or an `owner` field is made
+#: of, and one of them inside a prose-shaped value is enough (see
+#: `_prose_values` for why one is safe here and not on a whole line). Plurals
+#: are listed rather than stemmed: `_WORD_RX` matches whole runs of letters, so
+#: `passerelles` would not match `passerelle`, and a stemmer would start
+#: matching English words that merely end in `s`.
+#:
+#: A term is deleted from this list once the tree holds no French using it —
+#: it costs nothing to keep, but a list that never shrinks stops describing
+#: anything. Add one when the gate misses French you had to find by reading.
+CONTENT_WORDS = frozenset(
+    {
+        "domaine",
+        "domaines",
+        "environnement",
+        "environnements",
+        "equipe",
+        "equipes",
+        "exemple",
+        "exemples",
+        "ligne",
+        "lignes",
+        "passerelle",
+        "passerelles",
+        "plateforme",
+        "plateformes",
+        "serveur",
+        "serveurs",
+        "utilisateur",
+        "utilisateurs",
+    }
+)
+
+#: French-looking content words kept out of `CONTENT_WORDS`, and why. Same role
+#: as `REJECTED_WORDS`: the obvious candidates are missing on purpose.
+REJECTED_CONTENT_WORDS = frozenset(
+    {
+        "applicative",  # English too ("applicative functor")
+        "boutique",  # English too, and the fixture service name in ~60 paths
+        "catalogue",  # spelled the same in both languages
+        "demonstration",  # spelled the same in both languages
+        "service",  # spelled the same, and a first-class spec key
+        "version",  # spelled the same
+    }
+)
+
+#: Content words needed in one prose-shaped value before it counts. One, which
+#: is the whole point of this third signal: the French it hunts is two words
+#: long and only one of them is ever French vocabulary.
+MIN_CONTENT_WORDS_PER_VALUE = 1
+
 #: Word boundaries that also break on `-` and `_`, so `role-doit-pour` in an
 #: identifier is three words rather than one unmatched blob, and `value` never
 #: matches inside `valuereference`.
 _WORD_RX = re.compile(r"[A-Za-z]+")
 
-#: The two signals, by the name they carry in the baseline file.
+#: Quoted spans on one line, single or double. Deliberately non-greedy per
+#: quote character so `"description": "Boutique en ligne"` yields two values
+#: (`description` and `Boutique en ligne`) rather than one blob spanning the
+#: colon.
+_QUOTED_RX = re.compile(r"'([^']*)'|\"([^\"]*)\"")
+
+#: The value side of a YAML-ish `key: value` line, so that a French default in
+#: a plugin template is caught even unquoted — `description: Passerelle
+#: applicative` in a `template/**` file reaches users exactly like a quoted one.
+#: The key side is allowed to hold copier delimiters, since half the template
+#: keys are `[[ name ]]`-shaped.
+_YAML_VALUE_RX = re.compile(r"^\s*-?\s*[\w.\[\]{} -]+:[ \t]+(\S.*?)\s*$")
+
+#: A value with no uppercase letter and no whitespace is an identifier, a path,
+#: a hostname or a slug — never prose. This is the filter that makes a
+#: threshold of one content word safe: it drops `boutique-prod`,
+#: `plateforme@example.net`, `helm/charts/boutique/Chart.yaml` and
+#: `fins-de-ligne.txt` while keeping `Equipe`, `Boutique en ligne` and
+#: `domaine de demonstration`.
+_IDENTIFIER_RX = re.compile(r"[^A-Z\s]*")
+
+#: The three signals, by the name they carry in the baseline file.
 ACCENT = "accent"
 WORDS = "words"
-SIGNALS = (ACCENT, WORDS)
+NOUNS = "nouns"
+SIGNALS = (ACCENT, WORDS, NOUNS)
 
 #: Globs scanned, relative to `REPO_ROOT`. `template/**/*` deliberately takes
 #: every extension: a `.jinja`, a `.yml` and a `.txt` under `template/` all
@@ -157,7 +272,7 @@ class Hit:
     path: str
     #: 1-indexed line number.
     line: int
-    #: `ACCENT` or `WORDS`.
+    #: `ACCENT`, `WORDS` or `NOUNS`.
     signal: str
     #: What fired — the accented letters found, or the French words found.
     evidence: str
@@ -165,8 +280,46 @@ class Hit:
     excerpt: str
 
 
+def _prose_values(line: str) -> list[str]:
+    """The prose-shaped values on one line, as candidate French noun phrases.
+
+    Two places are read — every quoted span, and the value side of a YAML-ish
+    `key: value` — and each is kept only if it does not look like an
+    identifier. The narrowing is what buys `MIN_CONTENT_WORDS_PER_VALUE = 1`:
+    on a whole line, one content word means `"name": "boutique"` and
+    `charts/boutique/Chart.yaml` fire; restricted to prose-shaped values, the
+    same word list flagged 32 lines on the ZED-69 tree and not one false
+    positive.
+    """
+    # `finditer` rather than `findall`: with two alternative groups `findall`
+    # returns `''` for the one that did not match, which is indistinguishable
+    # from an empty string literal and would drop every double-quoted value.
+    candidates = [
+        match.group(1) if match.group(1) is not None else match.group(2)
+        for match in _QUOTED_RX.finditer(line)
+    ]
+    yaml_value = _YAML_VALUE_RX.match(line)
+    if yaml_value:
+        candidates.append(yaml_value.group(1))
+    return [
+        value for value in candidates if not _IDENTIFIER_RX.fullmatch(value)
+    ]
+
+
+def _content_words(line: str) -> list[str]:
+    """The `CONTENT_WORDS` found in this line's prose-shaped values."""
+    found: set[str] = set()
+    for value in _prose_values(line):
+        found.update(
+            word.lower()
+            for word in _WORD_RX.findall(value)
+            if word.lower() in CONTENT_WORDS
+        )
+    return sorted(found)
+
+
 def scan_text(text: str, path: str = "<text>") -> list[Hit]:
-    """Run both signals over one already-decoded string."""
+    """Run all three signals over one already-decoded string."""
     hits: list[Hit] = []
     for number, line in enumerate(text.splitlines(), start=1):
         accents = sorted(set(_ACCENT_RX.findall(line)))
@@ -185,6 +338,11 @@ def scan_text(text: str, path: str = "<text>") -> list[Hit]:
             hits.append(
                 Hit(path, number, WORDS, " ".join(words), _excerpt(line))
             )
+        nouns = _content_words(line)
+        if len(nouns) >= MIN_CONTENT_WORDS_PER_VALUE:
+            hits.append(
+                Hit(path, number, NOUNS, " ".join(nouns), _excerpt(line))
+            )
     return hits
 
 
@@ -198,7 +356,7 @@ def scanned_files(root: Path | None = None) -> list[Path]:
 
 
 def scan_tree(root: Path | None = None) -> list[Hit]:
-    """Run both signals over the whole in-scope tree.
+    """Run all three signals over the whole in-scope tree.
 
     A file that is not valid UTF-8 is not French by either signal — it is
     skipped rather than raising, so a future binary fixture under `template/`
