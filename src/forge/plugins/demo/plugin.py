@@ -1,14 +1,14 @@
-"""Plugin `demo` — banc d'essai du contrat de plugin, reserve aux tests.
+"""Plugin `demo` — test bench for the plugin contract, reserved for the tests.
 
-Il n'est pas enregistre par defaut (`BUILTIN_PLUGINS` est vide) : les tests le
-declarent via `FORGE_PLUGINS=forge.plugins.demo.plugin`. Sa raison d'etre est
-d'exercer, des la phase 2, les mecanismes que les vrais plugins utiliseront en
-phases 3 et 4 :
+It is not registered by default (`BUILTIN_PLUGINS` is empty): the tests declare
+it through `FORGE_PLUGINS=forge.plugins.demo.plugin`. Its reason to exist is to
+exercise, from phase 2 onwards, the mechanisms the real plugins would use in
+phases 3 and 4:
 
-* balises `yield` **imbriquees** (environnement x widget) dans les chemins ;
-* filtre de plugin injecte par extension Jinja (`forge.plugins.demo.jinja_ext`) ;
-* filtrage de fichier par `[% if %]` sur un segment de chemin ;
-* commande de validation externe, avec repli d'outil absent.
+* **nested** `yield` tags (environment x widget) in paths;
+* plugin filter injected by a Jinja extension (`forge.plugins.demo.jinja_ext`);
+* file filtering by `[% if %]` on a path segment;
+* external validation command, with a fallback when the tool is missing.
 """
 
 from __future__ import annotations
@@ -25,43 +25,45 @@ from forge.spec.names import require_unique
 from forge.spec.service import ServiceSpec
 from forge.spec.types import DnsLabel, ForgeModel
 
-#: Types de widgets reconnus par le domaine de demonstration.
+#: Widget kinds the demonstration domain recognises.
 WIDGET_KINDS = ("gauge", "counter", "log")
 
 
 class DemoWidget(ForgeModel):
-    """Un widget a materialiser dans chaque environnement."""
+    """A widget to materialise in every environment."""
 
-    #: Nom du widget : label DNS, sert de nom de fichier.
+    #: Name of the widget: a DNS label, also used as the file name.
     name: DnsLabel
 
-    #: Type de widget ; determine le contenu genere.
+    #: Kind of widget; determines the generated content.
     kind: str = "gauge"
 
-    #: Marque un widget produisant un fichier supplementaire (test du `[% if %]`).
+    #: Marks a widget producing an extra file (exercises the `[% if %]`).
     detailed: bool = False
 
     @field_validator("kind")
     @classmethod
     def _known_kind(cls, value: str) -> str:
         if value not in WIDGET_KINDS:
-            raise ValueError(f"type inconnu : {value} (attendu : {', '.join(WIDGET_KINDS)})")
+            raise ValueError(f"unknown kind: {value} (expected: {', '.join(WIDGET_KINDS)})")
         return value
 
 
 class DemoSpec(ForgeModel):
-    """Section `demo:` de forge.yml."""
+    """`demo:` section of forge.yml."""
 
-    #: Widgets a generer, dans l'ordre de declaration.
+    #: Widgets to generate, in declaration order.
     widgets: list[DemoWidget] = Field(min_length=1)
 
-    #: Salutation reprise dans l'en-tete des fichiers generes.
+    #: Greeting repeated in the header of the generated files. The value is
+    #: fixture data, not prose: `demo-minimal` renders this default into its
+    #: `.copier-answers.yml`, so it moves with the reference specs, not here.
     greeting: str = "bonjour"
 
     @field_validator("widgets")
     @classmethod
     def _unique_names(cls, value: list[DemoWidget]) -> list[DemoWidget]:
-        require_unique((widget.name for widget in value), "noms de widget")
+        require_unique((widget.name for widget in value), "widget names")
         return value
 
 
@@ -86,7 +88,7 @@ def forge_template_subdir() -> str:
 
 @hookimpl
 def forge_answers(spec: Any) -> dict[str, Any]:
-    """Projette la spec vers le dict `domain`, avec un ordre de cles figé."""
+    """Project the spec onto the `domain` dict, with a frozen key order."""
     demo: DemoSpec = spec.demo
     return {
         "greeting": demo.greeting,
@@ -113,14 +115,14 @@ def forge_projection(spec: Any) -> Projection:
 
 @hookimpl
 def forge_validators(spec: Any, outdir: Path) -> list[Command]:
-    """Une commande volontairement banale : le domaine demo ne valide rien de reel."""
+    """A deliberately mundane command: the demo domain validates nothing real."""
     return [
         Command(
-            label="demo : version de git",
+            label="demo: version of git",
             tool="git",
             argv=("--version",),
             cwd=outdir,
-            install_hint="installez git et ajoutez-le au PATH",
+            install_hint="install git and add it to the PATH",
         )
     ]
 
@@ -130,9 +132,9 @@ def forge_catalog() -> list[CatalogEntry]:
     return [
         CatalogEntry(
             name=kind,
-            summary=f"Widget de type {kind}",
-            details=f"Genere un fichier par environnement pour un widget {kind}.",
-            options={"detailed": "ajoute un fichier de detail par widget"},
+            summary=f"Widget of kind {kind}",
+            details=f"Generates one file per environment for a {kind} widget.",
+            options={"detailed": "adds one detail file per widget"},
         )
         for kind in WIDGET_KINDS
     ]
@@ -140,19 +142,19 @@ def forge_catalog() -> list[CatalogEntry]:
 
 @hookimpl
 def forge_interview(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Entretien minimal : sert a verifier le cablage du hook, pas l'ergonomie.
+    """Minimal interview: it checks the wiring of the hook, not the ergonomics.
 
-    Le coeur a deja demande *quels* domaines generer : le plugin ne le redemande
-    pas. Il decline en retournant None, ici si aucun widget n'est nomme.
+    The core has already asked *which* domains to generate: the plugin does not
+    ask again. It declines by returning None, here when no widget is named.
     """
-    greeting = prompter.text("Salutation des en-tetes", default="bonjour")
-    names = prompter.text("Widgets, separes par des virgules", default="cpu,memoire")
+    greeting = prompter.text("Greeting used in the headers", default="bonjour")
+    names = prompter.text("Widgets, separated by commas", default="cpu,memory")
     widgets = []
     for name in (part.strip() for part in names.split(",")):
         if not name:
             continue
         kind = prompter.select(
-            f"Type du widget {name}",
+            f"Kind of the {name} widget",
             choices=[(kind, kind) for kind in WIDGET_KINDS],
             default="gauge",
         )

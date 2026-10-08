@@ -37,8 +37,8 @@ runner = CliRunner()
 INSTALL_CASE = "ansible-ci"
 
 #: Answers replaying the full interview: the service block, then the demo domain.
-#: The values are the ones the reference specs use, so they stay as they are
-#: until the fixtures and the templates are translated together.
+#: The values are the ones the reference specs use, and they stay French until
+#: the reference specs themselves are translated.
 INTERVIEW = [
     "boutique",                # service name
     "Boutique en ligne",       # description

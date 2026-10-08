@@ -1,24 +1,24 @@
 ---
 [[ rule() ]]
-# Detail du widget [[ w.name ]]
+# Detail of widget [[ w.name ]]
 [[ rule() ]]
-[[ "Ce fichier n'existe que pour les widgets marques detailed: true. Le segment
-de chemin porteur du yield se rend alors vide, et copier n'ecrit rien : c'est
-ainsi qu'un [% if %] sert de filtre de fichier (MIGRATION.md §2.1)." | comment ]]
+[[ "This file only exists for widgets marked detailed: true. The path segment
+carrying the yield then renders empty, and copier writes nothing: that is how a
+[% if %] acts as a file filter (MIGRATION.md §2.1)." | comment ]]
 [[ rule() ]]
 
-# Nom du widget detaille.
+# Name of the detailed widget.
 name: [[ w.name ]]
 
-# Type de widget. Valeurs possibles : gauge, counter, log.
+# Kind of widget. Possible values: gauge, counter, log.
 kind: [[ w.kind ]]
 
-# Environnements dans lesquels ce widget est materialise.
+# Environments in which this widget is materialised.
 environments:
 [% for e in domain.environments %]
   - [[ e.name ]]
 [% endfor %]
 
-# Representation brute du widget, telle que passee a copier.
+# Raw representation of the widget, as passed to copier.
 raw:
 [[ w | to_yaml(2) ]]

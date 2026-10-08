@@ -96,9 +96,7 @@ def test_an_unknown_key_inside_a_section_is_refused(spec_data, manager):
 
 def test_the_plugin_sub_model_is_really_applied(spec_data, manager):
     spec_data["demo"]["widgets"][0]["kind"] = "sonar"
-    # The demo plugin's message is still French: the plugins are translated
-    # with their templates.
-    with pytest.raises(SpecValidationError, match="type inconnu"):
+    with pytest.raises(SpecValidationError, match="unknown kind"):
         validate_spec(spec_data, manager)
 
 

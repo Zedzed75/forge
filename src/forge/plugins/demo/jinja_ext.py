@@ -1,39 +1,39 @@
-"""Filtres propres au domaine `demo`.
+"""Filters belonging to the `demo` domain.
 
-Montre comment un plugin enrichit l'environnement Jinja de copier **sans**
-toucher au coeur ni au copier.yml racine : il expose `FILTERS` et/ou `GLOBALS`,
-que `forge.jinja_ext.ForgeExtension` charge a partir de la variable
-d'environnement `FORGE_PLUGIN_JINJA` positionnee par le runner copier.
+Shows how a plugin enriches copier's Jinja environment **without** touching the
+core nor the root copier.yml: it exposes `FILTERS` and/or `GLOBALS`, which
+`forge.jinja_ext.ForgeExtension` loads from the `FORGE_PLUGIN_JINJA`
+environment variable set by the copier runner.
 """
 
 from __future__ import annotations
 
-#: Symbole affiche en tete de fichier selon le type de widget.
+#: Symbol displayed at the head of a file, per kind of widget.
 KIND_SYMBOLS = {"gauge": "~", "counter": "#", "log": ">"}
 
 
 def shout(value: str) -> str:
-    """Met une chaine en capitales : filtre temoin, verifie par les tests."""
+    """Upper-case a string: witness filter, checked by the tests."""
     return str(value).upper()
 
 
 def widget_symbol(kind: str) -> str:
-    """Symbole associe a un type de widget, `?` si le type est inconnu."""
+    """Symbol associated with a kind of widget, `?` when the kind is unknown."""
     return KIND_SYMBOLS.get(kind, "?")
 
 
 def demo_banner(service_name: str) -> str:
-    """Global temoin : prouve que `GLOBALS` d'un plugin est bien charge."""
+    """Witness global: proves that a plugin's `GLOBALS` really is loaded."""
     return f"== {service_name} =="
 
 
-#: Filtres exposes aux gabarits du domaine demo.
+#: Filters exposed to the templates of the demo domain.
 FILTERS = {
     "shout": shout,
     "widget_symbol": widget_symbol,
 }
 
-#: Fonctions globales exposees aux gabarits du domaine demo.
+#: Global functions exposed to the templates of the demo domain.
 GLOBALS = {
     "demo_banner": demo_banner,
 }

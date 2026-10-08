@@ -149,4 +149,17 @@ next one.
   generated file. If you have edited a generated file by hand, `forge update`
   will report conflicts there — run `forge diff` first to see how much moved.
 
+- **The `demo` domain is written in English too.** Its templates, catalogue
+  entries, validator label and interview prompts are now English, and the
+  `demo-complet` and `demo-minimal` golden trees moved with them.
+
+  **No migration, and this one cannot reach you.** `demo` is not a shipped
+  domain: it is the fixture the core's own suite runs the plugin contract
+  against, it is absent from `BUILTIN_PLUGINS`, and it loads only when
+  `FORGE_PLUGINS` names it explicitly. No `forge generate` a user can run
+  produces a `demo/` directory, so no `forge update` rewrites one. It is
+  recorded here because it moved a golden — the trigger this changelog is
+  written against — not because it changes anything forge puts in your
+  repository.
+
 [Unreleased]: https://github.com/Zedzed75/forge/commits/master
