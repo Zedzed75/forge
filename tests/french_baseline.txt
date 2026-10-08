@@ -1,0 +1,100 @@
+# French still in the English-first tree — the ratchet, and the exemptions.
+#
+# Read `tests/french_guard.py` for what the two signals are and why. This file
+# is the data: what the guard tolerates today, and nothing more.
+#
+# Format: pipe-separated, because template paths contain spaces.
+#   [baseline]  signal | max lines | path | owning issue and note
+#   [allowed]   signal | path | justification
+# Lines starting with `#` and blank lines are ignored. The justification field
+# is mandatory in both sections; `test_french_guard.py` fails without it.
+#
+#   THE [baseline] SECTION MUST ONLY EVER SHRINK.
+#
+# A count is an upper bound: translate lines and the guard tells you to lower
+# the number; reach zero and it tells you to delete the entry. Adding an entry,
+# or raising one, is new French in a tree that is supposed to be English — it
+# needs an argument on the pull request, not a quiet edit here.
+#
+# Owners of what remains:
+#   ZED-24  closed as `done` with this scope unmet; ZED-50 is the second issue
+#           to exist because nothing could measure that. This is the measure.
+#   ZED-54  the ansible catalogue, the densest block of what ZED-24 missed.
+#   ZED-19  the `demo` plugin, translated with its own templates.
+
+[baseline]
+words | 2 | src/forge/plugins/ansible/answers.py | ZED-24
+accent | 29 | src/forge/plugins/ansible/catalog/collections.py | ZED-54
+words | 1 | src/forge/plugins/ansible/catalog/collections.py | ZED-54
+accent | 21 | src/forge/plugins/ansible/catalog/definition.py | ZED-54
+words | 1 | src/forge/plugins/ansible/catalog/definition.py | ZED-54
+accent | 38 | src/forge/plugins/ansible/catalog/registry.py | ZED-54
+words | 6 | src/forge/plugins/ansible/catalog/registry.py | ZED-54
+accent | 1 | src/forge/plugins/ansible/catalog/roles/__init__.py | ZED-54
+words | 6 | src/forge/plugins/ansible/derive.py | ZED-24
+words | 3 | src/forge/plugins/ansible/plugin.py | ZED-24
+words | 3 | src/forge/plugins/ansible/spec.py | ZED-24
+words | 3 | src/forge/plugins/ansible/tree.py | ZED-24
+words | 1 | src/forge/plugins/ansible/validators.py | ZED-24
+accent | 1 | src/forge/plugins/demo/plugin.py | ZED-19
+words | 3 | src/forge/plugins/demo/plugin.py | ZED-19
+words | 3 | src/forge/plugins/demo/template/README.md.jinja | ZED-19
+words | 3 | src/forge/plugins/demo/template/[[ _copier_conf.answers_file ]].jinja | ZED-19
+words | 2 | src/forge/plugins/demo/template/environments/[% yield e from domain.environments %][[ e.name ]][% endyield %]/[% yield w from domain.widgets %][[ w.name ]][% endyield %].yml.jinja | ZED-19
+words | 2 | src/forge/plugins/demo/template/fins-de-ligne.txt | ZED-19
+words | 2 | src/forge/plugins/demo/template/widgets/[% yield w from domain.widgets %][% if w.detailed %][[ w.name ]][% endif %][% endyield %]/detail.yml.jinja | ZED-19
+words | 2 | src/forge/plugins/helm/answers.py | ZED-24
+words | 2 | src/forge/plugins/helm/catalog/definition.py | ZED-24
+words | 9 | src/forge/plugins/helm/catalog/families.py | ZED-24
+words | 9 | src/forge/plugins/helm/component_blocks.py | ZED-24
+words | 5 | src/forge/plugins/helm/components.py | ZED-24
+words | 2 | src/forge/plugins/helm/constants.py | ZED-24
+words | 9 | src/forge/plugins/helm/derive.py | ZED-24
+words | 7 | src/forge/plugins/helm/derive_env.py | ZED-24
+words | 5 | src/forge/plugins/helm/enums.py | ZED-24
+words | 4 | src/forge/plugins/helm/jinja_ext.py | ZED-24
+words | 3 | src/forge/plugins/helm/names.py | ZED-24
+words | 2 | src/forge/plugins/helm/plugin.py | ZED-24
+words | 3 | src/forge/plugins/helm/profiles.py | ZED-24
+words | 10 | src/forge/plugins/helm/spec.py | ZED-24
+words | 8 | src/forge/plugins/helm/tree.py | ZED-24
+words | 10 | src/forge/plugins/helm/validators.py | ZED-24
+words | 3 | src/forge/plugins/monitoring/answers.py | ZED-24
+words | 1 | src/forge/plugins/monitoring/catalog/registry.py | ZED-24
+words | 1 | src/forge/plugins/monitoring/constants.py | ZED-24
+accent | 2 | src/forge/plugins/monitoring/derive.py | ZED-24
+words | 3 | src/forge/plugins/monitoring/derive.py | ZED-24
+words | 5 | src/forge/plugins/monitoring/render.py | ZED-24
+accent | 1 | src/forge/plugins/monitoring/spec.py | ZED-24
+words | 4 | src/forge/plugins/monitoring/spec.py | ZED-24
+words | 6 | src/forge/plugins/monitoring/tree.py | ZED-24
+words | 1 | src/forge/plugins/pipeline/__init__.py | ZED-24
+words | 2 | src/forge/plugins/pipeline/answers.py | ZED-24
+accent | 1 | src/forge/plugins/pipeline/jobs.py | ZED-24
+words | 15 | src/forge/plugins/pipeline/jobs.py | ZED-24
+words | 2 | src/forge/plugins/pipeline/plugin.py | ZED-24
+words | 4 | src/forge/plugins/pipeline/spec.py | ZED-24
+words | 3 | src/forge/plugins/pipeline/tools.py | ZED-24
+words | 3 | src/forge/plugins/pipeline/tree.py | ZED-24
+words | 2 | src/forge/plugins/pipeline/validators.py | ZED-24
+words | 3 | src/forge/plugins/terraform/answers.py | ZED-24
+words | 1 | src/forge/plugins/terraform/catalog/registry.py | ZED-24
+words | 1 | src/forge/plugins/terraform/constants.py | ZED-24
+words | 4 | src/forge/plugins/terraform/derive.py | ZED-24
+words | 3 | src/forge/plugins/terraform/derive_env.py | ZED-24
+words | 2 | src/forge/plugins/terraform/enums.py | ZED-24
+words | 3 | src/forge/plugins/terraform/hcl.py | ZED-24
+words | 2 | src/forge/plugins/terraform/jinja_ext.py | ZED-24
+words | 5 | src/forge/plugins/terraform/spec.py | ZED-24
+words | 4 | src/forge/plugins/terraform/validators.py | ZED-24
+words | 1 | src/forge/render/scaffold.py | ZED-24
+words | 1 | src/forge/spec/io.py | ZED-24
+
+[allowed]
+# Permanent. Each of these is French that has to stay French to do its job.
+
+accent | tests/french_guard.py | spells the accented alphabet it detects, and quotes the `—` and `§` that a byte-oriented grep confuses with it
+words | tests/french_guard.py | carries the French word list, and names `aux`/`qui`/`doit`/`pour` while justifying them
+accent | tests/test_french_guard.py | its fixtures are French prose by construction — that is what it asserts on
+words | tests/test_french_guard.py | same: the positive fixtures must contain real French for the assertions to mean anything
+accent | tests/test_plugin_monitoring.py | the `"métrique"` fixture proves a non-ASCII metric name is rejected; translating it would delete the test
