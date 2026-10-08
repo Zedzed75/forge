@@ -1,0 +1,153 @@
+# ---------------------------------------------------------------------------
+# Local reproduction of the CI matrix environment (decision D6).
+# ---------------------------------------------------------------------------
+# This image exists so that the evidence CI produces can also be produced on a
+# developer machine, in a Linux container, when GitHub Actions is unavailable.
+# It is not a second CI: it is the *same* environment, declared twice. Every
+# version below is copied from `.github/workflows/ci.yml` and must be changed in
+# both places at once -- `scripts/docker-matrix.sh --verify-pins` fails the run
+# when the two drift apart, so the duplication is checked rather than trusted.
+#
+# Why a container and not the host: `ansible-core` does not support Windows as a
+# control node, `kubeconform`/`promtool`/`tflint` are shipped as Linux binaries,
+# and two bugs in this repository's own history (`223cae4`, `f050a05`) were only
+# ever visible on Linux. A Windows-local green proves less than nothing about
+# those; a Linux container proves exactly the same class of thing CI does.
+# ---------------------------------------------------------------------------
+
+# `ubuntu-latest` on GitHub-hosted runners is Ubuntu 24.04 LTS. Pinning the
+# minor here rather than following `latest` is deliberate: an image that moves on
+# its own reproduces whatever it feels like, which is the hole D6 exists to
+# close. When GitHub promotes `ubuntu-latest` to the next LTS, this line is the
+# one to change, in its own commit.
+FROM ubuntu:24.04
+
+# Keep `apt-get` from asking about a timezone halfway through the build.
+ENV DEBIAN_FRONTEND=noninteractive
+
+# `curl`, `tar` and `unzip` fetch and unpack the five domains' validators.
+# `git` is needed by the suite itself, not just to get the sources in: copier
+# resolves a template by git reference and `copier update` compares two commits.
+# `ca-certificates` is what makes every `https://` below verifiable.
+# `sudo` is absent on purpose -- this image runs as root, and the CI steps'
+# `sudo install` becomes a plain `install`.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      git \
+      tar \
+      unzip \
+      xz-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# uv, pinned to the version and checksum the workflow pins.
+# ---------------------------------------------------------------------------
+# `astral-sh/setup-uv` is given both `version:` and `checksum:` in CI, and the
+# comment there explains why the checksum is structural rather than
+# belt-and-braces. Here there is no action to delegate to, so the verification
+# is written out: download the exact tarball, compare the digest against the
+# pinned value, and fail the build if it differs. Dropping the comparison would
+# make this image the weakest link in a supply chain the workflow pins twice.
+ARG UV_VERSION=0.12.23
+ARG UV_SHA256=9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/uv.tar.gz \
+      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+ && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/uv.tar.gz -C /tmp \
+ && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv \
+ && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uvx /usr/local/bin/uvx \
+ && rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu \
+ && uv --version
+
+# The three interpreters of the matrix, baked in so that a matrix run does not
+# download an interpreter three times. In CI this is what `setup-uv`'s
+# `python-version:` input does per job; here one image serves all three, and the
+# run script selects one with `uv sync --python`.
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+RUN uv python install 3.11 3.12 3.13 \
+ && uv python list --only-installed
+
+# ---------------------------------------------------------------------------
+# Domain Helm.
+# ---------------------------------------------------------------------------
+# Same versions, same URLs, same `--retry` posture as the workflow: a passing
+# 500 from a CDN must not be readable as a regression of this repository.
+ARG HELM_VERSION=v3.16.3
+ARG KUBECONFORM_VERSION=v0.6.7
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+      | bash -s -- --version "${HELM_VERSION}" \
+ && curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/kubeconform.tar.gz \
+      "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+ && tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform \
+ && install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform \
+ && rm -f /tmp/kubeconform.tar.gz /tmp/kubeconform \
+ && helm version --short \
+ && kubeconform -v
+
+# ---------------------------------------------------------------------------
+# Domain Terraform.
+# ---------------------------------------------------------------------------
+ARG TERRAFORM_VERSION=1.9.8
+ARG TFLINT_VERSION=v0.59.1
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/terraform.zip \
+      "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+ && unzip -qo /tmp/terraform.zip -d /tmp \
+ && install -m 0755 /tmp/terraform /usr/local/bin/terraform \
+ && curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/tflint.zip \
+      "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" \
+ && unzip -qo /tmp/tflint.zip -d /tmp \
+ && install -m 0755 /tmp/tflint /usr/local/bin/tflint \
+ && rm -f /tmp/terraform.zip /tmp/terraform /tmp/tflint.zip /tmp/tflint \
+ && terraform version \
+ && tflint --version
+
+# ---------------------------------------------------------------------------
+# Domain monitoring.
+# ---------------------------------------------------------------------------
+ARG PROMETHEUS_VERSION=3.6.0
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/prometheus.tar.gz \
+      "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" \
+ && tar -xzf /tmp/prometheus.tar.gz -C /tmp --strip-components=1 \
+      "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" \
+ && install -m 0755 /tmp/promtool /usr/local/bin/promtool \
+ && rm -f /tmp/prometheus.tar.gz /tmp/promtool \
+ && promtool --version
+
+# ---------------------------------------------------------------------------
+# Domain pipeline.
+# ---------------------------------------------------------------------------
+# `yamllint` is not here: it is a Python package the workflow installs into the
+# project environment with `uv pip install`, so it belongs to the run script
+# alongside the Ansible tooling, not to the image.
+ARG ACTIONLINT_VERSION=1.7.7
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/actionlint.tar.gz \
+      "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+ && tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint \
+ && install -m 0755 /tmp/actionlint /usr/local/bin/actionlint \
+ && rm -f /tmp/actionlint.tar.gz /tmp/actionlint \
+ && actionlint --version
+
+# The workflow's "Configurer l'identite git" step, for the same reason: copier
+# commits inside a temporary clone when the template is modified, and an
+# unconfigured git refuses to commit. `init.defaultBranch` silences the hint
+# copier's own `git init` would otherwise print into the test output.
+RUN git config --global user.name "forge-ci" \
+ && git config --global user.email "ci@example.invalid" \
+ && git config --global init.defaultBranch main \
+ && git config --global --add safe.directory '*'
+
+# The run script is baked in rather than mounted, so a matrix run needs nothing
+# from the host but the image, a git bundle on stdin and a Python version.
+COPY run-matrix.sh /usr/local/bin/run-matrix.sh
+RUN chmod 0755 /usr/local/bin/run-matrix.sh
+
+ENTRYPOINT ["/usr/local/bin/run-matrix.sh"]

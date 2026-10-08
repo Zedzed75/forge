@@ -64,6 +64,42 @@ output, and golden tests under `tests/golden/` enforce it. If your change
 legitimately alters generated output, update the goldens in the same commit and
 explain in the PR *why* the output changed.
 
+### Running the CI matrix locally, in Docker
+
+CI is the authority because it is the only Linux host where all five domains'
+validators run natively. When CI is unavailable, that authority can be produced
+locally instead — in a Linux container, not on the host:
+
+```bash
+./scripts/docker-matrix.sh                    # HEAD of the current worktree
+./scripts/docker-matrix.sh --ref my-branch    # a named local branch
+./scripts/docker-matrix.sh --python 3.12      # one cell, for a quick look
+./scripts/docker-matrix.sh --verify-pins-only # drift check only, no containers
+```
+
+This runs the same suite on the same three interpreters with the same pinned
+validators and the same `FORGE_REQUIRE_TOOLS=1`, so a missing validator fails
+the run instead of skipping. It needs a Docker daemon with a **Linux** engine
+and refuses to run against a Windows one. The sources travel as a git bundle, so
+the worktree must be clean — the bundle carries commits only, and a result that
+does not correspond to a commit cannot be recorded against a pull request.
+
+The container declares the toolchain a second time
+(`scripts/docker/Dockerfile.ci-matrix` and `scripts/docker/run-matrix.sh`), and
+a second declaration rots. Every run therefore starts by extracting each pinned
+version from those two files and requiring it to appear verbatim in
+`.github/workflows/ci.yml`; a bump on either side stops the run. When you bump a
+validator, bump it in both places in the same commit.
+
+What this is **not**: a `-m "not integration"` run, a single interpreter, a run
+on the Windows host, or a run with validators missing. Two bugs in this
+repository's history (`223cae4`, `f050a05`) were visible only on Linux with the
+real validators present, which is exactly why the weaker forms do not
+substitute. See `D6` in `DECISIONS.md` for when a matrix run of this kind may
+stand in for green checks, and for the `.github/workflows/**` exception — a
+container cannot exercise `uses:` pins, caching, OIDC or trigger behaviour, so a
+change to the workflow itself is never validated this way.
+
 ## Making a change
 
 - **Never commit to `master`.** Branch off it, push the branch, open a pull
