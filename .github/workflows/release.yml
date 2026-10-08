@@ -82,13 +82,39 @@ jobs:
         with:
           version: "0.12.23"
           checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
-          enable-cache: true
+          # `true` / `false` / `auto`, and here it is a security choice rather
+          # than the speed one it is in ci.yml. `false`: this job restores
+          # nothing it did not build itself.
+          #
+          # The reason is the paragraph above about `dist/`. A restorable uv
+          # cache is an input to the build whose output the publish job uploads
+          # under our identity, and an Actions cache entry is writable by
+          # anything that can run a workflow on the default branch. The exposure
+          # is modest -- cache scoping means a fork PR cannot write the branch
+          # scope, so the realistic writer already has push access -- but so is
+          # the cost of declining it: `uv build` and `uvx twine check` resolve
+          # the build-system requirements and nothing else, and releases are
+          # rare. Upstream reached the same conclusion from its side, and
+          # v10.0.0 made `auto` deliberately disable the cache for release, tag
+          # push, `pull_request_target` and `workflow_run`
+          # (astral-sh/setup-uv#984). This workflow triggers on tag push,
+          # squarely in that set.
+          #
+          # `false` and not `auto`, which the pin would now honour. `auto` is
+          # upstream's default, and its meaning already moved under us once: at
+          # the v5.4.2 this step carried until recently it meant only "cache on
+          # GitHub-hosted runners" and would have cached this very tag push.
+          # Writing the posture out rather than inheriting it means the next
+          # major cannot change what the publish path restores without this line
+          # changing with it. Same argument as `prune-cache` in ci.yml.
+          enable-cache: false
           python-version: "3.13"
-          # `pyproject.toml` and not `uv.lock` as in ci.yml, on purpose: this job
-          # never syncs the project environment. It runs `uv build` and
-          # `uvx twine`, whose inputs are the build-system requirements declared
-          # in `pyproject.toml`. The lockfile would be an unrelated key here.
-          cache-dependency-glob: "pyproject.toml"
+          # No `cache-dependency-glob`. It computed the cache key, and there is
+          # no longer a cache to key -- it keyed `pyproject.toml` rather than
+          # `uv.lock` because this job never syncs the project environment, only
+          # the build-system requirements. Re-enabling the cache means restoring
+          # that line and that reasoning together, not finding it already here
+          # doing nothing.
 
       - name: Build the sdist and the wheel
         run: uv build
