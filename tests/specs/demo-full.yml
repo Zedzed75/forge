@@ -1,13 +1,13 @@
 ---
-# Specification de reference du domaine de demonstration.
-# Elle sert de source aux tests golden du coeur : deux environnements, deux
-# widgets, dont un seul « detailed » pour exercer le filtrage de fichier.
+# Reference specification of the demonstration domain.
+# It is the source of the core's golden tests: two environments, two widgets,
+# only one of them "detailed", to exercise file filtering.
 forge_version: 1
 
 service:
   name: boutique
-  description: "Boutique en ligne de demonstration"
-  owner: "Equipe Plateforme"
+  description: "Demonstration online store"
+  owner: "Platform Team"
   owner_email: plateforme@example.net
   labels:
     app.kubernetes.io/part-of: commerce

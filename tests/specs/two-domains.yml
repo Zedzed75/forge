@@ -1,17 +1,17 @@
 ---
-# Premiere specification qui demande les DEUX domaines a la fois. C'est elle qui
-# donne son sens a la promesse du projet : une seule description du service, et
-# deux projets d'infrastructure coherents entre eux.
+# First specification that asks for BOTH domains at once. It is the one that
+# gives the project's promise its meaning: a single description of the service,
+# and two infrastructure projects consistent with each other.
 #
-# Elle est aussi le seul cas ou les controles inter-domaines du coeur ont deux
-# projections a comparer : nom de service, labels, environnements materialises,
-# et les facettes du vocabulaire partage.
+# It is also the only case where the core's inter-domain checks have two
+# projections to compare: service name, labels, materialised environments, and
+# the facets of the shared vocabulary.
 forge_version: 1
 
 service:
   name: boutique
-  description: "Boutique en ligne, deployee sur Kubernetes et administree par Ansible"
-  owner: "Equipe Plateforme"
+  description: "Online store, deployed on Kubernetes and managed by Ansible"
+  owner: "Platform Team"
   owner_email: plateforme@example.net
   labels:
     app.kubernetes.io/part-of: commerce
@@ -23,7 +23,7 @@ service:
       production: true
 
 # ---------------------------------------------------------------------------
-# Les machines : ce qui heberge les dependances hors du cluster.
+# The machines: what hosts the dependencies outside the cluster.
 # ---------------------------------------------------------------------------
 ansible:
   os_family: debian
@@ -31,7 +31,7 @@ ansible:
   ssh_port: 22
   groups:
     - name: dbservers
-      description: "Serveurs de base de donnees, hors cluster"
+      description: "Database servers, outside the cluster"
       roles:
         - common
         - users
@@ -49,7 +49,7 @@ ansible:
           ansible_host: 10.0.2.21
 
 # ---------------------------------------------------------------------------
-# Le chart : ce qui tourne dans le cluster.
+# The chart: what runs inside the cluster.
 # ---------------------------------------------------------------------------
 helm:
   chart_version: 1.0.0

@@ -1,16 +1,16 @@
 # ---------------------------------------------------------------------------
-# Cas de reference du domaine pipeline : GitHub Actions, trois autres domaines.
+# Reference case of the pipeline domain: GitHub Actions, three other domains.
 # ---------------------------------------------------------------------------
-# C'est le cas qui prouve la promesse de la phase 8 : le pipeline engendre un
-# job par domaine demande sans qu'aucun nom de domaine ne figure dans son code.
-# Ansible, Helm et Terraform sont donc tous les trois presents.
+# This is the case that proves phase 8's promise: the pipeline produces one job
+# per requested domain without a single domain name appearing in its own code.
+# Ansible, Helm and Terraform are therefore all three present.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
   name: boutique
-  description: Boutique en ligne, chaine complete
-  owner: Equipe Plateforme
+  description: Online store, full pipeline
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     tier: frontend

@@ -218,12 +218,12 @@ def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
     """`description`, `summary`, and an Ansible task name, in their own files."""
     reference = fp.fingerprint(tree)
 
-    _edit(tree, "forge.yml", "description: Boutique", "description: Online shop")
+    _edit(tree, "forge.yml", "description: Online store", "description: Retail storefront")
     _edit(
         tree,
         "helm/charts/boutique/Chart.yaml",
-        "description: Boutique",
-        "description: Online shop",
+        "description: Online store",
+        "description: Retail storefront",
     )
     _edit(
         tree,
