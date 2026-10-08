@@ -154,9 +154,15 @@ interchangeable:
   of the scope, which cannot translate thousands of lines in the same commit
   that starts scanning them.
 
-The guard reads two signals and is deliberately conservative, so it catches new
-French rather than proving none remains — `tests/french_guard.py` explains both
-signals and the blind spot. Two review tools live in `tests/review/`: given two
+The guard reads three signals — accented characters, two French function words
+on one line, and one French content word in a prose-shaped value such as a
+`description` or an `owner`. It is deliberately conservative, so it catches new
+French rather than proving none remains: `tests/french_guard.py` lists all three
+signals *and* what none of them can see, which is the part to read before
+concluding from an empty `[baseline]` that a tree is clean. ZED-69 is the
+cautionary tale — the first two signals reported zero while eleven test modules
+held 32 French values, because `Equipe Plateforme` has no accent and no function
+word. Two review tools live in `tests/review/`: given two
 revisions, `skeleton.py` proves no condition or exception type changed, and
 `keys.py` proves no spec, section or catalog key was renamed. Run them on a PR
 that rewrites prose across a domain, where a golden diff proves nothing.
