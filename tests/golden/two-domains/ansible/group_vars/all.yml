@@ -32,7 +32,7 @@ project_name: boutique
 
 # Description of the project, reused in the MOTD banner.
 # Allowed values: free-form string, possibly empty.
-project_description: Boutique en ligne, deployee sur Kubernetes et administree par Ansible
+project_description: Online store, deployed on Kubernetes and managed by Ansible
 
 # Role settings specific to this project
 # ------------------------------------------------------------

@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # group_vars/dbservers.yml — variables of the "dbservers" group
 # ---------------------------------------------------------------------------
-# Serveurs de base de donnees, hors cluster
+# Database servers, outside the cluster
 # These values override group_vars/all.yml for this group only,
 # in every environment.
 #

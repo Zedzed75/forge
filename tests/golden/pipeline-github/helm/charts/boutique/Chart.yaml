@@ -14,7 +14,7 @@
 
 apiVersion: v2
 name: boutique
-description: Boutique en ligne, chaine complete
+description: Online store, full pipeline
 
 # "application" designates a deployable chart, as opposed to "library" which
 # only contains reusable helpers and does not install.
@@ -33,5 +33,5 @@ appVersion: 1.0.0
 kubeVersion: ">=1.34.0-0"
 
 maintainers:
-  - name: Equipe Plateforme
+  - name: Platform Team
     email: plateforme@example.net

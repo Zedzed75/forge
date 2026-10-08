@@ -12,6 +12,6 @@
 # Regenerate the project rather than editing this file by hand.
 # ---------------------------------------------------------------------------
 
-# Passerelles exposées
+# Gateways exposed to the outside
 - name: Configure the "gateways" group
   ansible.builtin.import_playbook: gateways.yml

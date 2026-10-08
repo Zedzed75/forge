@@ -1,8 +1,8 @@
 # boutique
 
-Boutique en ligne, deployee sur Kubernetes et administree par Ansible
+Online store, deployed on Kubernetes and managed by Ansible
 
-**Maintainer:** Equipe Plateforme
+**Maintainer:** Platform Team
 
 > This project was generated from `forge.yml`, at the root of the repository. To
 > regenerate it identically: `forge generate --only ansible`.
@@ -140,7 +140,7 @@ The `dev` environment is the one declared as the default in
 
 | Group | Description | Roles applied |
 |---|---|---|
-| `dbservers` | Serveurs de base de donnees, hors cluster | common, users, ssh_hardening, firewall, postgresql |
+| `dbservers` | Database servers, outside the cluster | common, users, ssh_hardening, firewall, postgresql |
 
 | Role | Purpose |
 |---|---|

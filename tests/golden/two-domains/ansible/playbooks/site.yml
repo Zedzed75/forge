@@ -12,6 +12,6 @@
 # Regenerate the project rather than editing this file by hand.
 # ---------------------------------------------------------------------------
 
-# Serveurs de base de donnees, hors cluster
+# Database servers, outside the cluster
 - name: Configure the "dbservers" group
   ansible.builtin.import_playbook: dbservers.yml

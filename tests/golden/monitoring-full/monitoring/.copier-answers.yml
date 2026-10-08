@@ -1154,7 +1154,7 @@ domain:
 forge_version: 1
 plugin: monitoring
 service:
-    description: Boutique en ligne, supervision
+    description: Online store, monitoring
     environments:
     -   domain: dev.example.net
         name: dev
@@ -1165,7 +1165,7 @@ service:
     labels:
         tier: frontend
     name: boutique
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: plateforme@example.net
 template_subdir: src/forge/plugins/monitoring/template
 

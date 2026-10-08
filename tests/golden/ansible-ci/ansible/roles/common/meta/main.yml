@@ -12,7 +12,7 @@
 
 galaxy_info:
   role_name: common
-  author: Equipe Plateforme
+  author: Platform Team
   description: 'System baseline: base packages, time zone, NTP synchronisation, MOTD banner.'
   license: MIT
   min_ansible_version: "2.15"
