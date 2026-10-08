@@ -1,0 +1,47 @@
+# What `tests/test_french_guard.py` tolerates, and why.
+#
+# Read `tests/french_guard.py` for what the two signals are and why. This file
+# is the data.
+#
+# Format: pipe-separated, because template paths contain spaces.
+#   [baseline]  signal | max lines | path | owning issue and note
+#   [allowed]   signal | path | justification
+# Lines starting with `#` and blank lines are ignored. The justification field
+# is mandatory in both sections; `test_french_guard.py` fails without it.
+
+[baseline]
+# Temporary tolerance for French still to be translated, as a line count per
+# file and per signal.
+#
+#   THIS SECTION MUST ONLY EVER SHRINK.
+#
+# It is empty, and that is a measurement rather than a default: on the tree this
+# landed on, `src/forge/**/*.py` and every plugin template hold zero French
+# lines by either signal. ZED-10, ZED-11, ZED-24, ZED-54 and ZED-19 between them
+# finished the job; this file is the first thing in the repository able to say so
+# rather than assert it. The gate is green, so it fails on the next French line
+# instead of on a backlog.
+#
+# A count here is an upper bound: translate lines and the guard tells you to
+# lower the number; reach zero and it tells you to delete the entry. Adding an
+# entry, or raising one, is new French in a tree that is supposed to be English
+# -- it needs an argument on the pull request, not a quiet edit here. If you are
+# reaching for this section to turn a red build green, you almost certainly want
+# to translate the line instead.
+#
+# The mechanism is kept rather than deleted because the scope is expected to
+# widen: ZED-62 has to settle whether `.github/`, `DESIGN.md`, `MIGRATION.md`
+# and `PLAN.md` are English too, and those are thousands of French lines that
+# cannot be translated in the same commit that starts scanning them.
+
+[allowed]
+# Permanent. Each of these is French that has to stay French to do its job, so
+# none of them is work owed to anybody. This section does not have to shrink --
+# but an entry that stops matching anything gets deleted, which
+# `test_every_allowlist_entry_is_still_needed` enforces.
+
+accent | tests/french_guard.py | spells the accented alphabet it detects, and quotes the `—` and `§` that a byte-oriented grep confuses with it
+words | tests/french_guard.py | carries the French word list, and names `aux`/`qui`/`doit`/`pour` while justifying them
+accent | tests/test_french_guard.py | its fixtures are French prose by construction — that is what it asserts on
+words | tests/test_french_guard.py | same: the positive fixtures must contain real French for the assertions to mean anything
+accent | tests/test_plugin_monitoring.py | the `"métrique"` fixture proves a non-ASCII metric name is rejected; translating it would delete the test

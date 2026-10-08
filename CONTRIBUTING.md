@@ -136,6 +136,31 @@ follow `CLAUDE.md`, not the file next to yours. `DESIGN.md` records the
 architectural decisions and the reasoning behind them; read it before proposing
 a structural change.
 
+`tests/test_french_guard.py` enforces that for `src/forge/**/*.py`, for the
+plugin templates and for `tests/**/*.py`, and those are measured clean — so if
+it goes red, the French is yours. Translate the line.
+
+`tests/french_baseline.txt` holds the two escape hatches, and they are not
+interchangeable:
+
+- `[allowed]` is for French that has to stay French to work — a fixture
+  asserting that a non-ASCII name is rejected, say. One justification per
+  entry, permanent, and reviewed as such.
+- `[baseline]` is a per-file line count for French awaiting translation. It
+  ships **empty** and **only ever shrinks**: translating lines fails too, with
+  the number to lower the entry to, so the remaining work stays countable.
+  Adding an entry means landing new French and needs an argument on the PR — it
+  is not the way to turn a red build green. The section exists for a widening
+  of the scope, which cannot translate thousands of lines in the same commit
+  that starts scanning them.
+
+The guard reads two signals and is deliberately conservative, so it catches new
+French rather than proving none remains — `tests/french_guard.py` explains both
+signals and the blind spot. Two review tools live in `tests/review/`: given two
+revisions, `skeleton.py` proves no condition or exception type changed, and
+`keys.py` proves no spec, section or catalog key was renamed. Run them on a PR
+that rewrites prose across a domain, where a golden diff proves nothing.
+
 ## Reporting bugs and requesting features
 
 Use the issue templates under `.github/ISSUE_TEMPLATE/`. For a bug, the single
