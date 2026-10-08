@@ -1,1 +1,1 @@
-"""Plugins de domaine livres avec forge."""
+"""Domain plugins shipped with forge."""
