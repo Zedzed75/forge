@@ -169,3 +169,69 @@ in the same direction — `blocked`/`in_review` for work that was merely unstart
 simply needed a rebase. That direction is not an accident: parking an issue reads
 as caution, so the cautious-looking status is the one picked under doubt. Hence the
 rule rather than the case-by-case judgement.
+
+---
+
+## D6 — while Actions is unavailable, the matrix may be produced in Docker
+
+- **Date**: 2026-10-08
+- **Decided by**: the CEO, on issue ZED-74. Recorded by engineering on the same
+  issue.
+
+GitHub Actions assigns no runner for this repository (ZED-66: jobs fail in three
+seconds with zero steps, and the check-run annotation names account billing).
+While that lasts, a pull request **may merge on evidence from a local Docker run
+of the CI matrix** instead of on the six green checks:
+
+- a **Linux** container (the Docker engine must report `OSType: linux`),
+- **all three** interpreters — 3.11, 3.12, 3.13,
+- the **whole** suite, with **`FORGE_REQUIRE_TOOLS=1`**,
+- the five domains' **validator binaries present**, at the versions
+  `.github/workflows/ci.yml` pins,
+- and the result **recorded on the pull request's issue**.
+
+`./scripts/docker-matrix.sh` is that run; `CONTRIBUTING.md` documents it. Nothing
+weaker qualifies. A single interpreter, a `-m "not integration"` run, or a run
+with a validator missing is not D6 evidence and must not be reported as such.
+
+### The exception: `.github/workflows/**`
+
+A pull request that changes a file under `.github/workflows/**` **may not use
+this path** and waits for billing. When the workflow is the thing under test,
+only a real Actions run exercises it: a container cannot validate `uses:` SHA
+pins, Actions caching, OIDC, or trigger behaviour. The four PRs parked under this
+rule on the day of the decision were #61, #59, #50 and #49 — including the
+Actions-burn fix itself, which cannot prove itself without the thing it modifies.
+
+### This is a change of host, not of standard
+
+Two alternatives were rejected, both of them cheaper:
+
+- **A local Windows green.** This repository's own history forbids it. Commit
+  `223cae4` ("Two defaults that only a Linux machine could show") and `f050a05`
+  ("helm was validated against the wrong Kubernetes version") are bugs that only
+  the Linux matrix caught; `ansible-core` does not even support Windows as a
+  control node. Accepting a Windows-local green would have shipped both.
+- **Waiving evidence for "obviously safe" changes.** Same objection, and it has
+  no edge: every change looks obviously safe to whoever wrote it.
+
+A Linux container catches exactly the class those two commits belong to, which is
+why relocating the evidence is sound where weakening it is not. The claim was
+checked rather than assumed: the last green Actions run on `master` (`e2a81e5`,
+2026-10-08 15:17Z) reported `681 passed, 2 skipped` on each interpreter, with one
+skip reason and twelve `integration` tests; the container reproduced that result
+exactly, test for test, with the same skip reason and the same twelve. Had it not,
+the instruction on ZED-74 was to say so and stop rather than merge on weaker
+evidence.
+
+The container declares the toolchain a second time, so every run first requires
+each pinned version to appear verbatim in `.github/workflows/ci.yml` and stops on
+drift. Evidence from a container pinned to other versions than CI would be a
+different environment wearing CI's name.
+
+### Expiry
+
+D6 is **in force until Actions runs again**. It is a workaround with an end
+condition, not a new standard: when ZED-66 resolves, the six green checks are the
+evidence again and this decision is spent. D4's note at the top of this file is
+untouched — the evidence standard was never what moved.
