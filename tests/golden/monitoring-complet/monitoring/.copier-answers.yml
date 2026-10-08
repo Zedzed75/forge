@@ -1141,13 +1141,13 @@ domain:
         status_label: status
     root_files:
     -   path: .copier-answers.yml
-        purpose: Reponses du gabarit, relues par `forge update`. Ne pas editer.
+        purpose: Template answers, read back by `forge update`. Do not edit.
     -   path: .gitignore
-        purpose: Exclut les donnees du collecteur et les rendus locaux.
+        purpose: Excludes the collector data and the local renderings.
     -   path: Makefile
-        purpose: 'Raccourcis : `make check`, `make test`, `make check ENV=prod`.'
+        purpose: 'Shortcuts: `make check`, `make test`, `make check ENV=prod`.'
     -   path: README.md
-        purpose: 'Ce fichier : ce qui est surveille, et comment.'
+        purpose: 'This file: what is watched, and how.'
     scrape:
         interval: 30s
         metrics_path: /metrics

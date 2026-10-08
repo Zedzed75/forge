@@ -1,1 +1,1 @@
-"""Catalogue du domaine monitoring : alertes et familles de regles."""
+"""Monitoring domain catalogue: alerts and rule families."""

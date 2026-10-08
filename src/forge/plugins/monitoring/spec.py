@@ -1,20 +1,19 @@
-"""Section `monitoring:` de forge.yml.
+"""The `monitoring:` section of forge.yml.
 
-**Domaine autonome.** Il ne lit aucune autre section : ce qu'il surveille, il le
-declare. C'est une decision de conception, pas une limite — un service peut etre
-surveille sans etre deploye par forge, et un domaine qui lirait `helm.components`
-cesserait de fonctionner le jour ou le chart vient d'ailleurs.
+**A self-contained domain.** It reads no other section: what it watches, it
+declares. That is a design decision, not a limit — a service can be watched
+without being deployed by forge, and a domain that read `helm.components` would
+stop working the day the chart comes from elsewhere.
 
-La coherence avec les autres domaines passe par le **vocabulaire des facettes**
-(`namespaces`, `ingress_hosts`), compare par `forge validate` : si le chart
-expose `boutique.example.net` et que la sonde regarde `api.example.net`, forge
-le dit — sans qu'aucune regle « si helm alors monitoring » existe nulle part.
+Coherence with the other domains goes through the **facet vocabulary**
+(`namespaces`, `ingress_hosts`), compared by `forge validate`: if the chart
+exposes `boutique.example.net` and the probe looks at `api.example.net`, forge
+says so — without any "if helm then monitoring" rule existing anywhere.
 
-Ce que ce modele refuse, et pourquoi : un nom de metrique mal forme est refuse
-par promtool de toute facon ; un nom **bien forme mais faux** produit une regle
-valide et definitivement muette. Le modele ne peut pas verifier l'existence
-d'une metrique, mais il peut exiger que celles dont il connait la source ne
-soient pas redefinies au hasard.
+What this model refuses, and why: a malformed metric name is refused by promtool
+anyway; a name that is **well formed but wrong** produces a valid and permanently
+mute rule. The model cannot check that a metric exists, but it can require that
+the ones whose source it knows are not redefined at random.
 """
 
 from __future__ import annotations
@@ -37,23 +36,23 @@ from forge.spec.types import DnsLabel, ForgeModel
 
 
 def _duration(value: str) -> str:
-    return check_pattern(value, DURATION_RE, "une duree Prometheus (30s, 5m, 1h)")
+    return check_pattern(value, DURATION_RE, "a Prometheus duration (30s, 5m, 1h)")
 
 
 def _metric_name(value: str) -> str:
-    return check_pattern(value, METRIC_NAME_RE, "un nom de metrique Prometheus")
+    return check_pattern(value, METRIC_NAME_RE, "a Prometheus metric name")
 
 
 def _label_name(value: str) -> str:
-    return check_pattern(value, LABEL_NAME_RE, "un nom de libelle Prometheus")
+    return check_pattern(value, LABEL_NAME_RE, "a Prometheus label name")
 
 
 def _target(value: str) -> str:
-    return check_pattern(value, TARGET_RE, "une cible de collecte 'hote:port'")
+    return check_pattern(value, TARGET_RE, "a scrape target 'host:port'")
 
 
 def _probe_url(value: str) -> str:
-    return check_pattern(value, PROBE_URL_RE, "une URL http:// ou https://")
+    return check_pattern(value, PROBE_URL_RE, "an http:// or https:// URL")
 
 
 Duration = Annotated[str, AfterValidator(_duration)]
@@ -64,197 +63,197 @@ ProbeUrl = Annotated[str, AfterValidator(_probe_url)]
 
 
 class ScrapeSpec(ForgeModel):
-    """Comment le collecteur interroge le service."""
+    """How the collector queries the service."""
 
-    #: Periode entre deux collectes. Elle borne la finesse de tout ce qui suit :
-    #: une fenetre `rate()` doit couvrir au moins deux collectes.
+    #: Period between two scrapes. It bounds the granularity of everything that
+    #: follows: a `rate()` window has to cover at least two scrapes.
     interval: Duration = "30s"
 
-    #: Delai au-dela duquel une collecte est abandonnee. Toujours inferieur a
-    #: l'intervalle, sans quoi les collectes se chevauchent.
+    #: Delay beyond which a scrape is given up. Always below the interval,
+    #: otherwise the scrapes overlap.
     timeout: Duration = "10s"
 
-    #: Chemin exposant les metriques.
+    #: Path exposing the metrics.
     metrics_path: str = "/metrics"
 
     @model_validator(mode="after")
-    def _timeout_sous_intervalle(self) -> ScrapeSpec:
+    def _timeout_under_interval(self) -> ScrapeSpec:
         if _seconds(self.timeout) > _seconds(self.interval):
             raise ValueError(
-                f"scrape.timeout ({self.timeout}) depasse scrape.interval "
-                f"({self.interval}) : les collectes se chevaucheraient."
+                f"scrape.timeout ({self.timeout}) exceeds scrape.interval "
+                f"({self.interval}): the scrapes would overlap."
             )
         return self
 
 
 def _seconds(duration: str) -> float:
-    """Convertit une duree Prometheus en secondes."""
-    unites = {"ms": 0.001, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "y": 31536000}
-    for suffixe in ("ms", "s", "m", "h", "d", "w", "y"):
-        if duration.endswith(suffixe):
-            return float(duration[: -len(suffixe)]) * unites[suffixe]
-    raise ValueError(duration)  # pragma: no cover - le format est deja valide
+    """Convert a Prometheus duration into seconds."""
+    units = {"ms": 0.001, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "y": 31536000}
+    for suffix in ("ms", "s", "m", "h", "d", "w", "y"):
+        if duration.endswith(suffix):
+            return float(duration[: -len(suffix)]) * units[suffix]
+    raise ValueError(duration)  # pragma: no cover - the format is already valid
 
 
 class MetricNamesSpec(ForgeModel):
-    """Noms des metriques exposees par l'application elle-meme.
+    """Names of the metrics the application itself exposes.
 
-    Elles ne sont pas normalisees : leur nom depend de la bibliotheque cliente.
-    Les metriques d'infrastructure (`up`, `container_*`, `probe_*`) ne figurent
-    pas ici — celles-la ont un nom fixe, et le laisser configurer inviterait a
-    le changer pour un nom qui n'existe pas.
+    They are not standardised: their name depends on the client library. The
+    infrastructure metrics (`up`, `container_*`, `probe_*`) do not appear here —
+    those have a fixed name, and letting it be configured would be an invitation
+    to change it for a name that does not exist.
     """
 
-    #: Compteur de requetes servies, avec un libelle de code de statut.
+    #: Counter of served requests, with a status code label.
     requests_total: MetricName = "http_requests_total"
 
-    #: Histogramme du temps de reponse. **Sans** le suffixe `_bucket` : les
-    #: regles l'ajoutent. Un summary ne convient pas — il n'expose pas de seaux.
+    #: Histogram of the response time. **Without** the `_bucket` suffix: the
+    #: rules add it. A summary will not do — it exposes no buckets.
     request_duration_seconds: MetricName = "http_request_duration_seconds"
 
-    #: Libelle portant le code de statut HTTP. `status`, `code` ou
-    #: `status_code` selon la bibliotheque : se tromper donne une regle valide
-    #: et definitivement muette.
+    #: Label carrying the HTTP status code. `status`, `code` or `status_code`
+    #: depending on the library: getting it wrong gives a valid and permanently
+    #: mute rule.
     status_label: LabelName = "status"
 
 
 class ThresholdsSpec(ForgeModel):
-    """Seuils de declenchement. Toute cle omise garde la valeur du catalogue."""
+    """Firing thresholds. Any omitted key keeps the catalogue value."""
 
-    #: Proportion de reponses en erreur serveur (0.05 = 5 %).
+    #: Proportion of responses in server error (0.05 = 5 %).
     error_rate: float | None = Field(default=None, gt=0, lt=1)
 
-    #: Quantile 95 du temps de reponse, en secondes.
+    #: 95th percentile of the response time, in seconds.
     latency_p95_seconds: float | None = Field(default=None, gt=0)
 
-    #: Proportion de la limite memoire (0.9 = 90 %).
+    #: Proportion of the memory limit (0.9 = 90 %).
     memory_ratio: float | None = Field(default=None, gt=0, le=1)
 
-    #: Consommation CPU d'un pod, en cœurs.
+    #: CPU consumption of a pod, in cores.
     cpu_cores: float | None = Field(default=None, gt=0)
 
-    #: Nombre de redemarrages en une heure au-dela duquel on alerte.
+    #: Number of restarts in one hour beyond which an alert fires.
     restarts_per_hour: int | None = Field(default=None, gt=0)
 
-    #: Jours restants avant expiration du certificat.
+    #: Days left before the certificate expires.
     certificate_days: int | None = Field(default=None, gt=0)
 
     def declared(self) -> dict[str, float | int]:
-        """Seuils reellement renseignes, indexes par nom de champ."""
+        """Thresholds actually filled in, indexed by field name."""
         return {
-            nom: valeur
-            for nom, valeur in self.model_dump().items()
-            if valeur is not None
+            name: value
+            for name, value in self.model_dump().items()
+            if value is not None
         }
 
 
 class MonitoringEnvironmentSpec(ForgeModel):
-    """Ce qui est surveille dans un environnement, et sous quels seuils."""
+    """What is watched in an environment, and under which thresholds."""
 
-    #: Namespace Kubernetes observe. Necessaire aux familles `saturation` et
-    #: `restarts`, qui filtrent les metriques de conteneur dessus.
+    #: Kubernetes namespace observed. Necessary to the `saturation` and
+    #: `restarts` families, which filter the container metrics on it.
     namespace: DnsLabel | None = None
 
-    #: Cibles collectees, sous la forme `hote:port`. Ecrites dans la
-    #: configuration plutot que decouvertes : une cible jamais declaree ne
-    #: produit aucune serie, donc aucune alerte — le silence n'est pas la sante.
+    #: Scraped targets, in the `host:port` form. Written in the configuration
+    #: rather than discovered: a target never declared produces no series, hence
+    #: no alert — silence is not health.
     targets: list[Target] = Field(default_factory=list)
 
-    #: URL sondees de l'exterieur par le blackbox exporter. Seules les URL en
-    #: `https://` permettent de surveiller l'expiration du certificat.
+    #: URLs probed from the outside by the blackbox exporter. Only `https://`
+    #: URLs make it possible to watch the certificate expiry.
     probe_urls: list[ProbeUrl] = Field(default_factory=list)
 
-    #: Seuils propres a cet environnement. La production merite souvent des
-    #: seuils plus serres que le developpement.
+    #: Thresholds specific to this environment. Production often deserves tighter
+    #: thresholds than development.
     thresholds: ThresholdsSpec | None = None
 
-    #: Libelles ajoutes a toutes les series de cet environnement.
+    #: Labels added to every series of this environment.
     labels: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("targets")
     @classmethod
-    def _cibles_uniques(cls, value: list[str]) -> list[str]:
-        require_unique(value, "cibles de collecte")
+    def _unique_targets(cls, value: list[str]) -> list[str]:
+        require_unique(value, "scrape targets")
         return value
 
     @field_validator("probe_urls")
     @classmethod
-    def _sondes_uniques(cls, value: list[str]) -> list[str]:
-        require_unique(value, "URL sondees")
+    def _unique_probes(cls, value: list[str]) -> list[str]:
+        require_unique(value, "probed URLs")
         return value
 
 
 class MonitoringExtras(ForgeModel):
-    """Fichiers annexes du projet genere."""
+    """Extra files of the generated project."""
 
-    #: Makefile de raccourcis (`make check`, `make test`).
+    #: Makefile of shortcuts (`make check`, `make test`).
     makefile: bool = True
 
-    #: Tableau de bord Grafana. Ses panneaux reprennent les expressions des
-    #: familles retenues : ce qu'on alerte est ce qu'on regarde.
+    #: Grafana dashboard. Its panels reuse the expressions of the retained
+    #: families: what is alerted on is what is looked at.
     dashboard: bool = True
 
-    # Les tests unitaires d'alerte ne sont **pas** une option, et c'est
-    # delibere : une regle d'alerte non testee est une regle dont personne ne
-    # sait si elle se declenche, et on ne l'apprend que le jour ou elle aurait
-    # du le faire. Les rendre facultatifs aurait invite au mauvais choix.
+    # The alert unit tests are **not** an option, and that is deliberate: an
+    # untested alerting rule is a rule nobody knows fires or not, and that is only
+    # learnt the day it should have. Making them optional would have been an
+    # invitation to the wrong choice.
 
 
 class MonitoringSpec(ForgeModel):
-    """Section `monitoring:` : sondes, regles d'alerte et leurs tests."""
+    """The `monitoring:` section: probes, alerting rules and their tests."""
 
-    #: Comment le collecteur interroge le service.
+    #: How the collector queries the service.
     scrape: ScrapeSpec = Field(default_factory=ScrapeSpec)
 
-    #: Noms des metriques exposees par l'application.
+    #: Names of the metrics the application exposes.
     metrics: MetricNamesSpec = Field(default_factory=MetricNamesSpec)
 
-    #: Familles de regles retenues. L'ordre d'ecriture n'a pas d'importance :
-    #: le catalogue les remet dans l'ordre canonique.
+    #: Retained rule families. The order they are written in does not matter: the
+    #: catalogue puts them back into canonical order.
     rules: list[RuleFamily] = Field(
         default_factory=lambda: [RuleFamily.AVAILABILITY], min_length=1
     )
 
-    #: Adresse du blackbox exporter, vue par le collecteur.
+    #: Address of the blackbox exporter, as the collector sees it.
     blackbox_address: str = "blackbox-exporter:9115"
 
-    #: Ce qui est surveille, environnement par environnement.
+    #: What is watched, environment by environment.
     environments: dict[str, MonitoringEnvironmentSpec] = Field(default_factory=dict)
 
-    #: Fichiers annexes.
+    #: Extra files.
     extras: MonitoringExtras = Field(default_factory=MonitoringExtras)
 
     @field_validator("rules")
     @classmethod
-    def _familles_uniques(cls, value: list[RuleFamily]) -> list[RuleFamily]:
-        require_unique((famille.value for famille in value), "familles de regles")
+    def _unique_families(cls, value: list[RuleFamily]) -> list[RuleFamily]:
+        require_unique((family.value for family in value), "rule families")
         return value
 
     @model_validator(mode="after")
-    def _familles_connues(self) -> MonitoringSpec:
-        """Garde-fou : le catalogue et l'enumeration doivent rester d'accord."""
-        connues = set(family_names())
-        inconnues = sorted(f.value for f in self.rules if f.value not in connues)
-        if inconnues:  # pragma: no cover - defaut de programmation du plugin
-            raise ValueError(f"familles absentes du catalogue : {', '.join(inconnues)}.")
+    def _known_families(self) -> MonitoringSpec:
+        """Guard rail: the catalogue and the enumeration must stay in agreement."""
+        known = set(family_names())
+        unknown = sorted(f.value for f in self.rules if f.value not in known)
+        if unknown:  # pragma: no cover - a programming defect of the plugin
+            raise ValueError(f"families absent from the catalogue: {', '.join(unknown)}.")
         return self
 
-    # -- lecture ------------------------------------------------------------
+    # -- lookups ------------------------------------------------------------
 
     def overrides(self, environment: str) -> MonitoringEnvironmentSpec:
-        """Ce qui est surveille dans `environment`, vide s'il n'est pas decrit."""
+        """What is watched in `environment`, empty when it is not described."""
         return self.environments.get(environment) or MonitoringEnvironmentSpec()
 
     def uses(self, family: RuleFamily) -> bool:
-        """Indique si la famille est retenue."""
+        """Tell whether the family is retained."""
         return family in self.rules
 
     def family_names(self) -> tuple[str, ...]:
-        """Noms des familles retenues, tels qu'ecrits dans la specification."""
-        return tuple(famille.value for famille in self.rules)
+        """Names of the retained families, as written in the specification."""
+        return tuple(family.value for family in self.rules)
 
     def needs_blackbox(self) -> bool:
-        """Vrai si une famille retenue repose sur une sonde externe."""
+        """True when a retained family relies on an external probe."""
         from forge.plugins.monitoring.catalog.registry import selected
 
-        return any(famille.needs_probe for famille in selected(self.family_names()))
+        return any(family.needs_probe for family in selected(self.family_names()))

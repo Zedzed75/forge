@@ -1,24 +1,24 @@
-"""Commandes de validation du projet de supervision genere.
+"""Validation commands for the generated monitoring project.
 
-Trois verifications, et la troisieme est celle qui compte vraiment :
+Three checks, and the third one is the one that really counts:
 
-1. `promtool check config` — la configuration du collecteur tient debout, et les
-   fichiers de regles qu'elle designe existent et sont valides. Une par
-   environnement : chaque environnement a sa propre configuration.
-2. `promtool check rules` — les regles se relisent : PromQL valide, champs
-   obligatoires presents, annotations qui se rendent.
-3. `promtool test rules` — **les alertes se declenchent reellement**. On donne
-   une serie temporelle synthetique, on evalue a un instant donne, et on verifie
-   que l'alerte apparait avec les bons libelles et les bonnes annotations.
+1. `promtool check config` — the collector configuration holds up, and the rule
+   files it designates exist and are valid. One per environment: each environment
+   has its own configuration.
+2. `promtool check rules` — the rules read back: valid PromQL, mandatory fields
+   present, annotations that render.
+3. `promtool test rules` — **the alerts actually fire**. A synthetic time series
+   is given, evaluated at a given instant, and the alert is checked to appear with
+   the right labels and the right annotations.
 
-La troisieme est la seule qui verifie quelque chose de semantique. Une regle
-peut etre syntaxiquement irreprochable et ne jamais se declencher — un nom de
-metrique qui n'existe pas, un libelle mal orthographie, un seuil du mauvais cote
-de la comparaison. Ni `check config` ni `check rules` ne le voient ; c'est
-precisement le defaut que ce domaine peut produire, et il est silencieux.
+The third is the only one that checks something semantic. A rule can be
+syntactically impeccable and never fire — a metric name that does not exist, a
+misspelt label, a threshold on the wrong side of the comparison. Neither
+`check config` nor `check rules` sees it; it is precisely the defect this domain
+can produce, and it is a silent one.
 
-Aucune de ces commandes ne joint un collecteur : `forge validate` verifie des
-fichiers, jamais une infrastructure en fonctionnement.
+None of these commands reaches a collector: `forge validate` checks files, never a
+running infrastructure.
 """
 
 from __future__ import annotations
@@ -29,29 +29,28 @@ from typing import Any
 from forge.plugins.monitoring import tree
 from forge.plugins_api.types import Command
 
-#: Delai maximal accorde a une commande, en secondes.
+#: Maximum time granted to a command, in seconds.
 TIMEOUT = 120
 
-#: Message d'installation.
+#: Installation message.
 INSTALL_HINT = (
-    "installez promtool, livre avec Prometheus "
-    "(https://prometheus.io/download/). Sous Windows, le pont WSL le cherche "
-    "dans /opt/forge-tools/bin ; un lien symbolique suffit."
+    "install promtool, shipped with Prometheus "
+    "(https://prometheus.io/download/). On Windows, the WSL bridge looks for it "
+    "in /opt/forge-tools/bin; a symbolic link is enough."
 )
 
-#: Variables d'environnement communes. promtool n'en demande aucune : seule la
-#: couleur est desactivee, pour que le rapport reste comparable d'une execution
-#: a l'autre.
+#: Shared environment variables. promtool asks for none: only colour is disabled,
+#: so that the report stays comparable from one run to the next.
 ENVIRONMENT: tuple[tuple[str, str], ...] = (("NO_COLOR", "1"),)
 
 
 def commands(spec: Any, outdir: Path) -> list[Command]:
-    """Commandes validant la supervision generee, dans l'ordre d'execution."""
-    familles = spec.monitoring.family_names()
-    liste: list[Command] = []
+    """Commands validating the generated monitoring, in execution order."""
+    families = spec.monitoring.family_names()
+    commands_list: list[Command] = []
 
     for env in spec.service.environments:
-        liste.append(
+        commands_list.append(
             Command(
                 label=f"promtool check config ({env.name})",
                 tool="promtool",
@@ -63,17 +62,17 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                 requires_linux=True,
             )
         )
-        liste.append(
+        commands_list.append(
             Command(
                 label=f"promtool check rules ({env.name})",
                 tool="promtool",
                 argv=(
                     "check",
                     "rules",
-                    # Les chemins sont enumeres plutot que glisses en glob : les
-                    # commandes sont lancees sans shell, et un `*` non developpe
-                    # ferait echouer promtool sur un fichier introuvable.
-                    *(tree.rule_file(env.name, famille) for famille in familles),
+                    # The paths are enumerated rather than passed as a glob: the
+                    # commands are launched without a shell, and an unexpanded `*`
+                    # would make promtool fail on a file it cannot find.
+                    *(tree.rule_file(env.name, family) for family in families),
                 ),
                 cwd=outdir,
                 timeout=TIMEOUT,
@@ -84,14 +83,14 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
         )
 
     for env in spec.service.environments:
-        liste.append(
+        commands_list.append(
             Command(
                 label=f"promtool test rules ({env.name})",
                 tool="promtool",
                 argv=(
                     "test",
                     "rules",
-                    *(tree.test_file(env.name, famille) for famille in familles),
+                    *(tree.test_file(env.name, family) for family in families),
                 ),
                 cwd=outdir,
                 timeout=TIMEOUT,
@@ -100,4 +99,4 @@ def commands(spec: Any, outdir: Path) -> list[Command]:
                 requires_linux=True,
             )
         )
-    return liste
+    return commands_list

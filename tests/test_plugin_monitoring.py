@@ -8,9 +8,6 @@ should have been.
 Hence the shape of this module: beyond the usual checks, it verifies the
 **consistency between a rule and its unit test**, and lets `promtool test rules`
 settle it for good under the `integration` marker.
-
-The plugin's own messages are still French: the domains are translated with
-their templates, so the assertions below quote them as they are.
 """
 
 from __future__ import annotations
@@ -85,7 +82,7 @@ def test_a_malformed_duration_is_refused(duration):
 
 def test_a_timeout_greater_than_the_interval_is_refused():
     """Otherwise the scrapes overlap, and the collector falls behind."""
-    with pytest.raises(ValueError, match="chevaucheraient"):
+    with pytest.raises(ValueError, match="scrapes would overlap"):
         MonitoringSpec(scrape={"interval": "10s", "timeout": "30s"})
 
 
@@ -107,7 +104,7 @@ def test_a_probe_url_without_a_scheme_is_refused():
 
 
 def test_a_repeated_family_is_refused():
-    with pytest.raises(ValueError, match="familles de regles"):
+    with pytest.raises(ValueError, match="rule families"):
         MonitoringSpec(rules=["availability", "availability"])
 
 
@@ -136,8 +133,8 @@ def test_an_environment_without_a_target_is_reported():
     """The gravest defect of the domain, and the most silent."""
     given = _base(rules=["availability"])
     warnings = _issues(given, "warning")
-    assert any("aucune cible" in message and "'dev'" in message for message in warnings)
-    assert any("aucune alerte ne pourra se declencher" in message for message in warnings)
+    assert any("no scrape target" in message and "'dev'" in message for message in warnings)
+    assert any("no alert will be able to fire" in message for message in warnings)
 
 
 def test_the_probe_family_without_a_probed_url_is_reported():
@@ -146,7 +143,7 @@ def test_the_probe_family_without_a_probed_url_is_reported():
         environments={"dev": {"targets": ["a:1"]}, "prod": {"targets": ["b:1"]}},
     )
     warnings = _issues(given, "warning")
-    assert any("ne se declencheront jamais" in message for message in warnings)
+    assert any("will never fire" in message for message in warnings)
 
 
 def test_a_probed_url_in_clear_text_is_reported():
@@ -189,7 +186,7 @@ def test_a_threshold_without_its_family_is_reported():
     )
     warnings = _issues(given, "warning")
     assert any("thresholds.error_rate" in message for message in warnings)
-    assert any("ne sera pas appliquee" in message for message in warnings)
+    assert any("will not be applied" in message for message in warnings)
 
 
 def test_the_reference_specification_raises_no_error():
