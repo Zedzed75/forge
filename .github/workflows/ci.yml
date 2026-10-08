@@ -1,11 +1,11 @@
 # ---------------------------------------------------------------------------
-# Integration continue de forge.
+# Continuous integration for forge.
 # ---------------------------------------------------------------------------
-# La CI fait autorite : c'est le seul environnement Linux ou tous les outils de
-# validation des domaines peuvent tourner nativement (decision DESIGN.md §8 Q7).
-# Chaque domaine livre installe ici ses validateurs. Sans eux, les tests
-# marques `integration` s'ignorent en silence : une suite verte ne voudrait
-# alors plus dire que le projet genere est valide.
+# CI is authoritative: it is the only Linux environment where every domain's
+# validation tools can run natively (decision DESIGN.md §8 Q7). Every
+# delivered domain installs its validators here. Without them, the tests
+# marked `integration` skip silently, and a green suite would no longer mean
+# that the generated project is valid.
 # ---------------------------------------------------------------------------
 name: CI
 
@@ -36,16 +36,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      # copier commit dans un clone temporaire quand le gabarit est modifie :
-      # sans identite git, cette etape echoue.
-      - name: Configurer l'identite git
+      # copier commits inside a temporary clone when the template has been
+      # modified: with no git identity, that step fails.
+      - name: Configure the git identity
         run: |
           git config --global user.name "forge-ci"
           git config --global user.email "ci@example.invalid"
           git config --global init.defaultBranch main
 
-      # `python-version` est passe a uv : sans lui, la matrice ne serait qu'un
-      # decor et les trois jobs tourneraient sur le meme interpreteur.
+      # `python-version` is handed to uv: without it the matrix would be mere
+      # decoration and the three jobs would run on the same interpreter.
       #
       # The action is pinned to a SHA; `version:` pins what the action
       # *installs*. Without it the input defaults to "the version in
@@ -111,35 +111,34 @@ jobs:
       # forge, so they have no business in the lockfile of a published library.
       # They survive the later `uv run` calls because an implicit sync is
       # inexact and does not prune what the lockfile does not name.
-      - name: Installer forge
+      - name: Install forge
         run: uv sync --locked --extra dev
 
-      # La CI fait autorite pour la validation Ansible : ansible-core ne
-      # supporte pas Windows comme noeud de controle, le poste de
-      # developpement passe donc par WSL (decision DESIGN.md §8 Q7).
+      # CI is authoritative for Ansible validation: ansible-core does not
+      # support Windows as a control node, so the development machine goes
+      # through WSL (decision DESIGN.md §8 Q7).
       #
-      # Tout est epingle, comme les binaires des quatre autres domaines. Ces
-      # deux installations etaient les seules a ne pas l'etre, et ca s'est vu :
-      # community.postgresql 5.0.0 a supprime postgresql_set, et la CI est
-      # passee au rouge sur un commit vieux de trois semaines, sans qu'une
-      # ligne du depot ait bouge. Un validateur qui change tout seul ne valide
-      # plus rien de reproductible.
+      # Everything is pinned, like the binaries of the four other domains.
+      # These two installs were the only ones that were not, and it showed:
+      # community.postgresql 5.0.0 removed postgresql_set, and CI went red on a
+      # three-week-old commit without a single line of the repository moving. A
+      # validator that changes on its own validates nothing reproducible.
       #
-      # Procedure de montee de version : changer le numero ici, lancer la CI,
-      # corriger les gabarits si le validateur a durci ses regles, et livrer la
-      # montee dans son propre commit. Jamais en passager d'un autre.
+      # Version bump procedure: change the number here, run CI, fix the
+      # templates if the validator has tightened its rules, and ship the bump
+      # in its own commit. Never as a passenger of another change.
       #
-      # ansible-core reste en 2.19 : c'est la derniere branche qui accepte
-      # Python 3.11 comme noeud de controle, et 3.11 est dans la matrice.
-      # Passer en 2.20 ou 2.21 demande d'abord de retirer 3.11 de la matrice.
-      - name: Installer les outils du domaine Ansible
+      # ansible-core stays on 2.19: it is the last branch that accepts Python
+      # 3.11 as a control node, and 3.11 is in the matrix. Moving to 2.20 or
+      # 2.21 requires dropping 3.11 from the matrix first.
+      - name: Install the Ansible domain tooling
         run: |
           uv pip install 'ansible-core==2.19.13' 'ansible-lint==26.9.0'
-          # galaxy.ansible.com coupe parfois la connexion quand les trois jobs
-          # de la matrice l'interrogent en meme temps (« Connection reset by
-          # peer »). L'etape tombait alors en rouge sans qu'une ligne du depot
-          # soit en cause, ce qui est exactement le bruit que cette CI doit
-          # cesser de produire. Trois essais, puis on echoue pour de bon.
+          # galaxy.ansible.com sometimes drops the connection when the three
+          # matrix jobs query it at the same time ("Connection reset by
+          # peer"). The step then went red with no line of the repository at
+          # fault, which is exactly the noise this CI has to stop producing.
+          # Three attempts, then we fail for good.
           ok=
           for attempt in 1 2 3; do
             if uv run ansible-galaxy collection install \
@@ -150,28 +149,28 @@ jobs:
               ok=1
               break
             fi
-            echo "ansible-galaxy a echoue (essai ${attempt}/3), nouvel essai dans 15 s"
+            echo "ansible-galaxy failed (attempt ${attempt}/3), retrying in 15 s"
             sleep 15
           done
           test -n "$ok"
           echo "FORGE_ANSIBLE_COLLECTIONS=$HOME/.ansible/collections" >> "$GITHUB_ENV"
-          # Les quatre autres domaines affichent la version de leurs outils :
-          # le journal dit alors contre quoi le projet genere a ete valide.
+          # The four other domains print the version of their tools: the log
+          # then says what the generated project was validated against.
           uv run ansible --version
           uv run ansible-lint --version
           uv run ansible-galaxy collection list -p "$HOME/.ansible/collections"
 
-      # Domaine Helm. Les tests marques `integration` s'ignorent si ces outils
-      # manquent : les installer est ce qui rend la CI concluante.
+      # Helm domain. The tests marked `integration` skip if these tools are
+      # missing: installing them is what makes CI conclusive.
       #
-      # Tous les `curl` de ce workflow portent `--retry 5 --retry-delay 5
-      # --retry-all-errors`. Sans ces options, un 500 passager de
-      # github.com/releases ou un reset de connexion suffit a faire tomber un
-      # job en rouge alors que rien du depot n'est en cause, et on ne distingue
-      # plus une vraie regression d'un hoquet de reseau. `--retry-all-errors`
-      # est necessaire : `--retry` seul ignore les erreurs HTTP non transitoires
-      # renvoyees a tort par les CDN.
-      - name: Installer les outils du domaine Helm
+      # Every `curl` in this workflow carries `--retry 5 --retry-delay 5
+      # --retry-all-errors`. Without those options, a transient 500 from
+      # github.com/releases or a connection reset is enough to turn a job red
+      # with nothing in the repository at fault, and a real regression can no
+      # longer be told apart from a network hiccup. `--retry-all-errors` is
+      # necessary: `--retry` alone ignores the non-transient HTTP errors CDNs
+      # return by mistake.
+      - name: Install the Helm domain tooling
         run: |
           curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3             | bash -s -- --version v3.16.3
           curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/kubeconform.tar.gz             https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
@@ -180,9 +179,9 @@ jobs:
           helm version --short
           kubeconform -v
 
-      # Domaine Terraform. `terraform init` telecharge les providers : le cache
-      # evite de recommencer pour chaque racine d'environnement.
-      - name: Installer les outils du domaine Terraform
+      # Terraform domain. `terraform init` downloads the providers: the cache
+      # avoids starting over for every environment root.
+      - name: Install the Terraform domain tooling
         run: |
           curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/terraform.zip             https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
           unzip -qo /tmp/terraform.zip -d /tmp
@@ -195,20 +194,20 @@ jobs:
           terraform version
           tflint --version
 
-      # Domaine monitoring. `promtool test rules` est le seul validateur du
-      # projet qui verifie quelque chose de semantique : que les alertes se
-      # declenchent reellement.
-      - name: Installer les outils du domaine monitoring
+      # monitoring domain. `promtool test rules` is the project's only
+      # validator that checks something semantic: that the alerts actually
+      # fire.
+      - name: Install the monitoring domain tooling
         run: |
           curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/prometheus.tar.gz             https://github.com/prometheus/prometheus/releases/download/v3.6.0/prometheus-3.6.0.linux-amd64.tar.gz
           tar -xzf /tmp/prometheus.tar.gz -C /tmp --strip-components=1             prometheus-3.6.0.linux-amd64/promtool
           sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
           promtool --version
 
-      # Domaine pipeline. actionlint connait le schema des workflows GitHub ;
-      # cote GitLab il n'existe pas d'equivalent hors ligne, et yamllint ne
-      # verifie que la forme du document. La dissymetrie est documentee.
-      - name: Installer les outils du domaine pipeline
+      # pipeline domain. actionlint knows the schema of GitHub workflows; on
+      # the GitLab side no offline equivalent exists, and yamllint only checks
+      # the shape of the document. The asymmetry is documented.
+      - name: Install the pipeline domain tooling
         run: |
           curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/actionlint.tar.gz             https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
@@ -217,9 +216,9 @@ jobs:
           actionlint --version
           yamllint --version
 
-      # `uv run` garantit que le pytest execute est celui de l'environnement
-      # qu'on vient de creer, et non un pytest quelconque du PATH.
-      - name: Verifier l'interpreteur
+      # `uv run` guarantees that the pytest being executed is the one from the
+      # environment we have just created, and not some pytest off the PATH.
+      - name: Check the interpreter
         run: uv run python -c "import sys; print(sys.version)"
 
       # FORGE_REQUIRE_TOOLS=1 turns "validator binary missing" from a skip into a
@@ -244,7 +243,7 @@ jobs:
       # workflow whose whole job is to assert what actually ran. `-rs` lists the
       # skips by reason, so "no validator was missing" is readable instead of
       # inferred.
-      - name: Lancer la suite de tests
+      - name: Run the test suite
         env:
           FORGE_REQUIRE_TOOLS: "1"
         run: uv run pytest -rs

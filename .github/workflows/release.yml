@@ -1,36 +1,36 @@
 # ---------------------------------------------------------------------------
-# Publication de la distribution `iac-forge` sur PyPI.
+# Publishing the `iac-forge` distribution to PyPI.
 # ---------------------------------------------------------------------------
-# Trois noms sont en jeu et un seul est celui de ce fichier : la distribution
-# publiee est `iac-forge`, la commande installee reste `forge`, le paquet
-# importe reste `forge`. Voir le commentaire de `name` dans pyproject.toml.
+# Three names are in play and only one of them is this file's: the published
+# distribution is `iac-forge`, the installed command stays `forge`, the
+# imported package stays `forge`. See the comment on `name` in pyproject.toml.
 #
-# Authentification : **Trusted Publishing (OIDC)**, jamais un jeton. GitHub
-# signe un jeton OIDC de courte duree pour ce depot, ce workflow et cet
-# environnement ; PyPI le verifie contre le publieur declare cote PyPI. Aucun
-# secret PyPI n'existe donc dans ce depot, et il n'y a rien a faire fuiter le
-# jour ou il devient public. `permissions: id-token: write` est ce qui autorise
-# la demande de ce jeton — sans cette ligne l'envoi echoue en 403, et c'est la
-# seule permission que les jobs de publication ajoutent.
+# Authentication: **Trusted Publishing (OIDC)**, never a token. GitHub signs a
+# short-lived OIDC token for this repository, this workflow and this
+# environment; PyPI verifies it against the publisher declared on the PyPI
+# side. No PyPI secret therefore exists in this repository, and there is
+# nothing to leak the day it goes public. `permissions: id-token: write` is
+# what authorises requesting that token — without that line the upload fails
+# with a 403, and it is the only permission the publish jobs add.
 #
-# Deux declencheurs, volontairement dissymetriques :
+# Two triggers, deliberately asymmetric:
 #
-#   push d'un tag v*    -> PyPI reel. Irreversible : une version publiee sur
-#                          PyPI ne peut pas etre remplacee, meme apres
-#                          suppression. D'ou le garde-fou tag/version ci-dessous.
-#   workflow_dispatch   -> TestPyPI seulement. C'est la repetition generale,
-#                          lancee a la main autant de fois qu'on veut.
+#   push of a v* tag    -> the real PyPI. Irreversible: a version published on
+#                          PyPI cannot be replaced, not even after deletion.
+#                          Hence the tag/version guard below.
+#   workflow_dispatch   -> TestPyPI only. This is the dress rehearsal, run by
+#                          hand as many times as we like.
 #
-# TestPyPI n'est jamais declenche par un tag : le second tag de la meme version
-# serait refuse en « File already exists » et ferait echouer une publication
-# reelle pour une raison qui n'a rien a voir avec elle.
+# TestPyPI is never triggered by a tag: the second tag of the same version
+# would be refused with "File already exists" and would fail a real
+# publication for a reason that has nothing to do with it.
 #
-# Prerequis cote PyPI (a faire une fois, par un humain, dans l'interface) :
-# declarer un « pending publisher » sur pypi.org ET sur test.pypi.org pour le
-# projet `iac-forge`, avec owner `Zedzed75`, repository `forge`, workflow
-# `release.yml`, et le nom d'environnement correspondant (`pypi` / `testpypi`).
-# Le premier envoi reussi cree le projet, reserve le nom, et convertit le
-# publieur en attente en publieur etabli.
+# Prerequisite on the PyPI side (done once, by a human, in the web UI):
+# declare a "pending publisher" on pypi.org AND on test.pypi.org for the
+# `iac-forge` project, with owner `Zedzed75`, repository `forge`, workflow
+# `release.yml`, and the matching environment name (`pypi` / `testpypi`). The
+# first successful upload creates the project, reserves the name, and converts
+# the pending publisher into an established one.
 # ---------------------------------------------------------------------------
 name: Release
 
@@ -39,16 +39,16 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-# Lecture seule par defaut. Les deux jobs de publication elargissent
-# eux-memes, et seulement pour `id-token`.
+# Read-only by default. The two publish jobs widen that themselves, and only
+# for `id-token`.
 permissions:
   contents: read
 
 jobs:
   # -------------------------------------------------------------------------
-  # Construction unique. Les deux cibles publient EXACTEMENT les memes
-  # fichiers : si TestPyPI reconstruisait de son cote, la repetition generale
-  # ne vaudrait rien — on aurait valide un artefact que PyPI ne recevra pas.
+  # A single build. The two targets publish EXACTLY the same files: if
+  # TestPyPI rebuilt on its own side, the dress rehearsal would be worthless —
+  # we would have validated an artifact PyPI is never going to receive.
   # -------------------------------------------------------------------------
   build:
     runs-on: ubuntu-latest
@@ -65,8 +65,8 @@ jobs:
       # entry point for that. Dependabot rewrites both the SHA and the comment
       # (.github/dependabot.yml).
       #
-      # `fetch-depth: 0` pour disposer des tags : le garde-fou ci-dessous a
-      # besoin du tag, et hatchling lit la version dans le fichier source.
+      # `fetch-depth: 0` so the tags are available: the guard below needs the
+      # tag, and hatchling reads the version from the source file.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -90,29 +90,30 @@ jobs:
           # in `pyproject.toml`. The lockfile would be an unrelated key here.
           cache-dependency-glob: "pyproject.toml"
 
-      - name: Construire la sdist et la wheel
+      - name: Build the sdist and the wheel
         run: uv build
 
-      # `twine check --strict` et non `twine check` : sans `--strict`, une
-      # description longue mal formee n'est qu'un avertissement, et on ne
-      # l'apprend qu'en voyant la page PyPI afficher du Markdown brut. En
-      # strict, c'est une erreur ici, avant l'envoi.
-      - name: Verifier les metadonnees
+      # `twine check --strict` and not `twine check`: without `--strict`, a
+      # malformed long description is only a warning, and you only find out by
+      # seeing the PyPI page render raw Markdown. In strict mode it is an
+      # error here, before the upload.
+      - name: Check the metadata
         run: uvx twine check --strict dist/*
 
-      # Le depot a deja vu la version diverger de son tag : `forge --version`
-      # annoncait 0.1.0 sur un depot tague v1.1.0. Sur PyPI la meme erreur est
-      # definitive, puisqu'on ne republie pas une version. On compare donc le
-      # tag pousse au nom de fichier produit, et on refuse avant l'envoi.
-      - name: Verifier que le tag correspond a la version construite
+      # The repository has already seen the version diverge from its tag:
+      # `forge --version` announced 0.1.0 on a repository tagged v1.1.0. On
+      # PyPI the same mistake is final, since a version is never republished.
+      # So we compare the pushed tag against the produced file name, and
+      # refuse before the upload.
+      - name: Check that the tag matches the built version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tag="${GITHUB_REF_NAME#v}"
           built=$(ls dist/*.tar.gz | sed -E 's|.*/iac_forge-(.+)\.tar\.gz|\1|')
-          echo "tag=${tag} version construite=${built}"
+          echo "tag=${tag} built version=${built}"
           if [ "$tag" != "$built" ]; then
-            echo "::error::le tag ${GITHUB_REF_NAME} ne correspond pas a la version construite ${built}" \
-                 "— corrigez src/forge/__init__.py ou le tag, puis retaguez."
+            echo "::error::tag ${GITHUB_REF_NAME} does not match the built version ${built}" \
+                 "— fix src/forge/__init__.py or the tag, then re-tag."
             exit 1
           fi
 
@@ -122,9 +123,9 @@ jobs:
           path: dist/
 
   # -------------------------------------------------------------------------
-  # Repetition generale. Le job ne publie sur TestPyPI que sur declenchement
-  # manuel ; c'est lui qui prouve la chaine OIDC de bout en bout avant qu'on
-  # touche a PyPI reel.
+  # Dress rehearsal. The job only publishes to TestPyPI on a manual trigger;
+  # it is the one that proves the OIDC chain end to end before we touch the
+  # real PyPI.
   # -------------------------------------------------------------------------
   testpypi:
     if: github.event_name == 'workflow_dispatch'
@@ -134,7 +135,7 @@ jobs:
       name: testpypi
       url: https://test.pypi.org/p/iac-forge
     permissions:
-      # Seule permission ajoutee : demander le jeton OIDC de courte duree.
+      # The only permission added: requesting the short-lived OIDC token.
       id-token: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -142,19 +143,19 @@ jobs:
           name: distributions
           path: dist/
 
-      - name: Publier sur TestPyPI
+      - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
-          # Une repetition generale se relance. Sans `skip-existing`, le second
-          # essai sur une version deja envoyee tombe en rouge sans qu'il y ait
-          # quoi que ce soit a corriger.
+          # A dress rehearsal gets run again. Without `skip-existing`, the
+          # second attempt on an already-uploaded version goes red with
+          # nothing whatsoever to fix.
           skip-existing: true
 
   # -------------------------------------------------------------------------
-  # PyPI reel. Tag uniquement, et derriere un environnement GitHub : c'est la
-  # ou l'on accroche une regle de revue obligatoire si le board en veut une,
-  # et c'est le nom que le publieur declare cote PyPI epingle.
+  # The real PyPI. Tag only, and behind a GitHub environment: that is where a
+  # mandatory review rule gets hooked on if the board wants one, and it is the
+  # name the publisher declared on the PyPI side pins.
   # -------------------------------------------------------------------------
   pypi:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -171,8 +172,9 @@ jobs:
           name: distributions
           path: dist/
 
-      # Pas de `skip-existing` ici, a l'inverse de TestPyPI : sur PyPI, « cette
-      # version existe deja » veut dire qu'on republie par erreur, et on veut
-      # le savoir en rouge plutot que voir le job passer sans rien envoyer.
-      - name: Publier sur PyPI
+      # No `skip-existing` here, unlike TestPyPI: on PyPI, "this version
+      # already exists" means we are republishing by mistake, and we want to
+      # know it in red rather than watch the job pass without uploading
+      # anything.
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
