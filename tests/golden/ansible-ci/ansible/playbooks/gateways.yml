@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # playbooks/gateways.yml — configuration of the "gateways" group
 # ---------------------------------------------------------------------------
-# Passerelles exposées
+# Gateways exposed to the outside
 # Targeted run:
 #   ansible-playbook -i inventories/<env> playbooks/gateways.yml
 # Partial run by tag:

@@ -16,8 +16,8 @@
 forge_version: 1
 service:
   name: boutique
-  description: Boutique en ligne, deployee sur Kubernetes et administree par Ansible
-  owner: Equipe Plateforme
+  description: Online store, deployed on Kubernetes and managed by Ansible
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     app.kubernetes.io/part-of: commerce
@@ -33,7 +33,7 @@ ansible:
   ssh_port: 22
   groups:
     - name: dbservers
-      description: Serveurs de base de donnees, hors cluster
+      description: Database servers, outside the cluster
       roles:
         - common
         - users

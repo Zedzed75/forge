@@ -1,8 +1,8 @@
 # passerelle
 
-Passerelle applicative
+Application gateway
 
-**Maintainer:** Equipe Plateforme
+**Maintainer:** Platform Team
 
 > This project was generated from `forge.yml`, at the root of the repository. To
 > regenerate it identically: `forge generate --only ansible`.
@@ -94,7 +94,7 @@ The `prod` environment is the one declared as the default in
 
 | Group | Description | Roles applied |
 |---|---|---|
-| `gateways` | Passerelles exposées | common, ssh_hardening |
+| `gateways` | Gateways exposed to the outside | common, ssh_hardening |
 
 | Role | Purpose |
 |---|---|

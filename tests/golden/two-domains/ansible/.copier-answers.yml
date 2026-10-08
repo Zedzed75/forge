@@ -9,7 +9,7 @@
 _commit: <commit>
 _src_path: <src>
 domain:
-    author: Equipe Plateforme
+    author: Platform Team
     become: true
     collection_users:
         ansible.posix:
@@ -45,7 +45,7 @@ domain:
         group_vars:
             dbservers: []
         groups:
-        -   description: Serveurs de base de donnees, hors cluster
+        -   description: Database servers, outside the cluster
             hosts:
             -   ansible_host: 10.0.1.21
                 ansible_port: null
@@ -62,7 +62,7 @@ domain:
             - postgresql
             roles:
             - &id001
-                author: Equipe Plateforme
+                author: Platform Team
                 collections:
                 -   name: community.general
                     version: '>=13.4.0,<14.0.0'
@@ -118,7 +118,7 @@ domain:
                 - common
                 - base
             - &id002
-                author: Equipe Plateforme
+                author: Platform Team
                 collections:
                 -   name: ansible.posix
                     version: '>=2.2.2,<3.0.0'
@@ -161,7 +161,7 @@ domain:
                 - users
                 - security
             - &id003
-                author: Equipe Plateforme
+                author: Platform Team
                 collections: []
                 example_group: dbservers
                 handlers:
@@ -221,7 +221,7 @@ domain:
                 - security
                 - hardening
             - &id004
-                author: Equipe Plateforme
+                author: Platform Team
                 collections:
                 -   name: ansible.posix
                     version: '>=2.2.2,<3.0.0'
@@ -290,7 +290,7 @@ domain:
                 - firewall
                 - security
             - &id005
-                author: Equipe Plateforme
+                author: Platform Team
                 collections:
                 -   name: community.postgresql
                     version: '>=3.13.0,<6.0.0'
@@ -377,7 +377,7 @@ domain:
         group_vars:
             dbservers: []
         groups:
-        -   description: Serveurs de base de donnees, hors cluster
+        -   description: Database servers, outside the cluster
             hosts:
             -   ansible_host: 10.0.2.21
                 ansible_port: null
@@ -416,7 +416,7 @@ domain:
             name: vault_example_secret
             placeholder: CHANGE-ME
     groups:
-    -   description: Serveurs de base de donnees, hors cluster
+    -   description: Database servers, outside the cluster
         name: dbservers
         role_names:
         - common
@@ -663,7 +663,7 @@ domain:
 forge_version: 1
 plugin: ansible
 service:
-    description: Boutique en ligne, deployee sur Kubernetes et administree par Ansible
+    description: Online store, deployed on Kubernetes and managed by Ansible
     environments:
     -   domain: null
         name: dev
@@ -675,7 +675,7 @@ service:
         app.kubernetes.io/part-of: commerce
         tier: frontend
     name: boutique
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: plateforme@example.net
 template_subdir: src/forge/plugins/ansible/template
 

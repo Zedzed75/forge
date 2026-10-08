@@ -25,7 +25,7 @@ domain:
 forge_version: 1
 plugin: demo
 service:
-    description: Boutique en ligne de demonstration
+    description: Demonstration online store
     environments:
     -   domain: dev.example.net
         name: dev
@@ -37,7 +37,7 @@ service:
         app.kubernetes.io/part-of: commerce
         tier: frontend
     name: boutique
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: plateforme@example.net
 template_subdir: src/forge/plugins/demo/template
 

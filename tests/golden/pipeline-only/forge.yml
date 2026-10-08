@@ -15,8 +15,8 @@
 forge_version: 1
 service:
   name: passerelle
-  description: Passerelle applicative, chaine d'integration seule
-  owner: Equipe Plateforme
+  description: Application gateway, pipeline only
+  owner: Platform Team
   owner_email: plateforme@example.net
   environments:
     - name: prod

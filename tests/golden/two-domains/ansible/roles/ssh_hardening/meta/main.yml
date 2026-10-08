@@ -12,7 +12,7 @@
 
 galaxy_info:
   role_name: ssh_hardening
-  author: Equipe Plateforme
+  author: Platform Team
   description: 'OpenSSH hardening: root login, password authentication, limits.'
   license: MIT
   min_ansible_version: "2.15"
