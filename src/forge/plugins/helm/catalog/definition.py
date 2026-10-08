@@ -1,16 +1,16 @@
-"""Vocabulaire du catalogue de composants Helm.
+"""Vocabulary of the Helm component catalogue.
 
-Le pendant de `plugins/ansible/catalog/definition.py` : le domaine Ansible
-catalogue des **roles**, le domaine Helm catalogue des **familles de
-ressources** Kubernetes.
+The counterpart of `plugins/ansible/catalog/definition.py`: the Ansible domain
+catalogues **roles**, the Helm domain catalogues Kubernetes **resource
+families**.
 
-Une famille dit ce qu'elle produit (kind, apiVersion), a quelle condition elle
-s'applique, quelles cles de `values.yaml` elle expose, et — c'est le point qui
-compte — **ce qui casse si on l'ecrit mal**. Ces pieges ne sont pas de la
-documentation d'agrement : `kubeconform -strict` refuse un `pathType` absent,
-l'API refuse un `roleRef` modifie, et un `policyTypes: [Egress]` sans regle
-coupe le DNS. Les consigner ici, une fois, evite de les redecouvrir a chaque
-gabarit.
+A family states what it produces (kind, apiVersion), on what condition it
+applies, which `values.yaml` keys it exposes, and — this is the part that
+matters — **what breaks when it is written wrong**. Those traps are not
+decorative documentation: `kubeconform -strict` refuses a missing `pathType`,
+the API refuses a modified `roleRef`, and a `policyTypes: [Egress]` with no rule
+cuts DNS off. Recording them here, once, avoids rediscovering them in every
+template.
 """
 
 from __future__ import annotations
@@ -18,75 +18,74 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-#: Comment forge sait qu'une famille s'applique a un composant.
+#: How forge knows that a family applies to a component.
 #:
-#: * `kind`  — le composant *est* de ce type (`kind: statefulset`) ;
-#: * `addon` — le composant *porte* cet addon (`addons: [ingress]`) ;
-#: * `derive`— forge le decide seul (le test de connexion vise le premier
-#:   composant expose).
+#: * `kind`  — the component *is* of that type (`kind: statefulset`);
+#: * `addon` — the component *carries* that addon (`addons: [ingress]`);
+#: * `derive`— forge decides on its own (the connection test targets the first
+#:   exposed component).
 Selection = Literal["kind", "addon", "derive"]
 
 
 @dataclass(frozen=True)
 class ValueKey:
-    """Une cle de `values.yaml` exposee a l'utilisateur.
+    """A `values.yaml` key exposed to the user.
 
-    Chaque cle generee doit porter un commentaire disant a quoi elle sert et
-    quelles valeurs elle admet : c'est une regle dure du projet.
+    Every generated key must carry a comment saying what it is for and which
+    values it accepts: that is a hard rule of the project.
     """
 
-    #: Chemin de la cle sous le bloc du composant (`ingress.pathType`).
+    #: Path of the key under the component block (`ingress.pathType`).
     name: str
 
-    #: Valeur par defaut, ecrite telle quelle dans le YAML genere.
+    #: Default value, written as-is into the generated YAML.
     default: str
 
-    #: A quoi la cle sert, en une phrase.
+    #: What the key is for, in one sentence.
     description: str
 
-    #: Valeurs admises, quand elles sont contraintes.
+    #: Accepted values, when they are constrained.
     allowed: str = ""
 
 
 @dataclass(frozen=True)
 class ComponentFamily:
-    """Une famille de ressources Kubernetes generable pour un composant."""
+    """A family of Kubernetes resources generatable for a component."""
 
-    #: Identifiant employe dans forge.yml et dans `domain.component_slots`.
+    #: Identifier used in forge.yml and in `domain.component_slots`.
     name: str
 
-    #: Kind Kubernetes produit — jamais invente (regle dure de CLAUDE.md).
+    #: Kubernetes kind produced — never invented (hard rule of CLAUDE.md).
     kind: str
 
-    #: apiVersion du kind, pour la fenetre de versions visee par le projet.
+    #: apiVersion of the kind, for the version window the project targets.
     api_version: str
 
-    #: Resume d'une ligne, affiche par `forge catalog helm`.
+    #: One-line summary, displayed by `forge catalog helm`.
     summary: str
 
-    #: Comment forge sait que la famille s'applique.
+    #: How forge knows the family applies.
     selection: Selection
 
-    #: Description longue, affichee par `forge catalog helm <famille>`.
+    #: Long description, displayed by `forge catalog helm <family>`.
     details: str = ""
 
-    #: Cles de `values.yaml` exposees par la famille.
+    #: `values.yaml` keys exposed by the family.
     values: tuple[ValueKey, ...] = ()
 
-    #: Familles dont celle-ci depend pour avoir du sens.
+    #: Families this one depends on to make sense.
     requires: tuple[str, ...] = ()
 
-    #: Pieges qui font echouer `kubeconform -strict`, `helm lint`, ou
-    #: l'application reelle du manifeste. Un par entree, formule comme une
-    #: contrainte a respecter.
+    #: Traps that make `kubeconform -strict`, `helm lint`, or the actual apply
+    #: of the manifest fail. One per entry, phrased as a constraint to respect.
     traps: tuple[str, ...] = field(default_factory=tuple)
 
     def option_descriptions(self) -> dict[str, str]:
-        """Cles de values et leur description, pour `forge catalog`."""
+        """Values keys and their description, for `forge catalog`."""
         return {
             key.name: (
-                f"{key.description} (defaut : {key.default}"
-                + (f" ; valeurs : {key.allowed}" if key.allowed else "")
+                f"{key.description} (default: {key.default}"
+                + (f"; values: {key.allowed}" if key.allowed else "")
                 + ")"
             )
             for key in self.values

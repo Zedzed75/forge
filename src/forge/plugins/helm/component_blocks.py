@@ -1,15 +1,14 @@
-"""Sous-modeles des ressources adjointes a un composant.
+"""Sub-models of the resources attached to a component.
 
-Separe de `components.py` pour tenir la limite de 600 lignes du projet, et
-parce que la coupure a un sens : ici vivent les blocs qui decrivent une
-**ressource annexe** — ce que forge genere *autour* de la charge de travail —
-tandis que `components.py` decrit la charge de travail elle-meme et l'assemble.
+Split out of `components.py` to keep within the project's 600-line limit, and
+because the cut means something: here live the blocks describing an **ancillary
+resource** — what forge generates *around* the workload — whereas
+`components.py` describes the workload itself and assembles it.
 
-Chaque bloc est toujours present dans le modele, meme quand l'addon
-correspondant n'est pas selectionne : `values.yaml` expose ainsi un bloc
-commente complet pour chaque fonctionnalite, ce qui est la convention Helm
-attendue. C'est la liste `addons` du composant qui decide des fichiers
-reellement generes.
+Every block is always present in the model, even when the matching addon is not
+selected: `values.yaml` thus exposes a complete commented block for each
+feature, which is the expected Helm convention. It is the component's `addons`
+list that decides which files are actually generated.
 """
 
 from __future__ import annotations
@@ -29,98 +28,97 @@ from forge.plugins.helm.names import (
 )
 from forge.spec.types import DnsLabel, ForgeModel, Subdomain
 
-#: Modes d'injection admis pour un ConfigMap ou un Secret : variables
-#: d'environnement via `envFrom`, ou fichier monte dans le conteneur.
+#: Injection modes accepted for a ConfigMap or a Secret: environment variables
+#: through `envFrom`, or a file mounted inside the container.
 MOUNT_MODES = ("env", "file")
 
-#: Politiques de concurrence admises par un CronJob Kubernetes.
+#: Concurrency policies accepted by a Kubernetes CronJob.
 CONCURRENCY_POLICIES = ("Allow", "Forbid", "Replace")
 
-#: Politiques de redemarrage admises par le pod d'un CronJob.
+#: Restart policies accepted by the pod of a CronJob.
 RESTART_POLICIES = ("OnFailure", "Never")
 
 
 class IngressSpec(ForgeModel):
-    """Exposition HTTP par un Ingress.
+    """HTTP exposure through an Ingress.
 
-    L'hote n'est pas stocke ici : il est derive par environnement par
-    `derive.py`, et reste surchargeable dans `values-<env>.yaml`.
+    The host is not stored here: it is derived per environment by `derive.py`,
+    and stays overridable in `values-<env>.yaml`.
     """
 
-    #: Ingress controller cible : nginx | traefik.
+    #: Target ingress controller: nginx | traefik.
     controller: IngressController = IngressController.NGINX
 
-    #: Domaine de base employe quand l'environnement n'a pas son propre
-    #: `service.environments[].domain` (arbitrage H1 : le domaine du coeur
-    #: l'emporte quand il est renseigne).
+    #: Base domain used when the environment has no `service.environments[]
+    #: .domain` of its own (arbitration H1: the core domain wins when it is set).
     base_domain: Subdomain = "example.com"
 
-    #: Chemin HTTP servi par cette regle d'Ingress.
+    #: HTTP path served by this Ingress rule.
     path: HttpPath = "/"
 
-    #: Type de correspondance du chemin : Prefix | Exact | ImplementationSpecific.
+    #: How the path is matched: Prefix | Exact | ImplementationSpecific.
     path_type: str = "Prefix"
 
-    #: Emet un certificat TLS pour l'hote via cert-manager.
+    #: Issues a TLS certificate for the host through cert-manager.
     tls: bool = True
 
-    #: Nom du ClusterIssuer cert-manager employe pour emettre le certificat.
+    #: Name of the cert-manager ClusterIssuer used to issue the certificate.
     issuer: str = "letsencrypt-prod"
 
-    #: Surcharge de `ingressClassName` ; absent = derive du `controller`.
+    #: Override of `ingressClassName`; absent = derived from the `controller`.
     class_name: str | None = None
 
-    #: Annotations posees sur l'Ingress.
+    #: Annotations placed on the Ingress.
     annotations: dict[str, str] = Field(default_factory=dict)
 
 
 class PersistenceSpec(ForgeModel):
-    """Volume persistant attache a la charge de travail."""
+    """Persistent volume attached to the workload."""
 
-    #: Genere un PersistentVolumeClaim ; force a vrai pour un StatefulSet.
+    #: Generates a PersistentVolumeClaim; forced to true for a StatefulSet.
     enabled: bool = False
 
-    #: StorageClass demandee ; chaine vide = classe par defaut du cluster.
+    #: StorageClass requested; an empty string = the cluster default class.
     storage_class: str = ""
 
-    #: Taille demandee au volume (`10Gi`).
+    #: Size requested for the volume (`10Gi`).
     size: Quantity = "10Gi"
 
-    #: Mode d'acces : ReadWriteOnce | ReadOnlyMany | ReadWriteMany |
+    #: Access mode: ReadWriteOnce | ReadOnlyMany | ReadWriteMany |
     #: ReadWriteOncePod.
     access_mode: AccessMode = AccessMode.RWO
 
-    #: Chemin absolu de montage du volume dans le conteneur.
+    #: Absolute mount path of the volume inside the container.
     mount_path: AbsolutePath = "/data"
 
 
 class HpaSpec(ForgeModel):
-    """Autoscaling horizontal base sur l'utilisation CPU, et memoire en option."""
+    """Horizontal autoscaling based on CPU usage, and optionally on memory."""
 
-    #: Plancher de replicas (1-100).
+    #: Replica floor (1-100).
     min_replicas: int = Field(default=2, ge=1, le=100)
 
-    #: Plafond de replicas (1-100), au moins egal a `min_replicas`.
+    #: Replica ceiling (1-100), at least equal to `min_replicas`.
     max_replicas: int = Field(default=5, ge=1, le=100)
 
-    #: Cible d'utilisation CPU en pourcentage (1-100).
+    #: Target CPU usage as a percentage (1-100).
     target_cpu: Percentage = 80
 
-    #: Cible d'utilisation memoire en pourcentage ; absente = non surveillee.
+    #: Target memory usage as a percentage; absent = not watched.
     target_memory: Percentage | None = None
 
     @model_validator(mode="after")
     def _check_bounds(self) -> HpaSpec:
         if self.min_replicas > self.max_replicas:
-            raise ValueError("hpa.min_replicas ne peut pas depasser hpa.max_replicas")
+            raise ValueError("hpa.min_replicas cannot exceed hpa.max_replicas")
         return self
 
 
 class PdbSpec(ForgeModel):
-    """Budget d'interruption volontaire."""
+    """Voluntary disruption budget."""
 
-    #: Nombre minimal de pods disponibles : entier positif ou pourcentage
-    #: sous forme de chaine (`"50%"`).
+    #: Minimum number of available pods: a positive integer, or a percentage as
+    #: a string (`"50%"`).
     min_available: int | str = 1
 
     @model_validator(mode="after")
@@ -130,138 +128,137 @@ class PdbSpec(ForgeModel):
             value.endswith("%") and value[:-1].isdigit()
         ):
             raise ValueError(
-                'pdb.min_available doit etre un entier ou un pourcentage du type "50%"'
+                'pdb.min_available must be an integer or a percentage like "50%"'
             )
         if isinstance(value, int) and value < 0:
-            raise ValueError("pdb.min_available ne peut pas etre negatif")
+            raise ValueError("pdb.min_available cannot be negative")
         return self
 
 
 class NetworkPolicySpec(ForgeModel):
-    """Restriction du trafic reseau entrant et sortant."""
+    """Restriction of the ingress and egress network traffic."""
 
-    #: Autorise le trafic entrant venant du namespace du composant.
+    #: Allows incoming traffic coming from the component namespace.
     allow_from_same_namespace: bool = True
 
-    #: Namespaces supplementaires autorises en entree (labels DNS).
+    #: Additional namespaces allowed as a source (DNS labels).
     allow_from_namespaces: list[DnsLabel] = Field(default_factory=list)
 
-    #: La resolution DNS doit rester autorisee, sinon le pod ne joint plus rien.
+    #: DNS resolution must stay allowed, otherwise the pod reaches nothing.
     allow_dns: bool = True
 
-    #: Autorise tout le trafic sortant ; faux restreint la sortie au DNS.
+    #: Allows all outgoing traffic; false restricts egress to DNS.
     allow_egress_all: bool = False
 
 
 class RbacSpec(ForgeModel):
-    """Droits du ServiceAccount du composant, dans son namespace.
+    """Rights of the component ServiceAccount, within its namespace.
 
-    Genere avec l'addon `serviceaccount` : un Role n'a de sens qu'avec un
-    sujet. Aucune ressource de portee cluster n'est produite — ClusterRole et
-    ClusterRoleBinding sont hors perimetre, et les inventer casserait la regle
-    « ne jamais inventer un kind ».
+    Generated together with the `serviceaccount` addon: a Role only makes sense
+    with a subject. No cluster-scoped resource is produced — ClusterRole and
+    ClusterRoleBinding are out of scope, and inventing them would break the
+    "never invent a kind" rule.
     """
 
-    #: Cree un Role et son RoleBinding lies au ServiceAccount du composant.
-    #: `roleRef` etant immuable, changer le Role vise fait echouer un upgrade.
+    #: Creates a Role and its RoleBinding bound to the component ServiceAccount.
+    #: `roleRef` being immutable, changing the Role it points at fails an upgrade.
     create: bool = False
 
-    #: Regles du Role, au format PolicyRule de Kubernetes. Une liste vide ne
-    #: produit ni Role ni RoleBinding : un Role sans regle est valide au schema,
-    #: mais inutile et trompeur.
+    #: Rules of the Role, in the Kubernetes PolicyRule format. An empty list
+    #: produces neither Role nor RoleBinding: a Role with no rule is
+    #: schema-valid, but useless and misleading.
     rules: list[dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("rules")
     @classmethod
-    def _regles_completes(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Chaque regle doit porter apiGroups, resources et verbs, non vides.
+    def _complete_rules(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Every rule must carry apiGroups, resources and verbs, all non-empty.
 
-        L'API refuse une regle incomplete, mais `kubeconform` la laisse passer :
-        le controle appartient donc au modele.
+        The API refuses an incomplete rule, but `kubeconform` lets it through:
+        the check therefore belongs to the model.
         """
-        for index, regle in enumerate(value):
-            manquants = [cle for cle in ("apiGroups", "resources", "verbs") if cle not in regle]
-            if manquants:
+        for index, rule in enumerate(value):
+            missing = [key for key in ("apiGroups", "resources", "verbs") if key not in rule]
+            if missing:
                 raise ValueError(
-                    f"Regle RBAC n°{index + 1} incomplete : {', '.join(manquants)} "
-                    "manquant(s). Pour les ressources du groupe core, apiGroups "
-                    'vaut [""].'
+                    f"RBAC rule #{index + 1} is incomplete: {', '.join(missing)} "
+                    'missing. For the resources of the core group, apiGroups is [""].'
                 )
-            if not regle["verbs"] or not regle["resources"]:
+            if not rule["verbs"] or not rule["resources"]:
                 raise ValueError(
-                    f"Regle RBAC n°{index + 1} : `resources` et `verbs` ne peuvent "
-                    "pas etre vides."
+                    f"RBAC rule #{index + 1}: `resources` and `verbs` cannot be empty."
                 )
         return value
 
 
 class ConfigSpec(ForgeModel):
-    """Configuration non sensible, exposee par un ConfigMap."""
+    """Non-sensitive configuration, exposed through a ConfigMap."""
 
-    #: Cles de configuration attendues (MAJUSCULES_ET_SOULIGNES).
+    #: Expected configuration keys (UPPERCASE_WITH_UNDERSCORES).
     keys: list[EnvKey] = Field(default_factory=lambda: ["LOG_LEVEL", "APP_ENV"])
 
-    #: Injection des cles dans le conteneur : `env` (envFrom) ou `file` (monte).
+    #: Injection of the keys into the container: `env` (envFrom) or `file`
+    #: (mounted).
     mount_as: str = "env"
 
     @model_validator(mode="after")
     def _check_mount_as(self) -> ConfigSpec:
         if self.mount_as not in MOUNT_MODES:
-            raise ValueError('config.mount_as doit valoir "env" ou "file"')
+            raise ValueError('config.mount_as must be "env" or "file"')
         return self
 
 
 class ComponentSecretSpec(ForgeModel):
-    """Cles de secret attendues par le composant.
+    """Secret keys expected by the component.
 
-    Seules les cles sont decrites : aucune valeur n'est jamais stockee dans la
-    specification ni dans les fichiers generes.
+    Only the keys are described: no value is ever stored in the specification
+    nor in the generated files.
     """
 
-    #: Cles de secret attendues (MAJUSCULES_ET_SOULIGNES).
+    #: Expected secret keys (UPPERCASE_WITH_UNDERSCORES).
     keys: list[EnvKey] = Field(default_factory=lambda: ["API_KEY"])
 
-    #: Injection des cles dans le conteneur : `env` (envFrom) ou `file` (monte).
+    #: Injection of the keys into the container: `env` (envFrom) or `file`
+    #: (mounted).
     mount_as: str = "env"
 
     @model_validator(mode="after")
     def _check_mount_as(self) -> ComponentSecretSpec:
         if self.mount_as not in MOUNT_MODES:
-            raise ValueError('secret.mount_as doit valoir "env" ou "file"')
+            raise ValueError('secret.mount_as must be "env" or "file"')
         return self
 
 
 class CronSpec(ForgeModel):
-    """Parametres propres a un CronJob."""
+    """Parameters specific to a CronJob."""
 
-    #: Planification cron a cinq champs (`0 3 * * *`).
+    #: Five-field cron schedule (`0 3 * * *`).
     schedule: CronSchedule = "0 3 * * *"
 
-    #: Concurrence de deux executions : Allow | Forbid | Replace.
+    #: Concurrency of two runs: Allow | Forbid | Replace.
     concurrency_policy: str = "Forbid"
 
-    #: Redemarrage du pod : OnFailure | Never.
+    #: Pod restart: OnFailure | Never.
     restart_policy: str = "OnFailure"
 
-    #: Nombre d'executions reussies conservees dans l'historique (>= 0).
+    #: Number of successful runs kept in the history (>= 0).
     successful_jobs_history_limit: int = Field(default=3, ge=0)
 
-    #: Nombre d'executions echouees conservees dans l'historique (>= 0).
+    #: Number of failed runs kept in the history (>= 0).
     failed_jobs_history_limit: int = Field(default=1, ge=0)
 
-    #: Nombre de reprises avant d'abandonner une execution (>= 0).
+    #: Number of retries before giving a run up (>= 0).
     backoff_limit: int = Field(default=3, ge=0)
 
-    #: Retard tolere avant de considerer une execution manquee ; absent = aucune
-    #: limite.
+    #: Delay tolerated before considering a run missed; absent = no limit.
     starting_deadline_seconds: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _check_policies(self) -> CronSpec:
         if self.concurrency_policy not in CONCURRENCY_POLICIES:
             raise ValueError(
-                "cron.concurrency_policy doit valoir Allow, Forbid ou Replace"
+                "cron.concurrency_policy must be Allow, Forbid or Replace"
             )
         if self.restart_policy not in RESTART_POLICIES:
-            raise ValueError("cron.restart_policy doit valoir OnFailure ou Never")
+            raise ValueError("cron.restart_policy must be OnFailure or Never")
         return self

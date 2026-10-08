@@ -1,21 +1,21 @@
-"""Derivation par environnement : namespaces, profils, hotes, surcharges.
+"""Per-environment derivation: namespaces, profiles, hosts, overrides.
 
-Partie **variable** du dict `domain`, separee de :mod:`forge.plugins.helm.derive`
-qui n'en calcule que la partie statique. C'est ici que vit ce que le legacy
-faisait dans `ProjectSpec._derive_namespaces`, `_derive_environment_defaults` et
-`_hostname` — trois validateurs qui ecrivaient dans `__dict__` pour contourner
-`validate_assignment=True`. Ce mode n'est pas reintroduit (arbitrage H11) : la
-spec reste immuable apres validation, et la derivation produit directement des
-dicts.
+The **variable** part of the `domain` dict, split from
+:mod:`forge.plugins.helm.derive` which only computes its static part. This is
+where what the legacy tool did in `ProjectSpec._derive_namespaces`,
+`_derive_environment_defaults` and `_hostname` lives — three validators that wrote
+into `__dict__` to work around `validate_assignment=True`. That mode is not
+reintroduced (arbitration H11): the spec stays immutable after validation, and the
+derivation produces dicts directly.
 
-Ce qui rend un `forge.yml` minimal equivalent a un `forge.yml` complet tient en
-une phrase : **une entree de surcharge est creee pour chaque composant de chaque
-environnement**, meme absente de la specification, et le profil de
-l'environnement y renseigne toute valeur laissee vide. Les gabarits n'ont donc
-jamais a se demander si une surcharge existe.
+What makes a minimal `forge.yml` equivalent to a complete one fits in one
+sentence: **an override entry is created for every component of every
+environment**, even when absent from the specification, and the environment
+profile fills in every value left empty there. The templates therefore never have
+to wonder whether an override exists.
 
-Les valeurs restent a `None` la ou le legacy les laissait a `None` : les
-gabarits de values testent `is not none` pour n'ecrire que des ecarts reels.
+Values stay at `None` exactly where the legacy tool left them at `None`: the
+values templates test `is not none` so as to write real divergences only.
 """
 
 from __future__ import annotations
@@ -32,18 +32,17 @@ from forge.plugins.helm.profiles import EnvironmentProfile, profile_for
 
 
 def namespace(helm: Any, service_name: str, env_name: str, override: Any) -> str:
-    """Namespace de deploiement d'un environnement.
+    """Deployment namespace of an environment.
 
-    Portage de `ProjectSpec._derive_namespaces` : un namespace explicite gagne
-    toujours ; sinon `single` donne `<service>`, `per_env` donne
-    `<service>-<env>`, et `custom` ne derive rien du tout — c'est le principe
-    meme de cette strategie.
+    Port of `ProjectSpec._derive_namespaces`: an explicit namespace always wins;
+    otherwise `single` gives `<service>`, `per_env` gives `<service>-<env>`, and
+    `custom` derives nothing at all — that is the very principle of that strategy.
 
-    Le modele refuse deja un namespace manquant pour un environnement **present**
-    dans `helm.environments` ; ce qui reste ici est le cas d'un environnement
-    qui n'y figure pas du tout, que seul le controle croise voit venir
-    (`answers.cross_check`). L'erreur est levee plutot que devinee : un chart
-    deploye dans un namespace invente serait pire qu'un echec de generation.
+    The model already refuses a missing namespace for an environment **present**
+    in `helm.environments`; what remains here is the case of an environment that
+    does not appear there at all, which only the cross-check sees coming
+    (`answers.cross_check`). The error is raised rather than guessed: a chart
+    deployed into an invented namespace would be worse than a generation failure.
     """
     if override.namespace is not None:
         return override.namespace
@@ -52,26 +51,26 @@ def namespace(helm: Any, service_name: str, env_name: str, override: Any) -> str
     if helm.namespace_strategy is NamespaceStrategy.PER_ENV:
         return f"{service_name}-{env_name}"
     raise ValueError(
-        f"environnement '{env_name}' : la strategie de namespace \"custom\" exige "
-        f"un namespace explicite dans helm.environments.{env_name}.namespace"
+        f"environment '{env_name}': the \"custom\" namespace strategy requires an "
+        f"explicit namespace in helm.environments.{env_name}.namespace"
     )
 
 
 # ---------------------------------------------------------------------------
-# Hote d'Ingress
+# Ingress host
 # ---------------------------------------------------------------------------
 
 
 def host_prefix(helm: Any, service_name: str, component_name: str) -> str:
-    """Prefixe d'hote d'un composant expose.
+    """Host prefix of an exposed component.
 
-    Portage de `ProjectSpec._hostname` : le **premier** composant expose, dans
-    l'ordre de `components`, porte le nom du service seul ; les suivants sont
-    prefixes de leur propre nom, afin que deux composants exposes ne se
-    disputent pas le meme hote.
+    Port of `ProjectSpec._hostname`: the **first** exposed component, in the order
+    of `components`, carries the service name alone; the following ones are
+    prefixed with their own name, so that two exposed components do not fight over
+    the same host.
     """
-    exposes = helm.exposed_components()
-    if exposes and exposes[0] == component_name:
+    exposed = helm.exposed_components()
+    if exposed and exposed[0] == component_name:
         return service_name
     return f"{component_name}-{service_name}"
 
@@ -83,29 +82,29 @@ def ingress_host(
     env: Any,
     profile: EnvironmentProfile,
 ) -> str:
-    """Hote d'Ingress d'un composant pour un environnement (arbitrages H1, H2).
+    """Ingress host of a component for an environment (arbitrations H1, H2).
 
-    `service.environments[].domain` **l'emporte** quand il est renseigne :
-    l'hote devient `<prefixe>.<domaine-de-l-env>`, **sans** reinserer le nom de
-    l'environnement, puisque le domaine le porte deja. Sinon, repli litteral sur
-    le comportement legacy :
-    `<prefixe>[.<env> si profile.host_includes_env].<ingress.base_domain>`.
+    `service.environments[].domain` **wins** when it is set: the host becomes
+    `<prefix>.<env-domain>`, **without** reinserting the environment name, since
+    the domain already carries it. Otherwise, a literal fallback on the legacy
+    behaviour: `<prefix>[.<env> when profile.host_includes_env].<ingress.base_domain>`.
 
-    `host_includes_env` vient du profil **resolu** (H2), donc de
-    `production: true` s'il est present, du nom de l'environnement sinon.
+    `host_includes_env` comes from the **resolved** profile (H2), hence from
+    `production: true` when it is present, and from the environment name
+    otherwise.
     """
-    prefixe = host_prefix(helm, service_name, component.name)
+    prefix = host_prefix(helm, service_name, component.name)
     if env.domain:
-        return f"{prefixe}.{env.domain}"
-    parties = [prefixe]
+        return f"{prefix}.{env.domain}"
+    parts = [prefix]
     if profile.host_includes_env:
-        parties.append(env.name)
-    parties.append(component.ingress.base_domain)
-    return ".".join(parties)
+        parts.append(env.name)
+    parts.append(component.ingress.base_domain)
+    return ".".join(parts)
 
 
 # ---------------------------------------------------------------------------
-# Surcharges par composant
+# Per-component overrides
 # ---------------------------------------------------------------------------
 
 
@@ -117,23 +116,22 @@ def component_override(
     profile: EnvironmentProfile,
     override: Any,
 ) -> dict[str, Any]:
-    """Ecarts d'un composant pour un environnement, profil applique.
+    """Divergences of a component for an environment, profile applied.
 
-    Portage de `ProjectSpec._derive_environment_defaults`, condition par
-    condition. Une valeur reste a `None` exactement la ou le legacy la laissait
-    a `None` :
+    Port of `ProjectSpec._derive_environment_defaults`, condition by condition. A
+    value stays at `None` exactly where the legacy tool left it at `None`:
 
-    * `replicas` : le profil ne renseigne que les **charges de travail** ; un
-      CronJob n'a pas de replicas, la cle reste nulle ;
-    * `hpa_enabled` / `pdb_enabled` : nuls si le composant ne porte pas l'addon
-      correspondant, faute de quoi les values annonceraient un autoscaling
-      qu'aucune ressource n'implemente ;
-    * `ingress_host` : nul si le composant n'est pas expose ;
-    * `resources` : nulles quand le multiplicateur du profil vaut 1 — il n'y a
-      alors aucun ecart a ecrire dans `values-<env>.yaml` ;
-    * `image_tag` : jamais derive. Il ne vaut que ce que la specification
-      contient ; la strategie de tag du projet vit dans `domain.image.strategy`,
-      et c'est le gabarit de values qui en tire les consequences.
+    * `replicas`: the profile only fills in the **workloads**; a CronJob has no
+      replicas, so the key stays null;
+    * `hpa_enabled` / `pdb_enabled`: null when the component does not carry the
+      matching addon, otherwise the values would announce an autoscaling no
+      resource implements;
+    * `ingress_host`: null when the component is not exposed;
+    * `resources`: null when the profile multiplier is 1 — there is then no
+      divergence to write into `values-<env>.yaml`;
+    * `image_tag`: never derived. It is worth only what the specification
+      contains; the project's tag strategy lives in `domain.image.strategy`, and
+      it is the values template that draws the consequences.
     """
     replicas = override.replicas
     if replicas is None and component.is_workload:
@@ -147,36 +145,37 @@ def component_override(
     if pdb_enabled is None and component.has(AddonKind.PDB):
         pdb_enabled = profile.pdb_enabled
 
-    hote = override.ingress_host
-    if hote is None and component.has(AddonKind.INGRESS):
-        hote = ingress_host(helm, service_name, component, env, profile)
+    host = override.ingress_host
+    if host is None and component.has(AddonKind.INGRESS):
+        host = ingress_host(helm, service_name, component, env, profile)
 
-    ressources = override.resources
-    if ressources is None and profile.resource_multiplier != 1:
-        ressources = component.resources.scaled(profile.resource_multiplier)
+    scaled_resources = override.resources
+    if scaled_resources is None and profile.resource_multiplier != 1:
+        scaled_resources = component.resources.scaled(profile.resource_multiplier)
 
     return {
         "name": component.name,
         "replicas": replicas,
         "hpa_enabled": hpa_enabled,
         "pdb_enabled": pdb_enabled,
-        "ingress_host": hote,
-        "resources": None if ressources is None else resources_context(ressources),
+        "ingress_host": host,
+        "resources": (
+            None if scaled_resources is None else resources_context(scaled_resources)
+        ),
         "image_tag": override.image_tag,
     }
 
 
 # ---------------------------------------------------------------------------
-# Environnements
+# Environments
 # ---------------------------------------------------------------------------
 
 
 def profile_context(profile: EnvironmentProfile) -> dict[str, Any]:
-    """Profil resolu d'un environnement, sous forme JSON-serialisable.
+    """Resolved profile of an environment, in JSON-serialisable form.
 
-    Expose tel quel pour que les gabarits puissent documenter *pourquoi* une
-    valeur vaut ce qu'elle vaut (« profil prod : 3 repliques ») sans reimplementer
-    la reconnaissance par le nom.
+    Exposed as-is so that the templates can document *why* a value is what it is
+    ("prod profile: 3 replicas") without reimplementing recognition by name.
     """
     return {
         "replicas": profile.replicas,
@@ -189,60 +188,59 @@ def profile_context(profile: EnvironmentProfile) -> dict[str, Any]:
 
 
 def environments(spec: Any) -> list[dict[str, Any]]:
-    """Un environnement par entree de `service.environments`, dans son ordre.
+    """One environment per `service.environments` entry, in its order.
 
-    L'ordre de promotion (dev -> staging -> prod) est celui du bloc partage : le
-    dict `helm.environments` ne porte plus que des surcharges (arbitrage H4).
+    The promotion order (dev -> staging -> prod) is that of the shared block: the
+    `helm.environments` dict carries overrides only (arbitration H4).
 
-    `components` est un dict **cle par nom de composant**, dans l'ordre de
-    `helm.components` : c'est la forme que lisaient les gabarits legacy
-    (`env.components[component.name]`). Une entree existe pour chaque composant,
-    meme absente de la specification.
+    `components` is a dict **keyed by component name**, in the order of
+    `helm.components`: that is the shape the legacy templates read
+    (`env.components[component.name]`). An entry exists for every component, even
+    when absent from the specification.
     """
     helm = spec.helm
     service_name = spec.service.name
-    resultat: list[dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
 
     for env in spec.service.environments:
-        surcharges = helm.overrides(env.name)
-        profil = profile_for(env.name, production=env.production)
-        par_composant: dict[str, dict[str, Any]] = {}
-        for composant in helm.components:
-            propre = surcharges.components.get(composant.name)
-            par_composant[composant.name] = component_override(
+        overrides = helm.overrides(env.name)
+        profile = profile_for(env.name, production=env.production)
+        by_component: dict[str, dict[str, Any]] = {}
+        for component in helm.components:
+            own = overrides.components.get(component.name)
+            by_component[component.name] = component_override(
                 helm,
                 service_name,
-                composant,
+                component,
                 env,
-                profil,
-                propre if propre is not None else _EMPTY_OVERRIDE,
+                profile,
+                own if own is not None else _EMPTY_OVERRIDE,
             )
-        resultat.append(
+        result.append(
             {
                 "name": env.name,
-                "namespace": namespace(helm, service_name, env.name, surcharges),
+                "namespace": namespace(helm, service_name, env.name, overrides),
                 "domain": env.domain or "",
                 "production": env.production,
-                "log_level": surcharges.log_level or profil.log_level,
-                "profile": profile_context(profil),
-                "components": par_composant,
-                "extra_values": dict(surcharges.extra_values),
+                "log_level": overrides.log_level or profile.log_level,
+                "profile": profile_context(profile),
+                "components": by_component,
+                "extra_values": dict(overrides.extra_values),
             }
         )
-    return resultat
+    return result
 
 
 def _empty_override() -> Any:
-    """Surcharge vide, employee pour un composant absent de `helm.environments`.
+    """Empty override, used for a component absent from `helm.environments`.
 
-    Construite une seule fois : le modele est immuable, la partager est sans
-    risque et evite d'instancier un modele pydantic par composant et par
-    environnement.
+    Built only once: the model being immutable, sharing it is risk-free and avoids
+    instantiating one pydantic model per component and per environment.
     """
     from forge.plugins.helm.spec import EnvironmentOverride
 
     return EnvironmentOverride()
 
 
-#: Surcharge neutre partagee (cf. :func:`_empty_override`).
+#: Shared neutral override (cf. :func:`_empty_override`).
 _EMPTY_OVERRIDE = _empty_override()

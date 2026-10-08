@@ -1,24 +1,24 @@
-"""Enumerations de la section `helm:` de forge.yml.
+"""Enumerations of the `helm:` section of forge.yml.
 
-Portage de `helm_forge.models.enums` (MIGRATION.md §4).
+Port of `helm_forge.models.enums` (MIGRATION.md §4).
 
-Toutes heritent de `StrEnum` : la valeur serialisee dans `forge.yml` est donc la
-chaine lisible, et la comparaison directe avec une chaine fonctionne — ce dont
-depend la resolution des profils de ressources. Les valeurs qui apparaissent
-telles quelles dans un manifeste Kubernetes conservent la casse exacte attendue
-par l'API (`ClusterIP`, `IfNotPresent`).
+They all inherit from `StrEnum`: the value serialised into `forge.yml` is
+therefore the readable string, and direct comparison with a string works — which
+the resolution of the resource profiles depends on. The values that appear
+verbatim in a Kubernetes manifest keep the exact casing the API expects
+(`ClusterIP`, `IfNotPresent`).
 
-Deux ecarts assumes avec le legacy, tous deux par application du meme principe :
-**une valeur declaree mais non generee est un piege**, puisqu'elle passe la
-validation d'un schema `extra="forbid"` et fait exploser la generation.
+Two deliberate divergences from the legacy tool, both applying the same
+principle: **a value that is declared but not generated is a trap**, since it
+passes the validation of an `extra="forbid"` schema and then blows generation up.
 
-* `Layout.UMBRELLA` est retire (arbitrage H3) : le planner legacy levait
-  `NotImplementedError` et aucun gabarit n'existait. A reintroduire avec ses
-  gabarits.
-* `AddonKind.SERVICEMONITOR` est retire (arbitrage H7) : la collecte Prometheus
-  est hors perimetre de la phase 4.
-* `CIProvider` n'est pas porte (arbitrage H8) : la CI est de niveau depot
-  (decision Q6), et les deux domaines l'exprimaient de deux facons.
+* `Layout.UMBRELLA` is removed (arbitration H3): the legacy planner raised
+  `NotImplementedError` and no template existed. To be reintroduced along with
+  its templates.
+* `AddonKind.SERVICEMONITOR` is removed (arbitration H7): Prometheus scraping is
+  out of the scope of phase 4.
+* `CIProvider` is not ported (arbitration H8): CI is repository-level
+  (decision Q6), and the two domains expressed it in two different ways.
 """
 
 from __future__ import annotations
@@ -27,22 +27,22 @@ from enum import StrEnum
 
 
 class Layout(StrEnum):
-    """Disposition du projet genere.
+    """Layout of the generated project.
 
-    `single` : un chart unique contenant tous les composants — seule valeur
-    admise aujourd'hui (arbitrage H3).
+    `single`: a single chart holding every component — the only accepted value
+    today (arbitration H3).
     """
 
     SINGLE = "single"
 
 
 class ComponentKind(StrEnum):
-    """Type de charge de travail porte par un composant.
+    """Type of workload carried by a component.
 
-    `deployment` : charge sans etat, la valeur usuelle.
-    `statefulset` : identite reseau et volume stables (impose un Service
-    headless et la persistance).
-    `cronjob` : execution planifiee, ni exposee ni autoscalee.
+    `deployment`: stateless workload, the usual value.
+    `statefulset`: stable network identity and volume (forces a headless Service
+    and persistence).
+    `cronjob`: scheduled run, neither exposed nor autoscaled.
     """
 
     DEPLOYMENT = "deployment"
@@ -51,15 +51,15 @@ class ComponentKind(StrEnum):
 
 
 class AddonKind(StrEnum):
-    """Ressource additionnelle attachable a un composant.
+    """Additional resource attachable to a component.
 
-    La presence d'une entree dans `ComponentSpec.addons` decide des fichiers de
-    gabarit reellement generes. L'activation a l'execution reste pilotee par un
-    drapeau `enabled` dans les values, surchargeable par environnement.
+    The presence of an entry in `ComponentSpec.addons` decides which template
+    files are actually generated. Activation at runtime stays driven by an
+    `enabled` flag in the values, overridable per environment.
 
-    L'ordre de declaration ci-dessous est l'**ordre canonique** : la liste
-    `addons` y est renormalisee, afin que deux specs equivalentes produisent le
-    meme projet quel que soit l'ordre de saisie.
+    The declaration order below is the **canonical order**: the `addons` list is
+    renormalised to it, so that two equivalent specs produce the same project
+    whatever the order they were typed in.
     """
 
     SERVICE = "service"
@@ -73,7 +73,7 @@ class AddonKind(StrEnum):
 
 
 class ServiceType(StrEnum):
-    """Type de Service Kubernetes exposant la charge de travail."""
+    """Type of Kubernetes Service exposing the workload."""
 
     CLUSTER_IP = "ClusterIP"
     NODE_PORT = "NodePort"
@@ -81,14 +81,14 @@ class ServiceType(StrEnum):
 
 
 class IngressController(StrEnum):
-    """Ingress controller cible, qui determine annotations et ingressClassName."""
+    """Target ingress controller, which determines annotations and ingressClassName."""
 
     NGINX = "nginx"
     TRAEFIK = "traefik"
 
 
 class ImagePullPolicy(StrEnum):
-    """Politique de recuperation de l'image du conteneur."""
+    """Pull policy for the container image."""
 
     ALWAYS = "Always"
     IF_NOT_PRESENT = "IfNotPresent"
@@ -96,11 +96,11 @@ class ImagePullPolicy(StrEnum):
 
 
 class TagStrategy(StrEnum):
-    """Origine du tag de l'image dans les values generees.
+    """Origin of the image tag in the generated values.
 
-    `appVersion` : tag vide, repli sur `.Chart.AppVersion`.
-    `per_env` : un tag distinct par environnement (`helm.environments.<env>`).
-    `fixed` : un tag unique et fige, fourni par `helm.image.tag`.
+    `appVersion`: empty tag, falls back to `.Chart.AppVersion`.
+    `per_env`: a distinct tag per environment (`helm.environments.<env>`).
+    `fixed`: a single frozen tag, supplied by `helm.image.tag`.
     """
 
     APP_VERSION = "appVersion"
@@ -109,11 +109,11 @@ class TagStrategy(StrEnum):
 
 
 class NamespaceStrategy(StrEnum):
-    """Mode de derivation du namespace de chaque environnement.
+    """How the namespace of each environment is derived.
 
-    `single` : le meme namespace pour tous les environnements (`<service>`).
-    `per_env` : `<service>-<env>`.
-    `custom` : namespace saisi explicitement pour chaque environnement.
+    `single`: the same namespace for every environment (`<service>`).
+    `per_env`: `<service>-<env>`.
+    `custom`: namespace typed explicitly for each environment.
     """
 
     SINGLE = "single"
@@ -122,15 +122,15 @@ class NamespaceStrategy(StrEnum):
 
 
 class SecretStrategy(StrEnum):
-    """Mode de gestion des secrets du projet genere.
+    """How the secrets of the generated project are managed.
 
-    Aucune de ces strategies ne produit jamais de valeur secrete reelle : le
-    generateur ne fabrique que des emplacements a remplir hors du depot.
+    None of these strategies ever produces a real secret value: the generator
+    only builds placeholders to be filled outside the repository.
 
-    `placeholder` : Secret Helm a valeurs obligatoires.
-    `external-secrets` : ressource ExternalSecret (operateur tiers).
-    `sealed-secrets` : ressource SealedSecret (Bitnami).
-    `none` : secrets geres entierement hors du chart.
+    `placeholder`: Helm Secret with mandatory values.
+    `external-secrets`: ExternalSecret resource (third-party operator).
+    `sealed-secrets`: SealedSecret resource (Bitnami).
+    `none`: secrets managed entirely outside the chart.
     """
 
     PLACEHOLDER = "placeholder"
@@ -140,10 +140,10 @@ class SecretStrategy(StrEnum):
 
 
 class ResourceProfile(StrEnum):
-    """Gabarit de requests/limits applique aux conteneurs.
+    """Requests/limits template applied to the containers.
 
-    `small`, `medium`, `large` completent les quatre quantites absentes ;
-    `custom` n'en complete aucune et laisse les quantites explicites faire foi.
+    `small`, `medium` and `large` fill in the four missing quantities; `custom`
+    fills in none and lets the explicit quantities be authoritative.
     """
 
     SMALL = "small"
@@ -153,7 +153,7 @@ class ResourceProfile(StrEnum):
 
 
 class AccessMode(StrEnum):
-    """Mode d'acces d'un PersistentVolumeClaim."""
+    """Access mode of a PersistentVolumeClaim."""
 
     RWO = "ReadWriteOnce"
     ROX = "ReadOnlyMany"

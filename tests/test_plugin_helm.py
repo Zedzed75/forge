@@ -8,9 +8,6 @@ and it is `tests/golden/helm-complet/` and the real validators that hold them.
 This module covers what neither of them says: the refusals, the normalisations
 forced upon the model, and the guards only the model or the cross-check can
 carry.
-
-The plugin's own messages are still French: the domains are translated with
-their templates, so the `match=` patterns below quote them as they are.
 """
 
 from __future__ import annotations
@@ -92,7 +89,7 @@ def test_a_port_name_that_is_too_long_is_refused():
     No external validator catches it — a 29-character name passes `helm lint`,
     `helm template` and `kubeconform -strict`, and is only refused on apply.
     """
-    with pytest.raises(Exception, match="IANA_SVC_NAME|Nom de port invalide"):
+    with pytest.raises(Exception, match="IANA_SVC_NAME|Invalid port name"):
         ComponentSpec(name="api", port_name="un-nom-de-port-beaucoup-trop-long")
 
 

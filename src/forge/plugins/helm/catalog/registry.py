@@ -1,8 +1,8 @@
-"""Registre des familles de ressources Helm.
+"""Registry of the Helm resource families.
 
-Pendant de `plugins/ansible/catalog/registry.py`. L'ordre du catalogue fixe
-l'ordre des slots de composants, donc celui des fichiers generes : le trier
-autrement changerait la sortie.
+Counterpart of `plugins/ansible/catalog/registry.py`. The catalogue order fixes
+the order of the component slots, hence that of the generated files: sorting it
+differently would change the output.
 """
 
 from __future__ import annotations
@@ -11,26 +11,26 @@ from forge.errors import SpecValidationError
 from forge.plugins.helm.catalog.definition import ComponentFamily
 from forge.plugins.helm.catalog.families import FAMILIES
 
-#: Familles indexees par nom, dans l'ordre du catalogue.
-FAMILY_CATALOG: dict[str, ComponentFamily] = {famille.name: famille for famille in FAMILIES}
+#: Families indexed by name, in catalogue order.
+FAMILY_CATALOG: dict[str, ComponentFamily] = {family.name: family for family in FAMILIES}
 
 
 def family_names() -> list[str]:
-    """Noms des familles, dans l'ordre du catalogue."""
-    return [famille.name for famille in FAMILIES]
+    """Family names, in catalogue order."""
+    return [family.name for family in FAMILIES]
 
 
 def all_families() -> tuple[ComponentFamily, ...]:
-    """Toutes les familles, dans l'ordre du catalogue."""
+    """All the families, in catalogue order."""
     return FAMILIES
 
 
 def get_family(name: str) -> ComponentFamily:
-    """Retourne la famille `name`, ou leve `SpecValidationError`."""
+    """Return the `name` family, or raise `SpecValidationError`."""
     try:
         return FAMILY_CATALOG[name]
     except KeyError:
-        connues = ", ".join(family_names())
+        known = ", ".join(family_names())
         raise SpecValidationError(
-            f"Famille de ressources inconnue : '{name}'. Familles disponibles : {connues}."
+            f"Unknown resource family: '{name}'. Available families: {known}."
         ) from None

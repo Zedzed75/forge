@@ -1,25 +1,25 @@
-"""Chemins que le domaine Helm va ecrire — reduction du planner a ses chemins.
+"""Paths the Helm domain is going to write — the planner reduced to its paths.
 
-`helm_forge.engine.planner.plan` construisait la liste ordonnee des fichiers du
-projet **et** leur contexte de rendu. copier reprend le rendu et la
-multiplicite (balises `yield`, MIGRATION.md §2.1) ; ce module ne conserve que la
-liste des chemins, dont deux fichiers generes ont besoin :
+`helm_forge.engine.planner.plan` built the ordered list of the project files
+**and** their rendering context. copier takes over rendering and multiplicity
+(`yield` tags, MIGRATION.md §2.1); this module keeps only the list of paths, which
+two generated files need:
 
-* le README du chart, qui documente sa structure fichier par fichier ;
-* le README du projet, qui affiche une arborescence.
+* the chart README, which documents its structure file by file;
+* the project README, which displays a tree.
 
-**Aucun constructeur d'arborescence ASCII n'est fourni, et c'est un constat, pas
-un oubli** : l'arborescence du README de projet legacy est une liste *annotee et
-repliee* (chaque ligne porte un commentaire de fin de ligne, et `templates/` n'est
-pas developpe). Un rendu mecanique a partir des chemins ne la reproduirait pas ;
-elle reste donc ecrite litteralement dans le gabarit, ou seule la boucle sur les
-environnements est dynamique. Le portage Ansible, lui, affichait une
-arborescence complete : d'ou `tree.build_tree` la-bas et son absence ici.
+**No ASCII tree builder is provided, and that is an observation, not an
+oversight**: the tree in the legacy project README is an *annotated and folded*
+list (each line carries an end-of-line comment, and `templates/` is not expanded).
+A mechanical rendering from the paths would not reproduce it; it therefore stays
+written literally in the template, where only the loop over the environments is
+dynamic. The Ansible port, on the other hand, displayed a complete tree: hence
+`tree.build_tree` over there and its absence here.
 
-Ce module est le **seul** endroit du domaine Helm qui duplique la connaissance
-de l'arborescence de gabarit : si un gabarit est ajoute, retire ou renomme, il
-faut le repercuter ici, sinon les deux README mentent. Le test de parite le
-detecte, parce qu'il compare ces fichiers octet pour octet.
+This module is the **only** place in the Helm domain that duplicates the knowledge
+of the template tree: if a template is added, removed or renamed, it has to be
+reflected here, otherwise both READMEs lie. The parity test catches it, because it
+compares those files byte for byte.
 """
 
 from __future__ import annotations
@@ -28,14 +28,14 @@ from typing import Any, Final
 
 from forge.plugins.helm.enums import AddonKind, ComponentKind
 
-#: Ordre canonique des familles de ressources d'un composant. Il fixe l'ordre
-#: des fichiers dans `templates/`, celui des lignes du README du chart, et celui
-#: des cles de `domain.component_slots`.
+#: Canonical order of the resource families of a component. It fixes the order of
+#: the files in `templates/`, that of the lines of the chart README, and that of
+#: the keys of `domain.component_slots`.
 #:
-#: La charge de travail vient en tete (c'est elle que les autres ressources
-#: accompagnent), puis les addons dans l'ordre canonique d'`AddonKind`, `rbac`
-#: s'inserant juste apres `serviceaccount` : un Role et un RoleBinding n'ont de
-#: sens qu'avec un sujet, et ce sujet est le ServiceAccount du composant.
+#: The workload comes first (it is what the other resources accompany), then the
+#: addons in the canonical order of `AddonKind`, `rbac` slotting in right after
+#: `serviceaccount`: a Role and a RoleBinding only make sense with a subject, and
+#: that subject is the component ServiceAccount.
 FAMILY_ORDER: Final[tuple[str, ...]] = (
     "deployment",
     "statefulset",
@@ -51,16 +51,16 @@ FAMILY_ORDER: Final[tuple[str, ...]] = (
     "networkpolicy",
 )
 
-#: Familles portees par le **type** du composant : au plus une par composant.
+#: Families carried by the component **type**: at most one per component.
 KIND_FAMILIES: Final[dict[str, str]] = {
     ComponentKind.DEPLOYMENT.value: "deployment",
     ComponentKind.STATEFULSET.value: "statefulset",
     ComponentKind.CRONJOB.value: "cronjob",
 }
 
-#: Familles portees par un **addon**, associees a l'addon qui les declenche.
-#: `rbac` partage l'addon `serviceaccount` : c'est le seul moyen de generer un
-#: Role et un RoleBinding qui aient un sujet.
+#: Families carried by an **addon**, associated with the addon that triggers them.
+#: `rbac` shares the `serviceaccount` addon: that is the only way to generate a
+#: Role and a RoleBinding that have a subject.
 ADDON_FAMILIES: Final[dict[str, str]] = {
     "service": AddonKind.SERVICE.value,
     "ingress": AddonKind.INGRESS.value,
@@ -73,8 +73,8 @@ ADDON_FAMILIES: Final[dict[str, str]] = {
     "networkpolicy": AddonKind.NETWORKPOLICY.value,
 }
 
-#: Libelle de chaque famille, repris tel quel dans le README du chart : ce sont
-#: des noms de `kind` Kubernetes, ecrits comme l'API les ecrit.
+#: Label of each family, echoed as-is in the chart README: these are Kubernetes
+#: `kind` names, written the way the API writes them.
 FAMILY_LABELS: Final[dict[str, str]] = {
     "deployment": "Deployment",
     "statefulset": "StatefulSet",
@@ -91,138 +91,139 @@ FAMILY_LABELS: Final[dict[str, str]] = {
     "test_connection": "Connection test",
 }
 
-#: Chemin, relatif au chart, du test execute par `helm test`. Contrairement aux
-#: autres ressources, il n'est jamais suffixe par le nom du composant : il n'y
-#: en a qu'un par chart (portage litteral du planner legacy).
+#: Path, relative to the chart, of the test `helm test` runs. Unlike the other
+#: resources it is never suffixed by the component name: there is only one per
+#: chart (literal port of the legacy planner).
 TEST_CONNECTION_PATH: Final[str] = "templates/tests/test-connection.yaml"
 
-#: Fichiers de la racine du chart, dans l'ordre du planner legacy.
+#: Files at the chart root, in the order of the legacy planner.
 CHART_ROOT_FILES: Final[tuple[str, ...]] = ("Chart.yaml", "values.yaml")
 
-#: Fichiers du chart ecrits apres les `values-<env>.yaml`.
+#: Chart files written after the `values-<env>.yaml` ones.
 CHART_TAIL_FILES: Final[tuple[str, ...]] = (".helmignore", "README.md")
 
-#: Gabarits Helm communs a tout le chart.
+#: Helm templates common to the whole chart.
 CHART_SHARED_TEMPLATES: Final[tuple[str, ...]] = (
     "templates/_helpers.tpl",
     "templates/NOTES.txt",
 )
 
-#: Fichiers ecrits par copier mais volontairement absents de la documentation :
-#: `.copier-answers.yml` est de la plomberie de generation, pas du projet Helm
-#: (MIGRATION.md §7, ecart 1).
+#: Files written by copier but deliberately absent from the documentation:
+#: `.copier-answers.yml` is generation plumbing, not part of the Helm project
+#: (MIGRATION.md §7, divergence 1).
 HIDDEN_ENTRIES: Final[tuple[str, ...]] = (".copier-answers.yml",)
 
 
 def chart_dir(service_name: str) -> str:
-    """Repertoire du chart, relatif a la racine du domaine (`helm/`).
+    """Chart directory, relative to the domain root (`helm/`).
 
-    Portage de `planner.chart_dir`, ou la racine etait celle du projet : la
-    sortie de chaque domaine vit desormais dans son propre sous-repertoire
-    (MIGRATION.md §7, ecart 2).
+    Port of `planner.chart_dir`, where the root was that of the project: the
+    output of each domain now lives in its own subdirectory (MIGRATION.md §7,
+    divergence 2).
     """
     return f"charts/{service_name}"
 
 
 def resource_filename(family: str, component_name: str) -> str:
-    """Nom de fichier d'une ressource, toujours suffixe par le composant."""
+    """File name of a resource, always suffixed by the component."""
     return f"{family}-{component_name}.yaml"
 
 
 def component_families(component: Any) -> list[str]:
-    """Familles de ressources generees pour un composant, en ordre canonique.
+    """Resource families generated for a component, in canonical order.
 
-    Filtre par le **type** du composant (une seule charge de travail) puis par
-    ses **addons**. C'est la fonction dont `derive.component_slots` est
-    l'inverse : elle repond « quelles familles pour ce composant », le slot
-    repond « quels composants pour cette famille ».
+    Filters by the component **type** (a single workload) then by its **addons**.
+    This is the function `derive.component_slots` is the inverse of: it answers
+    "which families for this component", the slot answers "which components for
+    this family".
     """
-    retenues: list[str] = []
-    for famille in FAMILY_ORDER:
-        attendu = KIND_FAMILIES.get(famille)
-        if attendu is not None:
-            if component.kind.value == attendu:
-                retenues.append(famille)
+    retained: list[str] = []
+    for family in FAMILY_ORDER:
+        expected = KIND_FAMILIES.get(family)
+        if expected is not None:
+            if component.kind.value == expected:
+                retained.append(family)
             continue
-        addon = ADDON_FAMILIES[famille]
-        if any(existant.value == addon for existant in component.addons):
-            retenues.append(famille)
-    return retenues
+        addon = ADDON_FAMILIES[family]
+        if any(existing.value == addon for existing in component.addons):
+            retained.append(family)
+    return retained
 
 
 def test_connection_target(helm: Any) -> Any | None:
-    """Premier composant joignable par un Service classique, s'il existe.
+    """First component reachable through a regular Service, when there is one.
 
-    Portage litteral de `planner.first_exposed`, augmente de la condition que le
-    planner appliquait a l'appelant : sans `extras.helm_tests`, aucun test n'est
-    genere. Un Service headless est ecarte — il n'a pas d'adresse virtuelle, un
-    test de connexion fonde sur le nom du Service n'y aurait aucun sens.
+    Literal port of `planner.first_exposed`, augmented with the condition the
+    planner applied at its call site: without `extras.helm_tests`, no test is
+    generated. A headless Service is ruled out — it has no virtual address, and a
+    connection test based on the Service name would make no sense there.
     """
     if not helm.extras.helm_tests:
         return None
-    for composant in helm.components:
-        if composant.has(AddonKind.SERVICE) and not composant.service.headless:
-            return composant
+    for component in helm.components:
+        if component.has(AddonKind.SERVICE) and not component.service.headless:
+            return component
     return None
 
 
 def chart_files(spec: Any) -> list[dict[str, str]]:
-    """Ressources Kubernetes generees, annotees, dans l'ordre des fichiers.
+    """Generated Kubernetes resources, annotated, in file order.
 
-    Une entree par fichier de `templates/` propre a un composant, plus le test
-    de connexion s'il est genere. Le README du chart en fait son tableau
-    « Structure du chart » ; la phrase elle-meme est composee dans le gabarit,
-    ce module ne fournit que les elements (`label`, `component`).
+    One entry per file of `templates/` specific to a component, plus the
+    connection test when it is generated. The chart README makes it its "Chart
+    structure" table; the sentence itself is composed in the template, this module
+    only supplies the pieces (`label`, `component`).
     """
     helm = spec.helm
-    entrees: list[dict[str, str]] = []
-    for composant in helm.components:
-        for famille in component_families(composant):
-            entrees.append(
+    entries: list[dict[str, str]] = []
+    for component in helm.components:
+        for family in component_families(component):
+            entries.append(
                 {
-                    "family": famille,
-                    "label": FAMILY_LABELS[famille],
-                    "component": composant.name,
-                    "path": f"templates/{resource_filename(famille, composant.name)}",
+                    "family": family,
+                    "label": FAMILY_LABELS[family],
+                    "component": component.name,
+                    "path": f"templates/{resource_filename(family, component.name)}",
                 }
             )
-    cible = test_connection_target(helm)
-    if cible is not None:
-        entrees.append(
+    target = test_connection_target(helm)
+    if target is not None:
+        entries.append(
             {
                 "family": "test_connection",
                 "label": FAMILY_LABELS["test_connection"],
-                "component": cible.name,
+                "component": target.name,
                 "path": TEST_CONNECTION_PATH,
             }
         )
-    return entrees
+    return entries
 
 
 def expected_paths(spec: Any) -> list[str]:
-    """Chemins que forge va ecrire sous `helm/`, dans l'ordre du planner legacy.
+    """Paths forge is going to write under `helm/`, in legacy planner order.
 
-    L'ordre est celui de `planner.plan` — fichiers de niveau projet, racine du
-    chart, values par environnement, gabarits communs, puis les ressources de
-    chaque composant — et non l'ordre alphabetique : c'est lui que suivent les
-    tableaux des README generes.
+    The order is that of `planner.plan` — project-level files, chart root,
+    per-environment values, shared templates, then the resources of each component
+    — and not alphabetical order: it is the one the tables of the generated READMEs
+    follow.
 
-    Trois ecarts avec le legacy, tous inscrits dans MIGRATION.md §7 :
-    la sentinelle `@spec` disparait (H10, ecart 3), la sortie vit sous `helm/`
-    (ecart 2), et `.copier-answers.yml` s'y ajoute sans etre documente (ecart 1).
+    Three divergences from the legacy tool, all recorded in MIGRATION.md §7: the
+    `@spec` sentinel disappears (H10, divergence 3), the output lives under `helm/`
+    (divergence 2), and `.copier-answers.yml` is added to it without being
+    documented (divergence 1).
     """
     helm = spec.helm
-    racine = chart_dir(spec.service.name)
+    root = chart_dir(spec.service.name)
 
-    chemins: list[str] = ["README.md", ".gitignore"]
+    paths: list[str] = ["README.md", ".gitignore"]
     if helm.extras.makefile:
-        chemins.append("Makefile")
+        paths.append("Makefile")
 
-    chemins += [f"{racine}/{nom}" for nom in CHART_ROOT_FILES]
-    chemins += [
-        f"{racine}/values-{env.name}.yaml" for env in spec.service.environments
+    paths += [f"{root}/{name}" for name in CHART_ROOT_FILES]
+    paths += [
+        f"{root}/values-{env.name}.yaml" for env in spec.service.environments
     ]
-    chemins += [f"{racine}/{nom}" for nom in CHART_TAIL_FILES]
-    chemins += [f"{racine}/{nom}" for nom in CHART_SHARED_TEMPLATES]
-    chemins += [f"{racine}/{entree['path']}" for entree in chart_files(spec)]
-    return chemins
+    paths += [f"{root}/{name}" for name in CHART_TAIL_FILES]
+    paths += [f"{root}/{name}" for name in CHART_SHARED_TEMPLATES]
+    paths += [f"{root}/{entry['path']}" for entry in chart_files(spec)]
+    return paths
