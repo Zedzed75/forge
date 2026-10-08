@@ -61,8 +61,8 @@ next one.
   produces now.
 
 - **Generated CI job identifiers are English.** Every job key and job name in
-  the generated `.github/workflows/ci.yml`, and every stage name in the
-  generated `.gitlab-ci.yml`, was renamed:
+  the generated `.github/workflows/ci.yml`, and every job key *and* stage name
+  in the generated `.gitlab-ci.yml`, was renamed:
 
   | Before | After |
   | --- | --- |

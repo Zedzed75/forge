@@ -342,7 +342,7 @@ def test_a_job_name_is_not_normalised(workflow_tree):
     make a merge gate stop matching, so the fingerprint has to show it.
     """
     reference = fp.fingerprint(workflow_tree)
-    _edit(workflow_tree, WORKFLOW, "name: Valider Helm", "name: Validate Helm")
+    _edit(workflow_tree, WORKFLOW, "name: Validate Helm", "name: Lint Helm")
     _changed(workflow_tree, reference)
 
 

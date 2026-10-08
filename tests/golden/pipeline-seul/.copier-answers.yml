@@ -16,12 +16,12 @@ domain:
     build_job:
         default_branch_only: true
         environment: ''
-        key: construire
+        key: build
         kind: build
         manual: false
-        name: Construire l'image
+        name: Build the image
         needs: &id001
-        - valider-pipeline
+        - validate-pipeline
         steps:
         -   env: &id002
                 FORGE_IMAGE_TAG: $CI_COMMIT_SHA
@@ -60,10 +60,10 @@ domain:
     jobs:
     -   default_branch_only: false
         environment: ''
-        key: valider-pipeline
+        key: validate-pipeline
         kind: validate
         manual: false
-        name: Valider Pipeline
+        name: Validate Pipeline
         needs: &id006 []
         steps:
         -   env: &id007 {}
@@ -94,10 +94,10 @@ domain:
         unknown_tools: &id012 []
     -   default_branch_only: true
         environment: ''
-        key: construire
+        key: build
         kind: build
         manual: false
-        name: Construire l'image
+        name: Build the image
         needs: *id001
         steps:
         -   env: *id002
@@ -131,10 +131,10 @@ domain:
     validate_jobs:
     -   default_branch_only: false
         environment: ''
-        key: valider-pipeline
+        key: validate-pipeline
         kind: validate
         manual: false
-        name: Valider Pipeline
+        name: Validate Pipeline
         needs: *id006
         steps:
         -   env: *id007

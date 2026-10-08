@@ -258,8 +258,8 @@ def validate_jobs(context: GenerationContext, provider: str) -> list[Job]:
             continue
         jobs.append(
             _job_for_commands(
-                key=f"valider-{sommaire.name}",
-                name=f"Valider {sommaire.info.title}",
+                key=f"validate-{sommaire.name}",
+                name=f"Validate {sommaire.info.title}",
                 kind=JobKind.VALIDATE,
                 commands=sommaire.validators,
                 provider=provider,
@@ -297,8 +297,8 @@ def build_job(build: Any, service_name: str, provider: str) -> Job:
         ),
     ]
     job = Job(
-        key="construire",
-        name="Construire l'image",
+        key="build",
+        name="Build the image",
         kind=JobKind.BUILD.value,
         steps=[Step(name=f"docker buildx build ({reference})", run=lignes)],
         default_branch_only=build.push,
@@ -346,11 +346,13 @@ def deploy_jobs(
         if not commandes:
             continue
         job = _job_for_commands(
-            key=f"deployer-{nom}",
-            # Libelle affiche par l'outil de CI : accentue, comme tout ce que
-            # forge ecrit dans un fichier genere. La cle, elle, reste un
-            # identifiant ASCII.
-            name=f"Déployer {nom}",
+            key=f"deploy-{nom}",
+            # Cle et libelle sont tous deux des identifiants, malgre les
+            # apparences : chez GitHub, la cle nomme le job dans `needs:` et le
+            # libelle est le nom du « required status check » qu'une regle de
+            # protection de branche compare. Ni l'un ni l'autre n'est de la
+            # prose traduisible, donc les deux restent en anglais.
+            name=f"Deploy {nom}",
             kind=JobKind.DEPLOY,
             commands=tuple(commandes),
             provider=provider,

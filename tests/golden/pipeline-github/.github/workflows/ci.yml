@@ -40,8 +40,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  valider-helm:
-    name: Valider Helm
+  validate-helm:
+    name: Validate Helm
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
@@ -97,8 +97,8 @@ jobs:
         run: |
           kubeconform -strict -summary -kubernetes-version 1.34.0 -schema-location default - < /tmp/forge-helm-template-prod.out
 
-  valider-pipeline:
-    name: Valider Pipeline
+  validate-pipeline:
+    name: Validate Pipeline
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
@@ -117,8 +117,8 @@ jobs:
         run: |
           actionlint -no-color -oneline .github/workflows/ci.yml
 
-  valider-terraform:
-    name: Valider Terraform
+  validate-terraform:
+    name: Validate Terraform
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
@@ -188,13 +188,13 @@ jobs:
         run: |
           tflint --recursive --no-color
 
-  construire:
-    name: Construire l'image
+  build:
+    name: Build the image
     runs-on: ubuntu-latest
     needs:
-      - valider-helm
-      - valider-pipeline
-      - valider-terraform
+      - validate-helm
+      - validate-pipeline
+      - validate-terraform
     # Only starts from the default branch: a pull request publishes nothing and
     # deploys nothing.
     if: github.ref == 'refs/heads/main'
@@ -209,14 +209,14 @@ jobs:
           docker buildx create --use --name forge-builder 2>/dev/null || docker buildx use forge-builder
           docker buildx build --platform linux/amd64 --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG" --push .
 
-  deployer-dev:
-    name: Déployer dev
+  deploy-dev:
+    name: Deploy dev
     runs-on: ubuntu-latest
     needs:
-      - valider-helm
-      - valider-pipeline
-      - valider-terraform
-      - construire
+      - validate-helm
+      - validate-pipeline
+      - validate-terraform
+      - build
     # Only starts from the default branch: a pull request publishes nothing and
     # deploys nothing.
     if: github.ref == 'refs/heads/main'
@@ -262,15 +262,15 @@ jobs:
         run: |
           helm upgrade --install boutique charts/boutique --namespace boutique-dev --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml --atomic --timeout 10m
 
-  deployer-prod:
-    name: Déployer prod
+  deploy-prod:
+    name: Deploy prod
     runs-on: ubuntu-latest
     needs:
-      - valider-helm
-      - valider-pipeline
-      - valider-terraform
-      - construire
-      - deployer-dev
+      - validate-helm
+      - validate-pipeline
+      - validate-terraform
+      - build
+      - deploy-dev
     # Only starts from the default branch: a pull request publishes nothing and
     # deploys nothing.
     if: github.ref == 'refs/heads/main'
