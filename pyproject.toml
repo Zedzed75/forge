@@ -98,13 +98,15 @@ dev = [
 # aucun moyen d'atteindre le code, de signaler un bug ou de lire la licence :
 # c'est la difference entre un paquet publie et un paquet adoptable.
 #
-# Pas d'entree « Changelog » : CHANGELOG.md n'existe pas encore (il arrive en
-# phase 5). Un lien mort sur la page d'accueil est pire que pas de lien.
+# `Changelog` doit rester identique a `CHANGELOG_URL` dans src/forge/cli.py :
+# c'est l'URL que `forge update` affiche a l'utilisateur avant de toucher a son
+# projet genere. Deux orthographes de la meme adresse, c'est une de trop.
 [project.urls]
 Homepage = "https://github.com/Zedzed75/forge"
 Repository = "https://github.com/Zedzed75/forge"
 Issues = "https://github.com/Zedzed75/forge/issues"
 Documentation = "https://github.com/Zedzed75/forge#readme"
+Changelog = "https://github.com/Zedzed75/forge/blob/master/CHANGELOG.md"
 
 # Le nom de la commande, et il ne suit PAS le nom de la distribution : on
 # installe `iac-forge` et on tape `forge`. Voir le commentaire de `name` plus
