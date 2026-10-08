@@ -1,18 +1,19 @@
-"""Filtres Jinja propres au domaine Terraform.
+"""Jinja filters specific to the Terraform domain.
 
-Charges par `forge.jinja_ext.ForgeExtension` selon la convention
-`forge.plugins.<domaine>.jinja_ext` (cf. `forge.pipeline.plugin_jinja_module`) :
-le coeur ne connait ni HCL ni l'alignement que `terraform fmt` impose.
+Loaded by `forge.jinja_ext.ForgeExtension` through the
+`forge.plugins.<domain>.jinja_ext` convention (cf.
+`forge.pipeline.plugin_jinja_module`): the core knows neither HCL nor the
+alignment `terraform fmt` imposes.
 
-Rendre du HCL depuis un gabarit Jinja pose deux problemes que les gabarits YAML
-n'ont pas :
+Rendering HCL from a Jinja template poses two problems the YAML templates do not
+have:
 
-* **la citation** — une valeur venue de la specification peut contenir un
-  guillemet, ou la sequence `${` qui ouvre une interpolation HCL ;
-* **l'alignement** — `terraform fmt` aligne le `=` de lignes d'affectation
-  consecutives, et `terraform fmt -check` fait partie des validateurs du
-  domaine. Un gabarit ne peut pas aligner des cles dont il ignore la longueur ;
-  la projection, elle, les connait toutes.
+* **quoting** — a value coming from the specification may contain a quotation
+  mark, or the `${` sequence that opens an HCL interpolation;
+* **alignment** — `terraform fmt` aligns the `=` of consecutive assignment lines,
+  and `terraform fmt -check` is one of the validators of the domain. A template
+  cannot align keys whose length it does not know; the projection, on the other
+  hand, knows them all.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from forge.plugins.terraform.hcl import (
     hcl_value,
 )
 
-#: Filtres exposes aux gabarits du domaine.
+#: Filters exposed to the templates of the domain.
 FILTERS = {
     "hcl": hcl_value,
     "hcl_key": hcl_key,
@@ -36,5 +37,5 @@ FILTERS = {
     "hcl_args": args,
 }
 
-#: Aucune globale : tout ce dont les gabarits ont besoin passe par `domain`.
+#: No globals: everything the templates need goes through `domain`.
 GLOBALS: dict[str, object] = {}

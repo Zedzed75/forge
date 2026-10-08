@@ -1,18 +1,18 @@
-"""Partie de la projection qui varie d'un environnement a l'autre.
+"""The part of the projection that varies from one environment to the next.
 
-Une racine Terraform par environnement, et pour chacune : son namespace, son
-contexte de cluster, son emplacement d'etat, ses valeurs. Le module, lui, est
-ecrit une seule fois — c'est tout l'interet de la disposition.
+One Terraform root per environment, and for each of them: its namespace, its
+cluster context, its state location, its values. The module itself is written
+only once — that is the whole point of the layout.
 
-Deux invariants tiennent ce module :
+Two invariants hold this module together:
 
-* **deux environnements n'ecrivent jamais le meme etat.** La cle d'etat est
-  derivee du service et de l'environnement quand la specification ne la donne
-  pas ; deux racines partageant un etat se detruiraient mutuellement au premier
-  apply, et rien dans Terraform ne le signale a l'avance.
-* **aucune valeur secrete n'entre dans `terraform.tfvars`.** Le fichier ne
-  reprend que des variables non secretes, et seulement celles que le module — ou
-  la racine — declare : Terraform refuse un tfvars citant une variable inconnue.
+* **two environments never write the same state.** The state key is derived from
+  the service and the environment when the specification does not give it; two
+  roots sharing a state would destroy each other at the first apply, and nothing
+  in Terraform reports it in advance.
+* **no secret value goes into `terraform.tfvars`.** The file only takes up
+  non-secret variables, and only those the module — or the root — declares:
+  Terraform refuses a tfvars quoting an unknown variable.
 """
 
 from __future__ import annotations
@@ -25,42 +25,45 @@ from forge.plugins.terraform.enums import ResourceFamily
 
 
 def environments(spec: Any) -> list[dict[str, Any]]:
-    """Une entree par environnement de `service.environments`, dans l'ordre."""
+    """One entry per `service.environments` environment, in order."""
     variables = derive.root_variables(spec)
-    defauts = {variable["name"]: variable for variable in variables}
-    passages = [
+    declared = {variable["name"]: variable for variable in variables}
+    arguments = [
         {"name": variable["name"], "value": f"var.{variable['name']}"}
         for variable in derive.variables(spec)
     ]
-    return [_environment(spec, env, defauts, variables, passages) for env in spec.service.environments]
+    return [
+        _environment(spec, env, declared, variables, arguments)
+        for env in spec.service.environments
+    ]
 
 
 def _environment(
     spec: Any,
     env: Any,
-    defauts: dict[str, dict[str, Any]],
+    declared: dict[str, dict[str, Any]],
     variables: list[dict[str, Any]],
-    passages: list[dict[str, str]],
+    arguments: list[dict[str, str]],
 ) -> dict[str, Any]:
-    """Projection d'un environnement."""
+    """Projection of one environment."""
     terraform = spec.terraform
-    surcharge = terraform.overrides(env.name)
+    override = terraform.overrides(env.name)
     namespace = terraform.namespace_for(spec.service.name, env.name)
-    valeurs = _values(spec, env, surcharge, namespace, defauts)
+    values = _values(spec, env, override, namespace, declared)
 
     return {
         "name": env.name,
         "production": env.production,
         "domain": env.domain or "",
         "namespace": namespace,
-        "kube_context": valeurs.get("kube_context", ""),
-        "backend_config": _backend_config(spec, env, surcharge),
+        "kube_context": values.get("kube_context", ""),
+        "backend_config": _backend_config(spec, env, override),
         "tfvars": [
-            {"name": nom, "value": hcl.hcl_value(valeur)}
-            for nom, valeur in valeurs.items()
-            if nom in defauts and not defauts[nom]["sensitive"]
+            {"name": name, "value": hcl.hcl_value(value)}
+            for name, value in values.items()
+            if name in declared and not declared[name]["sensitive"]
         ],
-        "module_arguments": passages,
+        "module_arguments": arguments,
         "variable_names": [variable["name"] for variable in variables],
     }
 
@@ -68,95 +71,95 @@ def _environment(
 def _values(
     spec: Any,
     env: Any,
-    surcharge: Any,
+    override: Any,
     namespace: str,
-    defauts: dict[str, dict[str, Any]],
+    declared: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Valeurs pre-remplies de l'environnement, dans l'ordre du `tfvars`.
+    """Pre-filled values of the environment, in the order of the `tfvars`.
 
-    L'ordre est celui de la lecture : d'abord ce qui identifie l'environnement,
-    puis l'acces au cluster, puis les reglages des familles retenues.
+    The order is the reading order: first what identifies the environment, then
+    the cluster access, then the settings of the retained families.
     """
     terraform = spec.terraform
-    valeurs: dict[str, Any] = {
+    values: dict[str, Any] = {
         "service_name": spec.service.name,
         "environment": env.name,
         "namespace": namespace,
-        "labels": {**spec.service.labels, **surcharge.labels},
+        "labels": {**spec.service.labels, **override.labels},
     }
 
-    if "kube_context" in defauts:
-        valeurs["kube_context"] = surcharge.kube_context or (
+    if "kube_context" in declared:
+        values["kube_context"] = override.kube_context or (
             env.name if terraform.kubernetes.context_per_environment else ""
         )
 
     if terraform.uses(ResourceFamily.QUOTA):
-        quota = surcharge.quota
-        for nom, attribut in (
+        quota = override.quota
+        for name, attribute in (
             ("quota_cpu", "cpu"),
             ("quota_memory", "memory"),
             ("quota_pods", "pods"),
         ):
-            explicite = getattr(quota, attribut, None) if quota else None
-            valeurs[nom] = explicite if explicite is not None else _default(defauts, nom)
+            explicit = getattr(quota, attribute, None) if quota else None
+            values[name] = explicit if explicit is not None else _default(declared, name)
 
     if terraform.uses(ResourceFamily.TLS_CERTIFICATE):
-        noms = list(surcharge.tls_dns_names)
-        if not noms and env.domain:
-            noms = [f"{spec.service.name}.{env.domain}"]
-        valeurs["tls_dns_names"] = noms
-        valeurs["tls_common_name"] = noms[0] if noms else ""
+        names = list(override.tls_dns_names)
+        if not names and env.domain:
+            names = [f"{spec.service.name}.{env.domain}"]
+        values["tls_dns_names"] = names
+        values["tls_common_name"] = names[0] if names else ""
 
-    return valeurs
+    return values
 
 
-def _default(defauts: dict[str, dict[str, Any]], name: str) -> Any:
-    """Valeur par defaut declaree pour `name`, telle que le catalogue la donne.
+def _default(declared: dict[str, dict[str, Any]], name: str) -> Any:
+    """Default value declared for `name`, as the catalogue gives it.
 
-    Elle est relue du catalogue plutot que recopiee ici : une valeur par defaut
-    changee dans une famille doit se voir dans le `terraform.tfvars` sans qu'on
-    ait a y penser.
+    It is read back from the catalogue rather than copied here: a default value
+    changed in a family must show up in the `terraform.tfvars` without anyone
+    having to think about it.
     """
     return _CATALOG_DEFAULTS[name]
 
 
 def _catalog_defaults() -> dict[str, Any]:
-    """Valeurs par defaut de toutes les variables de famille, indexees par nom."""
+    """Default values of every family variable, indexed by name."""
     from forge.plugins.terraform.catalog.registry import all_families
 
     return {
         variable.name: variable.default
-        for famille in all_families()
-        for variable in famille.variables
+        for family in all_families()
+        for variable in family.variables
     }
 
 
-#: Calculees une fois : le catalogue est fige au chargement du module.
+#: Computed once: the catalogue is frozen at module load.
 _CATALOG_DEFAULTS: dict[str, Any] = _catalog_defaults()
 
 
-def _backend_config(spec: Any, env: Any, surcharge: Any) -> list[dict[str, str]]:
-    """Cles de backend de cet environnement, communes puis propres, puis derivees.
+def _backend_config(spec: Any, env: Any, override: Any) -> list[dict[str, str]]:
+    """Backend keys of this environment: common, then specific, then derived.
 
-    La cle d'etat est **toujours** presente en sortie : c'est elle qui garantit
-    que deux environnements n'ecrivent pas au meme endroit.
+    The state key is **always** present in the output: it is what guarantees that
+    two environments do not write to the same place.
     """
     configuration: dict[str, str] = {
         **spec.terraform.backend.config,
-        **surcharge.backend_config,
+        **override.backend_config,
     }
     kind = spec.terraform.backend.kind.value
-    derivee = _state_key(spec.service.name, env.name, kind)
-    for cle, valeur in derivee.items():
-        configuration.setdefault(cle, valeur)
+    derived = _state_key(spec.service.name, env.name, kind)
+    for key, value in derived.items():
+        configuration.setdefault(key, value)
     return [
-        {"name": cle, "value": hcl.hcl_value(valeur)}
-        for cle, valeur in sorted(configuration.items())
+        {"name": key, "value": hcl.hcl_value(value)}
+        for key, value in sorted(configuration.items())
     ]
 
 
 def _state_key(service_name: str, environment: str, kind: str) -> dict[str, str]:
-    """Emplacement d'etat derive, propre a l'environnement, selon le backend."""
+    """Derived state location, specific to the environment, per backend."""
     if kind == "local":
         return {"path": DEFAULT_STATE_FILE}
     if kind == "s3":

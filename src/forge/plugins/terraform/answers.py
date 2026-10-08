@@ -1,10 +1,9 @@
-"""Projection de la specification vers le dict `domain` de copier, et controles croises.
+"""Projection of the specification into copier's `domain` dict, and cross-checks.
 
-Meme contrat que les deux autres domaines (`forge_answers`, DESIGN.md §2.2) :
-sortie JSON-serialisable, ordre fige, aucun objet pydantic. Le calcul vit dans
-:mod:`derive`, :mod:`derive_env` et :mod:`tree` ; ce module assemble, et porte
-les controles que le sous-modele ne peut pas faire parce qu'il ne voit pas
-`service:`.
+The same contract as the two other domains (`forge_answers`, DESIGN.md §2.2):
+JSON-serialisable output, frozen order, no pydantic object. The computation lives
+in :mod:`derive`, :mod:`derive_env` and :mod:`tree`; this module assembles, and
+carries the checks the sub-model cannot do because it does not see `service:`.
 """
 
 from __future__ import annotations
@@ -19,35 +18,35 @@ from forge.plugins_api.types import Issue
 
 
 def build(spec: Any) -> dict[str, Any]:
-    """Construit le dict `domain` passe a copier pour le domaine Terraform."""
+    """Build the `domain` dict passed to copier for the Terraform domain."""
     service = spec.service
     terraform = spec.terraform
 
     return {
-        # -- identite du module ------------------------------------------------
+        # -- identity of the module ------------------------------------------
         "module_dir": tree.module_dir(service.name),
         "module_name": service.name,
         "terraform_version": terraform.terraform_version,
         "providers": derive.providers(spec),
-        # -- ce que le module recoit et rend -----------------------------------
+        # -- what the module receives and returns -----------------------------
         "variables": derive.variables(spec),
         "root_variables": derive.root_variables(spec),
         "outputs": derive.outputs(spec),
-        # -- socle -------------------------------------------------------------
+        # -- base layer -------------------------------------------------------
         "backend": derive.backend(spec),
         "kubernetes": derive.kubernetes(spec),
         "namespace_strategy": terraform.namespace_strategy.value,
         "creates_namespace": derive.creates_namespace(spec),
         "labels": derive.base_labels(spec),
-        # -- familles retenues --------------------------------------------------
-        "resources": [famille["name"] for famille in derive.families(spec)],
+        # -- retained families -------------------------------------------------
+        "resources": [family["name"] for family in derive.families(spec)],
         "families": derive.families(spec),
         "resource_slots": tree.resource_slots(spec),
-        # -- environnements ------------------------------------------------------
+        # -- environments -------------------------------------------------------
         "env_names": [env.name for env in service.environments],
         "default_env": service.environments[0].name,
         "environments": derive_env.environments(spec),
-        # -- annexes et documentation ---------------------------------------------
+        # -- extras and documentation ---------------------------------------------
         "extras": derive.extras(spec),
         "root_files": tree.root_files(spec),
         "module_files": tree.module_files(spec),
@@ -57,14 +56,14 @@ def build(spec: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Controles croises
+# Cross-checks
 # ---------------------------------------------------------------------------
 
 
 def cross_check(spec: Any) -> list[Issue]:
-    """Controles que `TerraformSpec` ne peut pas faire : elle ne voit pas `service:`.
+    """Checks `TerraformSpec` cannot do: it does not see `service:`.
 
-    Ordre deterministe : la liste est affichee telle quelle.
+    Deterministic order: the list is displayed as-is.
     """
     terraform = getattr(spec, "terraform", None)
     if terraform is None:
@@ -85,11 +84,11 @@ def cross_check(spec: Any) -> list[Issue]:
 
 
 def _check_custom_namespaces(spec: Any, terraform: Any) -> list[Issue]:
-    """Exige un namespace explicite pour chaque environnement, strategie `custom`.
+    """Require an explicit namespace for every environment, `custom` strategy.
 
-    Le sous-modele ne verifie que les environnements **presents** dans
-    `terraform.environments` ; celui qui n'y figure pas du tout n'est visible
-    que d'ici.
+    The sub-model only checks the environments **present** in
+    `terraform.environments`; the one that does not appear there at all is only
+    visible from here.
     """
     if terraform.namespace_strategy is not NamespaceStrategy.CUSTOM:
         return []
@@ -97,12 +96,12 @@ def _check_custom_namespaces(spec: Any, terraform: Any) -> list[Issue]:
         Issue(
             level="error",
             message=(
-                f"environnement '{env.name}' : la strategie de namespace "
-                '"custom" exige un namespace explicite, et aucun n\'est declare.'
+                f"environment '{env.name}': the \"custom\" namespace strategy "
+                "requires an explicit namespace, and none is declared."
             ),
             hint=(
-                f"Renseignez terraform.environments.{env.name}.namespace, ou "
-                "passez terraform.namespace_strategy a per_env pour deriver "
+                f"Set terraform.environments.{env.name}.namespace, or switch "
+                "terraform.namespace_strategy to per_env to derive "
                 f"'{spec.service.name}-{env.name}'."
             ),
             domains=("terraform",),
@@ -113,11 +112,10 @@ def _check_custom_namespaces(spec: Any, terraform: Any) -> list[Issue]:
 
 
 def _check_namespace_lengths(spec: Any, terraform: Any) -> list[Issue]:
-    """Verifie les namespaces **derives**, que le sous-modele n'a jamais vus.
+    """Check the **derived** namespaces, which the sub-model never saw.
 
-    `<service>-<env>` peut depasser 63 caracteres alors que ni le nom du service
-    ni celui de l'environnement ne depassent leur propre plafond : le produit
-    n'existe qu'ici.
+    `<service>-<env>` can exceed 63 characters while neither the service name nor
+    the environment name exceeds its own cap: the product only exists here.
     """
     issues: list[Issue] = []
     for env in spec.service.environments:
@@ -128,13 +126,13 @@ def _check_namespace_lengths(spec: Any, terraform: Any) -> list[Issue]:
             Issue(
                 level="error",
                 message=(
-                    f"le namespace derive pour '{env.name}' est "
-                    f"'{namespace}' ({len(namespace)} caracteres) ; Kubernetes "
-                    f"en admet {MAX_NAMESPACE_LENGTH} au plus."
+                    f"the namespace derived for '{env.name}' is "
+                    f"'{namespace}' ({len(namespace)} characters); Kubernetes "
+                    f"accepts at most {MAX_NAMESPACE_LENGTH}."
                 ),
                 hint=(
-                    "Raccourcissez service.name ou le nom de l'environnement, "
-                    f"ou fixez terraform.environments.{env.name}.namespace."
+                    "Shorten service.name or the environment name, or set "
+                    f"terraform.environments.{env.name}.namespace."
                 ),
                 domains=("terraform",),
             )
@@ -143,39 +141,38 @@ def _check_namespace_lengths(spec: Any, terraform: Any) -> list[Issue]:
 
 
 def _check_orphan_overrides(spec: Any, terraform: Any) -> list[Issue]:
-    """Signale une surcharge sans effet parce que sa famille n'est pas retenue.
+    """Report an override with no effect because its family is not retained.
 
-    Une valeur soigneusement reglee et silencieusement ignoree est pire qu'une
-    erreur : rien ne la distingue d'une valeur appliquee.
+    A carefully tuned and silently ignored value is worse than an error: nothing
+    distinguishes it from a value that is applied.
     """
     issues: list[Issue] = []
-    controles = (
-        (ResourceFamily.QUOTA, "quota", "quota", "un budget de namespace"),
+    checks_to_run = (
+        (ResourceFamily.QUOTA, "quota", "quota", "a namespace budget"),
         (
             ResourceFamily.TLS_CERTIFICATE,
             "tls_dns_names",
             "tls_certificate",
-            "des noms DNS de certificat",
+            "certificate DNS names",
         ),
     )
-    for famille, attribut, nom_famille, libelle in controles:
-        if terraform.uses(famille):
+    for family, attribute, family_name, label in checks_to_run:
+        if terraform.uses(family):
             continue
-        for nom in sorted(terraform.environments):
-            if not getattr(terraform.environments[nom], attribut, None):
+        for name in sorted(terraform.environments):
+            if not getattr(terraform.environments[name], attribute, None):
                 continue
             issues.append(
                 Issue(
                     level="warning",
                     message=(
-                        f"terraform.environments.{nom}.{attribut} declare "
-                        f"{libelle}, mais la famille '{nom_famille}' n'est pas "
-                        "dans terraform.resources : cette valeur ne sera pas "
-                        "appliquee."
+                        f"terraform.environments.{name}.{attribute} declares "
+                        f"{label}, but the '{family_name}' family is not in "
+                        "terraform.resources: that value will not be applied."
                     ),
                     hint=(
-                        f"Ajoutez '{nom_famille}' a terraform.resources, ou "
-                        f"retirez terraform.environments.{nom}.{attribut}."
+                        f"Add '{family_name}' to terraform.resources, or remove "
+                        f"terraform.environments.{name}.{attribute}."
                     ),
                     domains=("terraform",),
                 )
@@ -184,11 +181,12 @@ def _check_orphan_overrides(spec: Any, terraform: Any) -> list[Issue]:
 
 
 def _check_state_safety(spec: Any, terraform: Any) -> list[Issue]:
-    """Signale un etat local sur un environnement de production.
+    """Report a local state on a production environment.
 
-    L'etat Terraform porte en clair tout ce que les ressources exposent — dont
-    les mots de passe engendres par la famille `random_secret`. En backend
-    `local`, il vit dans le repertoire de travail, sans verrou ni chiffrement.
+    The Terraform state carries in plain text everything the resources expose —
+    including the passwords generated by the `random_secret` family. On the
+    `local` backend, it lives in the working directory, with neither lock nor
+    encryption.
     """
     if terraform.backend.kind is not BackendKind.LOCAL:
         return []
@@ -199,8 +197,8 @@ def _check_state_safety(spec: Any, terraform: Any) -> list[Issue]:
         ResourceFamily.TLS_CERTIFICATE
     )
     detail = (
-        " ; il portera en clair les valeurs engendrees par les familles "
-        "random_secret / tls_certificate"
+        "; it will carry in plain text the values generated by the "
+        "random_secret / tls_certificate families"
         if secrets
         else ""
     )
@@ -208,13 +206,13 @@ def _check_state_safety(spec: Any, terraform: Any) -> list[Issue]:
         Issue(
             level="warning",
             message=(
-                f"l'environnement de production '{production[0]}' emploie le "
-                f"backend d'etat 'local' : l'etat n'est ni partage, ni verrouille, "
-                f"ni chiffre{detail}."
+                f"the production environment '{production[0]}' uses the 'local' "
+                f"state backend: the state is neither shared, nor locked, nor "
+                f"encrypted{detail}."
             ),
             hint=(
-                "Passez terraform.backend.kind a s3, gcs, azurerm ou http pour "
-                "la production."
+                "Switch terraform.backend.kind to s3, gcs, azurerm or http for "
+                "production."
             ),
             domains=("terraform",),
         )
@@ -222,32 +220,32 @@ def _check_state_safety(spec: Any, terraform: Any) -> list[Issue]:
 
 
 def _check_cluster_context(spec: Any, terraform: Any) -> list[Issue]:
-    """Signale les environnements qui appliqueront sur le contexte courant.
+    """Report the environments that will apply on the current context.
 
-    C'est l'accident le plus banal du provider Kubernetes : sans contexte
-    nomme, `terraform apply` part vers le cluster que le kubeconfig de la
-    machine designe au moment ou on lance la commande.
+    It is the most banal accident of the Kubernetes provider: with no named
+    context, `terraform apply` goes to the cluster the kubeconfig of the machine
+    designates at the moment the command is launched.
     """
-    acces = terraform.kubernetes
-    if acces.auth.value != "kubeconfig" or acces.context_per_environment:
+    access = terraform.kubernetes
+    if access.auth.value != "kubeconfig" or access.context_per_environment:
         return []
-    muets = [
+    silent = [
         env.name
         for env in spec.service.environments
         if not terraform.overrides(env.name).kube_context
     ]
-    if not muets:
+    if not silent:
         return []
     return [
         Issue(
             level="warning",
             message=(
-                "terraform.kubernetes.context_per_environment est a false et "
-                f"aucun contexte n'est nomme pour : {', '.join(muets)}. "
-                "Terraform appliquera sur le contexte courant de la machine."
+                "terraform.kubernetes.context_per_environment is false and no "
+                f"context is named for: {', '.join(silent)}. Terraform will apply "
+                "on the current context of the machine."
             ),
             hint=(
-                "Repassez context_per_environment a true, ou renseignez "
+                "Switch context_per_environment back to true, or set "
                 "terraform.environments.<env>.kube_context."
             ),
             domains=("terraform",),

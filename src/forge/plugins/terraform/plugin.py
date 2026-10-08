@@ -1,12 +1,12 @@
-"""Plugin de domaine Terraform : implementation des hooks de forge.
+"""Terraform domain plugin: implementation of the forge hooks.
 
-Comme les deux autres plugins, ce module ne contient aucune logique : il branche
-le contrat (`DESIGN.md` §2.2) sur les modules qui font le travail.
+Like the two other plugins, this module holds no logic: it wires the contract
+(`DESIGN.md` §2.2) onto the modules that do the work.
 
-C'est le premier domaine du projet qui ne vient d'aucun outil legacy. Ce qu'il
-demontre — ou non — c'est que le contrat de plugin suffit a ajouter un domaine
-sans toucher au coeur. Une seule ligne du coeur change : l'entree de
-`BUILTIN_PLUGINS`.
+It is the first domain of the project that comes from no legacy tool. What it
+demonstrates — or does not — is that the plugin contract is enough to add a domain
+without touching the core. One single line of the core changes: the
+`BUILTIN_PLUGINS` entry.
 """
 
 from __future__ import annotations
@@ -30,8 +30,8 @@ def forge_domain() -> DomainInfo:
         name="terraform",
         title="Terraform",
         summary="Infrastructure foundation: namespace, budget, deployment identity",
-        # Le socle part en premier : c'est lui qui cree le cloisonnement
-        # dans lequel les autres domaines deposent quelque chose.
+        # The base layer goes first: it is what creates the partition the other
+        # domains put something into.
         deploy_order=10,
     )
 
@@ -58,13 +58,13 @@ def forge_validators(spec: Any, outdir: Path) -> list[Command]:
 
 @hookimpl
 def forge_deploy(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Comment ce domaine se deploie. Le coeur ne l'execute jamais."""
+    """How this domain deploys itself. The core never runs it."""
     return validators_module.deploy_commands(spec, outdir, environment)
 
 
 @hookimpl
 def forge_check_spec(spec: Any) -> list[Issue]:
-    """Controles que le sous-modele ne peut pas faire : il ne voit pas `service:`."""
+    """Checks the sub-model cannot do: it does not see `service:`."""
     if getattr(spec, "terraform", None) is None:
         return []
     return answers_module.cross_check(spec)
@@ -72,17 +72,17 @@ def forge_check_spec(spec: Any) -> list[Issue]:
 
 @hookimpl
 def forge_projection(spec: Any) -> Projection:
-    """Ce que le domaine Terraform affirme produire.
+    """What the Terraform domain claims to produce.
 
-    Une seule facette, et c'est delibere : `namespaces`, du **vocabulaire
-    partage** (`forge.validate.consistency.FACET_VOCABULARY`). C'est exactement
-    celle que le domaine Helm declare, et la ou les deux domaines doivent
-    s'accorder : Terraform cree le cloisonnement, Helm y deploie. Un desaccord
-    signifie que le chart vise un namespace que personne ne cree.
+    One single facet, and that is deliberate: `namespaces`, from the **shared
+    vocabulary** (`forge.validate.consistency.FACET_VOCABULARY`). It is exactly
+    the one the Helm domain declares, and where the two domains have to agree:
+    Terraform creates the partition, Helm deploys into it. A disagreement means
+    the chart targets a namespace nobody creates.
 
-    La phase 5 avait etabli le mecanisme sans avoir de vrai desaccord a
-    montrer — Ansible et Helm ne partagent aucune facette de ce genre. Ce
-    plugin lui donne son premier cas reel.
+    Phase 5 had established the mechanism without having a real disagreement to
+    show — Ansible and Helm share no facet of that kind. This plugin gives it its
+    first real case.
     """
     projection = answers_module.build(spec)
     namespaces = sorted({env["namespace"] for env in projection["environments"]})
@@ -96,32 +96,32 @@ def forge_projection(spec: Any) -> Projection:
 
 @hookimpl
 def forge_catalog() -> list[CatalogEntry]:
-    """Familles de ressources consultables par `forge catalog terraform`."""
+    """Resource families browsable through `forge catalog terraform`."""
     return [
         CatalogEntry(
-            name=famille.name,
-            summary=famille.summary,
-            details=_details(famille),
-            options=famille.option_descriptions(),
+            name=family.name,
+            summary=family.summary,
+            details=_details(family),
+            options=family.option_descriptions(),
         )
-        for famille in all_families()
+        for family in all_families()
     ]
 
 
-def _details(famille: Any) -> str:
-    """Description longue d'une famille : son role, ce qu'elle pose, ses pieges."""
-    lignes = [
-        famille.details or famille.summary,
+def _details(family: Any) -> str:
+    """Long description of a family: its role, what it places, its traps."""
+    lines = [
+        family.details or family.summary,
         "",
-        f"Pose : {', '.join(famille.resources)}",
-        f"Providers : {', '.join(famille.providers)}",
+        f"Places: {', '.join(family.resources)}",
+        f"Providers: {', '.join(family.providers)}",
     ]
-    if famille.outputs:
-        lignes.append(f"Sorties : {', '.join(sorted(famille.outputs))}")
-    if famille.traps:
-        lignes += ["", "Points de vigilance :"]
-        lignes += [f"  - {piege}" for piege in famille.traps]
-    return "\n".join(lignes)
+    if family.outputs:
+        lines.append(f"Outputs: {', '.join(sorted(family.outputs))}")
+    if family.traps:
+        lines += ["", "Points to watch:"]
+        lines += [f"  - {trap}" for trap in family.traps]
+    return "\n".join(lines)
 
 
 @hookimpl

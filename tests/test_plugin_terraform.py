@@ -12,9 +12,6 @@ organised differently from the other two domains:
 * the **absence of any secret value** in every generated file;
 * and, under the `integration` marker, the **real validators**: `terraform fmt`,
   `terraform init`, `terraform validate` and `tflint`.
-
-The plugin's own messages are still French: the domains are translated with
-their templates, so the assertions below quote them as they are.
 """
 
 from __future__ import annotations
@@ -79,7 +76,7 @@ def _generate(tmp_path: Path, given: dict | None = None):
 
 def test_a_bare_version_is_refused_as_a_constraint():
     """`1.9.8` would pin the project to one patch: almost always a mistake."""
-    with pytest.raises(ValueError, match="contrainte de version"):
+    with pytest.raises(ValueError, match="version constraint"):
         TerraformSpec(terraform_version="1.9.8")
 
 
@@ -90,13 +87,13 @@ def test_well_formed_constraints_pass(constraint):
 
 def test_a_secret_backend_key_is_refused():
     """A generated file never carries a secret, backend included."""
-    with pytest.raises(ValueError, match="secretes refusees"):
+    with pytest.raises(ValueError, match="secret backend keys refused"):
         TerraformSpec(backend={"kind": "s3", "config": {"bucket": "b", "region": "r", "secret_key": "x"}})
 
 
 def test_a_missing_mandatory_backend_key_is_refused():
     """Otherwise the project renders perfectly and refuses to initialise."""
-    with pytest.raises(ValueError, match="cles obligatoires absentes"):
+    with pytest.raises(ValueError, match="mandatory keys absent"):
         TerraformSpec(backend={"kind": "s3", "config": {"bucket": "b"}})
 
 
@@ -107,7 +104,7 @@ def test_the_state_key_is_not_asked_of_the_specification():
 
 
 def test_a_repeated_family_is_refused():
-    with pytest.raises(ValueError, match="familles de ressources"):
+    with pytest.raises(ValueError, match="resource families"):
         TerraformSpec(resources=["namespace", "namespace"])
 
 
@@ -174,13 +171,13 @@ def test_an_override_without_its_family_is_reported():
         environments={"prod": {"quota": {"cpu": "8"}}},
     )
     warnings = _messages(given, "warning")
-    assert any("quota" in m and "ne sera pas appliquee" in m for m in warnings)
+    assert any("quota" in m and "will not be applied" in m for m in warnings)
 
 
 def test_a_local_state_in_production_is_reported():
     given = _base(resources=["namespace", "random_secret"])
     warnings = _messages(given, "warning")
-    assert any("backend d'etat 'local'" in m for m in warnings)
+    assert any("'local' state backend" in m for m in warnings)
     assert any("random_secret" in m for m in warnings)
 
 
@@ -189,7 +186,7 @@ def test_a_missing_cluster_context_is_reported():
         resources=["namespace"],
         kubernetes={"context_per_environment": False},
     )
-    assert any("contexte courant" in m for m in _messages(given, "warning"))
+    assert any("current context" in m for m in _messages(given, "warning"))
 
 
 def test_the_reference_specification_raises_no_error():

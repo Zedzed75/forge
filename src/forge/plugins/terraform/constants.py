@@ -1,30 +1,30 @@
-"""Constantes du domaine Terraform : plafonds et exigences des backends."""
+"""Terraform domain constants: caps and backend requirements."""
 
 from __future__ import annotations
 
 import re
 from typing import Final
 
-#: Longueur maximale d'un nom de namespace Kubernetes (RFC 1123, label DNS).
+#: Maximum length of a Kubernetes namespace name (RFC 1123, a DNS label).
 MAX_NAMESPACE_LENGTH: Final[int] = 63
 
-#: Contrainte de version acceptee pour `required_version`. Terraform accepte une
-#: liste de contraintes separees par des virgules ; une version nue (`1.9.8`)
-#: est valide mais fige le projet sur un correctif precis, ce que le modele
-#: refuse : c'est presque toujours une erreur de saisie.
+#: Version constraint accepted for `required_version`. Terraform accepts a list
+#: of constraints separated by commas; a bare version (`1.9.8`) is valid but
+#: freezes the project on one precise patch, which the model refuses: it is
+#: almost always a typo.
 VERSION_CONSTRAINT_RE: Final[re.Pattern[str]] = re.compile(
     r"^\s*(?:~>|>=|<=|>|<|=|!=)\s*\d+(?:\.\d+){0,2}"
     r"(?:\s*,\s*(?:~>|>=|<=|>|<|=|!=)\s*\d+(?:\.\d+){0,2})*\s*$"
 )
 
-#: Cles indispensables a chaque type de backend. Terraform ne les reclame qu'au
-#: `init`, c'est-a-dire longtemps apres la generation : les exiger ici evite un
-#: projet qui se rend parfaitement et refuse de s'initialiser.
+#: Keys each backend type cannot do without. Terraform only asks for them at
+#: `init`, that is to say long after generation: requiring them here avoids a
+#: project that renders perfectly and refuses to initialise.
 #:
-#: Le backend `local` n'exige rien : `path` a une valeur par defaut. Les cles
-#: `key` et `prefix` n'y figurent pas non plus : elles sont **derivees par
-#: environnement** (cf. `derive_env._state_key`), pour que deux racines
-#: n'ecrivent jamais le meme etat.
+#: The `local` backend requires nothing: `path` has a default value. The `key`
+#: and `prefix` keys do not appear there either: they are **derived per
+#: environment** (cf. `derive_env._state_key`), so that two roots never write the
+#: same state.
 REQUIRED_BACKEND_KEYS: Final[dict[str, tuple[str, ...]]] = {
     "local": (),
     "s3": ("bucket", "region"),
@@ -33,9 +33,9 @@ REQUIRED_BACKEND_KEYS: Final[dict[str, tuple[str, ...]]] = {
     "http": ("address",),
 }
 
-#: Cles de backend a ne jamais ecrire dans un fichier genere : elles portent un
-#: secret. Terraform les accepte par `-backend-config` ou par variable
-#: d'environnement, ce qui est la seule forme admissible.
+#: Backend keys never to write into a generated file: they carry a secret.
+#: Terraform accepts them through `-backend-config` or through an environment
+#: variable, which is the only admissible form.
 SECRET_BACKEND_KEYS: Final[frozenset[str]] = frozenset(
     {
         "access_key",
@@ -48,5 +48,5 @@ SECRET_BACKEND_KEYS: Final[frozenset[str]] = frozenset(
     }
 )
 
-#: Nom du fichier d'etat local par defaut.
+#: Name of the default local state file.
 DEFAULT_STATE_FILE: Final[str] = "terraform.tfstate"

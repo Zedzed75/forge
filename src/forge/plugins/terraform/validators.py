@@ -1,27 +1,26 @@
-"""Commandes de validation du projet Terraform genere.
+"""Validation commands for the generated Terraform project.
 
-Premier domaine sans generateur legacy : il n'existe aucun instantane de parite
-pour dire si la sortie est juste. Ce sont ces quatre commandes qui tiennent ce
-role, et elles verifient des choses differentes :
+The first domain with no legacy generator: there is no parity snapshot to say
+whether the output is right. It is these four commands that hold that role, and
+they check different things:
 
-1. `terraform fmt -check` — la mise en forme canonique. Ne demande ni reseau ni
-   `init`, et attrape le defaut que les gabarits produisent le plus facilement :
-   un `=` mal aligne. C'est aussi un controle de determinisme, puisque la forme
-   canonique est unique.
-2. `terraform init -backend=false` — les providers se resolvent. Sans elle,
-   `validate` refuse de s'executer. `-backend=false` evite de joindre le
-   stockage d'etat : on valide du code, on ne touche a aucune infrastructure.
-3. `terraform validate` — la configuration tient debout : types, references,
-   arguments obligatoires, blocs inconnus. C'est le validateur central.
-4. `tflint` — ce que `validate` laisse passer : version de provider non bornee,
-   variable declaree et jamais employee, nom de ressource non conforme.
+1. `terraform fmt -check` — the canonical formatting. Requires neither network nor
+   `init`, and catches the defect templates produce most easily: a misaligned `=`.
+   It is also a determinism check, since the canonical form is unique.
+2. `terraform init -backend=false` — the providers resolve. Without it, `validate`
+   refuses to run. `-backend=false` avoids reaching the state storage: code is
+   validated, no infrastructure is touched.
+3. `terraform validate` — the configuration holds up: types, references, mandatory
+   arguments, unknown blocks. It is the central validator.
+4. `tflint` — what `validate` lets through: an unbounded provider version, a
+   variable declared and never used, a non-conforming resource name.
 
-Les trois premieres tournent **par racine d'environnement** : chaque racine est
-une configuration Terraform independante, et rien ne garantit que la validite de
-l'une entraine celle de l'autre. `tflint` parcourt l'arborescence en une fois.
+The first three run **per environment root**: each root is an independent
+Terraform configuration, and nothing guarantees that the validity of one entails
+that of the other. `tflint` walks the tree in one go.
 
-Aucune de ces commandes ne joint le cluster ni ne lit un etat : `forge validate`
-verifie du code, jamais une infrastructure.
+None of these commands reaches the cluster nor reads a state: `forge validate`
+checks code, never an infrastructure.
 """
 
 from __future__ import annotations
@@ -33,31 +32,30 @@ from typing import Any
 from forge.plugins.terraform import tree
 from forge.plugins_api.types import Command
 
-#: Delai maximal accorde a une commande, en secondes. `init` telecharge des
-#: providers au premier passage : le delai est plus large que celui des autres
-#: domaines.
+#: Maximum time granted to a command, in seconds. `init` downloads providers on
+#: the first pass: the timeout is wider than that of the other domains.
 TIMEOUT = 600
 
-#: Message d'installation commun aux deux outils.
+#: Installation message common to both tools.
 INSTALL_HINT = (
-    "installez terraform (https://developer.hashicorp.com/terraform/install) et "
-    "tflint (https://github.com/terraform-linters/tflint). Sous Windows, le pont "
-    "WSL les cherche dans /opt/forge-tools/bin ; un lien symbolique suffit."
+    "install terraform (https://developer.hashicorp.com/terraform/install) and "
+    "tflint (https://github.com/terraform-linters/tflint). On Windows, the WSL "
+    "bridge looks for them in /opt/forge-tools/bin; a symbolic link is enough."
 )
 
-#: Variable d'environnement designant un cache local de providers. Sans elle,
-#: `terraform init` retelecharge chaque provider pour **chaque** racine
-#: d'environnement : trois environnements, trois fois le meme telechargement.
+#: Environment variable pointing at a local provider cache. Without it,
+#: `terraform init` re-downloads every provider for **each** environment root:
+#: three environments, three times the same download.
 CACHE_ENV_VAR = "FORGE_TF_PLUGIN_CACHE"
 
 
-def _environnement() -> tuple[tuple[str, str], ...]:
-    """Variables d'environnement passees a terraform et tflint.
+def _environment() -> tuple[tuple[str, str], ...]:
+    """Environment variables passed to terraform and tflint.
 
-    `TF_IN_AUTOMATION` retire des messages qui invitent a lancer d'autres
-    commandes — sans objet ici. `CHECKPOINT_DISABLE` supprime l'appel a
-    HashiCorp qui verifie s'il existe une version plus recente : c'est le seul
-    acces reseau que ces commandes font sans y etre obligees.
+    `TF_IN_AUTOMATION` removes messages inviting the user to run other commands —
+    pointless here. `CHECKPOINT_DISABLE` suppresses the call to HashiCorp that
+    checks whether a newer version exists: it is the only network access these
+    commands make without being obliged to.
     """
     variables: dict[str, str] = {
         "NO_COLOR": "1",
@@ -65,94 +63,94 @@ def _environnement() -> tuple[tuple[str, str], ...]:
         "CHECKPOINT_DISABLE": "1",
     }
     cache = os.environ.get(CACHE_ENV_VAR, "")
-    # Terraform echoue si le repertoire de cache n'existe pas : mieux vaut s'en
-    # passer que faire echouer la validation pour un chemin mal renseigne.
+    # Terraform fails when the cache directory does not exist: better to do
+    # without it than to fail validation over a badly set path.
     if cache and Path(cache).is_dir():
         variables["TF_PLUGIN_CACHE_DIR"] = cache
     return tuple(sorted(variables.items()))
 
 
 def commands(spec: Any, outdir: Path) -> list[Command]:
-    """Commandes validant le projet genere, dans l'ordre d'execution."""
-    env_commun = _environnement()
-    liste: list[Command] = [
+    """Commands validating the generated project, in execution order."""
+    shared_env = _environment()
+    commands_list: list[Command] = [
         Command(
             label="terraform fmt",
             tool="terraform",
             argv=("fmt", "-check", "-recursive", "-diff", "-no-color"),
             cwd=outdir,
             timeout=TIMEOUT,
-            env=env_commun,
+            env=shared_env,
             install_hint=INSTALL_HINT,
             requires_linux=True,
         )
     ]
 
     for env in spec.service.environments:
-        racine = outdir / tree.environment_dir(env.name)
-        liste.append(
+        root = outdir / tree.environment_dir(env.name)
+        commands_list.append(
             Command(
                 label=f"terraform init ({env.name})",
                 tool="terraform",
                 argv=("init", "-backend=false", "-input=false", "-no-color"),
-                cwd=racine,
+                cwd=root,
                 timeout=TIMEOUT,
-                env=env_commun,
+                env=shared_env,
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
         )
-        liste.append(
+        commands_list.append(
             Command(
                 label=f"terraform validate ({env.name})",
                 tool="terraform",
                 argv=("validate", "-no-color"),
-                cwd=racine,
+                cwd=root,
                 timeout=TIMEOUT,
-                env=env_commun,
+                env=shared_env,
                 install_hint=INSTALL_HINT,
                 requires_linux=True,
             )
         )
 
-    liste.append(
+    commands_list.append(
         Command(
             label="tflint",
             tool="tflint",
             argv=("--recursive", "--no-color"),
             cwd=outdir,
             timeout=TIMEOUT,
-            env=env_commun,
+            env=shared_env,
             install_hint=INSTALL_HINT,
             requires_linux=True,
         )
     )
-    return liste
+    return commands_list
 
 
 def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
-    """Commandes appliquant le socle sur `environment` (hook `forge_deploy`).
+    """Commands applying the base layer onto `environment` (`forge_deploy` hook).
 
-    Le coeur ne les execute jamais : elles sont ecrites dans un pipeline.
+    The core never runs them: they are written into a pipeline.
 
-    Deux commandes, et la premiere n'est pas la meme qu'a la validation : ici
-    `init` **joint** le stockage d'etat, puisqu'il s'agit d'appliquer. C'est la
-    seule difference, et c'est celle qui compte.
+    Two commands, and the first is not the same as at validation time: here `init`
+    **reaches** the state storage, since the point is to apply. That is the only
+    difference, and it is the one that counts.
 
-    `-auto-approve` est la parce qu'un pipeline n'a personne pour confirmer. La
-    confirmation appartient donc au pipeline lui-meme — approbation manuelle
-    avant le job de production, ce que le domaine `pipeline` engendre.
+    `-auto-approve` is there because a pipeline has nobody to confirm. The
+    confirmation therefore belongs to the pipeline itself — a manual approval
+    before the production job, which the `pipeline` domain generates.
     """
-    racine = outdir / tree.environment_dir(environment)
-    env_commun = _environnement()
+    root = outdir / tree.environment_dir(environment)
+    shared_env = _environment()
     return [
         Command(
             label=f"terraform init ({environment})",
             tool="terraform",
             argv=("init", "-input=false", "-no-color"),
-            cwd=racine,
+            cwd=root,
             timeout=TIMEOUT,
-            env=env_commun,
+            env=shared_env,
             install_hint=INSTALL_HINT,
             requires_linux=True,
         ),
@@ -160,9 +158,9 @@ def deploy_commands(spec: Any, outdir: Path, environment: str) -> list[Command]:
             label=f"terraform apply ({environment})",
             tool="terraform",
             argv=("apply", "-auto-approve", "-input=false", "-no-color"),
-            cwd=racine,
+            cwd=root,
             timeout=TIMEOUT,
-            env=env_commun,
+            env=shared_env,
             install_hint=INSTALL_HINT,
             requires_linux=True,
         ),

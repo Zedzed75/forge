@@ -1,9 +1,9 @@
-"""Acces au catalogue des familles Terraform.
+"""Access to the catalogue of Terraform families.
 
-Meme role que `forge.plugins.ansible.catalog.registry` et son equivalent Helm :
-une seule porte d'entree, pour que l'ordre canonique soit celui du catalogue et
-non celui de la specification. Deux specifications qui citent les memes familles
-dans un ordre different doivent produire le meme projet.
+The same role as `forge.plugins.ansible.catalog.registry` and its Helm
+equivalent: a single entry point, so that the canonical order is that of the
+catalogue and not that of the specification. Two specifications that quote the
+same families in a different order must produce the same project.
 """
 
 from __future__ import annotations
@@ -14,44 +14,44 @@ from forge.plugins.terraform.variables import COMMON_VARIABLES, Variable
 
 
 def all_families() -> tuple[Family, ...]:
-    """Toutes les familles, dans l'ordre canonique."""
+    """All the families, in canonical order."""
     return FAMILIES
 
 
 def family_names() -> tuple[str, ...]:
-    """Noms des familles, dans l'ordre canonique."""
-    return tuple(famille.name for famille in FAMILIES)
+    """Family names, in canonical order."""
+    return tuple(family.name for family in FAMILIES)
 
 
 def get_family(name: str) -> Family:
-    """Famille `name`, ou `KeyError`. Le sous-modele valide deja les noms."""
+    """The `name` family, or `KeyError`. The sub-model already validates the names."""
     return BY_NAME[name]
 
 
 def selected(names: list[str] | tuple[str, ...]) -> tuple[Family, ...]:
-    """Familles retenues, remises dans l'ordre canonique et dedoublonnees."""
-    demandees = set(names)
-    return tuple(famille for famille in FAMILIES if famille.name in demandees)
+    """Retained families, put back into canonical order and deduplicated."""
+    requested = set(names)
+    return tuple(family for family in FAMILIES if family.name in requested)
 
 
 def providers_for(families: tuple[Family, ...]) -> list[Provider]:
-    """Providers necessaires aux familles retenues, tries par nom local."""
-    return resolve({nom for famille in families for nom in famille.providers})
+    """Providers the retained families need, sorted by local name."""
+    return resolve({name for family in families for name in family.providers})
 
 
 def variables_for(families: tuple[Family, ...]) -> tuple[Variable, ...]:
-    """Variables du module : les communes, puis celles des familles retenues.
+    """Variables of the module: the common ones, then those of the retained families.
 
-    Dedoublonnees par nom en conservant la premiere declaration : deux familles
-    peuvent legitimement demander la meme variable, et c'est la definition
-    commune qui doit l'emporter.
+    Deduplicated by name, keeping the first declaration: two families can
+    legitimately ask for the same variable, and it is the common definition that
+    must win.
     """
-    resultat: list[Variable] = list(COMMON_VARIABLES)
-    connues = {variable.name for variable in resultat}
-    for famille in families:
-        for variable in famille.variables:
-            if variable.name in connues:
+    result: list[Variable] = list(COMMON_VARIABLES)
+    known = {variable.name for variable in result}
+    for family in families:
+        for variable in family.variables:
+            if variable.name in known:
                 continue
-            connues.add(variable.name)
-            resultat.append(variable)
-    return tuple(resultat)
+            known.add(variable.name)
+            result.append(variable)
+    return tuple(result)

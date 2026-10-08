@@ -1,13 +1,13 @@
-"""Enumerations du domaine Terraform.
+"""Enumerations of the Terraform domain.
 
-Toutes heritent de `str` : le dict `domain` passe a copier doit rester
-JSON-serialisable, et `.value` s'ecrit tel quel dans `.copier-answers.yml`.
+They all inherit from `str`: the `domain` dict passed to copier has to stay
+JSON-serialisable, and `.value` is written as-is into `.copier-answers.yml`.
 
-`NamespaceStrategy` reprend les trois memes strategies que le domaine Helm.
-C'est une duplication **assumee** : la partager exigerait de placer la notion de
-namespace dans le coeur, qui doit rester agnostique (DESIGN.md §2). Les deux
-domaines se rejoignent la ou il faut — sur la **facette** `namespaces`, comparee
-par `forge validate`.
+`NamespaceStrategy` repeats the same three strategies as the Helm domain. That is
+a **deliberate** duplication: sharing it would require putting the notion of a
+namespace into the core, which must stay agnostic (DESIGN.md §2). The two domains
+meet where they have to — on the `namespaces` **facet**, compared by
+`forge validate`.
 """
 
 from __future__ import annotations
@@ -16,82 +16,83 @@ from enum import Enum
 
 
 class BackendKind(str, Enum):
-    """Ou l'etat Terraform est conserve.
+    """Where the Terraform state is kept.
 
-    L'etat contient en clair tout ce que les ressources exposent, y compris les
-    mots de passe generes : le choix du backend est un choix de securite avant
-    d'etre un choix de confort.
+    The state contains in plain text everything the resources expose, generated
+    passwords included: the choice of a backend is a security choice before being
+    a convenience one.
     """
 
-    #: Fichier local. Utile en decouverte, jamais en equipe : ni verrou ni
-    #: chiffrement, et rien n'empeche deux personnes d'appliquer en meme temps.
+    #: A local file. Useful while exploring, never in a team: neither lock nor
+    #: encryption, and nothing stops two people from applying at the same time.
     LOCAL = "local"
 
-    #: Bucket S3 (ou compatible). Le verrouillage demande `use_lockfile` ou une
-    #: table DynamoDB, sans quoi deux applications concurrentes se recouvrent.
+    #: An S3 (or compatible) bucket. Locking requires `use_lockfile` or a
+    #: DynamoDB table, without which two concurrent applies overwrite each other.
     S3 = "s3"
 
-    #: Bucket Google Cloud Storage. Verrouillage natif, chiffrement au repos.
+    #: A Google Cloud Storage bucket. Native locking, encryption at rest.
     GCS = "gcs"
 
-    #: Compte de stockage Azure. Verrouillage natif par bail de blob.
+    #: An Azure storage account. Native locking through a blob lease.
     AZURERM = "azurerm"
 
-    #: Service HTTP implementant l'API d'etat (GitLab managed state, Atlantis).
+    #: An HTTP service implementing the state API (GitLab managed state, Atlantis).
     HTTP = "http"
 
 
 class NamespaceStrategy(str, Enum):
-    """Comment le nom du namespace est derive de l'environnement."""
+    """How the namespace name is derived from the environment."""
 
-    #: Un seul namespace pour tous les environnements : `<service>`.
+    #: One single namespace for every environment: `<service>`.
     SAME = "same"
 
-    #: Un namespace par environnement : `<service>-<env>`.
+    #: One namespace per environment: `<service>-<env>`.
     PER_ENV = "per_env"
 
-    #: Chaque environnement fournit son namespace explicitement.
+    #: Each environment supplies its namespace explicitly.
     CUSTOM = "custom"
 
 
 class KubernetesAuth(str, Enum):
-    """Comment le provider Kubernetes s'authentifie."""
+    """How the Kubernetes provider authenticates."""
 
-    #: Fichier kubeconfig, avec un contexte nomme. Mode des postes et de la CI
-    #: classique. Sans contexte explicite, le provider emploie le contexte
-    #: *courant* du poste : c'est l'accident de production le plus banal.
+    #: A kubeconfig file, with a named context. The mode of workstations and of
+    #: ordinary CI. With no explicit context, the provider uses the *current*
+    #: context of the workstation: it is the most banal production accident.
     KUBECONFIG = "kubeconfig"
 
-    #: Terraform s'execute dans un pod du cluster vise et lit son jeton monte.
+    #: Terraform runs inside a pod of the targeted cluster and reads its mounted
+    #: token.
     IN_CLUSTER = "in_cluster"
 
 
 class ResourceFamily(str, Enum):
-    """Familles de ressources que le module peut declarer.
+    """Families of resources the module can declare.
 
-    L'ordre de declaration est l'ordre canonique : il fixe l'ordre des fichiers
-    `.tf` du module, celui des lignes du README et celui des cles de
+    The declaration order is the canonical order: it fixes the order of the `.tf`
+    files of the module, that of the lines of the README and that of the keys of
     `domain.resource_slots`.
     """
 
-    #: Le namespace lui-meme. Selectionnee, Terraform le **cree** ; absente, le
-    #: module se rattache a un namespace existant fourni en variable.
+    #: The namespace itself. Selected, Terraform **creates** it; absent, the
+    #: module attaches to an existing namespace supplied as a variable.
     NAMESPACE = "namespace"
 
-    #: ResourceQuota + LimitRange : le budget du namespace.
+    #: ResourceQuota + LimitRange: the budget of the namespace.
     QUOTA = "quota"
 
-    #: Secret de tirage d'image (`kubernetes.io/dockerconfigjson`).
+    #: Image pull secret (`kubernetes.io/dockerconfigjson`).
     REGISTRY_SECRET = "registry_secret"
 
-    #: ServiceAccount + Role + RoleBinding pour les deploiements automatises.
+    #: ServiceAccount + Role + RoleBinding for automated deployments.
     SERVICE_ACCOUNT = "service_account"
 
-    #: NetworkPolicy fermant le namespace par defaut.
+    #: NetworkPolicy closing the namespace by default.
     NETWORK_POLICY = "network_policy"
 
-    #: Mot de passe genere (`random_password`) depose en Secret.
+    #: Generated password (`random_password`) placed in a Secret.
     RANDOM_SECRET = "random_secret"
 
-    #: Certificat auto-signe (`tls_*`) depose en Secret `kubernetes.io/tls`.
+    #: Self-signed certificate (`tls_*`) placed in a `kubernetes.io/tls` Secret.
     TLS_CERTIFICATE = "tls_certificate"
