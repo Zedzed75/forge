@@ -24,7 +24,7 @@ terraform {
   backend "s3" {
     bucket  = "etats-terraform-plateforme"
     encrypt = "true"
-    key     = "boutique/staging/terraform.tfstate"
+    key     = "storefront/staging/terraform.tfstate"
     region  = "eu-west-3"
   }
 }

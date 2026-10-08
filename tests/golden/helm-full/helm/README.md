@@ -1,4 +1,4 @@
-# boutique
+# storefront
 
 Online store, full chart
 
@@ -24,8 +24,8 @@ Target cluster: Kubernetes `>=1.34.0-0`.
 
 | Environment | Namespace | Replicas | Values file |
 |---|---|---|---|
-| `dev` | `boutique-dev` | api: 1, db-proxy: 1, cleanup: - | `charts/boutique/values-dev.yaml` |
-| `prod` | `boutique-prod` | api: 4, db-proxy: 3, cleanup: - | `charts/boutique/values-prod.yaml` |
+| `dev` | `storefront-dev` | api: 1, db-proxy: 1, cleanup: - | `charts/storefront/values-dev.yaml` |
+| `prod` | `storefront-prod` | api: 4, db-proxy: 3, cleanup: - | `charts/storefront/values-prod.yaml` |
 
 ## Components
 
@@ -54,16 +54,16 @@ Environment `dev`:
 
 ```bash
 # Local rendering, with no contact with the cluster
-helm template boutique ./charts/boutique \
-  --namespace boutique-dev \
-  --values ./charts/boutique/values.yaml \
-  --values ./charts/boutique/values-dev.yaml
+helm template storefront ./charts/storefront \
+  --namespace storefront-dev \
+  --values ./charts/storefront/values.yaml \
+  --values ./charts/storefront/values-dev.yaml
 
 # Deployment
-helm upgrade --install boutique ./charts/boutique \
-  --namespace boutique-dev --create-namespace \
-  --values ./charts/boutique/values.yaml \
-  --values ./charts/boutique/values-dev.yaml \
+helm upgrade --install storefront ./charts/storefront \
+  --namespace storefront-dev --create-namespace \
+  --values ./charts/storefront/values.yaml \
+  --values ./charts/storefront/values-dev.yaml \
   --wait --timeout 5m
 ```
 
@@ -71,16 +71,16 @@ Environment `prod`:
 
 ```bash
 # Local rendering, with no contact with the cluster
-helm template boutique ./charts/boutique \
-  --namespace boutique-prod \
-  --values ./charts/boutique/values.yaml \
-  --values ./charts/boutique/values-prod.yaml
+helm template storefront ./charts/storefront \
+  --namespace storefront-prod \
+  --values ./charts/storefront/values.yaml \
+  --values ./charts/storefront/values-prod.yaml
 
 # Deployment
-helm upgrade --install boutique ./charts/boutique \
-  --namespace boutique-prod --create-namespace \
-  --values ./charts/boutique/values.yaml \
-  --values ./charts/boutique/values-prod.yaml \
+helm upgrade --install storefront ./charts/storefront \
+  --namespace storefront-prod --create-namespace \
+  --values ./charts/storefront/values.yaml \
+  --values ./charts/storefront/values-prod.yaml \
   --wait --timeout 5m
 ```
 
@@ -91,16 +91,16 @@ cluster:
 
 ```bash
 # 1. Consistency of the chart
-helm lint ./charts/boutique
+helm lint ./charts/storefront
 
 # 2. Effective rendering of each environment
-helm template boutique ./charts/boutique \
-  --values ./charts/boutique/values-dev.yaml > /dev/null
-helm template boutique ./charts/boutique \
-  --values ./charts/boutique/values-prod.yaml > /dev/null
+helm template storefront ./charts/storefront \
+  --values ./charts/storefront/values-dev.yaml > /dev/null
+helm template storefront ./charts/storefront \
+  --values ./charts/storefront/values-prod.yaml > /dev/null
 
 # 3. Conformance to the schemas of the Kubernetes 1.34 API
-helm template boutique ./charts/boutique | \
+helm template storefront ./charts/storefront | \
   kubeconform -strict -summary -kubernetes-version 1.34.0 -
 ```
 
@@ -113,7 +113,7 @@ Two paths, according to the nature of the change:
    `forge update --only helm`, which applies the evolutions of the template
    **without** overwriting your modifications.
 2. **Operational tuning** (replicas, resources, hosts): modify
-   `charts/boutique/values-<env>.yaml` directly.
+   `charts/storefront/values-<env>.yaml` directly.
 
 Careful: a regeneration rewrites the files of the chart. The modifications made
 by hand in `templates/` will be lost; carry them over into `forge.yml`.
@@ -127,7 +127,7 @@ content of `helm/`.
 ```
 .
 ├── Makefile                        # lint / template / validate / install shortcuts
-└── charts/boutique/
+└── charts/storefront/
     ├── Chart.yaml                  # metadata of the chart
     ├── values.yaml                 # default values, entirely commented
     ├── values-dev.yaml               # divergences of the dev environment

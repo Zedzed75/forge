@@ -25,17 +25,17 @@ domain:
         steps:
         -   env: &id002
                 FORGE_IMAGE_TAG: $CI_COMMIT_SHA
-            name: docker buildx build ($CI_REGISTRY/plateforme/passerelle)
+            name: docker buildx build ($CI_REGISTRY/platform/gateway)
             run: &id003
             - docker buildx create --use --name forge-builder 2>/dev/null || docker
                 buildx use forge-builder
-            - docker buildx build --platform linux/amd64 --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG"
+            - docker buildx build --platform linux/amd64 --file Dockerfile --tag "$CI_REGISTRY/platform/gateway:$FORGE_IMAGE_TAG"
                 --push .
             script:
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder
                 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG"
+                --file Dockerfile --tag "$CI_REGISTRY/platform/gateway:$FORGE_IMAGE_TAG"
                 --push .
             workdir: ''
         tools: &id004 []
@@ -101,13 +101,13 @@ domain:
         needs: *id001
         steps:
         -   env: *id002
-            name: docker buildx build ($CI_REGISTRY/plateforme/passerelle)
+            name: docker buildx build ($CI_REGISTRY/platform/gateway)
             run: *id003
             script:
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx create --use --name forge-builder
                 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='$CI_COMMIT_SHA' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag "$CI_REGISTRY/plateforme/passerelle:$FORGE_IMAGE_TAG"
+                --file Dockerfile --tag "$CI_REGISTRY/platform/gateway:$FORGE_IMAGE_TAG"
                 --push .
             workdir: ''
         tools: *id004
@@ -155,7 +155,7 @@ domain:
             workdir: ''
         tools: *id011
         unknown_tools: *id012
-    workflow_name: passerelle
+    workflow_name: gateway
     workflow_path: .gitlab-ci.yml
 forge_version: 1
 plugin: pipeline
@@ -166,8 +166,8 @@ service:
         name: prod
         production: true
     labels: {}
-    name: passerelle
+    name: gateway
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/pipeline/template
 

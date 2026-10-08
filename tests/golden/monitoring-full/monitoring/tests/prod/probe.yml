@@ -44,7 +44,7 @@ tests:
               env: prod
               instance: https://test-probe.invalid
               job: blackbox
-              service: boutique
+              service: storefront
               severity: critical
             exp_annotations:
               summary: The service is no longer reachable from the outside
@@ -69,7 +69,7 @@ tests:
               env: prod
               instance: https://test-probe.invalid
               job: blackbox
-              service: boutique
+              service: storefront
               severity: warning
             exp_annotations:
               summary: A TLS certificate is approaching its expiry

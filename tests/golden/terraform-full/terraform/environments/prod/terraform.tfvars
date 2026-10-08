@@ -14,13 +14,13 @@
 # PRODUCTION environment.
 # =============================================================================
 
-service_name    = "boutique"
+service_name    = "storefront"
 environment     = "prod"
-namespace       = "boutique-prod"
+namespace       = "storefront-prod"
 labels          = { tier = "frontend", cost-center = "4210", criticality = "high" }
-kube_context    = "plateforme-prod-eu-west-3"
+kube_context    = "platform-prod-eu-west-3"
 quota_cpu       = "16"
 quota_memory    = "32Gi"
 quota_pods      = 120
-tls_dns_names   = ["boutique.example.net"]
-tls_common_name = "boutique.example.net"
+tls_dns_names   = ["storefront.example.net"]
+tls_common_name = "storefront.example.net"

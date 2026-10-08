@@ -14,11 +14,11 @@
 # PRODUCTION environment.
 # =============================================================================
 
-service_name = "boutique"
+service_name = "storefront"
 environment  = "prod"
-namespace    = "boutique-prod"
+namespace    = "storefront-prod"
 labels       = { tier = "frontend" }
-kube_context = "plateforme-prod"
+kube_context = "platform-prod"
 quota_cpu    = "4"
 quota_memory = "8Gi"
 quota_pods   = 30

@@ -12,7 +12,7 @@
 # ---------------------------------------------------------------------------
 
 # Name of the service, taken as is across every domain.
-service: boutique
+service: storefront
 
 # Target environment. Possible values: those of service.environments.
 environment: dev

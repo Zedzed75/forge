@@ -206,7 +206,7 @@ domain:
     - *id001
     - *id002
     ssh_port: 22
-    tree: 'passerelle/
+    tree: 'gateway/
 
         ├── .github/
 
@@ -326,7 +326,7 @@ service:
         name: prod
         production: true
     labels: {}
-    name: passerelle
+    name: gateway
     owner: Platform Team
     owner_email: null
 template_subdir: src/forge/plugins/ansible/template

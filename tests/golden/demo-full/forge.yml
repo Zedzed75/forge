@@ -14,10 +14,10 @@
 # ---------------------------------------------------------------------------
 forge_version: 1
 service:
-  name: boutique
+  name: storefront
   description: Demonstration online store
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   labels:
     app.kubernetes.io/part-of: commerce
     tier: frontend

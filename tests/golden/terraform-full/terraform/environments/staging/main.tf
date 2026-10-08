@@ -12,8 +12,8 @@
 # passed — it simply takes its default value, and the divergence is never seen.
 # =============================================================================
 
-module "boutique" {
-  source = "../../modules/boutique"
+module "storefront" {
+  source = "../../modules/storefront"
 
   service_name               = var.service_name
   environment                = var.environment

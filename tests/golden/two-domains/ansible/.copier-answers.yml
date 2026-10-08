@@ -459,7 +459,7 @@ domain:
     - *id004
     - *id005
     ssh_port: 22
-    tree: 'boutique/
+    tree: 'storefront/
 
         ├── group_vars/
 
@@ -674,8 +674,8 @@ service:
     labels:
         app.kubernetes.io/part-of: commerce
         tier: frontend
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/ansible/template
 

@@ -30,9 +30,9 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: http_requests_total{job="boutique", status="500"}
+      - series: http_requests_total{job="storefront", status="500"}
         values: 0+1000x20
-      - series: http_requests_total{job="boutique", status="200"}
+      - series: http_requests_total{job="storefront", status="200"}
         values: 0+667x20
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -43,7 +43,7 @@ tests:
         exp_alerts:
           - exp_labels:
               env: dev
-              service: boutique
+              service: storefront
               severity: critical
             exp_annotations:
               summary: Too many responses in error

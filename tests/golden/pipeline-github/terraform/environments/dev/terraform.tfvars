@@ -12,9 +12,9 @@
 # Terraform fail: this file is not a place to note down parameters.
 # =============================================================================
 
-service_name = "boutique"
+service_name = "storefront"
 environment  = "dev"
-namespace    = "boutique-dev"
+namespace    = "storefront-dev"
 labels       = { tier = "frontend" }
 kube_context = "dev"
 quota_cpu    = "4"

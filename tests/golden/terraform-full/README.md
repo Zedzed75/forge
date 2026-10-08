@@ -1,4 +1,4 @@
-# boutique
+# storefront
 
 Online store, infrastructure foundation
 
@@ -8,7 +8,7 @@ again, or pick up template changes with `forge update`.
 
 ## Identity
 
-- **Service**: `boutique`
+- **Service**: `storefront`
 - **Owner**: Platform Team
 - **Environments**: dev, staging, prod
 

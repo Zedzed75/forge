@@ -62,15 +62,15 @@ domain:
         -   name: limit_range_default_memory
             value: var.limit_range_default_memory
         name: dev
-        namespace: boutique-dev
+        namespace: storefront-dev
         production: false
         tfvars:
         -   name: service_name
-            value: '"boutique"'
+            value: '"storefront"'
         -   name: environment
             value: '"dev"'
         -   name: namespace
-            value: '"boutique-dev"'
+            value: '"storefront-dev"'
         -   name: labels
             value: '{ tier = "frontend" }'
         -   name: kube_context
@@ -98,22 +98,22 @@ domain:
         -   name: path
             value: '"terraform.tfstate"'
         domain: example.net
-        kube_context: plateforme-prod
+        kube_context: platform-prod
         module_arguments: *id001
         name: prod
-        namespace: boutique-prod
+        namespace: storefront-prod
         production: true
         tfvars:
         -   name: service_name
-            value: '"boutique"'
+            value: '"storefront"'
         -   name: environment
             value: '"prod"'
         -   name: namespace
-            value: '"boutique-prod"'
+            value: '"storefront-prod"'
         -   name: labels
             value: '{ tier = "frontend" }'
         -   name: kube_context
-            value: '"plateforme-prod"'
+            value: '"platform-prod"'
         -   name: quota_cpu
             value: '"4"'
         -   name: quota_memory
@@ -153,13 +153,13 @@ domain:
     - environments/prod/terraform.tfvars
     - environments/prod/variables.tf
     - environments/prod/versions.tf
-    - modules/boutique/README.md
-    - modules/boutique/locals.tf
-    - modules/boutique/namespace.tf
-    - modules/boutique/outputs.tf
-    - modules/boutique/quota.tf
-    - modules/boutique/variables.tf
-    - modules/boutique/versions.tf
+    - modules/storefront/README.md
+    - modules/storefront/locals.tf
+    - modules/storefront/namespace.tf
+    - modules/storefront/outputs.tf
+    - modules/storefront/quota.tf
+    - modules/storefront/variables.tf
+    - modules/storefront/versions.tf
     extras:
         makefile: true
         tflint_config: true
@@ -229,7 +229,7 @@ domain:
         uses_kubeconfig: true
     labels:
         tier: frontend
-    module_dir: modules/boutique
+    module_dir: modules/storefront
     module_files:
     -   path: versions.tf
         purpose: Terraform version and providers required by the module.
@@ -246,7 +246,7 @@ domain:
     -   path: quota.tf
         purpose: 'ResourceQuota and LimitRange: the budget of the namespace (kubernetes_resource_quota,
             kubernetes_limit_range).'
-    module_name: boutique
+    module_name: storefront
     namespace_strategy: per_env
     outputs:
     -   description: Namespace the service is deployed in.
@@ -475,8 +475,8 @@ service:
         production: true
     labels:
         tier: frontend
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/terraform/template
 
