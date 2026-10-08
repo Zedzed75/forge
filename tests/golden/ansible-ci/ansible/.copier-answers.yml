@@ -9,7 +9,7 @@
 _commit: <commit>
 _src_path: <src>
 domain:
-    author: Equipe Plateforme
+    author: Platform Team
     become: true
     collection_users:
         community.general:
@@ -28,7 +28,7 @@ domain:
         group_vars:
             gateways: []
         groups:
-        -   description: Passerelles exposées
+        -   description: Gateways exposed to the outside
             hosts:
             -   ansible_host: 10.30.0.11
                 ansible_port: null
@@ -42,7 +42,7 @@ domain:
             - ssh_hardening
             roles:
             - &id001
-                author: Equipe Plateforme
+                author: Platform Team
                 collections:
                 -   name: community.general
                     version: '>=13.4.0,<14.0.0'
@@ -98,7 +98,7 @@ domain:
                 - common
                 - base
             - &id002
-                author: Equipe Plateforme
+                author: Platform Team
                 collections: []
                 example_group: gateways
                 handlers:
@@ -175,7 +175,7 @@ domain:
             name: vault_example_secret
             placeholder: CHANGE-ME
     groups:
-    -   description: Passerelles exposées
+    -   description: Gateways exposed to the outside
         name: gateways
         role_names:
         - common
@@ -320,14 +320,14 @@ domain:
 forge_version: 1
 plugin: ansible
 service:
-    description: Passerelle applicative
+    description: Application gateway
     environments:
     -   domain: null
         name: prod
         production: true
     labels: {}
     name: passerelle
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: null
 template_subdir: src/forge/plugins/ansible/template
 

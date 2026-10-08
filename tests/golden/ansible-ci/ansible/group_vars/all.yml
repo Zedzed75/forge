@@ -32,7 +32,7 @@ project_name: passerelle
 
 # Description of the project, reused in the MOTD banner.
 # Allowed values: free-form string, possibly empty.
-project_description: Passerelle applicative
+project_description: Application gateway
 
 # Role settings specific to this project
 # ------------------------------------------------------------

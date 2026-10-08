@@ -3,8 +3,8 @@
   "files": {
     ".gitattributes": "- text f70d755466b10164",
     "README.md": "- prose 9e5b02500512dd8e",
-    "forge.yml": "- structured 563d9270c6ff0703",
-    "monitoring/.copier-answers.yml": "- structured 00ffe6d7d21c094d",
+    "forge.yml": "- structured 13cee4f906716f38",
+    "monitoring/.copier-answers.yml": "- structured 5e82ae3df93a79ed",
     "monitoring/.gitignore": "- text 116c71be095f2f84",
     "monitoring/Makefile": "- text f7fd871a0bf7487e",
     "monitoring/README.md": "- prose 8694cc22729c8b6b",

@@ -230,7 +230,7 @@ domain:
         version: '1.34'
     layout: single
     maintainer_email: plateforme@example.net
-    maintainer_name: Equipe Plateforme
+    maintainer_name: Platform Team
     namespace_strategy: per_env
     secrets:
         refresh_interval: 1h
@@ -239,7 +239,7 @@ domain:
 forge_version: 1
 plugin: helm
 service:
-    description: Boutique en ligne, chaine complete
+    description: Online store, full pipeline
     environments:
     -   domain: dev.example.net
         name: dev
@@ -250,7 +250,7 @@ service:
     labels:
         tier: frontend
     name: boutique
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: plateforme@example.net
 template_subdir: src/forge/plugins/helm/template
 

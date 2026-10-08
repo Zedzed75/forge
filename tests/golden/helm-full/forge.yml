@@ -15,8 +15,8 @@
 forge_version: 1
 service:
   name: boutique
-  description: Boutique en ligne, chart complet
-  owner: Equipe Plateforme
+  description: Online store, full chart
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     app.kubernetes.io/part-of: commerce

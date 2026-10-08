@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # group_vars/gateways.yml — variables of the "gateways" group
 # ---------------------------------------------------------------------------
-# Passerelles exposées
+# Gateways exposed to the outside
 # These values override group_vars/all.yml for this group only,
 # in every environment.
 #

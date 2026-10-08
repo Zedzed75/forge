@@ -1,13 +1,13 @@
 ---
-# Specification minimale : un seul environnement, un seul widget, aucun label,
-# aucun responsable joignable. Elle verifie que tous les champs facultatifs le
-# sont reellement, et que la sortie reste complete et commentee.
+# Minimal specification: a single environment, a single widget, no labels, no
+# reachable owner. It checks that every optional field really is optional, and
+# that the output stays complete and commented.
 forge_version: 1
 
 service:
   name: api
-  description: "Service minimal"
-  owner: "Equipe Plateforme"
+  description: "Minimal service"
+  owner: "Platform Team"
   environments:
     - name: prod
       production: true

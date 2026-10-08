@@ -20,14 +20,14 @@ domain:
 forge_version: 1
 plugin: demo
 service:
-    description: Service minimal
+    description: Minimal service
     environments:
     -   domain: null
         name: prod
         production: true
     labels: {}
     name: api
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: null
 template_subdir: src/forge/plugins/demo/template
 

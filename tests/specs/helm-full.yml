@@ -1,16 +1,16 @@
 ---
-# Ce cas exerce ce que l'instantané de parité ne peut pas couvrir : les deux
-# spécifications legacy déclarent `addons: [service]` et `addons: []`, si bien
-# qu'aucune des neuf familles créées en phase 4 n'y apparaît. Il active donc
-# tout ce qui a été écrit : les trois types de charge de travail, les huit
-# addons, un nom de composant à tiret (qui oblige à passer par `values_ref`),
-# des règles RBAC non vides, et des valeurs libres par environnement.
+# This case exercises what the parity snapshot could not: the two legacy
+# specifications declared `addons: [service]` and `addons: []`, so none of the
+# nine families written in phase 4 appeared in them. It therefore switches on
+# everything that was written: the three workload kinds, the eight addons, a
+# component name with a hyphen (which forces the `values_ref` detour), non-empty
+# RBAC rules, and free-form per-environment values.
 forge_version: 1
 
 service:
   name: boutique
-  description: "Boutique en ligne, chart complet"
-  owner: "Equipe Plateforme"
+  description: "Online store, full chart"
+  owner: "Platform Team"
   owner_email: plateforme@example.net
   labels:
     app.kubernetes.io/part-of: commerce
@@ -33,7 +33,7 @@ helm:
     pull_secret_name: registre-prive
 
   components:
-    # Charge de travail exposée, avec la totalité des addons.
+    # Exposed workload, with the full set of addons.
     - name: api
       kind: deployment
       addons:
@@ -64,7 +64,7 @@ helm:
             resources: [configmaps]
             verbs: [get, list, watch]
 
-    # Nom à tiret : `.Values.db-proxy` casserait le chart, `values_ref` non.
+    # Hyphenated name: `.Values.db-proxy` would break the chart, `values_ref` not.
     - name: db-proxy
       kind: statefulset
       addons:
@@ -79,7 +79,7 @@ helm:
           - POOL_SIZE
         mount_as: file
 
-    # Tâche planifiée : ni Service, ni Ingress, ni autoscaling.
+    # Scheduled job: no Service, no Ingress, no autoscaling.
     - name: cleanup
       kind: cronjob
       addons:

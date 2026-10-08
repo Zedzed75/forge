@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # playbooks/dbservers.yml — configuration of the "dbservers" group
 # ---------------------------------------------------------------------------
-# Serveurs de base de donnees, hors cluster
+# Database servers, outside the cluster
 # Targeted run:
 #   ansible-playbook -i inventories/<env> playbooks/dbservers.yml
 # Partial run by tag:

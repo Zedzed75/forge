@@ -1,15 +1,15 @@
 ---
-# Ce cas couvre ce que l'instantané de parité ne peut pas couvrir : les six
-# spécifications legacy ont toutes `write_ci: false`, si bien que le workflow
-# d'intégration continue généré n'apparaît dans aucune d'elles. Il est ici le
-# seul artefact que ce cas ajoute par rapport aux autres, et c'est voulu :
-# volontairement petit, pour que la référence golden reste lisible.
+# This case covers what the parity snapshot could not: the six legacy
+# specifications all had `write_ci: false`, so the generated continuous
+# integration workflow appeared in none of them. It is the only artefact this
+# case adds over the others, and that is deliberate: kept small on purpose, so
+# the golden reference stays readable.
 forge_version: 1
 
 service:
   name: passerelle
-  description: "Passerelle applicative"
-  owner: "Equipe Plateforme"
+  description: "Application gateway"
+  owner: "Platform Team"
   environments:
     - name: prod
       production: true
@@ -24,7 +24,7 @@ ansible:
     write_ci: true
   groups:
     - name: gateways
-      description: "Passerelles exposées"
+      description: "Gateways exposed to the outside"
       roles:
         - common
         - ssh_hardening

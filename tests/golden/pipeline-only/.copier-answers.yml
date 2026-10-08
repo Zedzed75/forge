@@ -160,14 +160,14 @@ domain:
 forge_version: 1
 plugin: pipeline
 service:
-    description: Passerelle applicative, chaine d'integration seule
+    description: Application gateway, pipeline only
     environments:
     -   domain: example.net
         name: prod
         production: true
     labels: {}
     name: passerelle
-    owner: Equipe Plateforme
+    owner: Platform Team
     owner_email: plateforme@example.net
 template_subdir: src/forge/plugins/pipeline/template
 

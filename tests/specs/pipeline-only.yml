@@ -1,22 +1,22 @@
 # ---------------------------------------------------------------------------
-# Cas de reference du domaine pipeline, seul et en dialecte GitLab.
+# Reference case of the pipeline domain, alone and in the GitLab dialect.
 # ---------------------------------------------------------------------------
-# Deux raisons a ce cas :
+# Two reasons for this case:
 #
-# 1. **Mono-domaine.** Un depot peut n'avoir besoin que d'une chaine
-#    d'integration. Le pipeline engendre alors le seul job qu'il puisse
-#    engendrer : celui qui valide sa propre sortie. C'est peu, et c'est juste —
-#    il n'invente pas des jobs pour des domaines absents.
+# 1. **Single domain.** A repository may need nothing but a continuous
+#    integration chain. The pipeline then produces the only job it can produce:
+#    the one that validates its own output. That is little, and it is right —
+#    it does not invent jobs for domains that are absent.
 #
-# 2. **GitLab.** `pipeline-github.yml` couvre l'autre gabarit ; sans ce cas, le
-#    dialecte GitLab ne serait rendu par aucun test golden.
+# 2. **GitLab.** `pipeline-github.yml` covers the other template; without this
+#    case, the GitLab dialect would be rendered by no golden test at all.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
   name: passerelle
-  description: Passerelle applicative, chaine d'integration seule
-  owner: Equipe Plateforme
+  description: Application gateway, pipeline only
+  owner: Platform Team
   owner_email: plateforme@example.net
   environments:
     - name: prod
@@ -33,7 +33,7 @@ pipeline:
   build:
     context: .
     dockerfile: Dockerfile
-    # Sur GitLab, seul le registre du projet est ouvert par le jeton fourni
-    # d'office : toute autre valeur declenche un avertissement de forge.
+    # On GitLab, the token provided out of the box only opens the project's own
+    # registry: any other value raises a warning from forge.
     registry: $CI_REGISTRY
     image: plateforme/passerelle

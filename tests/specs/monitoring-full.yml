@@ -1,16 +1,16 @@
 # ---------------------------------------------------------------------------
-# Cas de reference du domaine monitoring : toutes les familles retenues.
+# Reference case of the monitoring domain: every family that was kept.
 # ---------------------------------------------------------------------------
-# Sert de reference golden et de cas d'integration : ce projet est genere puis
-# soumis a promtool — check config, check rules, et surtout test rules, qui
-# verifie que chaque alerte se declenche reellement.
+# Serves as both golden reference and integration case: this project is
+# generated, then handed to promtool — check config, check rules, and above all
+# test rules, which verifies that each alert really does fire.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
   name: boutique
-  description: Boutique en ligne, supervision
-  owner: Equipe Plateforme
+  description: Online store, monitoring
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     tier: frontend

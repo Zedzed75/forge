@@ -12,7 +12,7 @@
 
 galaxy_info:
   role_name: users
-  author: Equipe Plateforme
+  author: Platform Team
   description: 'Local accounts: creation, secondary groups, sudo and authorised SSH keys.'
   license: MIT
   min_ansible_version: "2.15"

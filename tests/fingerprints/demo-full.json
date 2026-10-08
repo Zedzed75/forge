@@ -3,7 +3,7 @@
   "files": {
     ".gitattributes": "- text f70d755466b10164",
     "README.md": "- prose e2e0929dee883ba1",
-    "demo/.copier-answers.yml": "- structured a71c7a8f6700fb65",
+    "demo/.copier-answers.yml": "- structured aed2f209bbf02c75",
     "demo/README.md": "- prose 06903f606e6767d0",
     "demo/environments/dev/cpu.yml": "- structured 8f907c45de6f3bf7",
     "demo/environments/dev/requetes.yml": "- structured c2cf905222fda7ba",
@@ -11,7 +11,7 @@
     "demo/environments/prod/requetes.yml": "- structured cb434ef6f827f083",
     "demo/fins-de-ligne.txt": "- prose e3b0c44298fc1c14",
     "demo/widgets/cpu/detail.yml": "- structured e173ba401538e58f",
-    "forge.yml": "- structured 6ce316d2e521385e"
+    "forge.yml": "- structured 4be3a9fa2aa0e7eb"
   },
   "fingerprint_version": 1,
   "helm_helper_links": []

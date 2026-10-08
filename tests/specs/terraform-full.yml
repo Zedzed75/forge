@@ -1,19 +1,20 @@
 # ---------------------------------------------------------------------------
-# Cas de reference du domaine Terraform : toutes les familles retenues.
+# Reference case of the Terraform domain: every family that was kept.
 # ---------------------------------------------------------------------------
-# Sert de reference golden et de cas d'integration : ce projet est genere puis
-# soumis aux validateurs reels (terraform fmt, init, validate, tflint).
+# Serves as both golden reference and integration case: this project is
+# generated, then handed to the real validators (terraform fmt, init, validate,
+# tflint).
 #
-# Le backend n'est volontairement pas `local` : c'est la forme qu'un projet
-# reel prend, et elle exerce la derivation de la cle d'etat par environnement.
-# Aucune cle secrete ne figure ici — le modele les refuserait.
+# The backend is deliberately not `local`: that is the shape a real project
+# takes, and it exercises the derivation of the state key per environment.
+# No secret key appears here — the model would refuse them.
 # ---------------------------------------------------------------------------
 forge_version: 1
 
 service:
   name: boutique
-  description: Boutique en ligne, socle d'infrastructure
-  owner: Equipe Plateforme
+  description: Online store, infrastructure foundation
+  owner: Platform Team
   owner_email: plateforme@example.net
   labels:
     tier: frontend

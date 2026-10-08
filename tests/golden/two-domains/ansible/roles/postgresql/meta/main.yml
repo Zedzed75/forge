@@ -12,7 +12,7 @@
 
 galaxy_info:
   role_name: postgresql
-  author: Equipe Plateforme
+  author: Platform Team
   description: 'PostgreSQL server: installation, network listening, databases, roles and pg_hba rules.'
   license: MIT
   min_ansible_version: "2.15"

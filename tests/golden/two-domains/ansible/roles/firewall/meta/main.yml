@@ -12,7 +12,7 @@
 
 galaxy_info:
   role_name: firewall
-  author: Equipe Plateforme
+  author: Platform Team
   description: 'Local firewall: ufw (Debian) or firewalld (RedHat), default policy and open ports.'
   license: MIT
   min_ansible_version: "2.15"
