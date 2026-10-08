@@ -12,12 +12,19 @@
 # so the comment cannot drift away from the commit it claims to describe. That is
 # the reason the comment is mandatory in the workflows and not just a courtesy.
 #
-# Only GitHub Actions is watched here. Python dependencies are declared in
-# pyproject.toml without a lockfile, and the validator binaries in ci.yml are
-# pinned by version in `run:` steps that Dependabot cannot parse -- those are
-# upgraded by hand, deliberately, one bump per commit (see the procedure in
-# ci.yml). Adding an ecosystem Dependabot can only half-see would produce noise,
-# not coverage.
+# Two ecosystems are watched. This file used to watch only `github-actions` and
+# gave as its reason that "Python dependencies are declared in pyproject.toml
+# without a lockfile". That reason has expired: `uv.lock` now exists (DESIGN.md
+# §8 Q10), Dependabot reads it, and the `uv` entry below is its bump path. The
+# lockfile is the only place where `copier` and `jinja2` hold an exact version,
+# and the renderer is the one dependency class that can move generated output
+# without a line of the repository changing -- so it is the one that most needs
+# a watcher, not the one to leave unwatched.
+#
+# Still upgraded by hand, and this part of the old reason does hold: the
+# validator binaries in ci.yml are pinned by version inside `run:` steps, and
+# the uv pin is an action input. Dependabot parses neither. Those are bumped
+# deliberately, one per commit, by the procedure written beside them in ci.yml.
 # ---------------------------------------------------------------------------
 version: 2
 
@@ -37,3 +44,42 @@ updates:
     labels:
       - dependencies
       - github-actions
+
+  # The Python side, read from `uv.lock`. `pyproject.toml` alone would give
+  # Dependabot nothing to bump: every dependency there is a floor (`copier>=9.7`)
+  # and a floor is already satisfied by every newer release. The lockfile is what
+  # names one exact version per package, which is what a bump PR can move.
+  #
+  # A PR here is a renderer bump as often as not, so it is expected to move the
+  # structural fingerprints. That movement is the signal, and it is read, never
+  # re-baselined on sight (DECISIONS.md, note at the top).
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    # Mandatory here, not a preference. Dependabot's default strategy for `uv`
+    # rewrites the floors in `pyproject.toml` as it bumps -- `copier>=9.7` would
+    # become `copier>=9.18.2` -- and Q10 decided the exact opposite: the floors
+    # are forge's published constraints on its users and stay permissive, while
+    # the lockfile is what forge verified. Left on the default, this watcher
+    # would hand us a compatibility promise narrowed by a robot.
+    # `lockfile-only` refreshes `uv.lock` within the floors and skips anything
+    # that would need a manifest edit.
+    #
+    # Known gap, accepted with eyes open: `lockfile-only` is weak on *transitive*
+    # packages (dependabot/dependabot-core#14073, #16449), and `jinja2` is
+    # transitive here -- it arrives through `copier`. So this watcher is not a
+    # complete bump path for the renderer. `uv lock --upgrade`, run by hand when
+    # the renderer is bumped on purpose, is. The alternative was letting the
+    # robot edit the published floors, which is worse.
+    versioning-strategy: lockfile-only
+    # Lower than the actions limit, and for the opposite reason: Python releases
+    # are frequent where action releases are rare, and the 30 transitive packages
+    # in the lockfile would otherwise open a queue nobody reads. Three at a time
+    # is a number that stays readable.
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies
+      - python

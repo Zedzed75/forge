@@ -71,10 +71,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # `version:` and `checksum:` pin the uv this job installs, for the reason
+      # the comment above gives about `uses:` -- and with more force, because
+      # this is the job that produces the artifact the publish job uploads under
+      # our identity. uv is the build frontend here (`uv build` below), so an
+      # unpinned uv is an unpinned step in the path to a permanent PyPI release.
+      # The pin, the checksum and the bump procedure are explained once, at the
+      # matching step in ci.yml; keep the two numbers equal.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.23"
+          checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
           enable-cache: true
           python-version: "3.13"
+          # `pyproject.toml` and not `uv.lock` as in ci.yml, on purpose: this job
+          # never syncs the project environment. It runs `uv build` and
+          # `uvx twine`, whose inputs are the build-system requirements declared
+          # in `pyproject.toml`. The lockfile would be an unrelated key here.
           cache-dependency-glob: "pyproject.toml"
 
       - name: Construire la sdist et la wheel

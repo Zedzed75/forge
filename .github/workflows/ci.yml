@@ -46,23 +46,73 @@ jobs:
 
       # `python-version` est passe a uv : sans lui, la matrice ne serait qu'un
       # decor et les trois jobs tourneraient sur le meme interpreteur.
+      #
+      # The action is pinned to a SHA; `version:` pins what the action
+      # *installs*. Without it the input defaults to "the version in
+      # pyproject.toml, or latest", and with no `[tool.uv] required-version`
+      # here that resolved to latest -- every run picked up whatever uv shipped
+      # that day. That is the same hole as the Ansible validators below, and the
+      # same rule applies: a tool that changes on its own validates nothing
+      # reproducible.
+      #
+      # Version bump procedure, identical to the one spelled out for the Ansible
+      # tooling below: change the number here AND the checksum, run CI, and ship
+      # the bump in its own commit. Never as a passenger of another change.
+      # The checksum comes from the release itself:
+      #   curl -fsSL https://github.com/astral-sh/uv/releases/download/<x.y.z>/uv-x86_64-unknown-linux-gnu.tar.gz.sha256
+      #
+      # The checksum is NOT belt-and-braces, and it is structural rather than a
+      # quirk of today's versions. setup-uv verifies a download against a table
+      # of checksums baked into the action when the action itself was released,
+      # so a SHA-pinned action can never know a uv published after it: v10.2.0's
+      # table stops at uv 0.12.17. For anything newer the action skips
+      # verification silently -- a `core.debug` line, not a warning -- which is
+      # what the floating resolution was already doing here. Passing `checksum:`
+      # is what keeps the verification independent of which setup-uv snapshot we
+      # happen to be pinned to, so a uv bump never has to ask whether the action
+      # recognises it. It is the x86_64 glibc Linux tarball, because both jobs
+      # that install uv run on `ubuntu-latest`; a runner on another OS or
+      # architecture needs a second checksum, not this one.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.23"
+          checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
           enable-cache: true
           python-version: ${{ matrix.python-version }}
-          # Sans cette cle, l'action cherche un uv.lock ou un requirements.txt,
-          # n'en trouve aucun, et pose un cache qui ne s'invalide jamais : les
-          # dependances resteraient figees a leur premiere resolution.
-          cache-dependency-glob: "pyproject.toml"
+          # The cache key has to be the file that decides what gets installed,
+          # and since `uv.lock` landed that file is the lockfile, not
+          # `pyproject.toml`. The distinction is not cosmetic: a Dependabot bump
+          # changes `uv.lock` and leaves `pyproject.toml` untouched, so keying on
+          # `pyproject.toml` would serve the pre-bump cache to a post-bump run.
+          # Keying on nothing at all -- the original state here -- was worse
+          # still: with no lockfile to find, the action laid a cache that never
+          # invalidated and froze the dependencies at their first resolution.
+          cache-dependency-glob: "uv.lock"
 
+      # `uv sync --locked` and not `uv pip install -e ".[dev]"`: the lockfile is
+      # what makes the renderer reproducible (DESIGN.md §8 Q10). `--locked`
+      # refuses to resolve anything -- it installs exactly `uv.lock`, and fails
+      # if `uv.lock` has fallen behind `pyproject.toml` instead of quietly
+      # relocking. A dependency change that forgot to run `uv lock` therefore
+      # stops here, not three weeks later on an unrelated commit.
+      #
+      # `--extra dev` because pytest is declared in
+      # `[project.optional-dependencies]`; a bare `uv sync` would skip it.
+      #
+      # No `uv venv` first: `uv sync` creates `.venv` itself, and reuses one that
+      # already exists. The `uv venv --clear` this replaces was a workaround for
+      # the "a virtual environment already exists" error that a bare `uv venv`
+      # hit back when setup-uv made the environment for us -- which v10 no longer
+      # does unless asked (`activate-environment`, default false). Either way
+      # `uv sync` is correct, which is the point of using it instead.
+      #
+      # The validator installs below stay `uv pip install`, deliberately. They
+      # are tools used *against* the generated projects, not dependencies of
+      # forge, so they have no business in the lockfile of a published library.
+      # They survive the later `uv run` calls because an implicit sync is
+      # inexact and does not prune what the lockfile does not name.
       - name: Installer forge
-        run: |
-          # `--clear` et non `uv venv` seul : setup-uv cree desormais
-          # l'environnement lui-meme et pose VIRTUAL_ENV, si bien qu'un
-          # `uv venv` nu echoue sur « a virtual environment already exists ».
-          # `--clear` marche que l'action l'ait cree ou non.
-          uv venv --clear
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
       # La CI fait autorite pour la validation Ansible : ansible-core ne
       # supporte pas Windows comme noeud de controle, le poste de

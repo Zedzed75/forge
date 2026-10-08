@@ -12,13 +12,24 @@ forge targets Python 3.11, 3.12 and 3.13. The project uses
 ```bash
 git clone https://github.com/Zedzed75/forge.git
 cd forge
-uv venv
-uv pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
-`uv venv` creates `.venv/` in the repository root. Activate it
-(`source .venv/bin/activate`, or `.venv\Scripts\activate` on Windows), or
-prefix every command with `uv run`.
+`uv sync` creates `.venv/` in the repository root and installs forge in editable
+mode. Activate it (`source .venv/bin/activate`, or `.venv\Scripts\activate` on
+Windows), or prefix every command with `uv run`.
+
+Use `uv sync` and not `uv pip install -e ".[dev]"`: every constraint in
+`pyproject.toml` is a floor, and installing from the floors resolves whatever
+PyPI serves today. `uv sync` installs `uv.lock` instead — the exact versions CI
+uses, `copier` and `jinja2` among them. Those two **are** the renderer, so a
+different version of them can change generated output and make the golden trees
+or the structural fingerprints fail for you and pass in CI, or the reverse. The
+reasoning is written up in `DESIGN.md` §8 Q10.
+
+CI runs `uv sync --locked`, which refuses to resolve and fails if `uv.lock` has
+fallen behind `pyproject.toml`. So if you change a dependency, run `uv lock` and
+commit the result with it.
 
 ### Optional: domain validators
 
