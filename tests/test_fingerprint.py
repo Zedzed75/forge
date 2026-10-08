@@ -250,7 +250,7 @@ def test_a_prose_field_edit_leaves_the_fingerprint_untouched(tree):
     _edit(
         tree,
         GROUP_VARS,
-        "project_description: Boutique en ligne",
+        "project_description: Online store",
         "project_description: Online shop",
     )
     _unchanged(tree, reference)
