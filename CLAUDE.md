@@ -45,6 +45,12 @@ Helm chart together is one possible use, not the normal one.
   and file names — in this repository and in everything it generates. This reverses the
   original rule ("comments/docs in French"), under which every existing file was written;
   a file still carrying French is awaiting translation, never a pattern to copy.
+  (Decision D3, DECISIONS.md.)
+- Standing policy decisions are numbered D1, D2, … in **DECISIONS.md** — the published
+  package name, the language rule, and what engineering merges without a confirmation
+  card. Read it before asking the board to confirm anything: D4 and its three carve-outs
+  say exactly which changes still need a card. DESIGN.md §8 is the other register —
+  technical arbitrations (Q1 …), not policy.
 - ALL plugin templates use copier custom delimiters [[ ]] / [% %] / [# #] (decision Q1,
   DESIGN.md §8): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
   copier.yml, so one set of delimiters. Never write {{ }} meaning "generator variable".
