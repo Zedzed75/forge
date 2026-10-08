@@ -1,0 +1,53 @@
+# The French values ZED-69 measured, verbatim from the blobs at the ZED-60
+# merge base (master @ e2a81e5). Each line fired the `nouns` signal and none of
+# them fired `accent` or `words` -- that is the gap ZED-69 closed.
+#
+# ZED-69 reported "22 French lines" across eleven modules; the signal finds 32
+# across ten. The numbers differ for two reasons, and both are recorded here
+# rather than reconciled, because the file is the measurement:
+#   - 32 is the machine count of lines, so the four identical
+#     `summary="domaine de demonstration"` lines in test_render.py count four
+#     times where a reader counts one phrase.
+#   - the eleventh module, test_spec.py, holds `"Boutique_Web"`, which the
+#     signal deliberately misses: `boutique` is the fixture service name and is
+#     on REJECTED_CONTENT_WORDS. See `test_the_value_blind_spots_are_known`.
+#
+# tests/test_french_guard.py asserts `nouns` still fires on every one. The file
+# is .txt on purpose, and sits next to french_baseline.txt for the same reason:
+# tests/**/*.py is scanned, so a .py fixture of French lines would need an
+# allowlist entry of its own.
+#
+# Format: path:line|the line, verbatim and unstripped.
+
+tests/conftest.py:231|            "description": "Boutique en ligne de demonstration",
+tests/conftest.py:232|            "owner": "Equipe Plateforme",
+tests/test_cli.py:44|    "Boutique en ligne",       # description
+tests/test_cli.py:45|    "Equipe Plateforme",       # owner
+tests/test_cli_coverage.py:71|            "description": "Boutique en ligne",
+tests/test_cli_coverage.py:72|            "owner": "Equipe Plateforme",
+tests/test_cli_coverage.py:86|            "description": "Boutique en ligne",
+tests/test_cli_coverage.py:87|            "owner": "Equipe Plateforme",
+tests/test_domain_selection.py:182|                "description": "Service sans domaine",
+tests/test_domain_selection.py:183|                "owner": "Equipe",
+tests/test_domain_selection.py:246|    "Boutique en ligne",     # description
+tests/test_domain_selection.py:247|    "Equipe Plateforme",     # owner
+tests/test_plugin_ansible.py:45|            "description": "Passerelle applicative",
+tests/test_plugin_ansible.py:46|            "owner": "Equipe Plateforme",
+tests/test_plugin_ansible.py:311|    "gateways", "Passerelles exposees", ["common"], False,
+tests/test_plugin_ansible.py:325|        description="Passerelle applicative",
+tests/test_plugin_ansible.py:326|        owner="Equipe Plateforme",
+tests/test_plugin_ansible.py:346|        description="Passerelle applicative",
+tests/test_plugin_ansible.py:347|        owner="Equipe Plateforme",
+tests/test_plugin_helm.py:48|            "description": "Boutique en ligne",
+tests/test_plugin_helm.py:49|            "owner": "Equipe Plateforme",
+tests/test_plugin_monitoring.py:53|            "description": "Boutique en ligne",
+tests/test_plugin_monitoring.py:54|            "owner": "Equipe",
+tests/test_plugin_pipeline.py:62|            "description": "Boutique en ligne",
+tests/test_plugin_pipeline.py:63|            "owner": "Equipe",
+tests/test_plugin_terraform.py:58|            "description": "Boutique en ligne",
+tests/test_plugin_terraform.py:59|            "owner": "Equipe",
+tests/test_render.py:266|    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+tests/test_render.py:275|    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+tests/test_render.py:289|    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+tests/test_render.py:309|    infos = [DomainInfo(name="demo", title="Demo", summary="domaine de demonstration")]
+tests/test_render.py:312|    assert "| Demo | `demo/` | domaine de demonstration |" in readme
