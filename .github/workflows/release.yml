@@ -1,36 +1,42 @@
 # ---------------------------------------------------------------------------
-# Publication de la distribution `iac-forge` sur PyPI.
+# Publishing the `iac-forge` distribution to PyPI.
 # ---------------------------------------------------------------------------
-# Trois noms sont en jeu et un seul est celui de ce fichier : la distribution
-# publiee est `iac-forge`, la commande installee reste `forge`, le paquet
-# importe reste `forge`. Voir le commentaire de `name` dans pyproject.toml.
+# Three names are in play and only one of them is this file's: the published
+# distribution is `iac-forge`, the installed command stays `forge`, the imported
+# package stays `forge`. See the comment on `name` in pyproject.toml.
 #
-# Authentification : **Trusted Publishing (OIDC)**, jamais un jeton. GitHub
-# signe un jeton OIDC de courte duree pour ce depot, ce workflow et cet
-# environnement ; PyPI le verifie contre le publieur declare cote PyPI. Aucun
-# secret PyPI n'existe donc dans ce depot, et il n'y a rien a faire fuiter le
-# jour ou il devient public. `permissions: id-token: write` est ce qui autorise
-# la demande de ce jeton — sans cette ligne l'envoi echoue en 403, et c'est la
-# seule permission que les jobs de publication ajoutent.
+# Authentication: **Trusted Publishing (OIDC)**, never a token. GitHub signs a
+# short-lived OIDC token for this repository, this workflow and this
+# environment; PyPI checks it against the publisher declared on the PyPI side.
+# No PyPI secret therefore exists in this repository, and there is nothing to
+# leak the day it becomes public. `permissions: id-token: write` is what allows
+# that token to be requested -- without that line the upload fails with a 403,
+# and it is the only permission the publish job adds.
 #
-# Deux declencheurs, volontairement dissymetriques :
+# Two triggers, deliberately dissymmetric:
 #
-#   push d'un tag v*    -> PyPI reel. Irreversible : une version publiee sur
-#                          PyPI ne peut pas etre remplacee, meme apres
-#                          suppression. D'ou le garde-fou tag/version ci-dessous.
-#   workflow_dispatch   -> TestPyPI seulement. C'est la repetition generale,
-#                          lancee a la main autant de fois qu'on veut.
+#   push of a v* tag    -> real PyPI. Irreversible: a version published to PyPI
+#                          cannot be replaced, not even after deletion. Hence
+#                          the tag/version guard and the gate below.
+#   workflow_dispatch   -> build and gate only, publishing nothing. This is the
+#                          rehearsal, run by hand as often as wanted.
 #
-# TestPyPI n'est jamais declenche par un tag : le second tag de la meme version
-# serait refuse en « File already exists » et ferait echouer une publication
-# reelle pour une raison qui n'a rien a voir avec elle.
+# There is no TestPyPI job (decision D5, ZED-48). The rehearsal used to be an
+# upload to test.pypi.org, which bought down one risk -- "does the upload
+# mechanism work" -- at the price of a *second* Trusted Publisher form to be
+# filled in by hand on another service. That form is the step that failed, and
+# it blocked the release for twelve days. The risk worth buying down is not
+# "did an upload succeed" but "does the uploaded artifact work", and that is
+# provable before anything leaves the runner. So the rehearsal moved here, into
+# the `gate` job, which runs on both triggers and which nothing outside this
+# repository can hold up.
 #
-# Prerequis cote PyPI (a faire une fois, par un humain, dans l'interface) :
-# declarer un « pending publisher » sur pypi.org ET sur test.pypi.org pour le
-# projet `iac-forge`, avec owner `Zedzed75`, repository `forge`, workflow
-# `release.yml`, et le nom d'environnement correspondant (`pypi` / `testpypi`).
-# Le premier envoi reussi cree le projet, reserve le nom, et convertit le
-# publieur en attente en publieur etabli.
+# Prerequisite on the PyPI side (done once, by a human, in the web interface):
+# declare a "pending publisher" on pypi.org for the project `iac-forge`, with
+# owner `Zedzed75`, repository `forge`, workflow `release.yml` and environment
+# `pypi`. One form, four fields -- the first successful upload creates the
+# project, claims the name, and converts the pending publisher into an
+# established one.
 # ---------------------------------------------------------------------------
 name: Release
 
@@ -39,16 +45,16 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-# Lecture seule par defaut. Les deux jobs de publication elargissent
-# eux-memes, et seulement pour `id-token`.
+# Read-only by default. The publish job widens it itself, and only for
+# `id-token`.
 permissions:
   contents: read
 
 jobs:
   # -------------------------------------------------------------------------
-  # Construction unique. Les deux cibles publient EXACTEMENT les memes
-  # fichiers : si TestPyPI reconstruisait de son cote, la repetition generale
-  # ne vaudrait rien — on aurait valide un artefact que PyPI ne recevra pas.
+  # Single build. The gate and the upload consume EXACTLY the same files: if
+  # the gate rebuilt on its own side, it would be worth nothing -- we would
+  # have validated an artifact PyPI never receives.
   # -------------------------------------------------------------------------
   build:
     runs-on: ubuntu-latest
@@ -65,8 +71,8 @@ jobs:
       # entry point for that. Dependabot rewrites both the SHA and the comment
       # (.github/dependabot.yml).
       #
-      # `fetch-depth: 0` pour disposer des tags : le garde-fou ci-dessous a
-      # besoin du tag, et hatchling lit la version dans le fichier source.
+      # `fetch-depth: 0` to have the tags available: the guard below needs the
+      # tag, and hatchling reads the version from the source file.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -77,29 +83,30 @@ jobs:
           python-version: "3.13"
           cache-dependency-glob: "pyproject.toml"
 
-      - name: Construire la sdist et la wheel
+      - name: Build the sdist and the wheel
         run: uv build
 
-      # `twine check --strict` et non `twine check` : sans `--strict`, une
-      # description longue mal formee n'est qu'un avertissement, et on ne
-      # l'apprend qu'en voyant la page PyPI afficher du Markdown brut. En
-      # strict, c'est une erreur ici, avant l'envoi.
-      - name: Verifier les metadonnees
+      # `twine check --strict` and not plain `twine check`: without `--strict` a
+      # malformed long description is only a warning, and we would learn about it
+      # by seeing the PyPI page render raw Markdown. In strict mode it is an
+      # error here, before the upload.
+      - name: Check the metadata
         run: uvx twine check --strict dist/*
 
-      # Le depot a deja vu la version diverger de son tag : `forge --version`
-      # annoncait 0.1.0 sur un depot tague v1.1.0. Sur PyPI la meme erreur est
-      # definitive, puisqu'on ne republie pas une version. On compare donc le
-      # tag pousse au nom de fichier produit, et on refuse avant l'envoi.
-      - name: Verifier que le tag correspond a la version construite
+      # This repository has already seen the version drift from its tag:
+      # `forge --version` announced 0.1.0 on a repository tagged v1.1.0. On PyPI
+      # the same mistake is permanent, since a version is never republished. So
+      # we compare the pushed tag against the filename produced, and refuse
+      # before the upload.
+      - name: Check that the tag matches the built version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tag="${GITHUB_REF_NAME#v}"
           built=$(ls dist/*.tar.gz | sed -E 's|.*/iac_forge-(.+)\.tar\.gz|\1|')
-          echo "tag=${tag} version construite=${built}"
+          echo "tag=${tag} built version=${built}"
           if [ "$tag" != "$built" ]; then
-            echo "::error::le tag ${GITHUB_REF_NAME} ne correspond pas a la version construite ${built}" \
-                 "— corrigez src/forge/__init__.py ou le tag, puis retaguez."
+            echo "::error::tag ${GITHUB_REF_NAME} does not match the built version ${built}" \
+                 "-- fix src/forge/__init__.py or the tag, then retag."
             exit 1
           fi
 
@@ -109,43 +116,155 @@ jobs:
           path: dist/
 
   # -------------------------------------------------------------------------
-  # Repetition generale. Le job ne publie sur TestPyPI que sur declenchement
-  # manuel ; c'est lui qui prouve la chaine OIDC de bout en bout avant qu'on
-  # touche a PyPI reel.
+  # Pre-publish gate (decision D5, ZED-48). Installs the built wheel into a
+  # clean virtualenv and generates a real project with it. Publishing is
+  # `needs:`-gated on this job, so nothing reaches PyPI that has not generated
+  # something first.
+  #
+  # It holds no `id-token` permission: it is the one job here that runs
+  # repository code it did not build, and it must not be able to publish.
   # -------------------------------------------------------------------------
-  testpypi:
-    if: github.event_name == 'workflow_dispatch'
+  gate:
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/iac-forge
-    permissions:
-      # Seule permission ajoutee : demander le jeton OIDC de courte duree.
-      id-token: write
     steps:
+      # The checkout is here only for `examples/*.yml`. The specs are the ones
+      # the README documents, so the gate exercises what users are told to run
+      # rather than a fixture invented for the gate. Nothing from this checkout
+      # reaches the virtualenv -- see the assertion step below for why that is
+      # checked rather than assumed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: distributions
           path: dist/
 
-      - name: Publier sur TestPyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
-          repository-url: https://test.pypi.org/legacy/
-          # Une repetition generale se relance. Sans `skip-existing`, le second
-          # essai sur une version deja envoyee tombe en rouge sans qu'il y ait
-          # quoi que ce soit a corriger.
-          skip-existing: true
+          enable-cache: true
+          python-version: "3.13"
+          cache-dependency-glob: "pyproject.toml"
+
+      # copier commits inside a temporary clone, which fails without a git
+      # identity -- the same step CI runs for the same reason.
+      - name: Configure the git identity
+        run: |
+          git config --global user.name "forge-ci"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+
+      # The virtualenv lives in `$RUNNER_TEMP`, OUTSIDE the checkout, and this is
+      # the whole point of the job rather than an implementation detail.
+      # `template_root()` prefers the repository root when the package sits two
+      # levels below one carrying a `copier.yml`; a virtualenv created inside the
+      # checkout would therefore resolve the templates back to the working tree,
+      # the installed shape would never be exercised, and the gate would pass on
+      # a wheel that ships no templates at all. That is exactly the ZED-12 bug.
+      - name: Install the built wheel into a clean virtualenv
+        run: |
+          set -euo pipefail
+          wheels=(dist/iac_forge-*-py3-none-any.whl)
+          if [ "${#wheels[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one wheel in dist/, found ${#wheels[@]}"
+            exit 1
+          fi
+          echo "installing ${wheels[0]}"
+          uv venv --python 3.13 "${RUNNER_TEMP}/gate-venv"
+          uv pip install --python "${RUNNER_TEMP}/gate-venv/bin/python" "${wheels[0]}"
+
+      # Asserted, not assumed: if the templates resolved to the checkout, every
+      # generation below would succeed while the published wheel stayed broken.
+      # That is how ZED-12 shipped -- the bug was invisible to anything run from
+      # a source tree, which is everything the test suite does.
+      #
+      # Then every registered domain's template subdirectory, because a wheel
+      # that ships four of the five is a working `forge` that cannot produce one
+      # domain, and no single generation below proves the absence of that.
+      # `resolve_subdir` already raises when the directory is absent; the
+      # `missing` list below catches the other shape, a subdirectory that exists
+      # and is empty, which it accepts.
+      - name: Check that the templates come from the installed package
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/gate-venv/bin/python" - <<'PY'
+          from forge.plugins_api.manager import default_manager
+          from forge.render.copier_runner import (
+              package_root,
+              resolve_subdir,
+              template_root,
+          )
+
+          root = template_root()
+          print(f"template root: {root}")
+          if root != package_root():
+              raise SystemExit(
+                  f"the gate resolved its templates to {root}, which is not the "
+                  f"installed package ({package_root()}): it is testing the "
+                  "working tree, not the wheel"
+              )
+          if not (root / "copier.yml").is_file():
+              raise SystemExit(f"no copier.yml under {root}")
+
+          manager = default_manager()
+          missing = []
+          for name in manager.domain_names():
+              subdir = resolve_subdir(root, manager.domain(name).template_subdir())
+              path = root / subdir
+              count = len(list(path.rglob("*"))) if path.is_dir() else 0
+              print(f"  {name}: {subdir} ({count} entries)")
+              if count == 0:
+                  missing.append(name)
+          if missing:
+              raise SystemExit(
+                  "the distribution ships no template for: "
+                  + ", ".join(missing)
+                  + " -- check [tool.hatch.build] in pyproject.toml"
+              )
+          PY
+
+      - name: Check the installed version
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/gate-venv/bin/forge" --version
+
+      # Every example spec, not one of them: a wheel can ship four plugins'
+      # templates and drop the fifth, and a single-spec gate would publish it.
+      # The generation runs with `$RUNNER_TEMP` as its working directory, so a
+      # path resolved against the current directory instead of the package would
+      # fail here too.
+      - name: Generate every example project from the installed wheel
+        run: |
+          set -euo pipefail
+          for spec in "${GITHUB_WORKSPACE}"/examples/*.yml; do
+            name=$(basename "${spec}" .yml)
+            out="${RUNNER_TEMP}/gate-out/${name}"
+            echo "::group::forge generate -s ${name}.yml"
+            (cd "${RUNNER_TEMP}" && "${RUNNER_TEMP}/gate-venv/bin/forge" generate \
+              --spec "${spec}" --out "${out}")
+            # A generation that writes nothing is a failure the command does not
+            # report: `forge generate` is happy to produce an empty tree, and an
+            # unpackaged template subdirectory looks exactly like that. The
+            # threshold is 1 and not a per-spec count on purpose -- which domain
+            # writes how many files is the business of the golden tests, and a
+            # number duplicated here would only ever go stale.
+            written=$(find "${out}" -type f -not -path '*/.git/*' | wc -l)
+            echo "${name}: ${written} files"
+            if [ "${written}" -lt 1 ]; then
+              echo "::error::${name} generated nothing from the installed wheel"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
 
   # -------------------------------------------------------------------------
-  # PyPI reel. Tag uniquement, et derriere un environnement GitHub : c'est la
-  # ou l'on accroche une regle de revue obligatoire si le board en veut une,
-  # et c'est le nom que le publieur declare cote PyPI epingle.
+  # Real PyPI. Tags only, behind a GitHub environment: that is where a required
+  # review rule hangs if the board wants one, and its name is pinned by the
+  # publisher declared on the PyPI side.
   # -------------------------------------------------------------------------
   pypi:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: gate
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -158,8 +277,8 @@ jobs:
           name: distributions
           path: dist/
 
-      # Pas de `skip-existing` ici, a l'inverse de TestPyPI : sur PyPI, « cette
-      # version existe deja » veut dire qu'on republie par erreur, et on veut
-      # le savoir en rouge plutot que voir le job passer sans rien envoyer.
-      - name: Publier sur PyPI
+      # No `skip-existing`: on PyPI, "this version already exists" means we are
+      # republishing by mistake, and we want to see that in red rather than
+      # watch the job pass having uploaded nothing.
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
