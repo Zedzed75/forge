@@ -77,7 +77,27 @@ jobs:
         with:
           version: "0.12.23"
           checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
+          # `true` / `false` / `auto`. `true`, and unlike the same input in
+          # release.yml it is only a speed choice here: this workflow triggers
+          # on `push` and `pull_request`, two events `auto` caches as well, so
+          # the two values coincide. Stated anyway, because they do not coincide
+          # everywhere -- release.yml triggers on tag push, which `auto` stopped
+          # caching in setup-uv v10, and that step is pinned to `false` with the
+          # reasoning written out.
           enable-cache: true
+          # `true` / `false`. Prunes the pre-built wheels out of the cache before
+          # saving it, which is what keeps three matrix legs' worth of entries
+          # inside the repository's Actions cache quota. Nothing to do with
+          # correctness: a pruned cache is a smaller cache, not a staler one --
+          # `cache-dependency-glob` below is what governs staleness.
+          #
+          # Spelled out because the default moved underneath this step: `true`
+          # through setup-uv v8, `false` from v9.0.0 (astral-sh/setup-uv#967).
+          # The pin is v10.2.0, so this is not hypothetical -- these three legs
+          # are saving unpruned caches today, and started doing so as a side
+          # effect of a version bump rather than a decision. Naming the value is
+          # what stops the next major from moving it again.
+          prune-cache: true
           python-version: ${{ matrix.python-version }}
           # The cache key has to be the file that decides what gets installed,
           # and since `uv.lock` landed that file is the lockfile, not
