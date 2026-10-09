@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# The static witness for a workflow change (decision D7, clause C2).
+# ---------------------------------------------------------------------------
+# The matrix image of `Dockerfile.ci-matrix` is a *reimplementation* of
+# `.github/workflows/ci.yml`: it runs the same suite with the same pinned
+# validators, and therefore witnesses the workflow file itself not at all. C2
+# closes that hole with the one tool that actually reads it -- `actionlint`,
+# already in the matrix image at the version `ci.yml` pins.
+#
+# This image is the matrix image plus one thing: `shellcheck`. actionlint runs
+# it over every `run:` block when it finds it on PATH, and that pass is the
+# reason C2 exists. The way a translation really breaks a workflow is quoting
+# damage inside a string it rewrote -- an apostrophe in "didn't", a backtick, a
+# bare `$` -- and shellcheck is what sees that.
+#
+# `FROM` the matrix image rather than from `ubuntu:24.04` again: C2 is supposed
+# to run the *same* actionlint binary as the matrix, not another one that
+# happens to carry the same version number. The caller passes the matrix image's
+# content-addressed tag as `BASE_IMAGE`, so this image cannot outlive the image
+# it was derived from.
+#
+# `scripts/actionlint-differential.sh` builds and runs it; it is not used by the
+# matrix and adds nothing to a matrix run.
+# ---------------------------------------------------------------------------
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+# ---------------------------------------------------------------------------
+# shellcheck, pinned.
+# ---------------------------------------------------------------------------
+# From the release tarball rather than from `apt`: an apt version disappears
+# from the archive when Ubuntu refreshes it, and an image that cannot be rebuilt
+# six months from now is not a witness anyone can re-run. `ci.yml` installs no
+# shellcheck, so there is no second declaration to drift from and nothing for
+# `verify_pins` to compare -- this version is pinned here and nowhere else.
+ARG SHELLCHECK_VERSION=v0.11.0
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+      -o /tmp/shellcheck.tar.xz \
+      "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+ && tar -xJf /tmp/shellcheck.tar.xz -C /tmp \
+ && install -m 0755 "/tmp/shellcheck-${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck \
+ && rm -rf /tmp/shellcheck.tar.xz "/tmp/shellcheck-${SHELLCHECK_VERSION}" \
+ && shellcheck --version \
+ && actionlint --version
+
+# Baked in, like `run-matrix.sh`: a run needs nothing from the host but the
+# image and a tar of one revision's workflows on stdin.
+COPY actionlint-report.sh /usr/local/bin/actionlint-report.sh
+RUN chmod 0755 /usr/local/bin/actionlint-report.sh
+
+ENTRYPOINT ["/usr/local/bin/actionlint-report.sh"]
