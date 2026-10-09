@@ -42,7 +42,7 @@ terraform:
     # a production environment: neither locking nor encryption.
     kind: s3
     config:
-      bucket: terraform-states-platform
+      bucket: platform-terraform-state
       region: eu-west-3
       encrypt: "true"
       # `key` is NOT asked for here: it is derived per environment, so that two

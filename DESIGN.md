@@ -314,7 +314,7 @@ terraform:
   backend:
     kind: s3                      # local | s3 | gcs | azurerm | http
     config:                       # no secret key: the model refuses them
-      bucket: terraform-states
+      bucket: terraform-state
       region: eu-west-3
   kubernetes:
     auth: kubeconfig              # kubeconfig | in_cluster
