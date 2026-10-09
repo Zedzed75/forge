@@ -151,9 +151,10 @@ exception to the behaviours it names; the next two sections are its two tests.
 
 A pull request that changes a file under `.github/workflows/**` is parked by
 `D6`. `D7` lets it through — and *only* through — when every changed line in
-those files is a YAML comment, a **step-level** `name:` value, or literal text
-inside an already-quoted string in a `run:` block. That is a question with an
-exit code, not a judgement call:
+those files is prose and nothing else. **Clause C1 in `DECISIONS.md` is where the
+list of line kinds that count as prose lives**; do not read it off this page,
+because a list kept in two places diverges (`D13`). It is a question with an exit
+code, not a judgement call, and this script is the clause:
 
 ```bash
 ./scripts/workflow-diff-is-prose.sh origin/master my-branch
@@ -162,15 +163,14 @@ exit code, not a judgement call:
 Exit 0 means clause C1 passes; exit 1 names the lines that fail it; exit 2 means
 the witness could not run (bad revision, no Python) and has decided nothing.
 
-The test works by normalising each file at each revision — erasing exactly those
-three things and copying everything else — and comparing the two skeletons
+The test works by normalising each file at each revision — erasing exactly what
+C1 calls prose and copying everything else — and comparing the two skeletons
 (`scripts/workflow_prose_skeleton.py`). A key the normaliser has never heard of
 is copied, so a change to it fails: the test is fail-closed by construction
 rather than by keeping a list of forbidden keys in step with the workflow
-syntax. Two exclusions are deliberate, and `tests/test_workflow_prose_policy.py`
-pins both: a **job-level** `name:` (check-run identity derives from it) and
-shell structure outside the quotes, including `>> "$GITHUB_OUTPUT"` and the key
-side of any `key=value` written to one.
+syntax. C1 names two exclusions that a reader guesses wrong, and
+`tests/test_workflow_prose_policy.py` pins both — read them in `D7`, with the
+reason each one is there.
 
 ### What does the change break? (`D7`, clause C2)
 

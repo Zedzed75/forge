@@ -6,8 +6,10 @@ may do, what the board decides, what a given name or language is. The technical
 arbitrations of the architecture (`Q1` … `Q9` — delimiters, `copier.yml` layout,
 inter-domain checks) are a different thing and live in `DESIGN.md` §8.
 
-Where a decision is cited in an issue thread, the issue is the primary record and
-is linked below; this file is the durable copy, because issues close.
+Where a decision is cited in an issue thread, the issue is linked below as the
+origin of the ruling; **this file holds the text**, because issues close. Nothing
+else may hold a copy of it — that is D13, and it is the rule this preamble was
+previously vague about.
 
 A decision is **not** a grant for anything it does not name. D4 in particular
 removes a merge card, not an evidence standard: a fingerprint that moves beyond
@@ -423,12 +425,25 @@ Reason 1 is what makes D8 safe where it would not be in a repository that
 deploys on merge. It is a property of JARVIS's deployment, not a general
 dispensation, and a change to that property retires this decision early.
 
-### Expiry
+### Expiry — amended by D11, and not a stopgap
 
-D8 is **in force until Actions runs again**. When ZED-66 resolves, the green
-checks are the evidence again and D8 is spent. ZED-91 tracks the one thing that
-must then be confirmed rather than assumed: that the image pipeline actually
-caught up on the commits that landed without it.
+**The original wording of this section is superseded.** It read: *"D8 is in
+force until Actions runs again. When ZED-66 resolves, the green checks are the
+evidence again and D8 is spent."* That named a condition and an event as though
+they were one thing, they came apart, and **D11 replaces it**. The sentence is
+quoted here once, as the thing that was wrong, and must not be cited as the
+rule — it is the sentence a stale copy in `JARVIS/MEMORY.md` went on serving
+until ZED-140 removed it.
+
+So D8 is JARVIS's **standing** evidence path, not a stopgap: it holds until
+JARVIS's own checks actually run, which is neither a date nor an event in
+another repository. **D11 clause 2 is the operative text** and the review it
+schedules is a review, not an expiry. Wording settled by the CEO's ruling on
+ZED-135 §3; recorded on ZED-140.
+
+ZED-91 tracks the one thing that must be confirmed rather than assumed when
+JARVIS's checks do return: that the image pipeline actually caught up on the
+commits that landed without it.
 
 ---
 
@@ -628,7 +643,10 @@ path. The defect is in D8's wording, not in anyone's conduct.
 
 2. **In force for `Zedzed75/JARVIS`**, and *not* spent by ZED-66. Expiry is evaluated **per
    repository, on whether that repository's own checks actually run** — never on a shared event
-   id.
+   id. While that holds, this is JARVIS's **standing** evidence path and not a stopgap awaiting
+   a date: the only thing that ends it is JARVIS's own checks running. *(Wording settled by the
+   CEO's ruling on ZED-135 §3 and amended here on ZED-140: the clause was correct and read as
+   temporary, which is how ZED-135 came to re-litigate a decision that was already made.)*
 
 3. **Retroactively affirmed:** JARVIS merges made on the local-Docker path between ZED-66
    closing and this amendment were authorised.
@@ -648,12 +666,17 @@ publication would be a new irreversible exposure. It would buy only GHCR images 
 consumes — the cluster runs the local `jarvis:dev` tag by design
 (`terraform/environments/dev.tfvars:4`), never GHCR.
 
-### Revisit on trigger or date
+### Review on trigger or date — a review, not an expiry
 
 If image publication becomes load-bearing — deploys move to GHCR, or anything outside the
 cluster needs the image — JARVIS-public goes to the board as its own decision, with a full
-history sweep first. Otherwise review clause 2 by **19 November**, when the Ubuntu runner
-rollout completes.
+history sweep first. Otherwise clause 2 is **re-examined** by **19 November**, when the Ubuntu
+runner rollout completes.
+
+That date is when somebody looks, not when the clause lapses. If JARVIS's checks still do not
+run on 19 November, clause 2 continues unchanged and needs no renewal; the date exists so that
+a standing arrangement is not left unexamined, which is D10's lesson about an unexamined pin
+applied to a standing permission.
 
 ---
 
@@ -686,3 +709,66 @@ fire is visible; a fabricated all-clear is invisible, and worse.
 
 The code fix and the integration-wide audit of `*_enabled` flags are ZED-114 and ZED-122; this
 entry is the durable record of the rule they implement.
+
+---
+
+## D13 — reference, do not restate
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, in the ruling on issue ZED-135 §2 — *"reference, do not restate. A
+  decision's text lives in one place."* Whether that became a numbered entry was left to
+  engineering on ZED-140; engineering records it, because the alternative is a standing rule
+  whose only copy lives inside a closed issue, which is the failure the rule describes.
+- **Scope**: both repositories, and every document that is not this file. Standing.
+
+A decision's operative text lives in **exactly one place: this file**. Any other document may
+name a decision, say **that** it applies, and link here. It may not reproduce **what it says** —
+its conditions, its carve-outs, its thresholds or its expiry.
+
+### What this forbids, and what it does not
+
+- **Forbidden: a second copy of a clause a reader acts on.** `JARVIS/MEMORY.md` §4 carried
+  *"D8 is spent as soon as Actions runs again"* — D8's pre-D11 expiry, reproduced in the file
+  JARVIS work is actually read from first. D11 amended the ledger, the copy did not move, and
+  ZED-135 re-escalated a settled decision from the stale sentence. The copy that goes stale is
+  the one people read, because it is the one far away from the amendment.
+- **Allowed: a pointer.** *"D8 governs merges in this repository; the terms are in
+  `forge/DECISIONS.md`."* A pointer cannot diverge, and it is strictly more useful than a
+  summary, because it cannot be trusted in place of the thing.
+- **Allowed: how to *satisfy* a decision, in terms of a document's own artifacts.**
+  `CONTRIBUTING.md` documents `scripts/docker-matrix.sh` and
+  `scripts/workflow-diff-is-prose.sh` — the command, the exit codes, how the witness works —
+  and sends the reader here for the clause each one implements. A script is not a restatement
+  of a clause; under D7 the script *is* the clause, which is the whole reason D7 shipped as an
+  exit code.
+- **Allowed: this file quoting its own superseded wording,** marked as superseded. D8's expiry
+  section does exactly that. The history of a clause belongs next to the clause, and nowhere
+  else.
+- **Not covered: a rule this file records a *change to* rather than owns.** D3 reversed
+  `CLAUDE.md`'s language rule; `CLAUDE.md` is where that rule is read and obeyed, and the
+  bullet *is* D3's subject. Moving it out would leave the instruction file silent about the
+  instruction. The test is whose text it is: `CLAUDE.md` owns the rule and D3 records the board
+  changing it, so that bullet is not a second copy of D3 and does not become one by citing it.
+
+### Why this is numbered rather than left as a note
+
+It is the second governance round trip caused by text being in the wrong place, and the two are
+mirror images. D4 sat inside ZED-47's thread until it was recorded here, and ZED-52 had to
+ratify it to establish what it said — authority with no durable text. ZED-135 is the same
+failure the other way round: the text was here, and the divergent copy elsewhere was the one
+that got read. One rule covers both, and it is of a kind with D5 — D5 forbids a board state
+that names nothing able to end it, D13 forbids a rule whose authority is ambiguous because
+there are two of it.
+
+### Enforcement is a grep, deliberately
+
+The restatements this entry retired were found by grepping both repositories for `\bD[0-9]+\b`
+and reading every hit. That is the whole mechanism, and there is no script on purpose: the
+dangerous form is a *paraphrase* that no longer matches the clause, which is exactly what a
+string comparison cannot see and a reader can. Run it when a decision is amended — the
+amendment is the moment a copy becomes wrong — not on every pull request.
+
+What that grep found on 2026-10-09, besides `MEMORY.md` §4: one restatement of D8's clause list
+in `JARVIS/docs/ROADMAP.md`, and two of D7's clause C1 in `forge/CONTRIBUTING.md`. All three
+were converted to references on ZED-140. Every other hit in either repository was already a
+pointer.
