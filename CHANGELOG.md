@@ -12,13 +12,16 @@ to do yourself, outside the generated files, because forge cannot reach it.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Versions here are the
-versions of `iac-forge` on PyPI: `1.1.0` is the first one published, so everything
+versions of `iac-forge` on PyPI: `1.2.0` is the first one published, so everything
 forge had accumulated before it is recorded under that heading rather than spread
-over releases that were never cut.
+over releases that were never cut. The numbering starts there and not at `1.0.0`
+because `v0.1.0` through `v1.1.1` were already repository tags marking the porting
+phases, and a published version is never allowed to reuse one of them — decision
+D16 in `DECISIONS.md`.
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-10-09
+## [1.2.0] - 2026-10-09
 
 First published release. `pip install iac-forge` installs the `forge` command from
 here on; everything below was already in the repository and is listed because this
@@ -234,5 +237,5 @@ is the release that makes it reachable.
   Nothing changes for anyone running forge from a checkout: same output, byte for
   byte.
 
-[Unreleased]: https://github.com/Zedzed75/forge/compare/v1.1.0...master
-[1.1.0]: https://github.com/Zedzed75/forge/releases/tag/v1.1.0
+[Unreleased]: https://github.com/Zedzed75/forge/compare/v1.2.0...master
+[1.2.0]: https://github.com/Zedzed75/forge/releases/tag/v1.2.0
