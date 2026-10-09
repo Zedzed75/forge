@@ -3,7 +3,7 @@
   "files": {
     ".copier-answers.yml": "- structured 6b40d187545069d1",
     ".gitattributes": "- text f70d755466b10164",
-    ".github/workflows/ci.yml": "- structured 4c5e596b4fd414aa",
+    ".github/workflows/ci.yml": "- structured 505c932d31d9db9b",
     "README.md": "- prose f0de8ce0a0ac183a",
     "forge.yml": "- structured 75908ff573dd3d99",
     "helm/.copier-answers.yml": "- structured cd4a48470a985ddc",
