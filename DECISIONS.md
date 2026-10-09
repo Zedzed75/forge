@@ -6,8 +6,10 @@ may do, what the board decides, what a given name or language is. The technical
 arbitrations of the architecture (`Q1` … `Q9` — delimiters, `copier.yml` layout,
 inter-domain checks) are a different thing and live in `DESIGN.md` §8.
 
-Where a decision is cited in an issue thread, the issue is the primary record and
-is linked below; this file is the durable copy, because issues close.
+Where a decision is cited in an issue thread, the issue is linked below as the
+origin of the ruling; **this file holds the text**, because issues close. Nothing
+else may hold a copy of it — that is D13, and it is the rule this preamble was
+previously vague about.
 
 A decision is **not** a grant for anything it does not name. D4 in particular
 removes a merge card, not an evidence standard: a fingerprint that moves beyond
@@ -707,3 +709,66 @@ fire is visible; a fabricated all-clear is invisible, and worse.
 
 The code fix and the integration-wide audit of `*_enabled` flags are ZED-114 and ZED-122; this
 entry is the durable record of the rule they implement.
+
+---
+
+## D13 — reference, do not restate
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, in the ruling on issue ZED-135 §2 — *"reference, do not restate. A
+  decision's text lives in one place."* Whether that became a numbered entry was left to
+  engineering on ZED-140; engineering records it, because the alternative is a standing rule
+  whose only copy lives inside a closed issue, which is the failure the rule describes.
+- **Scope**: both repositories, and every document that is not this file. Standing.
+
+A decision's operative text lives in **exactly one place: this file**. Any other document may
+name a decision, say **that** it applies, and link here. It may not reproduce **what it says** —
+its conditions, its carve-outs, its thresholds or its expiry.
+
+### What this forbids, and what it does not
+
+- **Forbidden: a second copy of a clause a reader acts on.** `JARVIS/MEMORY.md` §4 carried
+  *"D8 is spent as soon as Actions runs again"* — D8's pre-D11 expiry, reproduced in the file
+  JARVIS work is actually read from first. D11 amended the ledger, the copy did not move, and
+  ZED-135 re-escalated a settled decision from the stale sentence. The copy that goes stale is
+  the one people read, because it is the one far away from the amendment.
+- **Allowed: a pointer.** *"D8 governs merges in this repository; the terms are in
+  `forge/DECISIONS.md`."* A pointer cannot diverge, and it is strictly more useful than a
+  summary, because it cannot be trusted in place of the thing.
+- **Allowed: how to *satisfy* a decision, in terms of a document's own artifacts.**
+  `CONTRIBUTING.md` documents `scripts/docker-matrix.sh` and
+  `scripts/workflow-diff-is-prose.sh` — the command, the exit codes, how the witness works —
+  and sends the reader here for the clause each one implements. A script is not a restatement
+  of a clause; under D7 the script *is* the clause, which is the whole reason D7 shipped as an
+  exit code.
+- **Allowed: this file quoting its own superseded wording,** marked as superseded. D8's expiry
+  section does exactly that. The history of a clause belongs next to the clause, and nowhere
+  else.
+- **Not covered: a rule this file records a *change to* rather than owns.** D3 reversed
+  `CLAUDE.md`'s language rule; `CLAUDE.md` is where that rule is read and obeyed, and the
+  bullet *is* D3's subject. Moving it out would leave the instruction file silent about the
+  instruction. The test is whose text it is: `CLAUDE.md` owns the rule and D3 records the board
+  changing it, so that bullet is not a second copy of D3 and does not become one by citing it.
+
+### Why this is numbered rather than left as a note
+
+It is the second governance round trip caused by text being in the wrong place, and the two are
+mirror images. D4 sat inside ZED-47's thread until it was recorded here, and ZED-52 had to
+ratify it to establish what it said — authority with no durable text. ZED-135 is the same
+failure the other way round: the text was here, and the divergent copy elsewhere was the one
+that got read. One rule covers both, and it is of a kind with D5 — D5 forbids a board state
+that names nothing able to end it, D13 forbids a rule whose authority is ambiguous because
+there are two of it.
+
+### Enforcement is a grep, deliberately
+
+The restatements this entry retired were found by grepping both repositories for `\bD[0-9]+\b`
+and reading every hit. That is the whole mechanism, and there is no script on purpose: the
+dangerous form is a *paraphrase* that no longer matches the clause, which is exactly what a
+string comparison cannot see and a reader can. Run it when a decision is amended — the
+amendment is the moment a copy becomes wrong — not on every pull request.
+
+What that grep found on 2026-10-09, besides `MEMORY.md` §4: one restatement of D8's clause list
+in `JARVIS/docs/ROADMAP.md`, and two of D7's clause C1 in `forge/CONTRIBUTING.md`. All three
+were converted to references on ZED-140. Every other hit in either repository was already a
+pointer.
