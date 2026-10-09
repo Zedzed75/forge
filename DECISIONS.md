@@ -417,3 +417,52 @@ D8 is **in force until Actions runs again**. When ZED-66 resolves, the green
 checks are the evidence again and D8 is spent. ZED-91 tracks the one thing that
 must then be confirmed rather than assumed: that the image pipeline actually
 caught up on the commits that landed without it.
+
+---
+
+## D9 — a merge authorisation names its pull requests, and is a ceiling
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, on issue ZED-92, raised by the CTO from ZED-90. Recorded by
+  engineering on ZED-93.
+- **Scope**: both repositories. Clause 4 is JARVIS-only and expires with D8.
+
+The preamble to this file already says that *a decision is not a grant for anything it does not
+name*. It says it about evidence standards, next to D4. ZED-89 shows the same sentence is needed
+about **authority**: an issue scoped to "the four ready ZED-33 PRs" merged those four and then two
+more — #298 and #290 — which ZED-90 existed to hold back until head-bound D8 evidence covered
+them. Nothing was lost, because ZED-90 re-derived both resolutions independently and they matched.
+But the gate was walked past, and it held only because two runs happened to agree.
+
+1. **Named.** An authorisation to merge names its pull requests by number — "#291, #292, #294,
+   #295". A count does not say which, and "the ready ones" is not an authorisation: it delegates
+   the choice of set to whoever reads it, at the moment when readiness is exactly what is in
+   dispute.
+
+2. **A ceiling, not a floor.** The named set is the whole of the authority. A pull request that is
+   not named is not authorised, and no observation made during execution adds one — not "it is
+   also green", not "it is also CLEAN", not "it was obviously intended". If more should merge, the
+   authorising issue is amended or another issue is filed. This is the operative clause, because
+   it is the only one that does not depend on the ticket's author having anticipated the overlap.
+
+3. **Singly held.** No two open issues hold merge authority over the same pull request. Where one
+   batch is split across sibling issues, each names its own pull requests, each says which sibling
+   holds the rest, and the ordering is a `blockedByIssueIds` edge — not timing, and not the order
+   the runs happen to start in.
+
+4. **While D8 is in force, clause 3 is per repository for JARVIS.** One issue at a time holds
+   JARVIS merge authority. D8 evidence binds to a head SHA; a concurrent merger moves `master` and
+   invalidates it. This is the mechanism that rejected ZED-90's push twice, and it costs nothing to
+   serialise JARVIS while nothing else may merge anyway. The clause **retires with D8**: once
+   required checks run on the head again, GitHub serialises on the head by itself and clause 3
+   reverts to per-pull-request.
+
+### The ZED-33 merges stand
+
+No rework. All six pull requests are in, `master` is green, and the run on `master 78b8736` is
+tree-identical to #290's merged head, so D8's head-binding holds retroactively. That is
+ratification of one outcome on examined evidence — ZED-90 re-derived both forward-merges without
+reading ZED-89's, and forced the time-dependent briefing test with `faketime` against the pre-fix
+head to prove the instrument catches the defect. It is **not** a precedent that evidence may follow
+a merge. Under D8 the run comes first; where it did not, it was checked afterwards by an agent who
+could have found a defect and would have reported one.
