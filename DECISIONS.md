@@ -560,8 +560,20 @@ two jobs share one toolchain required.
 
 D4 authorises a merge on a count: "CI-green on all six checks". The canary adds a fourth
 check-run per event without touching that count, and the mechanism is `continue-on-error:
-true` at job level — the job reports failed and the workflow run still concludes successfully.
-So:
+true` at job level. What that flag actually does was **measured, not read** — a deliberately
+failing canary was pushed on a throwaway branch — because the whole reason this canary needed
+a second attempt is that the first one was believed rather than checked:
+
+| | when the canary fails |
+| --- | --- |
+| workflow **run** conclusion | `success` |
+| the canary **job** conclusion | `failure` |
+| its **check-run** conclusion | `failure` |
+
+The flag makes the *run* green, not the *check*. That is the right way round — an advisory job
+that went green on failure would advise nothing — but it means the canary is red in
+`gh pr checks` while the merge standard is satisfied, which is a disagreement a reader has to
+be told about rather than left to resolve. So:
 
 - the three gating legs keep the names and the runner D4's clause counts: `tests (3.11)`,
   `tests (3.12)`, `tests (3.13)`, on `ubuntu-24.04`;
@@ -574,6 +586,10 @@ So:
 The reading that needs stating out loud, because the arithmetic invites the other one: D4's
 "six" is six *gating* checks, and it always was. A seventh and eighth check-run that cannot
 fail the workflow do not make it seven or eight.
+
+The operational corollary, for whoever next automates a merge-readiness poll: **do not wait for
+every check-run to be green.** On a red canary that wait never ends, and D4 is satisfied
+anyway. Wait on the three `tests` legs by name, or on the workflow run's conclusion.
 
 ### Expiry
 

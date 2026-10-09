@@ -76,13 +76,29 @@ Four check-runs per event, and only three of them are a gate:
 | `canary (3.13, ubuntu-26.04)` | `ubuntu-26.04` | no |
 
 The canary runs the same suite, from the same composite action, with the same
-`FORGE_REQUIRE_TOOLS=1`, on the image `ubuntu-latest` is migrating to. It
-carries `continue-on-error: true`, so when it fails the job shows failed and the
-workflow run still concludes successfully. **A red canary does not block your
-pull request and is not yours to fix** unless your change caused it: it is
-reporting something about the Ubuntu 26 image, which is what `D10` asks it to
-do before the pin moves onto that image. Read it, say in the PR that you read
-it, and merge on the three `tests` legs.
+`FORGE_REQUIRE_TOOLS=1`, on the image `ubuntu-latest` is migrating to.
+
+What `continue-on-error: true` does and does not do, measured rather than read
+off the documentation — a deliberately failing canary was pushed on a throwaway
+branch to watch it:
+
+| | when the canary fails |
+| --- | --- |
+| workflow **run** conclusion | `success` |
+| the canary **job** conclusion | `failure` |
+| its **check-run** conclusion | `failure` |
+
+So the flag makes the *run* green, not the *check*. The canary stays visibly red
+exactly where you will look: `gh pr checks` reports a failure, and so does the
+PR page. **That is not a gate, and it is not yours to fix** unless your change
+caused it — it is reporting something about the Ubuntu 26 image, which is what
+`D10` asks it to do before the pin moves onto that image. Read it, say in the PR
+that you read it, and merge on the three `tests` legs.
+
+This is the one place where "all checks green" and the merge standard come
+apart, so do not automate over it. A poll that waits for every check-run to turn
+green will wait forever on a red canary; `D4`'s count is a count of *gating*
+checks.
 
 What a red canary is worth reporting on, though, is `ZED-72`: a validator that
 stops installing on 26.04 is exactly the finding the job exists to produce, and
