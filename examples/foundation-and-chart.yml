@@ -44,7 +44,7 @@ terraform:
   backend:
     kind: gcs
     config:
-      bucket: terraform-states-logistics
+      bucket: logistics-terraform-state
   kubernetes:
     auth: kubeconfig
     context_per_environment: true
