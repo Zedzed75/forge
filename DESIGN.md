@@ -613,8 +613,8 @@ unknown domain), `--dry-run` writes nothing, output is not coloured if
 > answer; Q2, Q3, Q4 and Q8 kept as recommended, without objection. This section
 > is from now on a record of decisions: do not reopen it without a new reason.
 > Q9 is one, which appeared in production on 2026-09-24 and was arbitrated the
-> same day; Q10 is another, opened on 2026-10-08. They are added after the eight
-> and reopen none of them.
+> same day; Q10 and Q11 are others, opened on 2026-10-08. They are added after
+> the eight and reopen none of them.
 >
 > These `Q` entries are the **technical** arbitrations of the architecture. The
 > project's standing **policy** decisions — naming, language, what engineering may
@@ -862,6 +862,50 @@ floors.
 - **Rejected: accept the drift and write down why.** Defensible for a resolver.
   Not for the renderer, in a repository whose central promise is that the same
   specification yields the same bytes.
+
+**Q11. Actions in *generated* workflows — pinned, and the bump path explained
+rather than installed.** Opened by ZED-31 on 2026-10-08, after ZED-30 pinned
+every `uses:` in forge's own `.github/workflows/`. The workflows forge *emits*
+still carried floating tags: `actions/checkout@v4` in the `pipeline` and
+`ansible` templates, `actions/setup-python@v5` in `ansible`.
+
+The blast radius is not ZED-30's, and that is the whole question. A moved tag in
+our `release.yml` puts a bad wheel on PyPI under our name — bad, and ours to
+notice. A moved tag in generated output runs in **our users' repositories**, with
+permissions we cannot see, and we never find out. Against that: a SHA pinned into
+a *template* goes stale the moment it is rendered, and the generated project has
+no Dependabot to move it. Copying ZED-30's answer across unchanged reproduces the
+failure that `dependabot.yml` was added to prevent.
+
+**Decision: pin the SHA, and explain the bump path in the generated file's own
+header. Do not generate `.github/dependabot.yml`.**
+
+- `actions/checkout` is pinned at `11d5960a…` (v4.4.0), `actions/setup-python` at
+  `a26af69b…` (v5.6.0), each with the release in a trailing comment — the same
+  shape ZED-30 used on our side.
+- **The major each template already declared is kept.** v4 for `checkout`, v5 for
+  `setup-python`, not the v7/v5 forge itself runs. This question is about pinning,
+  not upgrading; moving a user's action across a major is a separate change with
+  its own compatibility surface, and smuggling it in here would be the kind of
+  passenger commit `ci.yml`'s own header forbids.
+- ZED-30's annotated-tag trap was **checked, not assumed**: both refs resolve with
+  `object.type == commit`, so the ref SHA and the peeled commit are the same value
+  here. The check is the habit, not the result.
+- **Rejected: also generate `dependabot.yml`** (complete, and consistent with what
+  we do to ourselves). It imposes a weekly PR stream on every generated repository
+  whether the user wanted a bot or not, and forge's remit is to scaffold a project,
+  not to enrol it in automation. Still the right answer the moment anyone asks —
+  the header already names the file, so adopting it is one commit here and one
+  file there.
+- **Rejected: keep floating tags and document the trade-off.** Defensible for a
+  scaffold, since the user owns the repository. But forge's README calls its output
+  production-grade, and a supply-chain weakness shipped inside that claim is worse
+  than shipping no workflow at all.
+
+The cost of this choice is honest and worth stating: a generated pin ages, and
+nothing in the generated repository moves it. The header is the whole mitigation,
+which is a bet on the reader — the same bet every commented line in forge's output
+already makes.
 
 ---
 

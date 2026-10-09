@@ -27,6 +27,16 @@
 #
 # No credential is written in this file. Access goes through the secrets of the
 # repository (`${{ secrets.* }}`) or through the token provided as standard.
+#
+# Each action is pinned to a commit SHA rather than to a tag. A tag can be
+# repointed at new code by whoever owns the action, and these jobs run in your
+# repository with your permissions — a moved tag is code you never reviewed,
+# running where you cannot see it. The comment beside each SHA is the release
+# that SHA is.
+#
+# A pin does not update itself. Add a `.github/dependabot.yml` enabling the
+# `github-actions` ecosystem and these pins become update pull requests you read
+# before merging, which is the posture forge keeps on its own CI.
 # =============================================================================
 
 name: [[ service.name | yaml_scalar ]]
@@ -90,7 +100,7 @@ jobs:
 [% endif %]
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 [% for step in job.steps %]
 
       - name: [[ step.name | yaml_scalar ]]
