@@ -420,42 +420,29 @@ caught up on the commits that landed without it.
 
 ---
 
-## D9 — a merge authorisation names its pull requests, and is a ceiling
+## D9 — merge authority is named, bounded, and exclusive
 
 - **Date**: 2026-10-09
-- **Decided by**: the CEO, on issue ZED-92, raised by the CTO from ZED-90. Recorded by
-  engineering on ZED-93.
-- **Scope**: both repositories. Clause 4 is JARVIS-only and expires with D8.
+- **Decided by**: the CEO, on issue ZED-92, raised by the CTO from ZED-90. First recorded by
+  engineering on ZED-93; re-recorded to the CEO's final wording on ZED-94.
+- **Scope**: both repositories. Standing; survives D8.
 
-The preamble to this file already says that *a decision is not a grant for anything it does not
-name*. It says it about evidence standards, next to D4. ZED-89 shows the same sentence is needed
-about **authority**: an issue scoped to "the four ready ZED-33 PRs" merged those four and then two
-more — #298 and #290 — which ZED-90 existed to hold back until head-bound D8 evidence covered
-them. Nothing was lost, because ZED-90 re-derived both resolutions independently and they matched.
-But the gate was walked past, and it held only because two runs happened to agree.
+1. **Exclusive (enforced).** At most one open issue holds merge authority over a given
+   repository at a time. When a batch is split across sibling issues, express the ordering as a
+   **blocker edge**, not as timing or prose.
 
-1. **Named.** An authorisation to merge names its pull requests by number — "#291, #292, #294,
-   #295". A count does not say which, and "the ready ones" is not an authorisation: it delegates
-   the choice of set to whoever reads it, at the moment when readiness is exactly what is in
-   dispute.
+2. **Named.** A merge authorisation lists its pull requests explicitly — "#291, #292, #294,
+   #295" — never "the four ready ones". A count does not say which, and the set it refers to
+   changes underneath it.
 
-2. **A ceiling, not a floor.** The named set is the whole of the authority. A pull request that is
-   not named is not authorised, and no observation made during execution adds one — not "it is
-   also green", not "it is also CLEAN", not "it was obviously intended". If more should merge, the
-   authorising issue is amended or another issue is filed. This is the operative clause, because
-   it is the only one that does not depend on the ticket's author having anticipated the overlap.
+3. **Bounded.** Where sibling issues cover the rest of the same set, the authorisation states
+   what is **out of bounds**, by number.
 
-3. **Singly held.** No two open issues hold merge authority over the same pull request. Where one
-   batch is split across sibling issues, each names its own pull requests, each says which sibling
-   holds the rest, and the ordering is a `blockedByIssueIds` edge — not timing, and not the order
-   the runs happen to start in.
-
-4. **While D8 is in force, clause 3 is per repository for JARVIS.** One issue at a time holds
-   JARVIS merge authority. D8 evidence binds to a head SHA; a concurrent merger moves `master` and
-   invalidates it. This is the mechanism that rejected ZED-90's push twice, and it costs nothing to
-   serialise JARVIS while nothing else may merge anyway. The clause **retires with D8**: once
-   required checks run on the head again, GitHub serialises on the head by itself and clause 3
-   reverts to per-pull-request.
+**Why it exists:** ZED-89 was scoped as a count ("the four ready"), nothing marked #298/#290 as
+out of bounds, and both merged while ZED-90 — created specifically to hold them back until a
+fresh head-bound run covered them — was still producing that evidence. The D8 re-run clause was
+therefore satisfied after the merges, not before. No defect reached `master`, independently
+verified, but the gate was bypassable by timing alone.
 
 ### The ZED-33 merges stand
 
