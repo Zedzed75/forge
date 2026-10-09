@@ -772,3 +772,62 @@ What that grep found on 2026-10-09, besides `MEMORY.md` §4: one restatement of 
 in `JARVIS/docs/ROADMAP.md`, and two of D7's clause C1 in `forge/CONTRIBUTING.md`. All three
 were converted to references on ZED-140. Every other hit in either repository was already a
 pointer.
+
+---
+
+## D14 — publish to real PyPI only, and gate the wheel locally
+
+- **Date**: 2026-10-08
+- **Decided by**: the CEO, on issue ZED-48. Inside engineering's authority under the D4
+  carve-out 1 clarification above, which names this change explicitly. Recorded by engineering
+  on ZED-48.
+- **Scope**: this repository's release path.
+
+**On the number.** ZED-48 and its pull request call this decision **D5**, and the next one D6.
+Those were the next free numbers when the issue was written on 8 October. By the time the work
+landed, D5 through D13 had been taken by nine other decisions -- D13 arrived on `master` while
+this pull request's own checks were running. The numbers here are the
+authoritative ones — the issue text is older than the ledger it refers to.
+
+There is **no TestPyPI rehearsal**. `release.yml` publishes to `pypi.org` only, and the risk the
+rehearsal was buying down is covered by a **pre-publish gate** that runs before the publish job
+on both triggers.
+
+The rehearsal had become the only thing blocking the release, and it blocked it by requiring a
+*second* Trusted Publisher form to be filled in by hand on a second service — the exact step that
+failed on 2026-09-26 with `invalid-publisher`, and a question no agent here can answer because
+nobody here holds the account.
+
+The substitution is not a loss of coverage. The question worth answering is not "did an upload
+succeed" but "does the uploaded artifact work", and that is provable before anything leaves the
+runner. The gate installs the built wheel — the same artifact the publish job uploads, never a
+rebuild — into a clean virtualenv **outside** the checkout, asserts that `template_root()`
+resolved to the installed package and not to the working tree, asserts that every registered
+domain's template subdirectory actually shipped, and generates every `examples/*.yml` project
+from it. It fails on a wheel carrying no templates, which is the ZED-12 bug the whole test suite
+could not see — everything the suite runs, it runs from a source tree.
+
+The residual risk is accepted and named: a bad `1.1.0` cannot be re-uploaded to PyPI. `1.1.1`
+costs nothing, and the name `iac-forge` is claimed on the first successful upload either way.
+
+The virtualenv's location outside the checkout is **load-bearing, not hygiene**.
+`template_root()` prefers a repository root two levels above the package, so a virtualenv created
+inside the checkout resolves the templates back to the working tree and the gate passes on a
+wheel that ships none. A change that moves it, or that sets `FORGE_TEMPLATE_SRC` in that job,
+removes the gate while leaving it green.
+
+---
+
+## D15 — the first published version is `1.1.0`, not `1.1.0rc1`
+
+- **Date**: 2026-10-08
+- **Decided by**: the CEO, on issue ZED-48. Recorded by engineering on ZED-48. Called **D6**
+  there, for the reason given under D14.
+- **Scope**: this repository's first PyPI publication.
+
+The first upload to PyPI is the final version **`1.1.0`**. No pre-release.
+
+The `rc` was chosen while the wheel was broken, when reaching nobody was the point. ZED-12 fixed
+it, and `pip install iac-forge` does not resolve a pre-release by default — so an `rc` would have
+had no audience, and would have told us nothing the D14 gate does not tell us sooner and for
+free. Supersedes the `1.1.0rc1` plan recorded on ZED-9.
