@@ -17,12 +17,16 @@
 #
 #   THIS SECTION MUST ONLY EVER SHRINK.
 #
-# It is empty, and that is a measurement rather than a default: on the tree this
-# landed on, `src/forge/**/*.py` and every plugin template hold zero French
-# lines by any of the three signals. ZED-10, ZED-11, ZED-24, ZED-54 and ZED-19
-# between them finished the job; this file is the first thing in the repository
-# able to say so rather than assert it. The gate is green, so it fails on the
-# next French line instead of on a backlog.
+# It was empty for as long as the scan was an allowlist of `src/`, the plugin
+# templates, `partials/` and `tests/**/*.py` -- and that emptiness was a real
+# measurement: ZED-10, ZED-11, ZED-24, ZED-54 and ZED-19 between them left zero
+# French lines in that tree by any of the three signals.
+#
+# ZED-64 widened the scan to the whole repository, which is what the note at the
+# bottom of this section predicted. The 26 lines below are the entire cost of
+# that widening, and every one of them was already known: they are the five root
+# config files ZED-73 owns. Nothing new was discovered and nothing is parked here
+# that nobody is translating.
 #
 # It stayed empty through ZED-69, which is the interesting part. ZED-69 added a
 # third signal that fires on 32 French values in `tests/` -- short noun phrases
@@ -37,10 +41,20 @@
 # reaching for this section to turn a red build green, you almost certainly want
 # to translate the line instead.
 #
-# The mechanism is kept rather than deleted because the scope is expected to
-# widen: ZED-62 has to settle whether `.github/`, `DESIGN.md`, `MIGRATION.md`
-# and `PLAN.md` are English too, and those are thousands of French lines that
-# cannot be translated in the same commit that starts scanning them.
+# That question is now settled. ZED-62 was closed as already answered by D3, and
+# ZED-64 ruled that D3 means everything with no carve-out by file type. The scan
+# is the whole repository; what keeps the gate green is this list, not a narrower
+# scope. `DESIGN.md`, `MIGRATION.md` and `PLAN.md` turned out to need no entry
+# between them -- the feared "thousands of French lines" were already translated
+# by the time the scope caught up, and the one `DESIGN.md` hit was `façade`, an
+# English word, fixed in the signal instead of parked here.
+
+words | 1 | .gitattributes | ZED-73 -- header comment on the CRLF witness
+nouns | 5 | .github/workflows/ci.yml | ZED-73 -- validator and job comments
+words | 5 | .github/workflows/ci.yml | ZED-73 -- validator and job comments
+words | 4 | .github/workflows/release.yml | ZED-73 -- carries the id-token/dist threat model, so translate it with care rather than shortening it
+words | 7 | copier.yml | ZED-73 -- the single-template decision (DESIGN.md §8 Q2)
+words | 4 | pyproject.toml | ZED-73 -- licence and classifier reasoning
 
 [allowed]
 # Permanent. Each of these is French that has to stay French to do its job, so
@@ -55,3 +69,15 @@ accent | tests/test_french_guard.py | its fixtures are French prose by construct
 words | tests/test_french_guard.py | same: the positive fixtures must contain real French for the assertions to mean anything
 nouns | tests/test_french_guard.py | same again, for the short noun phrases: `"Equipe Plateforme"` has to be French for the assertion to hold
 accent | tests/test_plugin_monitoring.py | the `"métrique"` fixture proves a non-ASCII metric name is rejected; translating it would delete the test
+
+# Added by ZED-64, when the scan widened to the whole repository. Each of these
+# is French that exists *because* it is being discussed or recorded; translating
+# it would delete the thing the file is for.
+
+words | CHANGELOG.md | its migration tables quote the French being replaced, in the `before` column
+accent | CHANGELOG.md | same tables: `Deployer <env>` is the old value, not a new one
+nouns | PLAN.md | the ZED-27 arbitration names `passerelle` and `boutique` as the identifiers it deliberately did *not* rename, and why
+nouns | tests/french_values_pre_zed60.txt | the record of the 33 values ZED-60 translated -- a list of French by construction, and the evidence that the list shrank to zero
+words | tests/french_baseline.txt | this file: its own justifications quote the French they are about
+accent | tests/french_baseline.txt | same
+nouns | tests/french_baseline.txt | same

@@ -114,6 +114,38 @@ ACCENTED_LETTERS = "éèêëàâäîïôöùûüçœÉÈÊËÀÂÄÎÏÔÖÙÛÜ
 
 _ACCENT_RX = re.compile(f"[{ACCENTED_LETTERS}]")
 
+#: English words that carry a diacritic. The accent signal is character-based,
+#: so it cannot tell `façade` from French on its own — and `façade` is the right
+#: English word, not debt. Found when the scan widened to the whole repository
+#: and `DESIGN.md` reported one accent for `pm.subset_hook_caller() in a
+#: façade:`.
+#:
+#: Handled here rather than with an `[allowed] accent | DESIGN.md` entry on
+#: purpose: allow-listing the *file* would blind 900 lines of design prose to
+#: any future accent-only French, while exempting the *word* keeps the file
+#: scanned. Same reasoning as `FALSE_FRIENDS` below, one signal along.
+ENGLISH_DIACRITIC_WORDS = (
+    "café",
+    "cafés",
+    "cliché",
+    "clichés",
+    "début",
+    "façade",
+    "façades",
+    "fiancé",
+    "fiancée",
+    "naïve",
+    "naïvely",
+    "naïveté",
+    "résumé",
+    "résumés",
+)
+
+_ENGLISH_DIACRITIC_RX = re.compile(
+    r"\b(?:%s)\b" % "|".join(sorted(ENGLISH_DIACRITIC_WORDS, key=len, reverse=True)),
+    re.IGNORECASE,
+)
+
 #: French function words with no plausible English or IaC reading. Shortness is
 #: not the criterion — ambiguity is: `aux` and `qui` stay because no English
 #: word or Ansible/Helm/PromQL identifier spells them, while `des` and `une`
@@ -261,20 +293,36 @@ WORDS = "words"
 NOUNS = "nouns"
 SIGNALS = (ACCENT, WORDS, NOUNS)
 
-#: Globs scanned, relative to `REPO_ROOT`. `template/**/*` deliberately takes
-#: every extension: a `.jinja`, a `.yml` and a `.txt` under `template/` all
-#: end up in a generated project.
+#: The scan covers **the whole repository**, with no allowlist of directories
+#: and no carve-out by file type (decision D5 on ZED-64: D3 means everything).
+#: An earlier version listed `src/forge/**/*.py`, the plugin templates,
+#: `partials/` and `tests/**/*.py`, which left `copier.yml`, `pyproject.toml`,
+#: `.gitattributes` and both workflows unscanned — prose a contributor reads,
+#: and in `partials/`' case prose that ships to every generated project.
 #:
-#: `partials/` is not a plugin template and is scanned anyway, because its
-#: macros are what *write* the header of every generated file. It is the highest
-#: leverage prose in the repository per line: `file_header` and `var_doc` reach
-#: every file of every domain, and a French word added there would ship to every
-#: user while a scan restricted to `template/**` stayed green.
-SCANNED_GLOBS = (
-    "src/forge/**/*.py",
-    "src/forge/plugins/*/template/**/*",
-    "partials/**/*",
-    "tests/**/*.py",
+#: What replaces the allowlist is the enumerated exceptions list in
+#: `tests/french_baseline.txt`: `[baseline]` for French still owed to an issue
+#: (that section may only shrink) and `[allowed]` for French that has to stay.
+#: An exclusion glob hides debt; an exceptions list with issue references *is*
+#: the debt.
+SCANNED_GLOB = "**/*"
+
+#: Directory names pruned from the scan. These are not language carve-outs —
+#: none of them is repository prose. They are version control, caches, virtual
+#: environments and build output, i.e. files that are either not ours or not
+#: tracked. Anything a contributor reads or that reaches a generated project is
+#: in scope by construction, because it is not in this tuple.
+PRUNED_DIRS = (
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
 )
 
 
@@ -336,7 +384,10 @@ def scan_text(text: str, path: str = "<text>") -> list[Hit]:
     """Run all three signals over one already-decoded string."""
     hits: list[Hit] = []
     for number, line in enumerate(text.splitlines(), start=1):
-        accents = sorted(set(_ACCENT_RX.findall(line)))
+        # English diacritics are removed before the character scan, not after:
+        # the signal reports *which* letters fired, so filtering the result
+        # would still report a `ç` that came from `façade`.
+        accents = sorted(set(_ACCENT_RX.findall(_ENGLISH_DIACRITIC_RX.sub("", line))))
         if accents:
             hits.append(
                 Hit(path, number, ACCENT, "".join(accents), _excerpt(line))
@@ -361,11 +412,23 @@ def scan_text(text: str, path: str = "<text>") -> list[Hit]:
 
 
 def scanned_files(root: Path | None = None) -> list[Path]:
-    """Every in-scope file, de-duplicated and ordered for reproducibility."""
+    """Every file in the repository, minus `PRUNED_DIRS`.
+
+    Ordered and de-duplicated for reproducibility. Note what is *not* filtered:
+    there is no extension list. A `.yml`, a `.toml`, a `.jinja`, a dotfile and a
+    file with no suffix at all are all read, because a contributor reads prose
+    in all of them. Files that are not valid UTF-8 are dropped later, by
+    `scan_tree`, rather than guessed at from their name.
+    """
     base = root or REPO_ROOT
+    pruned = set(PRUNED_DIRS)
     found: set[Path] = set()
-    for glob in SCANNED_GLOBS:
-        found.update(path for path in base.glob(glob) if path.is_file())
+    for path in base.glob(SCANNED_GLOB):
+        if not path.is_file():
+            continue
+        if pruned.intersection(path.relative_to(base).parts[:-1]):
+            continue
+        found.add(path)
     return sorted(found)
 
 
