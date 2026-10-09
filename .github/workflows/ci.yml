@@ -16,7 +16,31 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    # Pinned, not floating (decision D10). `ubuntu-latest` migrates to Ubuntu 26
+    # gradually between 19 Oct and 19 Nov 2026 (actions/runner-images#14748), and
+    # during that window a run lands on 24.04 or 26.04 without us choosing which.
+    # For the one environment that decides whether a generated project is valid,
+    # that nondeterminism is the thing to remove: a validator that changes
+    # version, packaging or availability under 26.04 does not turn the suite red,
+    # it makes the `integration` tests skip and leaves a green suite that no
+    # longer proves anything.
+    #
+    # A literal label, deliberately not an expression. The first attempt at this
+    # change tried `${{ matrix.runner || 'ubuntu-24.04' }}` with the Ubuntu 26
+    # canary added as a `matrix.include` entry, on the theory that a combination
+    # carrying no `runner` key would fall back and so keep its check-run name.
+    # It does fall back -- but no such combination was ever created. `include`
+    # does not add a combination when its keys match an existing one: it *merges*
+    # into it. `{python-version: "3.13", runner: "ubuntu-26.04"}` therefore moved
+    # the 3.13 leg onto 26.04 and, with a `continue-on-error` keyed on the same
+    # expression, stopped it gating. Six checks still reported green, which is
+    # how it nearly survived review.
+    #
+    # The canary needs a second job, not a matrix entry, and a second job cannot
+    # reuse these ~250 lines of install steps without either duplicating them or
+    # renaming every check-run. That is a decision rather than an implementation
+    # detail, so it is a follow-up and not this commit.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -70,9 +94,12 @@ jobs:
       # what the floating resolution was already doing here. Passing `checksum:`
       # is what keeps the verification independent of which setup-uv snapshot we
       # happen to be pinned to, so a uv bump never has to ask whether the action
-      # recognises it. It is the x86_64 glibc Linux tarball, because both jobs
-      # that install uv run on `ubuntu-latest`; a runner on another OS or
-      # architecture needs a second checksum, not this one.
+      # recognises it. It is the x86_64 glibc Linux tarball, which is what the one
+      # runner this workflow names resolves to: `ubuntu-24.04`, on all three
+      # legs. A runner on another OS or architecture -- including an `arm64`
+      # Ubuntu label, and including the `ubuntu-26.04` canary when it arrives --
+      # needs a second checksum, not this one. It would fail closed rather than
+      # silently skip verification, which is the right way round.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.23"
