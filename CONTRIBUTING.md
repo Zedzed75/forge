@@ -98,7 +98,58 @@ real validators present, which is exactly why the weaker forms do not
 substitute. See `D6` in `DECISIONS.md` for when a matrix run of this kind may
 stand in for green checks, and for the `.github/workflows/**` exception — a
 container cannot exercise `uses:` pins, caching, OIDC or trigger behaviour, so a
-change to the workflow itself is never validated this way.
+change to the workflow itself is not validated this way. `D7` narrows that
+exception to the behaviours it names; the next two sections are its two tests.
+
+### Is a workflow diff prose? (`D7`, clause C1)
+
+A pull request that changes a file under `.github/workflows/**` is parked by
+`D6`. `D7` lets it through — and *only* through — when every changed line in
+those files is a YAML comment, a **step-level** `name:` value, or literal text
+inside an already-quoted string in a `run:` block. That is a question with an
+exit code, not a judgement call:
+
+```bash
+./scripts/workflow-diff-is-prose.sh origin/master my-branch
+```
+
+Exit 0 means clause C1 passes; exit 1 names the lines that fail it; exit 2 means
+the witness could not run (bad revision, no Python) and has decided nothing.
+
+The test works by normalising each file at each revision — erasing exactly those
+three things and copying everything else — and comparing the two skeletons
+(`scripts/workflow_prose_skeleton.py`). A key the normaliser has never heard of
+is copied, so a change to it fails: the test is fail-closed by construction
+rather than by keeping a list of forbidden keys in step with the workflow
+syntax. Two exclusions are deliberate, and `tests/test_workflow_prose_policy.py`
+pins both: a **job-level** `name:` (check-run identity derives from it) and
+shell structure outside the quotes, including `>> "$GITHUB_OUTPUT"` and the key
+side of any `key=value` written to one.
+
+### What does the change break? (`D7`, clause C2)
+
+The matrix reimplements `ci.yml`, so it witnesses the workflow file not at all.
+`actionlint` reads it, and its shellcheck pass catches the one way a translation
+really breaks a workflow — quoting damage inside a string it rewrote:
+
+```bash
+./scripts/actionlint-differential.sh origin/master my-branch
+```
+
+Exit 0 means the head introduces no finding the base does not already carry.
+The gate is **differential, never absolute**: `master` carries one finding
+today, and an absolute "actionlint clean" gate would refuse every workflow PR
+until someone unrelated fixed it. Findings are matched on file, rule and
+message, never on line number, because a prose change moves every line below it.
+
+It runs in the matrix image itself (`scripts/docker/Dockerfile.actionlint` adds
+one thing to it: a pinned `shellcheck`, which actionlint only uses when it finds
+it on PATH), so the actionlint doing the reading is the one `ci.yml` pins. Same
+requirement as the matrix: a Docker daemon with a Linux engine.
+
+Both scripts speak about their own clause only. A workflow PR merges under `D7`
+when C1, C2, a full matrix run (C3) and a post-merge `verify_pins` (C4) all
+pass — see `D7` in `DECISIONS.md`.
 
 ## Making a change
 
