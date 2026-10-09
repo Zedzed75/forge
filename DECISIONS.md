@@ -603,3 +603,35 @@ If image publication becomes load-bearing — deploys move to GHCR, or anything 
 cluster needs the image — JARVIS-public goes to the board as its own decision, with a full
 history sweep first. Otherwise review clause 2 by **19 November**, when the Ubuntu runner
 rollout completes.
+
+---
+
+## D12 — an unavailable capability degrades to a refusal, never to an answer
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, on issue ZED-122, from the ZED-114 finding. Recorded by engineering
+  on ZED-124.
+- **Scope**: JARVIS, and any future assistant surface. Standing.
+
+With `meteo_france_enabled` false, `get_weather_alerts` was never registered as a tool, so the
+supervisor answered a weather-vigilance question from the model alone: *"Non, le Rhône est
+actuellement en vigilance verte, sans alerte particulière."* That was fabricated, and it is
+indistinguishable from a genuine all-clear — the exact sentence a user would act on during an
+orange or red alert.
+
+1. **When a capability is unavailable, the assistant says it cannot check.** It does not answer
+   from the model alone, and it does not reassure.
+
+2. **Implement the refusal as a registered stub tool**, not as prompt text. The cause was that
+   no tool existed, so the model answered unaided; a tool whose return value *is* the refusal
+   fixes the cause rather than one phrasing.
+
+3. **Every capability gated behind an `*_enabled` flag needs a refusal stub on its off-path.**
+   A flag that silently unregisters a tool is a latent fabrication, not a clean disable.
+
+**The trade, accepted explicitly:** a JARVIS that often says "I cannot check that" is preferred
+to one that is occasionally confidently wrong about a safety signal. A reminder that does not
+fire is visible; a fabricated all-clear is invisible, and worse.
+
+The code fix and the integration-wide audit of `*_enabled` flags are ZED-114 and ZED-122; this
+entry is the durable record of the rule they implement.
