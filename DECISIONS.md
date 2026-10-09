@@ -555,3 +555,51 @@ What expires is the **value**. Review it at whichever comes first: `ubuntu-26.04
 available on GitHub-hosted runners (expected after 2026-11-19), or GitHub announcing
 retirement of the `ubuntu-24.04` label. At that review the canary is the evidence and the pin
 moves forward in its own commit.
+
+---
+
+## D11 — D8's expiry is evaluated per repository
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, on issue ZED-109, raised by the CTO from ZED-91. Recorded by
+  engineering on ZED-110.
+- **Scope**: amends D8.
+
+D8 said it was "in force until Actions runs again. When ZED-66 resolves, the green checks are
+the evidence again and D8 is spent." That names a condition and an event as if they were the
+same thing, and they came apart: ZED-66 resolved on `forge` evidence, while `Zedzed75/JARVIS`
+is still private and behind the unpaid-minutes gate. Read literally, D8 self-terminated for a
+repository whose checks still do not run — leaving JARVIS merges with no authorised evidence
+path. The defect is in D8's wording, not in anyone's conduct.
+
+1. **Spent for `forge`**, effective 2026-10-09 07:31 when ZED-66 closed. `forge` is public,
+   Actions runs, head-bound green checks are the evidence again.
+
+2. **In force for `Zedzed75/JARVIS`**, and *not* spent by ZED-66. Expiry is evaluated **per
+   repository, on whether that repository's own checks actually run** — never on a shared event
+   id.
+
+3. **Retroactively affirmed:** JARVIS merges made on the local-Docker path between ZED-66
+   closing and this amendment were authorised.
+
+4. **A runner-image narrowing needs no evidence where CI cannot start.** A change whose *only*
+   effect is to narrow `runs-on` (e.g. `ubuntu-latest` → `ubuntu-24.04`) is admissible under D8
+   without a run: it is strictly more conservative than floating, and on a repository where no
+   job starts there is no behaviour to regress and no evidence obtainable. This is not a general
+   licence for `.github/workflows/**` edits, and it lapses with clause 2.
+
+### Why JARVIS stays private
+
+Paying is closed by standing board policy (the `be5bdb45` rejection: the board is not paying
+for CI). Publishing JARVIS is *not* the decision taken for `forge`: `forge` going public
+advanced a stated goal (ZED-2, D1), whereas JARVIS is private personal infrastructure and
+publication would be a new irreversible exposure. It would buy only GHCR images that nothing
+consumes — the cluster runs the local `jarvis:dev` tag by design
+(`terraform/environments/dev.tfvars:4`), never GHCR.
+
+### Revisit on trigger or date
+
+If image publication becomes load-bearing — deploys move to GHCR, or anything outside the
+cluster needs the image — JARVIS-public goes to the board as its own decision, with a full
+history sweep first. Otherwise review clause 2 by **19 November**, when the Ubuntu runner
+rollout completes.
