@@ -229,6 +229,18 @@ each pinned version to appear verbatim in `.github/workflows/ci.yml` and stops o
 drift. Evidence from a container pinned to other versions than CI would be a
 different environment wearing CI's name.
 
+The host the container stands in for is **`ubuntu-24.04`** — which is what
+`ubuntu-latest` resolved to when this decision was taken, and what
+`scripts/docker/Dockerfile.ci-matrix` pins. It is deliberately not "whatever
+`ubuntu-latest` means today": from 2026-10-19 that label begins a staged
+migration to Ubuntu 26.04, completing 2026-11-19
+(`actions/runner-images#14748`). D6's evidence does not weaken on that date —
+the nine pinned versions still have to match `ci.yml` verbatim, `--verify-pins`
+still fails the run on drift, and `FORGE_REQUIRE_TOOLS=1` still refuses a run
+with a validator missing. What would decay is the *wording*, if equivalence were
+stated against a label that moves. So it is stated against the version, and
+D10 requires the workflows to name that version too.
+
 ### Expiry
 
 D6 is **in force until Actions runs again**. It is a workaround with an end
@@ -466,3 +478,80 @@ reading ZED-89's, and forced the time-dependent briefing test with `faketime` ag
 head to prove the instrument catches the defect. It is **not** a precedent that evidence may follow
 a merge. Under D8 the run comes first; where it did not, it was checked afterwards by an agent who
 could have found a defect and would have reported one.
+
+---
+
+## D10 — the runner label is pinned, not floating
+
+- **Date**: 2026-10-09
+- **Decided by**: **engineering (the CTO)** — not the CEO. Taken under the authority the CEO
+  delegated on issue ZED-72, AC #3: *"Pinning trades automatic currency for a controlled
+  upgrade; given that CI is our only real validation environment, I lean toward pinning, but
+  engineering owns the call."* Recorded by engineering on ZED-100. Every other record in this
+  file is a CEO decision; this one is engineering's, and must not be cited as the board's.
+- **Scope**: this repository's own workflows. Generated output is **not** covered — see "What
+  this does not decide".
+
+`runs-on` names an explicit Ubuntu label — `ubuntu-24.04` — in every workflow under
+`.github/workflows/`. It does not name `ubuntu-latest`.
+
+CI is forge's only authoritative validation environment. That is not a preference, it is
+DESIGN.md §8 Q7's finding: `ansible-core` does not support Windows as a control node, and
+`kubeconform`, `promtool` and `tflint` ship as Linux binaries, so "the GitHub CI (Linux)
+remains the authority". A floating label means that single authority moves underneath the
+repository on GitHub's schedule rather than on a reviewed commit.
+
+From 2026-10-19 `ubuntu-latest` begins a staged migration to Ubuntu 26.04, completing
+2026-11-19 (`actions/runner-images#14748`). The *staged* part is the sharp edge: during the
+window the same commit is green on one run and red on the next with nothing in the repository
+having moved, and a re-run that disagrees with its predecessor is indistinguishable from
+flake. This repository has already paid for that failure class twice, arriving from a package
+index instead of a base image:
+
+- `528b3c7` — `community.postgresql` 5.0.0 removed `postgresql_set`, and the collection was
+  unpinned.
+- `a830c6d` — the Ansible validators were unpinned, and they drifted.
+
+Both fixes were pins. The base image is the same bet with a wider blast radius, because it
+moves every preinstalled tool at once rather than one collection.
+
+### The cost
+
+Automatic currency is given up, and that is a real loss, not a rhetorical one. A pinned label
+does not pick up a newer runner image, a security update to a preinstalled tool, or the next
+LTS by itself. Somebody has to do it on purpose, and if nobody does, nothing complains. That
+is the trade the delegation named, taken with the trade understood.
+
+The pin is also itself temporary. Superseded `ubuntu-*` labels have historically been retired
+roughly a year after the promotion completes, so `ubuntu-24.04` will eventually stop
+resolving — loudly, and at a time of GitHub's choosing rather than ours. D10 therefore
+obliges a **deliberate, dated upgrade**, not an indefinite freeze: the move to
+`ubuntu-26.04` is proven by a canary job running the suite on the new label *before* the
+pinned label changes, so the upgrade arrives as a reviewed diff carrying evidence. A pin left
+unexamined until the label dies is the same failure D10 was taken to prevent, wearing the
+other face.
+
+### What this does not decide
+
+Generated output. The pipeline domain's `runner` is a **spec field**
+(`PipelineSpec.runner`, defaulted per provider and rendered into `runs-on`), and its value is
+the user's choice — someone generating for their own fleet may legitimately want a
+self-hosted label, or a floating one. D10 is a rule about how forge validates forge. It is
+not a rule about what forge emits, and a later reader must not infer one from it.
+
+### Implementation is not in this record's commit
+
+`runs-on` lives under `.github/workflows/**`, which D6's exception and D7's script both keep
+outside the Docker evidence path — so the workflow edit cannot merge on a container run, and
+this record does not carry it. It lands on ZED-99 (pin `runs-on` to `ubuntu-24.04`, add an
+`ubuntu-26.04` canary) as the first pull request merged once ZED-66 clears. Until then the
+decision stands recorded while the workflows still say `ubuntu-latest`: the gap is known,
+dated, and owned by ZED-99 rather than discovered later.
+
+### Expiry
+
+D10 does not expire when the pin lands — the standing rule is that the label is explicit.
+What expires is the **value**. Review it at whichever comes first: `ubuntu-26.04` generally
+available on GitHub-hosted runners (expected after 2026-11-19), or GitHub announcing
+retirement of the `ubuntu-24.04` label. At that review the canary is the evidence and the pin
+moves forward in its own commit.

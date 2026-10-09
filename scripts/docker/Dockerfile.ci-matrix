@@ -15,11 +15,18 @@
 # those; a Linux container proves exactly the same class of thing CI does.
 # ---------------------------------------------------------------------------
 
-# `ubuntu-latest` on GitHub-hosted runners is Ubuntu 24.04 LTS. Pinning the
-# minor here rather than following `latest` is deliberate: an image that moves on
-# its own reproduces whatever it feels like, which is the hole D6 exists to
-# close. When GitHub promotes `ubuntu-latest` to the next LTS, this line is the
-# one to change, in its own commit.
+# The host this image reproduces is `ubuntu-24.04` -- the explicit label D10
+# requires the workflows to name, and what `ubuntu-latest` resolved to when D6
+# was taken. Pinning the minor here rather than following `latest` is deliberate:
+# an image that moves on its own reproduces whatever it feels like, which is the
+# hole D6 exists to close.
+#
+# `ubuntu-latest` stops meaning 24.04 from 2026-10-19, when GitHub begins a
+# staged migration of that label to Ubuntu 26.04, completing 2026-11-19
+# (`actions/runner-images#14748`). That is precisely why this line tracks the
+# pinned label and not the floating one. Moving this base image is decided on
+# ZED-99 (pin `runs-on` to `ubuntu-24.04`, add an `ubuntu-26.04` canary) and
+# lands in its own commit, together with the `ci.yml` label it must match.
 FROM ubuntu:24.04
 
 # Keep `apt-get` from asking about a timezone halfway through the build.

@@ -16,7 +16,11 @@
 #
 # Requires a Docker daemon with a **Linux** engine (`docker info` must report
 # `OSType: linux`); the script refuses to run against a Windows engine rather
-# than produce a result that proves nothing about `ubuntu-latest`.
+# than produce a result that proves nothing about `ubuntu-24.04` -- the explicit
+# label D10 requires the workflows to name, and what `ubuntu-latest` resolved to
+# when D6 was taken. From 2026-10-19 `ubuntu-latest` no longer means 24.04
+# (`actions/runner-images#14748`), so the host this run stands in for is named
+# by its version here, never by the floating label.
 #
 # Exit status is the evidence: 0 only if every requested cell passed.
 # ---------------------------------------------------------------------------
