@@ -31,6 +31,16 @@
 # `release.yml`, and the matching environment name (`pypi` / `testpypi`). The
 # first successful upload creates the project, reserves the name, and converts
 # the pending publisher into an established one.
+#
+# Runner: all three jobs name `ubuntu-24.04` explicitly, never `ubuntu-latest`
+# (decision D10). It matters more here than in ci.yml, because publishing is
+# irreversible: `ubuntu-latest` is migrating to Ubuntu 26 gradually between
+# 19 Oct and 19 Nov 2026 (actions/runner-images#14748), so a tag pushed during
+# that window would build the artifact on whichever image the runner happened
+# to hand out. The wheel that reaches PyPI should be built on an image this
+# file names, not on one a rollout picked. ci.yml carries an `ubuntu-26.04`
+# canary; there is deliberately no canary here, because the only way to
+# exercise this workflow end to end is to publish.
 # ---------------------------------------------------------------------------
 name: Release
 
@@ -51,7 +61,7 @@ jobs:
   # we would have validated an artifact PyPI is never going to receive.
   # -------------------------------------------------------------------------
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # Every `uses:` below is pinned to a full commit SHA with the version in a
       # trailing comment, the form the publish action already used. It matters
@@ -156,7 +166,7 @@ jobs:
   testpypi:
     if: github.event_name == 'workflow_dispatch'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: testpypi
       url: https://test.pypi.org/p/iac-forge
@@ -186,7 +196,7 @@ jobs:
   pypi:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/p/iac-forge
