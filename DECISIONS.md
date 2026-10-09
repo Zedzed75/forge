@@ -548,13 +548,48 @@ this record does not carry it. It lands on ZED-99 (pin `runs-on` to `ubuntu-24.0
 decision stands recorded while the workflows still say `ubuntu-latest`: the gap is known,
 dated, and owned by ZED-99 rather than discovered later.
 
+**Both halves have now landed, in two pull requests rather than one.** ZED-99 shipped the pin
+(#80). The canary came apart from it because a canary must be a **second job** — a
+`matrix.include` entry carrying a `runner` key does not create a fourth combination, it merges
+into the matching existing one, which moved the gating 3.13 leg onto 26.04 and un-gated it
+while all six checks still reported green. It landed on ZED-119 instead, together with the
+extraction of the install steps into `.github/actions/forge-ci-setup/action.yml` that letting
+two jobs share one toolchain required.
+
+### The canary is not one of D4's six checks
+
+D4 authorises a merge on a count: "CI-green on all six checks". The canary adds a fourth
+check-run per event without touching that count, and the mechanism is `continue-on-error:
+true` at job level — the job reports failed and the workflow run still concludes successfully.
+So:
+
+- the three gating legs keep the names and the runner D4's clause counts: `tests (3.11)`,
+  `tests (3.12)`, `tests (3.13)`, on `ubuntu-24.04`;
+- `canary (3.13, ubuntu-26.04)` is advisory, and **a red canary does not withhold a merge**;
+- nobody needs to re-read D4. This is engineering recording how its own decision was
+  implemented so as not to disturb the board's, which is the reason the rejected alternative
+  was rejected: a real `runner:` matrix axis costs six lines and renames every check-run to
+  `tests (3.11, ubuntu-24.04)`, i.e. renames the things D4 counts in order to save a file.
+
+The reading that needs stating out loud, because the arithmetic invites the other one: D4's
+"six" is six *gating* checks, and it always was. A seventh and eighth check-run that cannot
+fail the workflow do not make it seven or eight.
+
 ### Expiry
 
 D10 does not expire when the pin lands — the standing rule is that the label is explicit.
 What expires is the **value**. Review it at whichever comes first: `ubuntu-26.04` generally
-available on GitHub-hosted runners (expected after 2026-11-19), or GitHub announcing
-retirement of the `ubuntu-24.04` label. At that review the canary is the evidence and the pin
-moves forward in its own commit.
+available on GitHub-hosted runners, or GitHub announcing retirement of the `ubuntu-24.04`
+label. At that review the canary is the evidence and the pin moves forward in its own commit.
+
+**The first trigger has already fired, earlier than this record guessed.** It said "expected
+after 2026-11-19"; `ubuntu-26.04` and `ubuntu-26.04-arm` went generally available with
+`actions/runner-images#14747`, *before* the `ubuntu-latest` migration window opens on
+2026-10-19. That is why the canary could be built and run on 2026-10-09 rather than waited
+for. It does not move the pin by itself — D10 requires the pin to move as a reviewed diff
+carrying the canary's evidence, and one green canary run is a reading rather than a record.
+The review belongs to ZED-72, which owns the upgrade and is where the canary's results are
+recorded.
 
 ---
 

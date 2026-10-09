@@ -48,7 +48,9 @@ a green suite on a bare machine does not prove much. The full set is:
 
 Installing all of them locally is optional. CI installs every one of them on
 Linux and is the authority on whether generated output is valid — see
-`.github/workflows/ci.yml`. Note that `ansible-core` does not support Windows as
+`.github/actions/forge-ci-setup/action.yml`, which is where the pinned installs
+live, and `.github/workflows/ci.yml` for the jobs that call
+it. Note that `ansible-core` does not support Windows as
 a control node; on Windows the Ansible validators run through WSL.
 
 ## Running the tests
@@ -63,6 +65,28 @@ Determinism is a hard guarantee: the same spec must always produce the same
 output, and golden tests under `tests/golden/` enforce it. If your change
 legitimately alters generated output, update the goldens in the same commit and
 explain in the PR *why* the output changed.
+
+### Which CI checks gate a merge
+
+Four check-runs per event, and only three of them are a gate:
+
+| Check | Runner | Gates a merge? |
+| --- | --- | --- |
+| `tests (3.11)`, `tests (3.12)`, `tests (3.13)` | `ubuntu-24.04` | **yes** |
+| `canary (3.13, ubuntu-26.04)` | `ubuntu-26.04` | no |
+
+The canary runs the same suite, from the same composite action, with the same
+`FORGE_REQUIRE_TOOLS=1`, on the image `ubuntu-latest` is migrating to. It
+carries `continue-on-error: true`, so when it fails the job shows failed and the
+workflow run still concludes successfully. **A red canary does not block your
+pull request and is not yours to fix** unless your change caused it: it is
+reporting something about the Ubuntu 26 image, which is what `D10` asks it to
+do before the pin moves onto that image. Read it, say in the PR that you read
+it, and merge on the three `tests` legs.
+
+What a red canary is worth reporting on, though, is `ZED-72`: a validator that
+stops installing on 26.04 is exactly the finding the job exists to produce, and
+it needs to reach the issue that owns the upgrade rather than sit in a log.
 
 ### Running the CI matrix locally, in Docker
 
@@ -87,9 +111,15 @@ does not correspond to a commit cannot be recorded against a pull request.
 The container declares the toolchain a second time
 (`scripts/docker/Dockerfile.ci-matrix` and `scripts/docker/run-matrix.sh`), and
 a second declaration rots. Every run therefore starts by extracting each pinned
-version from those two files and requiring it to appear verbatim in
-`.github/workflows/ci.yml`; a bump on either side stops the run. When you bump a
-validator, bump it in both places in the same commit.
+version from those two files and requiring it to appear verbatim in CI's own
+declaration; a bump on either side stops the run. When you bump a validator,
+bump it in both places in the same commit.
+
+CI's declaration of the toolchain is `.github/actions/forge-ci-setup/action.yml`
+rather than the workflow: the install steps live in a composite action so that
+the gating job and the `ubuntu-26.04` canary below share one toolchain instead
+of two copies that drift apart. The workflow is still where the interpreter
+matrix is read from.
 
 What this is **not**: a `-m "not integration"` run, a single interpreter, a run
 on the Windows host, or a run with validators missing. Two bugs in this
