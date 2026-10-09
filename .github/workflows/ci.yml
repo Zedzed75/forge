@@ -25,35 +25,26 @@ jobs:
     # it makes the `integration` tests skip and leaves a green suite that no
     # longer proves anything.
     #
-    # `matrix.runner` is set only by the `include` entry below, so the three
-    # gating combinations carry no `runner` key and fall back here. That is
-    # deliberate: it keeps their check-run names exactly `tests (3.11)`,
-    # `tests (3.12)`, `tests (3.13)`, which D4's six-checks clause and D9's
-    # authorisations both name.
-    runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
-    # Only the canary may fail without failing the workflow. The expression is
-    # false for every combination that omits `runner`, so the three pinned legs
-    # gate exactly as before.
-    continue-on-error: ${{ matrix.runner == 'ubuntu-26.04' }}
+    # A literal label, deliberately not an expression. The first attempt at this
+    # change tried `${{ matrix.runner || 'ubuntu-24.04' }}` with the Ubuntu 26
+    # canary added as a `matrix.include` entry, on the theory that a combination
+    # carrying no `runner` key would fall back and so keep its check-run name.
+    # It does fall back -- but no such combination was ever created. `include`
+    # does not add a combination when its keys match an existing one: it *merges*
+    # into it. `{python-version: "3.13", runner: "ubuntu-26.04"}` therefore moved
+    # the 3.13 leg onto 26.04 and, with a `continue-on-error` keyed on the same
+    # expression, stopped it gating. Six checks still reported green, which is
+    # how it nearly survived review.
+    #
+    # The canary needs a second job, not a matrix entry, and a second job cannot
+    # reuse these ~250 lines of install steps without either duplicating them or
+    # renaming every check-run. That is a decision rather than an implementation
+    # detail, so it is a follow-up and not this commit.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
-        # The Ubuntu 26 canary: the whole suite, the same steps, the same
-        # `FORGE_REQUIRE_TOOLS=1`, on the label `ubuntu-latest` is migrating to.
-        # It answers ZED-72's verification half on demand instead of on 19 Nov.
-        #
-        # One combination rather than three: the risk being probed is whether
-        # 26.04 changes the validators, which is a property of the image and not
-        # of the interpreter, so a second and third Python would cost three times
-        # the signal's price and add nothing. 3.13 because a new image is likelier
-        # to drop an old interpreter than a new one.
-        #
-        # Adding it under `include` rather than as a second matrix axis is what
-        # keeps the gating check names unchanged -- see `runs-on` above.
-        include:
-          - python-version: "3.13"
-            runner: "ubuntu-26.04"
 
     steps:
       # Every `uses:` in this repository is pinned to a full commit SHA, with the
@@ -103,12 +94,12 @@ jobs:
       # what the floating resolution was already doing here. Passing `checksum:`
       # is what keeps the verification independent of which setup-uv snapshot we
       # happen to be pinned to, so a uv bump never has to ask whether the action
-      # recognises it. It is the x86_64 glibc Linux tarball, which is what every
-      # runner this workflow names resolves to: `ubuntu-24.04` on the three
-      # gating legs and `ubuntu-26.04` on the canary are both x86_64 glibc, so
-      # one checksum covers all four. A runner on another OS or architecture --
-      # or an `arm64` Ubuntu label -- needs a second checksum, not this one, and
-      # would make this step fail closed rather than silently skip verification.
+      # recognises it. It is the x86_64 glibc Linux tarball, which is what the one
+      # runner this workflow names resolves to: `ubuntu-24.04`, on all three
+      # legs. A runner on another OS or architecture -- including an `arm64`
+      # Ubuntu label, and including the `ubuntu-26.04` canary when it arrives --
+      # needs a second checksum, not this one. It would fail closed rather than
+      # silently skip verification, which is the right way round.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.23"
