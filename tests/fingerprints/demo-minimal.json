@@ -6,7 +6,7 @@
     "demo/.copier-answers.yml": "- structured ee1445416383321e",
     "demo/README.md": "- prose e29b24fca5be5f47",
     "demo/environments/prod/sante.yml": "- structured d9ab25c546f10225",
-    "demo/fins-de-ligne.txt": "- prose e3b0c44298fc1c14",
+    "demo/line-endings.txt": "- prose e3b0c44298fc1c14",
     "forge.yml": "- structured 43ca1ce94193a91c"
   },
   "fingerprint_version": 2,
