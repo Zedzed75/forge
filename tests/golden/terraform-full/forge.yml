@@ -43,7 +43,7 @@ terraform:
   backend:
     kind: s3
     config:
-      bucket: etats-terraform-plateforme
+      bucket: platform-terraform-state
       region: eu-west-3
       encrypt: 'true'
   kubernetes:

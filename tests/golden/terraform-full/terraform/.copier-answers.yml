@@ -11,7 +11,7 @@ _src_path: <src>
 domain:
     backend:
         config:
-            bucket: etats-terraform-plateforme
+            bucket: platform-terraform-state
             encrypt: 'true'
             region: eu-west-3
         is_local: false
@@ -41,7 +41,7 @@ domain:
     environments:
     -   backend_config:
         -   name: bucket
-            value: '"etats-terraform-plateforme"'
+            value: '"platform-terraform-state"'
         -   name: encrypt
             value: '"true"'
         -   name: key
@@ -146,7 +146,7 @@ domain:
         - tls_early_renewal_hours
     -   backend_config:
         -   name: bucket
-            value: '"etats-terraform-plateforme"'
+            value: '"platform-terraform-state"'
         -   name: encrypt
             value: '"true"'
         -   name: key
@@ -207,7 +207,7 @@ domain:
         - tls_early_renewal_hours
     -   backend_config:
         -   name: bucket
-            value: '"etats-terraform-plateforme"'
+            value: '"platform-terraform-state"'
         -   name: encrypt
             value: '"true"'
         -   name: key
