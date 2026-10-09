@@ -333,3 +333,87 @@ merged under plain D6. There is no bootstrap problem.
 **D7 is spent when D6 is spent.** It is a refinement of a workaround, not a new
 standard: when ZED-66 resolves, six green checks are the evidence again and both
 decisions lapse together.
+
+---
+
+## D8 — JARVIS may merge on a local Docker run of its own CI
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, on issue ZED-87. Recorded by engineering on ZED-89.
+- **Repository**: `Zedzed75/JARVIS`, not this one.
+
+D6 does **not** extend to JARVIS, and was not stretched to cover it. Every
+operative clause of D6 is forge: `scripts/docker-matrix.sh`, three interpreters,
+`FORGE_REQUIRE_TOOLS=1`, the five domains' validator binaries, and a rationale
+resting on forge's own commits `223cae4` and `f050a05`. Read verbatim against
+JARVIS it is unsatisfiable rather than permissive — there is no
+`docker-matrix.sh` there and no 3.11/3.13 leg to run. What ports is the
+principle, *change the host, not the standard*, and D8 is that principle written
+for the repository it now applies to.
+
+While Actions assigns no runner (ZED-66 — the same account-level billing failure,
+JARVIS's last successful run 2026-10-08 15:24Z), a JARVIS pull request **may
+merge on evidence from a local Docker run of `ci.yml`'s jobs** instead of on
+green checks, provided:
+
+- the container is **pinned to the versions `.github/workflows/ci.yml` pins**,
+- `integration` runs against a **real `pgvector/pgvector:pg16`**,
+- a **green baseline on plain `master`** is taken first, so that any red is
+  interpretable rather than ambiguous between the change and the host,
+- **a skipped check is not a passed check** — in particular the backup/restore
+  roundtrip must be observed to *run*,
+- the result is **recorded on the pull request's issue**,
+- and the evidence **binds to the head SHA it was produced on**. If a PR's head
+  moves, the run is re-done. Evidence from an earlier head is not evidence for a
+  later one.
+
+The baseline clause is not ceremony. It earned itself on the first run: on the
+host toolchain (ruff 0.14.10, Python 3.13) JARVIS's own `master` fails
+`ruff format --check`, so a formatting complaint from a host-run suite is version
+noise and would have been read as a defect in whichever PR was under test.
+
+### The exception, behavioural and not file-path
+
+A pull request touching **`Dockerfile`, `pyproject.toml`, `poetry.lock` or
+`.github/workflows/**`** may not use this path. Those are the inputs a local
+suite cannot vouch for: the suite consumes the pins rather than testing them, so
+a change *to* the pins is tested by nothing. This is the same refinement D7 made
+to D6 — the exception protects behaviours, and these four are named because each
+one is an input to the evidence rather than a subject of it.
+
+If such a pull request must still move, a local **`docker build` of the image is
+required additional evidence** — that is the local substitute for the *build*
+half of `build-and-push`. The push, retag and retention half needs no substitute
+while nothing deploys.
+
+### `build-and-push` is deferred, not waived
+
+Merges under D8 land with **no image built** until Actions returns. That was
+checked rather than weighed, and the objection comes apart in three places:
+
+1. **Merging cannot regress the live service.** `build-and-push` pushes to GHCR;
+   it does not deploy. JARVIS deploys by a deliberate
+   `terraform apply -var-file=...` with `variable "image"` (default
+   `jarvis:dev`), consumed at `terraform/app.tf:40` and `terraform/telegram.tf:48`.
+   `master` and the running pods are decoupled by an explicit pinned ref, so with
+   Actions down `latest` keeps pointing at the 8 Oct digest and nothing pulls
+   anything new. The outage insulates the service rather than endangering it.
+2. **The retention gap fails safe.** `cleanup-old-images` is
+   `min-versions-to-keep: 3`. Not running means images **accumulate**, not
+   vanish — registry housekeeping, self-correcting on its next run, not a gate.
+3. **For the PRs this unparked, the image build had no coverage to add.** None of
+   the six ZED-33 branches touches `Dockerfile`, `.github/**`, `pyproject.toml`
+   or `poetry.lock`; and the `Dockerfile` resolves dependencies solely from those
+   pins, then plain-`COPY`s `jarvis/`, `config/`, `web/` — no compile, no
+   bundling, nothing executed at build time.
+
+Reason 1 is what makes D8 safe where it would not be in a repository that
+deploys on merge. It is a property of JARVIS's deployment, not a general
+dispensation, and a change to that property retires this decision early.
+
+### Expiry
+
+D8 is **in force until Actions runs again**. When ZED-66 resolves, the green
+checks are the evidence again and D8 is spent. ZED-91 tracks the one thing that
+must then be confirmed rather than assumed: that the image pipeline actually
+caught up on the commits that landed without it.
