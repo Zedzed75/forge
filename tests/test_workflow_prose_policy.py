@@ -358,48 +358,29 @@ def test_a_bad_revision_is_an_error_not_a_verdict(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# The real pull requests, when the refs are at hand
+# Why there is no test here against the live pull request refs
 # ---------------------------------------------------------------------------
-# These two are the cases the policy was written for, run against the actual
-# commits rather than against an extract of them. They skip where the refs are
-# absent -- in the matrix container, which is cloned from a bundle of one
-# branch, and in any clone that has not fetched the pull request heads:
+# There was one, `test_the_real_pull_requests`, parametrised over #61 (prose)
+# and #59 (not). It was removed rather than fixed, because it could not run in
+# either environment the project actually has and it read as coverage that
+# existed:
 #
-#   git fetch origin pull/61/head:pr61 pull/59/head:pr59
+#   * the D6 matrix container is cloned from `repo.bundle`, which `git bundle`
+#     writes with one branch and no `origin/master`, so the base never
+#     resolved -- 2 skips in every matrix run;
+#   * CI checks out with `fetch-depth: 0`, which fetches branches and tags but
+#     **not** `refs/pull/N/head`, so the head never resolved there either.
+#
+# Making it run would mean either giving the offline container network access or
+# hardcoding two pull request numbers into `ci.yml` forever, and the second is
+# not a regression test. Nothing is lost: the module docstring records that the
+# prose fixtures above *are* the real changed lines of #61 and the refused ones
+# the real changed lines of #59 and #50, so the verdicts those cases pin are the
+# verdicts on the real diffs -- held as committed fixtures that run everywhere
+# instead of as live refs that ran nowhere.
+#
+# If a future D7 question needs a real two-ref check, run the script by hand:
+#
+#   git fetch origin pull/61/head:pr61
+#   bash scripts/workflow-diff-is-prose.sh origin/master pr61   # expect 0
 # ---------------------------------------------------------------------------
-
-
-def _resolve(ref: str) -> str | None:
-    completed = subprocess.run(
-        [GIT, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    return completed.stdout.strip() or None
-
-
-@pytest.mark.parametrize(
-    ("candidates", "expected"),
-    [
-        (("pr61", "refs/pull/61/head"), 0),
-        (("pr59", "refs/pull/59/head"), 1),
-    ],
-    ids=["pr61-is-prose", "pr59-is-not"],
-)
-def test_the_real_pull_requests(candidates: tuple[str, ...], expected: int) -> None:
-    base = _resolve("origin/master") or _resolve("master")
-    if base is None:
-        pytest.skip("neither origin/master nor master is present in this clone")
-    head = next((sha for ref in candidates if (sha := _resolve(ref))), None)
-    if head is None:
-        pytest.skip(f"none of {candidates} is present; fetch the pull request head")
-    completed = subprocess.run(
-        [BASH, str(SCRIPT), base, head],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    assert completed.returncode == expected, completed.stdout + completed.stderr
