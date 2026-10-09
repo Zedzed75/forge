@@ -31,6 +31,20 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 DOCKER_DIR="${SCRIPT_DIR}/docker"
 WORKFLOW="${REPO_ROOT}/.github/workflows/ci.yml"
 VERSION_TABLE="${REPO_ROOT}/tests/tool_versions.py"
+# Where CI declares its toolchain. Two files since the `ubuntu-26.04` canary
+# needed a second job: the install steps moved into a composite action so that
+# the gating job and the canary could share one definition, and the pinned
+# versions moved with them. `verify_pins` greps this set rather than `$WORKFLOW`
+# alone, because a pin is "declared by CI" wherever in CI it is written -- and
+# the alternative was this gate reporting fourteen phantom drifts the moment the
+# steps moved, which is a gate that has to be switched off to be believed.
+#
+# The matrix itself is still read from `$WORKFLOW` only: `python-version` names a
+# matrix axis there and an action input here, and those are different claims.
+CI_PIN_FILES=(
+  "$WORKFLOW"
+  "${REPO_ROOT}/.github/actions/forge-ci-setup/action.yml"
+)
 
 IMAGE_NAME="forge-ci-matrix"
 UV_CACHE_VOLUME="forge-ci-matrix-uv-cache"
@@ -73,13 +87,21 @@ done
 # ---------------------------------------------------------------------------
 # The container declares the toolchain a second time, and a second declaration
 # rots. Rather than trust the duplication, extract every pinned version out of
-# the two container files and require each one to appear verbatim in the
-# workflow. A bump on either side breaks the match, which is the point: D6
+# the two container files and require each one to appear verbatim somewhere in
+# CI's own declaration -- `$CI_PIN_FILES`, the workflow plus the composite
+# action it gets its toolchain from. A bump on either side breaks the match,
+# which is the point: D6
 # evidence from a container pinned to other versions than CI would be a
 # different environment wearing CI's name.
 verify_pins() {
   local failures=0 pin
-  [ -r "$WORKFLOW" ] || die "cannot read ${WORKFLOW}"
+  # Every one of them, not just the workflow: a file this gate cannot read is a
+  # file whose pins it silently stops checking, and "no drift found" would then
+  # mean "nowhere left to look".
+  local pin_file
+  for pin_file in "${CI_PIN_FILES[@]}"; do
+    [ -r "$pin_file" ] || die "cannot read ${pin_file}"
+  done
 
   # `ARG NAME=value` in the Dockerfile: the five domains' binaries, plus uv and
   # its checksum.
@@ -94,9 +116,9 @@ verify_pins() {
 
   while IFS= read -r pin; do
     [ -n "$pin" ] || continue
-    if ! grep -qF -- "$pin" "$WORKFLOW"; then
-      printf 'pin drift: %s is pinned in the container but not in %s\n' \
-        "$pin" "${WORKFLOW#"${REPO_ROOT}/"}" >&2
+    if ! grep -qF -- "$pin" "${CI_PIN_FILES[@]}"; then
+      printf 'pin drift: %s is pinned in the container but nowhere in CI (%s)\n' \
+        "$pin" "${CI_PIN_FILES[*]#"${REPO_ROOT}/"}" >&2
       failures=$((failures + 1))
     fi
   done <<< "${dockerfile_pins}
@@ -121,7 +143,7 @@ ${runner_pins}"
   # table is what the suite asserts the installed binaries actually *report*
   # (`tests/conftest.py::require_expected_versions`). It is one more copy of
   # the same nine numbers, so it goes through the same verbatim loop -- in both
-  # directions, against the workflow and against the container files. A bump
+  # directions, against CI's declaration and against the container files. A bump
   # that lands in two of the three places fails here instead of silently
   # asserting a version nothing installs.
   [ -r "$VERSION_TABLE" ] || die "cannot read ${VERSION_TABLE}"
@@ -150,9 +172,9 @@ ${runner_pins}"
   local tool version
   while read -r tool version; do
     [ -n "${version:-}" ] || continue
-    if ! grep -qF -- "$version" "$WORKFLOW"; then
-      printf 'pin drift: %s is expected at %s by the test table but %s pins no such version\n' \
-        "$tool" "$version" "${WORKFLOW#"${REPO_ROOT}/"}" >&2
+    if ! grep -qF -- "$version" "${CI_PIN_FILES[@]}"; then
+      printf 'pin drift: %s is expected at %s by the test table but CI pins no such version (%s)\n' \
+        "$tool" "$version" "${CI_PIN_FILES[*]#"${REPO_ROOT}/"}" >&2
       failures=$((failures + 1))
     fi
     if ! grep -qF -- "$version" "${container_files[@]}"; then
@@ -163,13 +185,13 @@ ${runner_pins}"
   done <<< "$table_rows"
 
   if [ "$failures" -gt 0 ]; then
-    printf '\n%s pinned value(s) differ between the container, the workflow and %s.\n' \
+    printf '\n%s pinned value(s) differ between the container, CI and %s.\n' \
       "$failures" "${VERSION_TABLE#"${REPO_ROOT}/"}" >&2
     printf 'Reconcile them before trusting a matrix run as D6 evidence.\n' >&2
     return 1
   fi
   printf 'pins: container, %s and %s agree (%s tool version(s) asserted)\n' \
-    "${WORKFLOW#"${REPO_ROOT}/"}" "${VERSION_TABLE#"${REPO_ROOT}/"}" "$versioned_rows"
+    "${CI_PIN_FILES[*]#"${REPO_ROOT}/"}" "${VERSION_TABLE#"${REPO_ROOT}/"}" "$versioned_rows"
   return 0
 }
 

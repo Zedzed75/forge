@@ -1,8 +1,11 @@
 # ---------------------------------------------------------------------------
 # Dependabot: the bump path that makes SHA pinning sustainable.
 # ---------------------------------------------------------------------------
-# Every `uses:` in .github/workflows/ is pinned to a full commit SHA rather than
-# a floating tag, because a tag is mutable and a SHA is not. Pinning alone is
+# Every `uses:` in this repository -- the workflows under .github/workflows/ and
+# the composite action under .github/actions/ -- is pinned to a full commit SHA
+# rather than a floating tag, because a tag is mutable and a SHA is not. Which
+# of those two places a pin sits in is not Dependabot's business but *is* this
+# file's: see the note on `directories` below. Pinning alone is
 # only half a policy: a pinned action never updates, and "never updates" is how a
 # repository ends up three years behind on actions/checkout, carrying whatever
 # bug or vulnerability that snapshot had.
@@ -22,17 +25,35 @@
 # a watcher, not the one to leave unwatched.
 #
 # Still upgraded by hand, and this part of the old reason does hold: the
-# validator binaries in ci.yml are pinned by version inside `run:` steps, and
-# the uv pin is an action input. Dependabot parses neither. Those are bumped
-# deliberately, one per commit, by the procedure written beside them in ci.yml.
+# validator binaries are pinned by version inside `run:` steps, and the uv pin
+# is an action input. Dependabot parses neither. Those are bumped deliberately,
+# one per commit, by the procedure written beside them -- which since the
+# `ubuntu-26.04` canary needed a second job is
+# `.github/actions/forge-ci-setup/action.yml`, not ci.yml.
 # ---------------------------------------------------------------------------
 version: 2
 
 updates:
   - package-ecosystem: github-actions
     # `/` means "the workflows of this repository": for github-actions the
-    # directory is always the repository root, never .github/workflows.
-    directory: /
+    # configured directory is the repository root, never .github/workflows.
+    #
+    # What `/` does **not** mean is "every action definition in the repository".
+    # It covers `.github/workflows/*` plus an `action.yml` at the root, and
+    # nothing under `.github/actions/**` (dependabot/dependabot-core#6936). A
+    # composite action's own `uses:` pins are invisible to it, which is how a
+    # repository ends up with workflows Dependabot keeps current and a shared
+    # setup action sitting three majors behind -- and this repository now has
+    # exactly one such action, holding the setup-uv pin that used to sit in
+    # `ci.yml` and be watched by this entry. So the directories are listed, and
+    # `directories` (plural) is what allows more than one for one ecosystem.
+    #
+    # Adding a composite action means adding its directory here. Deliberately
+    # not a glob: a glob that matched nothing would fail the same way the
+    # omission does -- silently, pins unwatched and the config still valid.
+    directories:
+      - /
+      - /.github/actions/forge-ci-setup
     schedule:
       interval: weekly
     # One PR per week per action at most. Action bumps are rare and each one
