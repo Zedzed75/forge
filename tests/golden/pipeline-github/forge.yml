@@ -35,7 +35,7 @@ terraform:
     - quota
   environments:
     prod:
-      kube_context: plateforme-prod
+      kube_context: platform-prod
 helm:
   kubernetes:
     version: '1.34'

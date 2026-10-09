@@ -103,7 +103,7 @@ environments/
 | --- | --- | --- | --- |
 | `dev` | `storefront-dev` | `dev` | `s3` |
 | `staging` | `storefront-staging` | `staging` | `s3` |
-| `prod` **(production)** | `storefront-prod` | `plateforme-prod-eu-west-3` | `s3` |
+| `prod` **(production)** | `storefront-prod` | `platform-prod-eu-west-3` | `s3` |
 
 The namespaces are derived according to the `per_env`
 strategy.

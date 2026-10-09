@@ -84,7 +84,7 @@ environments/
 | Environment | Namespace | kubeconfig context | State |
 | --- | --- | --- | --- |
 | `dev` | `storefront-dev` | `dev` | `local` |
-| `prod` **(production)** | `storefront-prod` | `plateforme-prod` | `local` |
+| `prod` **(production)** | `storefront-prod` | `platform-prod` | `local` |
 
 The namespaces are derived according to the `per_env`
 strategy.

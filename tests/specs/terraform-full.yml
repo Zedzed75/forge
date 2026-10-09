@@ -60,7 +60,7 @@ terraform:
         memory: 4Gi
         pods: 20
     prod:
-      kube_context: plateforme-prod-eu-west-3
+      kube_context: platform-prod-eu-west-3
       quota:
         cpu: "16"
         memory: 32Gi

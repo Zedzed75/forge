@@ -215,7 +215,7 @@ domain:
         -   name: region
             value: '"eu-west-3"'
         domain: example.net
-        kube_context: plateforme-prod-eu-west-3
+        kube_context: platform-prod-eu-west-3
         module_arguments: *id001
         name: prod
         namespace: storefront-prod
@@ -231,7 +231,7 @@ domain:
             value: '{ tier = "frontend", cost-center = "4210", criticality = "high"
                 }'
         -   name: kube_context
-            value: '"plateforme-prod-eu-west-3"'
+            value: '"platform-prod-eu-west-3"'
         -   name: quota_cpu
             value: '"16"'
         -   name: quota_memory

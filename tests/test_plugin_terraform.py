@@ -417,7 +417,7 @@ def test_the_tfvars_carry_the_values_of_their_environment(tmp_path):
     prod = _assignments(root / "prod" / "terraform.tfvars")
     dev = _assignments(root / "dev" / "terraform.tfvars")
     assert prod["namespace"] == '"storefront-prod"'
-    assert prod["kube_context"] == '"plateforme-prod-eu-west-3"'
+    assert prod["kube_context"] == '"platform-prod-eu-west-3"'
     assert prod["quota_cpu"] == '"16"'
     assert dev["quota_cpu"] == '"2"'
     # An unset context falls back to the environment name rather than to the
