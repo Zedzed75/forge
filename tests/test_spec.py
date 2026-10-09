@@ -50,7 +50,7 @@ def test_service_refuses_duplicate_environments(spec_data, manager):
 
 def test_service_exposes_its_environments_in_order():
     service = ServiceSpec(
-        name="boutique",
+        name="storefront",
         description="d",
         owner="o",
         environments=[{"name": "dev"}, {"name": "prod", "production": True}],

@@ -14,10 +14,10 @@
 forge_version: 1
 
 service:
-  name: passerelle
+  name: gateway
   description: Application gateway, pipeline only
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   environments:
     - name: prod
       domain: example.net
@@ -36,4 +36,4 @@ pipeline:
     # On GitLab, the token provided out of the box only opens the project's own
     # registry: any other value raises a warning from forge.
     registry: $CI_REGISTRY
-    image: plateforme/passerelle
+    image: platform/gateway

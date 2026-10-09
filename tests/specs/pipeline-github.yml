@@ -8,10 +8,10 @@
 forge_version: 1
 
 service:
-  name: boutique
+  name: storefront
   description: Online store, full pipeline
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   labels:
     tier: frontend
   environments:
@@ -38,7 +38,7 @@ helm:
   namespace_strategy: per_env
   image:
     registry: ghcr.io
-    repository: acme/boutique
+    repository: acme/storefront
     strategy: appVersion
   components:
     - name: api
@@ -55,7 +55,7 @@ pipeline:
     context: .
     dockerfile: Dockerfile
     registry: ghcr.io
-    image: acme/boutique
+    image: acme/storefront
   deploy:
     manual_for_production: true
     sequential: true

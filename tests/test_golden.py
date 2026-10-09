@@ -131,5 +131,5 @@ def test_a_plugin_filter_is_really_applied(tmp_path):
     """Proof that `FORGE_PLUGIN_JINJA` really loads the domain's filters."""
     rendered = _render(DEMO_CASE, tmp_path)
     readme = (rendered / "demo" / "README.md").read_text(encoding="utf-8")
-    assert "BOUTIQUE" in readme          # shout filter
-    assert "== boutique ==" in readme    # demo_banner global
+    assert "STOREFRONT" in readme          # shout filter
+    assert "== storefront ==" in readme    # demo_banner global

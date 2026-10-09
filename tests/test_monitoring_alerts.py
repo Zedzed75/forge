@@ -156,7 +156,7 @@ def test_a_generated_alert_name_is_the_catalogue_name_unchanged():
     """No service prefix: the service belongs in the `service` label.
 
     This is the guard on a convention, not on an implementation. Prefixing the
-    name with the service -- `BoutiqueTargetDown` -- would make a cross-service
+    name with the service -- `StorefrontTargetDown` -- would make a cross-service
     route a regex, and would stop a runbook or a community dashboard keyed on
     `TargetDown` from applying. Both failures are silent, which is why the
     assertion is `==` on the whole set rather than a spot check.

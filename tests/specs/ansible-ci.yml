@@ -7,7 +7,7 @@
 forge_version: 1
 
 service:
-  name: passerelle
+  name: gateway
   description: "Application gateway"
   owner: "Platform Team"
   environments:
