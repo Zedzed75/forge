@@ -4,4 +4,4 @@
 
 # Fichier temoin de la normalisation des fins de ligne : il DOIT rester en
 # CRLF dans le depot, sinon le test de normalisation ne prouve plus rien.
-src/forge/plugins/demo/template/fins-de-ligne.txt -text
+src/forge/plugins/demo/template/line-endings.txt -text

@@ -36,7 +36,7 @@ CASES = spec_files()
 DEMO_CASE = next(path for path in CASES if path.stem == "demo-full")
 
 #: File of the demo template deliberately stored with CRLF (cf. .gitattributes).
-CRLF_WITNESS = "fins-de-ligne.txt"
+CRLF_WITNESS = "line-endings.txt"
 
 
 def _render(spec_path: Path, target: Path) -> Path:
