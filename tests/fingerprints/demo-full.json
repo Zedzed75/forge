@@ -9,7 +9,7 @@
     "demo/environments/dev/requetes.yml": "- structured fc4fb3a4844de13b",
     "demo/environments/prod/cpu.yml": "- structured cc476467287cea29",
     "demo/environments/prod/requetes.yml": "- structured ba30e55e861c72b4",
-    "demo/fins-de-ligne.txt": "- prose e3b0c44298fc1c14",
+    "demo/line-endings.txt": "- prose e3b0c44298fc1c14",
     "demo/widgets/cpu/detail.yml": "- structured e173ba401538e58f",
     "forge.yml": "- structured 3388ee802de3d1e5"
   },
