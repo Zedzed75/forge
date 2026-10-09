@@ -41,7 +41,7 @@ def _spec_data(**overrides) -> dict:
     data = {
         "forge_version": 1,
         "service": {
-            "name": "passerelle",
+            "name": "gateway",
             "description": "Application gateway",
             "owner": "Platform Team",
             "environments": [{"name": "prod", "production": True}],
@@ -321,7 +321,7 @@ def test_the_interview_produces_a_valid_section():
     from forge.spec.service import ServiceSpec
 
     service = ServiceSpec(
-        name="passerelle",
+        name="gateway",
         description="Application gateway",
         owner="Platform Team",
         environments=[{"name": "prod", "production": True}],
@@ -342,7 +342,7 @@ def test_the_interview_does_not_repeat_the_service_block_questions():
     from forge.spec.service import ServiceSpec
 
     service = ServiceSpec(
-        name="passerelle",
+        name="gateway",
         description="Application gateway",
         owner="Platform Team",
         environments=[{"name": "prod", "production": True}],

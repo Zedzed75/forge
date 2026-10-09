@@ -27,18 +27,18 @@ domain:
         steps:
         -   env: &id002
                 FORGE_IMAGE_TAG: ${{ github.sha }}
-            name: docker buildx build (ghcr.io/acme/boutique)
+            name: docker buildx build (ghcr.io/acme/storefront)
             run: &id003
             - docker buildx create --use --name forge-builder 2>/dev/null || docker
                 buildx use forge-builder
-            - docker buildx build --platform linux/amd64 --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG"
+            - docker buildx build --platform linux/amd64 --file Dockerfile --tag "ghcr.io/acme/storefront:$FORGE_IMAGE_TAG"
                 --push .
             script:
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx create --use --name
                 forge-builder 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG" --push
-                .
+                --file Dockerfile --tag "ghcr.io/acme/storefront:$FORGE_IMAGE_TAG"
+                --push .
             workdir: ''
         tools: &id004 []
         unknown_tools: &id005 []
@@ -104,13 +104,13 @@ domain:
                 NO_COLOR: '1'
             name: helm upgrade --install (dev)
             run: &id014
-            - helm upgrade --install boutique charts/boutique --namespace boutique-dev
-                --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml
+            - helm upgrade --install storefront charts/storefront --namespace storefront-dev
+                --values charts/storefront/values.yaml --values charts/storefront/values-dev.yaml
                 --atomic --timeout 10m
             script:
-            - (cd helm && NO_COLOR=1 helm upgrade --install boutique charts/boutique
-                --namespace boutique-dev --values charts/boutique/values.yaml --values
-                charts/boutique/values-dev.yaml --atomic --timeout 10m)
+            - (cd helm && NO_COLOR=1 helm upgrade --install storefront charts/storefront
+                --namespace storefront-dev --values charts/storefront/values.yaml
+                --values charts/storefront/values-dev.yaml --atomic --timeout 10m)
             workdir: helm
         tools: &id015
         - helm
@@ -174,13 +174,13 @@ domain:
                 NO_COLOR: '1'
             name: helm upgrade --install (prod)
             run: &id025
-            - helm upgrade --install boutique charts/boutique --namespace boutique-prod
-                --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml
+            - helm upgrade --install storefront charts/storefront --namespace storefront-prod
+                --values charts/storefront/values.yaml --values charts/storefront/values-prod.yaml
                 --atomic --timeout 10m
             script:
-            - (cd helm && NO_COLOR=1 helm upgrade --install boutique charts/boutique
-                --namespace boutique-prod --values charts/boutique/values.yaml --values
-                charts/boutique/values-prod.yaml --atomic --timeout 10m)
+            - (cd helm && NO_COLOR=1 helm upgrade --install storefront charts/storefront
+                --namespace storefront-prod --values charts/storefront/values.yaml
+                --values charts/storefront/values-prod.yaml --atomic --timeout 10m)
             workdir: helm
         tools: &id026
         - helm
@@ -249,23 +249,23 @@ domain:
                 NO_COLOR: '1'
             name: helm lint (dev)
             run: &id032
-            - helm lint charts/boutique --kube-version 1.34.0 --values charts/boutique/values.yaml
-                --values charts/boutique/values-dev.yaml
+            - helm lint charts/storefront --kube-version 1.34.0 --values charts/storefront/values.yaml
+                --values charts/storefront/values-dev.yaml
             script:
-            - (cd helm && NO_COLOR=1 helm lint charts/boutique --kube-version 1.34.0
-                --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml)
+            - (cd helm && NO_COLOR=1 helm lint charts/storefront --kube-version 1.34.0
+                --values charts/storefront/values.yaml --values charts/storefront/values-dev.yaml)
             workdir: helm
         -   env: &id033
                 NO_COLOR: '1'
             name: helm template (dev)
             run: &id034
-            - helm template boutique charts/boutique --namespace boutique-dev --kube-version
-                1.34.0 --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml
-                > /tmp/forge-helm-template-dev.out
+            - helm template storefront charts/storefront --namespace storefront-dev
+                --kube-version 1.34.0 --values charts/storefront/values.yaml --values
+                charts/storefront/values-dev.yaml > /tmp/forge-helm-template-dev.out
             script:
-            - (cd helm && NO_COLOR=1 helm template boutique charts/boutique --namespace
-                boutique-dev --kube-version 1.34.0 --values charts/boutique/values.yaml
-                --values charts/boutique/values-dev.yaml > /tmp/forge-helm-template-dev.out)
+            - (cd helm && NO_COLOR=1 helm template storefront charts/storefront --namespace
+                storefront-dev --kube-version 1.34.0 --values charts/storefront/values.yaml
+                --values charts/storefront/values-dev.yaml > /tmp/forge-helm-template-dev.out)
             workdir: helm
         -   env: &id035
                 NO_COLOR: '1'
@@ -281,23 +281,23 @@ domain:
                 NO_COLOR: '1'
             name: helm lint (prod)
             run: &id038
-            - helm lint charts/boutique --kube-version 1.34.0 --values charts/boutique/values.yaml
-                --values charts/boutique/values-prod.yaml
+            - helm lint charts/storefront --kube-version 1.34.0 --values charts/storefront/values.yaml
+                --values charts/storefront/values-prod.yaml
             script:
-            - (cd helm && NO_COLOR=1 helm lint charts/boutique --kube-version 1.34.0
-                --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml)
+            - (cd helm && NO_COLOR=1 helm lint charts/storefront --kube-version 1.34.0
+                --values charts/storefront/values.yaml --values charts/storefront/values-prod.yaml)
             workdir: helm
         -   env: &id039
                 NO_COLOR: '1'
             name: helm template (prod)
             run: &id040
-            - helm template boutique charts/boutique --namespace boutique-prod --kube-version
-                1.34.0 --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml
-                > /tmp/forge-helm-template-prod.out
+            - helm template storefront charts/storefront --namespace storefront-prod
+                --kube-version 1.34.0 --values charts/storefront/values.yaml --values
+                charts/storefront/values-prod.yaml > /tmp/forge-helm-template-prod.out
             script:
-            - (cd helm && NO_COLOR=1 helm template boutique charts/boutique --namespace
-                boutique-prod --kube-version 1.34.0 --values charts/boutique/values.yaml
-                --values charts/boutique/values-prod.yaml > /tmp/forge-helm-template-prod.out)
+            - (cd helm && NO_COLOR=1 helm template storefront charts/storefront --namespace
+                storefront-prod --kube-version 1.34.0 --values charts/storefront/values.yaml
+                --values charts/storefront/values-prod.yaml > /tmp/forge-helm-template-prod.out)
             workdir: helm
         -   env: &id041
                 NO_COLOR: '1'
@@ -455,14 +455,14 @@ domain:
         needs: *id001
         steps:
         -   env: *id002
-            name: docker buildx build (ghcr.io/acme/boutique)
+            name: docker buildx build (ghcr.io/acme/storefront)
             run: *id003
             script:
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx create --use --name
                 forge-builder 2>/dev/null || docker buildx use forge-builder
             - FORGE_IMAGE_TAG='${{ github.sha }}' docker buildx build --platform linux/amd64
-                --file Dockerfile --tag "ghcr.io/acme/boutique:$FORGE_IMAGE_TAG" --push
-                .
+                --file Dockerfile --tag "ghcr.io/acme/storefront:$FORGE_IMAGE_TAG"
+                --push .
             workdir: ''
         tools: *id004
         unknown_tools: *id005
@@ -504,9 +504,9 @@ domain:
             name: helm upgrade --install (dev)
             run: *id014
             script:
-            - (cd helm && NO_COLOR=1 helm upgrade --install boutique charts/boutique
-                --namespace boutique-dev --values charts/boutique/values.yaml --values
-                charts/boutique/values-dev.yaml --atomic --timeout 10m)
+            - (cd helm && NO_COLOR=1 helm upgrade --install storefront charts/storefront
+                --namespace storefront-dev --values charts/storefront/values.yaml
+                --values charts/storefront/values-dev.yaml --atomic --timeout 10m)
             workdir: helm
         tools: *id015
         unknown_tools: *id016
@@ -548,9 +548,9 @@ domain:
             name: helm upgrade --install (prod)
             run: *id025
             script:
-            - (cd helm && NO_COLOR=1 helm upgrade --install boutique charts/boutique
-                --namespace boutique-prod --values charts/boutique/values.yaml --values
-                charts/boutique/values-prod.yaml --atomic --timeout 10m)
+            - (cd helm && NO_COLOR=1 helm upgrade --install storefront charts/storefront
+                --namespace storefront-prod --values charts/storefront/values.yaml
+                --values charts/storefront/values-prod.yaml --atomic --timeout 10m)
             workdir: helm
         tools: *id026
         unknown_tools: *id027
@@ -599,16 +599,16 @@ domain:
             name: helm lint (dev)
             run: *id032
             script:
-            - (cd helm && NO_COLOR=1 helm lint charts/boutique --kube-version 1.34.0
-                --values charts/boutique/values.yaml --values charts/boutique/values-dev.yaml)
+            - (cd helm && NO_COLOR=1 helm lint charts/storefront --kube-version 1.34.0
+                --values charts/storefront/values.yaml --values charts/storefront/values-dev.yaml)
             workdir: helm
         -   env: *id033
             name: helm template (dev)
             run: *id034
             script:
-            - (cd helm && NO_COLOR=1 helm template boutique charts/boutique --namespace
-                boutique-dev --kube-version 1.34.0 --values charts/boutique/values.yaml
-                --values charts/boutique/values-dev.yaml > /tmp/forge-helm-template-dev.out)
+            - (cd helm && NO_COLOR=1 helm template storefront charts/storefront --namespace
+                storefront-dev --kube-version 1.34.0 --values charts/storefront/values.yaml
+                --values charts/storefront/values-dev.yaml > /tmp/forge-helm-template-dev.out)
             workdir: helm
         -   env: *id035
             name: kubeconform -strict (dev)
@@ -621,16 +621,16 @@ domain:
             name: helm lint (prod)
             run: *id038
             script:
-            - (cd helm && NO_COLOR=1 helm lint charts/boutique --kube-version 1.34.0
-                --values charts/boutique/values.yaml --values charts/boutique/values-prod.yaml)
+            - (cd helm && NO_COLOR=1 helm lint charts/storefront --kube-version 1.34.0
+                --values charts/storefront/values.yaml --values charts/storefront/values-prod.yaml)
             workdir: helm
         -   env: *id039
             name: helm template (prod)
             run: *id040
             script:
-            - (cd helm && NO_COLOR=1 helm template boutique charts/boutique --namespace
-                boutique-prod --kube-version 1.34.0 --values charts/boutique/values.yaml
-                --values charts/boutique/values-prod.yaml > /tmp/forge-helm-template-prod.out)
+            - (cd helm && NO_COLOR=1 helm template storefront charts/storefront --namespace
+                storefront-prod --kube-version 1.34.0 --values charts/storefront/values.yaml
+                --values charts/storefront/values-prod.yaml > /tmp/forge-helm-template-prod.out)
             workdir: helm
         -   env: *id041
             name: kubeconform -strict (prod)
@@ -732,7 +732,7 @@ domain:
             workdir: terraform
         tools: *id067
         unknown_tools: *id068
-    workflow_name: boutique
+    workflow_name: storefront
     workflow_path: .github/workflows/ci.yml
 forge_version: 1
 plugin: pipeline
@@ -747,8 +747,8 @@ service:
         production: true
     labels:
         tier: frontend
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/pipeline/template
 

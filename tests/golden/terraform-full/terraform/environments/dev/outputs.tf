@@ -14,36 +14,36 @@
 # Namespace the service is deployed in.
 output "namespace" {
   description = "Namespace the service is deployed in."
-  value       = module.boutique.namespace
+  value       = module.storefront.namespace
 }
 
 # Name of the ResourceQuota set on the namespace.
 output "resource_quota_name" {
   description = "Name of the ResourceQuota set on the namespace."
-  value       = module.boutique.resource_quota_name
+  value       = module.storefront.resource_quota_name
 }
 
 # Name of the Secret to quote in imagePullSecrets, on the Helm chart side.
 output "image_pull_secret_name" {
   description = "Name of the Secret to quote in imagePullSecrets, on the Helm chart side."
-  value       = module.boutique.image_pull_secret_name
+  value       = module.storefront.image_pull_secret_name
 }
 
 # Name of the deployment ServiceAccount.
 output "service_account_name" {
   description = "Name of the deployment ServiceAccount."
-  value       = module.boutique.service_account_name
+  value       = module.storefront.service_account_name
 }
 
 # Name of the Secret carrying the generated values. Its value is not exposed
 # as an output.
 output "generated_secret_name" {
   description = "Name of the Secret carrying the generated values. Its value is not exposed as an output."
-  value       = module.boutique.generated_secret_name
+  value       = module.storefront.generated_secret_name
 }
 
 # Name of the kubernetes.io/tls Secret to quote in the Ingress.
 output "tls_secret_name" {
   description = "Name of the kubernetes.io/tls Secret to quote in the Ingress."
-  value       = module.boutique.tls_secret_name
+  value       = module.storefront.tls_secret_name
 }

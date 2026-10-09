@@ -28,7 +28,7 @@ ansible_python_interpreter: auto_silent
 # ------------------------------------------------------------
 # Name of the project, reused in the MOTD banner and the configuration files.
 # Allowed values: free-form string.
-project_name: boutique
+project_name: storefront
 
 # Description of the project, reused in the MOTD banner.
 # Allowed values: free-form string, possibly empty.

@@ -1,4 +1,4 @@
-# boutique
+# storefront
 
 Online store, deployed on Kubernetes and managed by Ansible
 
@@ -23,7 +23,7 @@ ansible-galaxy collection install -r requirements.yml
 ## Layout
 
 ```text
-boutique/
+storefront/
 ├── group_vars/
 │   ├── all.yml
 │   └── dbservers.yml

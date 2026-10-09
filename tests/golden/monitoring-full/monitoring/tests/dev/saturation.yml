@@ -30,9 +30,9 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: container_memory_working_set_bytes{namespace="boutique-dev", pod="test-pod", container="test-container"}
+      - series: container_memory_working_set_bytes{namespace="storefront-dev", pod="test-pod", container="test-container"}
         values: 950000000+0x20
-      - series: container_spec_memory_limit_bytes{namespace="boutique-dev", pod="test-pod", container="test-container"}
+      - series: container_spec_memory_limit_bytes{namespace="storefront-dev", pod="test-pod", container="test-container"}
         values: 1000000000+0x20
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -44,9 +44,9 @@ tests:
           - exp_labels:
               container: test-container
               env: dev
-              namespace: boutique-dev
+              namespace: storefront-dev
               pod: test-pod
-              service: boutique
+              service: storefront
               severity: warning
             exp_annotations:
               summary: A container is approaching its memory limit
@@ -57,7 +57,7 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: container_cpu_usage_seconds_total{namespace="boutique-dev", pod="test-pod", container="test-container"}
+      - series: container_cpu_usage_seconds_total{namespace="storefront-dev", pod="test-pod", container="test-container"}
         values: 0+150x20
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -69,7 +69,7 @@ tests:
           - exp_labels:
               env: dev
               pod: test-pod
-              service: boutique
+              service: storefront
               severity: warning
             exp_annotations:
               summary: A pod is durably consuming a lot of CPU

@@ -182,7 +182,7 @@ def test_probe_reports_a_missing_tool():
 
 def _projection(**kwargs) -> Projection:
     base = {
-        "service_name": "boutique",
+        "service_name": "storefront",
         "environments": ("dev", "prod"),
         "labels": {"tier": "frontend"},
         "facets": {},

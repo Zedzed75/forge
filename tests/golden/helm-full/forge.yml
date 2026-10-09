@@ -14,16 +14,16 @@
 # ---------------------------------------------------------------------------
 forge_version: 1
 service:
-  name: boutique
+  name: storefront
   description: Online store, full chart
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   labels:
     app.kubernetes.io/part-of: commerce
   environments:
     - name: dev
     - name: prod
-      domain: boutique.example.net
+      domain: storefront.example.net
       production: true
 helm:
   chart_version: 1.2.0
@@ -33,7 +33,7 @@ helm:
   namespace_strategy: per_env
   image:
     registry: ghcr.io
-    repository: acme/boutique
+    repository: acme/storefront
     strategy: appVersion
     pull_secret_name: registre-prive
   components:

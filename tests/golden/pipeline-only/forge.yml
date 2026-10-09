@@ -14,10 +14,10 @@
 # ---------------------------------------------------------------------------
 forge_version: 1
 service:
-  name: passerelle
+  name: gateway
   description: Application gateway, pipeline only
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   environments:
     - name: prod
       domain: example.net
@@ -32,4 +32,4 @@ pipeline:
     context: .
     dockerfile: Dockerfile
     registry: $CI_REGISTRY
-    image: plateforme/passerelle
+    image: platform/gateway

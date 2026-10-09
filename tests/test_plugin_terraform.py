@@ -54,7 +54,7 @@ def _base(**terraform) -> dict:
     return {
         "forge_version": 1,
         "service": {
-            "name": "boutique",
+            "name": "storefront",
             "description": "Online store",
             "owner": "Platform Team",
             "environments": [{"name": "dev"}, {"name": "prod", "production": True}],
@@ -149,7 +149,7 @@ def test_the_custom_strategy_covers_every_environment_of_the_service():
     given = _base(
         resources=["namespace"],
         namespace_strategy="custom",
-        environments={"dev": {"namespace": "boutique-dev"}},
+        environments={"dev": {"namespace": "storefront-dev"}},
     )
     errors = _messages(given, "error")
     assert any("prod" in m for m in errors)
@@ -279,9 +279,9 @@ def test_the_derived_namespaces_follow_the_strategy():
     _, spec, _ = _spec()
     projection = answers.build(spec)
     assert [env["namespace"] for env in projection["environments"]] == [
-        "boutique-dev",
-        "boutique-staging",
-        "boutique-prod",
+        "storefront-dev",
+        "storefront-staging",
+        "storefront-prod",
     ]
 
 
@@ -294,9 +294,9 @@ def test_the_declared_facet_belongs_to_the_shared_vocabulary():
     projection = terraform_plugin.forge_projection(spec)
     assert set(projection.facets) <= set(FACET_VOCABULARY)
     assert projection.facets["namespaces"] == (
-        "boutique-dev",
-        "boutique-prod",
-        "boutique-staging",
+        "storefront-dev",
+        "storefront-prod",
+        "storefront-staging",
     )
 
 
@@ -317,7 +317,7 @@ def test_the_announced_tree_matches_the_generated_files(tmp_path):
 
 def test_every_selected_family_produces_its_file(tmp_path):
     spec, _ = _generate(tmp_path)
-    module = tmp_path / "terraform" / "modules" / "boutique"
+    module = tmp_path / "terraform" / "modules" / "storefront"
     for family in FAMILIES:
         path = module / f"{family.name}.tf"
         assert path.is_file(), f"missing file: {family.name}.tf"
@@ -329,14 +329,14 @@ def test_every_selected_family_produces_its_file(tmp_path):
 def test_a_family_that_was_not_selected_produces_nothing(tmp_path):
     """The choice also applies inside a domain."""
     _generate(tmp_path, _base(resources=["namespace"]))
-    module = tmp_path / "terraform" / "modules" / "boutique"
+    module = tmp_path / "terraform" / "modules" / "storefront"
     produced = sorted(path.name for path in module.glob("*.tf"))
     assert produced == ["locals.tf", "namespace.tf", "outputs.tf", "variables.tf", "versions.tf"]
 
 
 def test_without_the_namespace_family_the_module_attaches_to_the_existing_one(tmp_path):
     _generate(tmp_path, _base(resources=["quota"]))
-    locals_tf = (tmp_path / "terraform" / "modules" / "boutique" / "locals.tf").read_bytes()
+    locals_tf = (tmp_path / "terraform" / "modules" / "storefront" / "locals.tf").read_bytes()
     text = locals_tf.decode("utf-8")
     assert "namespace = var.namespace" in text
     assert "kubernetes_namespace.this" not in text
@@ -351,7 +351,7 @@ def test_every_declared_variable_is_used_by_a_template(tmp_path):
     for family in FAMILIES:
         target = tmp_path / family.name
         _generate(target, _base(resources=[family.name]))
-        module = target / "terraform" / "modules" / "boutique"
+        module = target / "terraform" / "modules" / "storefront"
         body = "\n".join(
             path.read_bytes().decode("utf-8")
             for path in module.glob("*.tf")
@@ -416,7 +416,7 @@ def test_the_tfvars_carry_the_values_of_their_environment(tmp_path):
     root = tmp_path / "terraform" / "environments"
     prod = _assignments(root / "prod" / "terraform.tfvars")
     dev = _assignments(root / "dev" / "terraform.tfvars")
-    assert prod["namespace"] == '"boutique-prod"'
+    assert prod["namespace"] == '"storefront-prod"'
     assert prod["kube_context"] == '"plateforme-prod-eu-west-3"'
     assert prod["quota_cpu"] == '"16"'
     assert dev["quota_cpu"] == '"2"'
@@ -432,7 +432,7 @@ def test_the_backend_derives_one_key_per_environment(tmp_path):
     root = tmp_path / "terraform" / "environments"
     for name in ("dev", "staging", "prod"):
         content = (root / name / "backend.tf").read_bytes().decode("utf-8")
-        assert f'key     = "boutique/{name}/terraform.tfstate"' in content
+        assert f'key     = "storefront/{name}/terraform.tfstate"' in content
 
 
 # ---------------------------------------------------------------------------

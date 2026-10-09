@@ -36,8 +36,8 @@ service:
     labels:
         app.kubernetes.io/part-of: commerce
         tier: frontend
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/demo/template
 

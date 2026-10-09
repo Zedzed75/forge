@@ -40,7 +40,7 @@ INSTALL_CASE = "ansible-ci"
 #: The values are the ones the reference specs use. Nothing asserts on the prose:
 #: these are the answers typed at the prompt, never an expected output.
 INTERVIEW = [
-    "boutique",                # service name
+    "storefront",                # service name
     "Online store",            # description
     "Platform Team",           # owner
     "",                        # contact address
@@ -238,7 +238,7 @@ def test_new_writes_a_replayable_spec(tmp_path):
         dry_run=True,
     )
     data, model = pipeline.load_spec(tmp_path / "forge.yml", manager)
-    assert model.service.name == "boutique"
+    assert model.service.name == "storefront"
     assert model.domain_names() == ("demo",)
     assert [w["name"] for w in data["demo"]["widgets"]] == ["cpu", "requetes"]
 

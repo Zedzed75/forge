@@ -14,10 +14,10 @@
 # ---------------------------------------------------------------------------
 forge_version: 1
 service:
-  name: boutique
+  name: storefront
   description: Online store, infrastructure foundation
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   labels:
     tier: frontend
     cost-center: '4210'

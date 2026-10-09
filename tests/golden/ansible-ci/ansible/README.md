@@ -1,4 +1,4 @@
-# passerelle
+# gateway
 
 Application gateway
 
@@ -23,7 +23,7 @@ ansible-galaxy collection install -r requirements.yml
 ## Layout
 
 ```text
-passerelle/
+gateway/
 ├── .github/
 │   └── workflows/
 │       └── ansible-lint.yml

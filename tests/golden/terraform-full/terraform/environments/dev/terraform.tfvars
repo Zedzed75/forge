@@ -12,13 +12,13 @@
 # Terraform fail: this file is not a place to note down parameters.
 # =============================================================================
 
-service_name    = "boutique"
+service_name    = "storefront"
 environment     = "dev"
-namespace       = "boutique-dev"
+namespace       = "storefront-dev"
 labels          = { tier = "frontend", cost-center = "4210" }
 kube_context    = "dev"
 quota_cpu       = "2"
 quota_memory    = "4Gi"
 quota_pods      = 20
-tls_dns_names   = ["boutique.dev.example.net"]
-tls_common_name = "boutique.dev.example.net"
+tls_dns_names   = ["storefront.dev.example.net"]
+tls_common_name = "storefront.dev.example.net"

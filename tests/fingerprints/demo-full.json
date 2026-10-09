@@ -2,16 +2,16 @@
   "ansible_handler_links": [],
   "files": {
     ".gitattributes": "- text f70d755466b10164",
-    "README.md": "- prose e2e0929dee883ba1",
-    "demo/.copier-answers.yml": "- structured aed2f209bbf02c75",
-    "demo/README.md": "- prose 06903f606e6767d0",
-    "demo/environments/dev/cpu.yml": "- structured 8f907c45de6f3bf7",
-    "demo/environments/dev/requetes.yml": "- structured c2cf905222fda7ba",
-    "demo/environments/prod/cpu.yml": "- structured ae1f707f51efcf0f",
-    "demo/environments/prod/requetes.yml": "- structured cb434ef6f827f083",
+    "README.md": "- prose 329c05725c712007",
+    "demo/.copier-answers.yml": "- structured c978be21a99c66fe",
+    "demo/README.md": "- prose eba641ff1c68cafa",
+    "demo/environments/dev/cpu.yml": "- structured da814d5e36dd6854",
+    "demo/environments/dev/requetes.yml": "- structured fc4fb3a4844de13b",
+    "demo/environments/prod/cpu.yml": "- structured cc476467287cea29",
+    "demo/environments/prod/requetes.yml": "- structured ba30e55e861c72b4",
     "demo/fins-de-ligne.txt": "- prose e3b0c44298fc1c14",
     "demo/widgets/cpu/detail.yml": "- structured e173ba401538e58f",
-    "forge.yml": "- structured 4be3a9fa2aa0e7eb"
+    "forge.yml": "- structured 3388ee802de3d1e5"
   },
   "fingerprint_version": 2,
   "helm_helper_links": []

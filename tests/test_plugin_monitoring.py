@@ -49,7 +49,7 @@ def _base(**monitoring) -> dict:
     return {
         "forge_version": 1,
         "service": {
-            "name": "boutique",
+            "name": "storefront",
             "description": "Online store",
             "owner": "Platform Team",
             "environments": [{"name": "dev"}, {"name": "prod", "production": True}],
@@ -100,7 +100,7 @@ def test_a_malformed_target_is_refused(target):
 
 def test_a_probe_url_without_a_scheme_is_refused():
     with pytest.raises(ValueError):
-        MonitoringSpec(environments={"dev": {"probe_urls": ["boutique.example.net"]}})
+        MonitoringSpec(environments={"dev": {"probe_urls": ["storefront.example.net"]}})
 
 
 def test_a_repeated_family_is_refused():
@@ -151,8 +151,8 @@ def test_a_probed_url_in_clear_text_is_reported():
     given = _base(
         rules=["probe"],
         environments={
-            "dev": {"targets": ["a:1"], "probe_urls": ["http://boutique.example.net"]},
-            "prod": {"targets": ["b:1"], "probe_urls": ["https://boutique.example.net"]},
+            "dev": {"targets": ["a:1"], "probe_urls": ["http://storefront.example.net"]},
+            "prod": {"targets": ["b:1"], "probe_urls": ["https://storefront.example.net"]},
         },
     )
     warnings = _issues(given, "warning")
@@ -257,8 +257,8 @@ def test_the_declared_facet_belongs_to_the_shared_vocabulary():
     projection = monitoring_plugin.forge_projection(spec)
     assert set(projection.facets) <= set(FACET_VOCABULARY)
     assert projection.facets["ingress_hosts"] == (
-        "boutique.dev.example.net",
-        "boutique.example.net",
+        "storefront.dev.example.net",
+        "storefront.example.net",
     )
 
 
@@ -294,7 +294,7 @@ def test_every_selected_family_produces_its_rules_per_environment(tmp_path):
             path = base / tree.rule_file(env, family.name)
             assert path.is_file(), path
             content = path.read_bytes().decode("utf-8")
-            assert f"boutique-{env}-{family.name}" in content
+            assert f"storefront-{env}-{family.name}" in content
 
 
 def test_a_family_that_was_not_selected_produces_nothing(tmp_path):
@@ -330,10 +330,10 @@ def test_every_selected_family_produces_its_unit_test(tmp_path):
 def test_the_dashboard_is_valid_json(tmp_path):
     """No offline Grafana linter exists: this guarantee is ours."""
     _generate(tmp_path)
-    path = tmp_path / "monitoring" / "grafana" / "dashboards" / "boutique.json"
+    path = tmp_path / "monitoring" / "grafana" / "dashboards" / "storefront.json"
     dashboard = json.loads(path.read_bytes().decode("utf-8"))
 
-    assert dashboard["title"].startswith("boutique")
+    assert dashboard["title"].startswith("storefront")
     assert dashboard["uid"]
     assert dashboard["schemaVersion"] >= 36
     panels = dashboard["panels"]
