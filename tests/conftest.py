@@ -54,6 +54,11 @@ _VOLATILE_ANSWERS = (
 # those tests into no-ops while the build stayed green. `FORGE_REQUIRE_TOOLS=1`
 # closes that hole: the skip becomes a failure, and a green CI check positively
 # proves every domain's validators actually ran.
+#
+# "Ran" was still only half the claim. Under the same flag, each validator must
+# also report the version the pins asked for -- `require_expected_versions`
+# below, against the table in `tests/tool_versions.py`. Presence and identity
+# are two claims, and only the first one used to be enforced anywhere.
 # ---------------------------------------------------------------------------
 
 #: Environment variable that forbids skipping on a missing validator.
@@ -89,21 +94,80 @@ def require_tools(domain: str, *names: str, requires_linux: bool = True) -> None
     from forge.validate import tools
 
     missing = [name for name in names if not tools.probe(name, requires_linux).available]
-    if not missing:
-        return
+    if missing:
+        reason = f"domain {domain}: validator(s) missing, natively and in WSL: {', '.join(missing)}"
+        if tools_are_required():
+            pytest.fail(
+                f"{reason}\n"
+                f"{REQUIRE_TOOLS_ENV} is set: skipping is forbidden here. This run is "
+                "supposed to prove that the generated project passes its real "
+                "validators; without the tool it proves nothing, so it fails instead "
+                "of reporting a reduced success. Install the tool, or unset "
+                f"{REQUIRE_TOOLS_ENV} to get the development behaviour back.",
+                pytrace=False,
+            )
+        pytest.skip(reason)
 
-    reason = f"domain {domain}: validator(s) missing, natively and in WSL: {', '.join(missing)}"
+    # Present is not the same claim as pinned. Only under the flag, so the
+    # development loop keeps the behaviour it had.
     if tools_are_required():
-        pytest.fail(
-            f"{reason}\n"
-            f"{REQUIRE_TOOLS_ENV} is set: skipping is forbidden here. This run is "
-            "supposed to prove that the generated project passes its real "
-            "validators; without the tool it proves nothing, so it fails instead "
-            "of reporting a reduced success. Install the tool, or unset "
-            f"{REQUIRE_TOOLS_ENV} to get the development behaviour back.",
-            pytrace=False,
-        )
-    pytest.skip(reason)
+        require_expected_versions(domain, names, requires_linux)
+
+
+def require_expected_versions(domain: str, names: tuple[str, ...], requires_linux: bool) -> None:
+    """Check that each validator of `domain` reports its pinned version.
+
+    The presence check above answers "did something answer"; this one answers
+    "was it the binary the pins asked for". A green suite used to assert the
+    first and imply the second, and the implication does not hold: an install
+    step that degrades without failing, or a PATH that resolves to a
+    preinstalled copy, both end with the right tool name and the wrong tool.
+
+    `ToolStatus.version` already carries the answer -- `probe` has been
+    populating it for `forge plugins` all along -- so this is a comparison, not
+    new plumbing. The expected values live in `tests/tool_versions.py`, which
+    explains the substring matching and the two tools that need other
+    arguments.
+
+    An empty reported version is a failure, not a pass. That happens when the
+    tool was found through the WSL bridge, where `probe` does not ask for a
+    version at all: a probe that cannot say *which* binary it found cannot
+    prove the pin, and this function only ever runs under the flag, which is
+    never set on the Windows development machine.
+    """
+    from forge.validate import tools
+
+    from tests.tool_versions import EXPECTED_VERSIONS
+
+    problems: list[str] = []
+    for name in names:
+        expected = EXPECTED_VERSIONS.get(name)
+        if expected is None:
+            problems.append(
+                f"{name}: no expected version declared in tests/tool_versions.py. "
+                "A validator absent from that table is a validator nobody "
+                "asserts; add a row for it (marked UNPINNED if nothing pins it)."
+            )
+            continue
+        if expected.version is None:  # pragma: no cover - no row is UNPINNED today
+            continue
+        reported = tools.probe(name, requires_linux, expected.args).version
+        if expected.version not in reported:
+            got = f"reports {reported!r}" if reported else "reports no version at all"
+            problems.append(f"{name}: expected version {expected.version}, {got}")
+
+    if not problems:
+        return
+    pytest.fail(
+        f"domain {domain}: validator version mismatch\n"
+        + "\n".join(f"  {problem}" for problem in problems)
+        + f"\n{REQUIRE_TOOLS_ENV} is set: the binary that runs the validators has to be "
+        "the one the pins name. It is not, so this run would have proved something "
+        "about a toolchain nobody declared. Reconcile the installed version with "
+        ".github/workflows/ci.yml, scripts/docker/ and tests/tool_versions.py -- all "
+        "three, since --verify-pins-only requires them to agree.",
+        pytrace=False,
+    )
 
 
 @pytest.hookimpl(wrapper=True)

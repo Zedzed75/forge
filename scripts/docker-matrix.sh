@@ -30,6 +30,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 DOCKER_DIR="${SCRIPT_DIR}/docker"
 WORKFLOW="${REPO_ROOT}/.github/workflows/ci.yml"
+VERSION_TABLE="${REPO_ROOT}/tests/tool_versions.py"
 
 IMAGE_NAME="forge-ci-matrix"
 UV_CACHE_VOLUME="forge-ci-matrix-uv-cache"
@@ -115,13 +116,60 @@ ${runner_pins}"
     failures=$((failures + 1))
   fi
 
+  # The third declaration: `tests/tool_versions.py`. The two checks above keep
+  # the container and the workflow honest about what gets *requested*; that
+  # table is what the suite asserts the installed binaries actually *report*
+  # (`tests/conftest.py::require_expected_versions`). It is one more copy of
+  # the same nine numbers, so it goes through the same verbatim loop -- in both
+  # directions, against the workflow and against the container files. A bump
+  # that lands in two of the three places fails here instead of silently
+  # asserting a version nothing installs.
+  [ -r "$VERSION_TABLE" ] || die "cannot read ${VERSION_TABLE}"
+  local container_files=("${DOCKER_DIR}/Dockerfile.ci-matrix" "${DOCKER_DIR}/run-matrix.sh")
+
+  # `"name": ExpectedVersion("1.2.3", ...)` -> `name 1.2.3`.
+  local table_rows
+  table_rows="$(sed -n 's/^ *"\([a-z0-9-]*\)": *ExpectedVersion("\([0-9][0-9a-z.]*\)".*/\1 \2/p' \
+                  "$VERSION_TABLE")"
+
+  # A row this loop cannot read is a row it silently stops checking, which is
+  # the failure mode the table exists to close one level up. So account for
+  # every row: those with a version, plus those explicitly marked UNPINNED.
+  # A reformatting or a renamed constant then fails loudly rather than
+  # shrinking the gate to nothing.
+  local all_rows versioned_rows unpinned_rows
+  all_rows="$(grep -cE '^ *"[a-z0-9-]*": *ExpectedVersion\(' "$VERSION_TABLE")"
+  versioned_rows="$(printf '%s\n' "$table_rows" | grep -c '[^[:space:]]')"
+  unpinned_rows="$(grep -cE '^ *"[a-z0-9-]*": *ExpectedVersion\(UNPINNED' "$VERSION_TABLE")"
+  if [ "$all_rows" -eq 0 ] || [ "$all_rows" -ne $((versioned_rows + unpinned_rows)) ]; then
+    printf 'pin drift: %s has %s row(s), of which this gate can read %s pinned and %s unpinned\n' \
+      "${VERSION_TABLE#"${REPO_ROOT}/"}" "$all_rows" "$versioned_rows" "$unpinned_rows" >&2
+    failures=$((failures + 1))
+  fi
+
+  local tool version
+  while read -r tool version; do
+    [ -n "${version:-}" ] || continue
+    if ! grep -qF -- "$version" "$WORKFLOW"; then
+      printf 'pin drift: %s is expected at %s by the test table but %s pins no such version\n' \
+        "$tool" "$version" "${WORKFLOW#"${REPO_ROOT}/"}" >&2
+      failures=$((failures + 1))
+    fi
+    if ! grep -qF -- "$version" "${container_files[@]}"; then
+      printf 'pin drift: %s is expected at %s by the test table but the container pins no such version\n' \
+        "$tool" "$version" >&2
+      failures=$((failures + 1))
+    fi
+  done <<< "$table_rows"
+
   if [ "$failures" -gt 0 ]; then
-    printf '\n%s pinned value(s) differ between the container and the workflow.\n' \
-      "$failures" >&2
+    printf '\n%s pinned value(s) differ between the container, the workflow and %s.\n' \
+      "$failures" "${VERSION_TABLE#"${REPO_ROOT}/"}" >&2
     printf 'Reconcile them before trusting a matrix run as D6 evidence.\n' >&2
     return 1
   fi
-  printf 'pins: container and %s agree\n' "${WORKFLOW#"${REPO_ROOT}/"}"
+  printf 'pins: container, %s and %s agree (%s tool version(s) asserted)\n' \
+    "${WORKFLOW#"${REPO_ROOT}/"}" "${VERSION_TABLE#"${REPO_ROOT}/"}" "$versioned_rows"
   return 0
 }
 
