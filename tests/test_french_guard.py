@@ -348,12 +348,64 @@ def test_the_real_partials_directory_is_in_scope():
     assert "partials/header.jinja" in scanned
 
 
-def test_out_of_scope_french_is_left_alone(tmp_path):
-    """`CLAUDE.md` keeps these French on purpose; the guard must not argue."""
+def test_french_outside_src_is_found(tmp_path):
+    """There is no out-of-scope prose any more (ZED-64: D3 means everything).
+
+    This test asserted the opposite until the scan was an allowlist of four
+    directories, on the premise that `CLAUDE.md` kept this French on purpose.
+    That premise is gone twice over: `CLAUDE.md` now reads "English throughout",
+    and ZED-64 ruled there is no carve-out by file type. A root document, a
+    workflow and a plugin README are all prose a contributor reads.
+    """
     _write(tmp_path, "DESIGN.md", "Decision Q1 : les delimiteurs pour chaque gabarit\n")
-    _write(tmp_path, ".github/workflows/ci.yml", "# Chaine de validation, par domaine\n")
+    # Note the content: the version of this test that asserted these files were
+    # *ignored* used `# Chaine de validation, par domaine` here, which trips no
+    # signal at all -- `chaine` carries no accent and `par`/`domaine` are not
+    # function words. It passed on the scope, not on the detection. Scanning it
+    # now proves nothing unless the line is detectable, so this is a real one,
+    # lifted from `ci.yml`.
+    _write(
+        tmp_path,
+        ".github/workflows/ci.yml",
+        "# Chaque domaine livre installe ici ses validateurs. Sans eux, les tests\n",
+    )
     _write(tmp_path, "src/forge/plugins/x/README.md", "Gabarit rendu pour chaque cas\n")
+    found = {hit.path for hit in scan_tree(tmp_path)}
+    assert found == {"DESIGN.md", ".github/workflows/ci.yml", "src/forge/plugins/x/README.md"}
+
+
+def test_pruned_directories_are_not_scanned(tmp_path):
+    """The only thing excluded is what is not repository prose.
+
+    `PRUNED_DIRS` is version control, caches, virtual environments and build
+    output. It is deliberately not a language carve-out, so this pins the
+    distinction: identical French is reported from a tracked file and ignored
+    inside a vendored one. Without this test the prune list is one plausible
+    edit away from becoming the exclusion glob ZED-64 removed.
+    """
+    _write(tmp_path, "docs/notes.md", "Gabarit rendu pour chaque cas\n")
+    for pruned in (".venv", "node_modules", "__pycache__", "dist"):
+        _write(tmp_path, f"{pruned}/vendored.md", "Gabarit rendu pour chaque cas\n")
+    assert {hit.path for hit in scan_tree(tmp_path)} == {"docs/notes.md"}
+
+
+def test_an_english_word_with_a_diacritic_is_not_french(tmp_path):
+    """`façade` is English; the accent signal cannot see that on its own.
+
+    Found when the scan widened and `DESIGN.md` reported one accent for a
+    sentence about a pluggy facade. Exempting the word rather than the file
+    keeps the file scanned -- the regression this pins is an `[allowed]` entry
+    creeping back in and blinding a whole document.
+    """
+    _write(tmp_path, "DESIGN.md", "pm.subset_hook_caller() in a façade:\n")
     assert scan_tree(tmp_path) == []
+
+    # The exemption is the word, not the line: real French on the same line is
+    # still caught, it just is not caught *by the accent signal*.
+    _write(tmp_path, "DESIGN.md", "une façade pour chaque gabarit\n")
+    signals = {hit.signal for hit in scan_tree(tmp_path)}
+    assert signals, "French on the line must still be reported"
+    assert "accent" not in signals
 
 
 def test_undecodable_files_do_not_break_the_scan(tmp_path):
