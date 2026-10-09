@@ -30,7 +30,7 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: kube_pod_container_status_restarts_total{namespace="boutique-prod", pod="test-pod", container="test-container"}
+      - series: kube_pod_container_status_restarts_total{namespace="storefront-prod", pod="test-pod", container="test-container"}
         values: 0+1x70
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -43,9 +43,9 @@ tests:
               container: test-container
               criticality: high
               env: prod
-              namespace: boutique-prod
+              namespace: storefront-prod
               pod: test-pod
-              service: boutique
+              service: storefront
               severity: warning
             exp_annotations:
               summary: A container is restarting in a loop

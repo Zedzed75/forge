@@ -14,11 +14,11 @@
 # Namespace the service is deployed in.
 output "namespace" {
   description = "Namespace the service is deployed in."
-  value       = module.boutique.namespace
+  value       = module.storefront.namespace
 }
 
 # Name of the ResourceQuota set on the namespace.
 output "resource_quota_name" {
   description = "Name of the ResourceQuota set on the namespace."
-  value       = module.boutique.resource_quota_name
+  value       = module.storefront.resource_quota_name
 }

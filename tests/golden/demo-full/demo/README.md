@@ -1,6 +1,6 @@
-# Domain demo — boutique
+# Domain demo — storefront
 
-== boutique ==
+== storefront ==
 
 Demonstration online store
 
@@ -9,7 +9,7 @@ value: it exists so that the test suite of the core exercises, on a real but
 trivial domain, the mechanisms the Ansible and Helm domains use (nested `yield`
 tags, plugin filters, file filtering, copier answers file).
 
-- **Service**: `boutique` (`BOUTIQUE`)
+- **Service**: `storefront` (`STOREFRONT`)
 - **Owner**: Platform Team
 - **Greeting**: bonjour
 

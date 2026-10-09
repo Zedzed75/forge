@@ -30,11 +30,11 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: http_request_duration_seconds_bucket{job="boutique", le="2"}
+      - series: http_request_duration_seconds_bucket{job="storefront", le="2"}
         values: 0+10x20
-      - series: http_request_duration_seconds_bucket{job="boutique", le="4"}
+      - series: http_request_duration_seconds_bucket{job="storefront", le="4"}
         values: 0+100x20
-      - series: http_request_duration_seconds_bucket{job="boutique", le="+Inf"}
+      - series: http_request_duration_seconds_bucket{job="storefront", le="+Inf"}
         values: 0+100x20
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -45,7 +45,7 @@ tests:
         exp_alerts:
           - exp_labels:
               env: dev
-              service: boutique
+              service: storefront
               severity: warning
             exp_annotations:
               summary: The service answers too slowly

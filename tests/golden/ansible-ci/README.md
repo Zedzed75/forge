@@ -1,4 +1,4 @@
-# passerelle
+# gateway
 
 Application gateway
 
@@ -8,7 +8,7 @@ again, or pick up template changes with `forge update`.
 
 ## Identity
 
-- **Service**: `passerelle`
+- **Service**: `gateway`
 - **Owner**: Platform Team
 - **Environments**: prod
 

@@ -30,7 +30,7 @@ tests:
   # ---------------------------------------------------------------------------
   - interval: 1m
     input_series:
-      - series: up{job="boutique", instance="test-instance:9090"}
+      - series: up{job="storefront", instance="test-instance:9090"}
         values: 0+0x10
     alert_rule_test:
         # The evaluation instant exceeds the `for` clause of the rule
@@ -42,9 +42,9 @@ tests:
           - exp_labels:
               env: dev
               instance: test-instance:9090
-              job: boutique
-              service: boutique
+              job: storefront
+              service: storefront
               severity: critical
             exp_annotations:
               summary: The target no longer answers the collector
-              description: Instance test-instance:9090 of job boutique has not answered for 5 minutes.
+              description: Instance test-instance:9090 of job storefront has not answered for 5 minutes.

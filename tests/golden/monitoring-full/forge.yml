@@ -14,10 +14,10 @@
 # ---------------------------------------------------------------------------
 forge_version: 1
 service:
-  name: boutique
+  name: storefront
   description: Online store, monitoring
   owner: Platform Team
-  owner_email: plateforme@example.net
+  owner_email: platform@example.net
   labels:
     tier: frontend
   environments:
@@ -45,21 +45,21 @@ monitoring:
   blackbox_address: blackbox-exporter:9115
   environments:
     dev:
-      namespace: boutique-dev
+      namespace: storefront-dev
       targets:
         - api-dev.example.net:9090
       probe_urls:
-        - https://boutique.dev.example.net
+        - https://storefront.dev.example.net
       thresholds:
         error_rate: 0.2
         latency_p95_seconds: 2
     prod:
-      namespace: boutique-prod
+      namespace: storefront-prod
       targets:
         - api-1.example.net:9090
         - api-2.example.net:9090
       probe_urls:
-        - https://boutique.example.net
+        - https://storefront.example.net
       thresholds:
         error_rate: 0.02
         latency_p95_seconds: 0.8

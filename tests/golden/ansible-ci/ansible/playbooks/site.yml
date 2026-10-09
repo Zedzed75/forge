@@ -1,6 +1,6 @@
 ---
 # ---------------------------------------------------------------------------
-# playbooks/site.yml — entry point of the passerelle project
+# playbooks/site.yml — entry point of the gateway project
 # ---------------------------------------------------------------------------
 # Applies the configuration of every group, in the order below.
 # Full run against one environment:

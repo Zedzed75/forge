@@ -15,42 +15,42 @@ domain:
         module: http_2xx
         needed: true
     dash:
-    -   name: boutique
-    dashboard_file: grafana/dashboards/boutique.json
+    -   name: storefront
+    dashboard_file: grafana/dashboards/storefront.json
     dashboard_panels:
     -   alert: TargetDown
-        expr: up{job="boutique"}
+        expr: up{job="storefront"}
         family: availability
         threshold: ''
         title: The target no longer answers the collector
     -   alert: HighErrorRate
-        expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"5..\"}[5m]))\n\
-            \  /\nsum(rate(http_requests_total{job=\"boutique\"}[5m]))"
+        expr: "sum(rate(http_requests_total{job=\"storefront\", status=~\"5..\"}[5m]))\n\
+            \  /\nsum(rate(http_requests_total{job=\"storefront\"}[5m]))"
         family: error_rate
         threshold: '0.2'
         title: Too many responses in error
     -   alert: HighLatency
         expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
-            boutique\"}[5m]))\n)"
+            storefront\"}[5m]))\n)"
         family: latency
         threshold: '2'
         title: The service answers too slowly
     -   alert: MemoryNearLimit
-        expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\", container!=\"\
-            \"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"boutique-dev\"\
+        expr: "container_memory_working_set_bytes{namespace=\"storefront-dev\", container!=\"\
+            \"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"storefront-dev\"\
             , container!=\"\"}"
         family: saturation
         threshold: '0.9'
         title: A container is approaching its memory limit
     -   alert: HighCpuUsage
         expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
-            boutique-dev\", container!=\"\"}[5m])\n)"
+            storefront-dev\", container!=\"\"}[5m])\n)"
         family: saturation
         threshold: '1.5'
         title: A pod is durably consuming a lot of CPU
     -   alert: ContainerRestartLoop
         expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
-            boutique-dev\"}[1h]\n)"
+            storefront-dev\"}[1h]\n)"
         family: restarts
         threshold: '3'
         title: A container is restarting in a loop
@@ -81,44 +81,44 @@ domain:
         labels:
             tier: frontend
         name: dev
-        namespace: boutique-dev
+        namespace: storefront-dev
         probe_urls:
-        - https://boutique.dev.example.net
+        - https://storefront.dev.example.net
         production: false
         rules:
             availability:
                 alerts:
                 -   description: Instance {{ $labels.instance }} of job {{ $labels.job
                         }} has not answered for 5 minutes.
-                    expr: up{job="boutique"} == 0
+                    expr: up{job="storefront"} == 0
                     for: 5m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: critical
                     name: TargetDown
-                    panel_expr: up{job="boutique"}
+                    panel_expr: up{job="storefront"}
                     severity: critical
                     summary: The target no longer answers the collector
                     test:
                         eval_time: 6m
                         exp_annotations:
-                            description: Instance test-instance:9090 of job boutique
+                            description: Instance test-instance:9090 of job storefront
                                 has not answered for 5 minutes.
                             summary: The target no longer answers the collector
                         exp_labels:
                             env: dev
                             instance: test-instance:9090
-                            job: boutique
-                            service: boutique
+                            job: storefront
+                            service: storefront
                             severity: critical
                         series:
                         -   points: 0+0x10
-                            series: up{job="boutique", instance="test-instance:9090"}
+                            series: up{job="storefront", instance="test-instance:9090"}
                     threshold: ''
                     threshold_field: ''
                     threshold_unit: ''
-                group: boutique-dev-availability
+                group: storefront-dev-availability
                 summary: The target no longer answers the collector
                 traps:
                 - '`up == 0` only fires if the target is **known** to the collector.
@@ -136,18 +136,18 @@ domain:
                 alerts:
                 -   description: More than 20 % of the responses of the service have
                         been server errors for 10 minutes.
-                    expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
-                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
+                    expr: "sum(rate(http_requests_total{job=\"storefront\", status=~\"\
+                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"storefront\"\
                         }[5m]))\n  > 0.2"
                     for: 10m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: critical
                     name: HighErrorRate
-                    panel_expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
-                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
-                        }[5m]))"
+                    panel_expr: "sum(rate(http_requests_total{job=\"storefront\",\
+                        \ status=~\"5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"\
+                        storefront\"}[5m]))"
                     severity: critical
                     summary: Too many responses in error
                     test:
@@ -158,17 +158,17 @@ domain:
                             summary: Too many responses in error
                         exp_labels:
                             env: dev
-                            service: boutique
+                            service: storefront
                             severity: critical
                         series:
                         -   points: 0+1000x20
-                            series: http_requests_total{job="boutique", status="500"}
+                            series: http_requests_total{job="storefront", status="500"}
                         -   points: 0+667x20
-                            series: http_requests_total{job="boutique", status="200"}
+                            series: http_requests_total{job="storefront", status="200"}
                     threshold: '0.2'
                     threshold_field: error_rate
                     threshold_unit: proportion (0.05 = 5 %)
-                group: boutique-dev-error_rate
+                group: storefront-dev-error_rate
                 summary: Too many responses in server error
                 traps:
                 - 'A ratio over a null denominator gives `NaN`, and a comparison with
@@ -189,15 +189,15 @@ domain:
                 -   description: The 95th percentile of the response time has exceeded
                         2 second(s) for 10 minutes.
                     expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
-                        boutique\"}[5m]))\n) > 2"
+                        storefront\"}[5m]))\n) > 2"
                     for: 10m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: HighLatency
                     panel_expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
-                        boutique\"}[5m]))\n)"
+                        storefront\"}[5m]))\n)"
                     severity: warning
                     summary: The service answers too slowly
                     test:
@@ -208,22 +208,22 @@ domain:
                             summary: The service answers too slowly
                         exp_labels:
                             env: dev
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 0+10x20
-                            series: http_request_duration_seconds_bucket{job="boutique",
+                            series: http_request_duration_seconds_bucket{job="storefront",
                                 le="2"}
                         -   points: 0+100x20
-                            series: http_request_duration_seconds_bucket{job="boutique",
+                            series: http_request_duration_seconds_bucket{job="storefront",
                                 le="4"}
                         -   points: 0+100x20
-                            series: http_request_duration_seconds_bucket{job="boutique",
+                            series: http_request_duration_seconds_bucket{job="storefront",
                                 le="+Inf"}
                     threshold: '2'
                     threshold_field: latency_p95_seconds
                     threshold_unit: seconds
-                group: boutique-dev-latency
+                group: storefront-dev-latency
                 summary: The service answers too slowly
                 traps:
                 - '`histogram_quantile` **interpolates linearly** in the bucket the
@@ -253,7 +253,7 @@ domain:
                     for: 5m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: critical
                     name: ExternalProbeFailed
                     panel_expr: probe_success{job="blackbox"}
@@ -271,7 +271,7 @@ domain:
                             env: dev
                             instance: https://test-probe.invalid
                             job: blackbox
-                            service: boutique
+                            service: storefront
                             severity: critical
                         series:
                         -   points: 0+0x10
@@ -287,7 +287,7 @@ domain:
                     for: 15m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: CertificateExpiringSoon
                     panel_expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"\
@@ -305,7 +305,7 @@ domain:
                             env: dev
                             instance: https://test-probe.invalid
                             job: blackbox
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 908400+0x25
@@ -314,7 +314,7 @@ domain:
                     threshold: '21'
                     threshold_field: certificate_days
                     threshold_unit: days before expiry
-                group: boutique-dev-probe
+                group: storefront-dev-probe
                 summary: 'External probe: reachability and certificate expiry'
                 traps:
                 - 'The probe configuration of the blackbox exporter is a ballet of
@@ -337,15 +337,15 @@ domain:
                 -   description: Container {{ $labels.container }} of pod {{ $labels.pod
                         }} has restarted more than 3 times in one hour.
                     expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
-                        boutique-dev\"}[1h]\n) > 3"
+                        storefront-dev\"}[1h]\n) > 3"
                     for: 5m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: ContainerRestartLoop
                     panel_expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
-                        boutique-dev\"}[1h]\n)"
+                        storefront-dev\"}[1h]\n)"
                     severity: warning
                     summary: A container is restarting in a loop
                     test:
@@ -357,18 +357,18 @@ domain:
                         exp_labels:
                             container: test-container
                             env: dev
-                            namespace: boutique-dev
+                            namespace: storefront-dev
                             pod: test-pod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 0+1x70
-                            series: kube_pod_container_status_restarts_total{namespace="boutique-dev",
+                            series: kube_pod_container_status_restarts_total{namespace="storefront-dev",
                                 pod="test-pod", container="test-container"}
                     threshold: '3'
                     threshold_field: restarts_per_hour
                     threshold_unit: restarts per hour
-                group: boutique-dev-restarts
+                group: storefront-dev-restarts
                 summary: A container is restarting in a loop
                 traps:
                 - '`kube_pod_container_status_restarts_total` is reset to zero when
@@ -386,18 +386,18 @@ domain:
                 -   description: Container {{ $labels.container }} of pod {{ $labels.pod
                         }} has exceeded 90 % of its memory limit for 10 minutes. An
                         actual overrun causes an OOMKill, not a slowdown.
-                    expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\"\
+                    expr: "container_memory_working_set_bytes{namespace=\"storefront-dev\"\
                         , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
-                        boutique-dev\", container!=\"\"}\n  > 0.9"
+                        storefront-dev\", container!=\"\"}\n  > 0.9"
                     for: 10m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: MemoryNearLimit
-                    panel_expr: "container_memory_working_set_bytes{namespace=\"boutique-dev\"\
+                    panel_expr: "container_memory_working_set_bytes{namespace=\"storefront-dev\"\
                         , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
-                        boutique-dev\", container!=\"\"}"
+                        storefront-dev\", container!=\"\"}"
                     severity: warning
                     summary: A container is approaching its memory limit
                     test:
@@ -410,16 +410,16 @@ domain:
                         exp_labels:
                             container: test-container
                             env: dev
-                            namespace: boutique-dev
+                            namespace: storefront-dev
                             pod: test-pod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 950000000+0x20
-                            series: container_memory_working_set_bytes{namespace="boutique-dev",
+                            series: container_memory_working_set_bytes{namespace="storefront-dev",
                                 pod="test-pod", container="test-container"}
                         -   points: 1000000000+0x20
-                            series: container_spec_memory_limit_bytes{namespace="boutique-dev",
+                            series: container_spec_memory_limit_bytes{namespace="storefront-dev",
                                 pod="test-pod", container="test-container"}
                     threshold: '0.9'
                     threshold_field: memory_ratio
@@ -427,15 +427,15 @@ domain:
                 -   description: Pod {{ $labels.pod }} has been consuming more than
                         1.5 core(s) for 10 minutes.
                     expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
-                        boutique-dev\", container!=\"\"}[5m])\n) > 1.5"
+                        storefront-dev\", container!=\"\"}[5m])\n) > 1.5"
                     for: 10m
                     labels:
                         env: dev
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: HighCpuUsage
                     panel_expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
-                        boutique-dev\", container!=\"\"}[5m])\n)"
+                        storefront-dev\", container!=\"\"}[5m])\n)"
                     severity: warning
                     summary: A pod is durably consuming a lot of CPU
                     test:
@@ -447,16 +447,16 @@ domain:
                         exp_labels:
                             env: dev
                             pod: test-pod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 0+150x20
-                            series: container_cpu_usage_seconds_total{namespace="boutique-dev",
+                            series: container_cpu_usage_seconds_total{namespace="storefront-dev",
                                 pod="test-pod", container="test-container"}
                     threshold: '1.5'
                     threshold_field: cpu_cores
                     threshold_unit: cores
-                group: boutique-dev-saturation
+                group: storefront-dev-saturation
                 summary: Consumption close to the limits (memory, CPU)
                 traps:
                 - 'A container **with no memory limit** does not expose `container_spec_memory_limit_bytes`,
@@ -494,46 +494,46 @@ domain:
             criticality: high
             tier: frontend
         name: prod
-        namespace: boutique-prod
+        namespace: storefront-prod
         probe_urls:
-        - https://boutique.example.net
+        - https://storefront.example.net
         production: true
         rules:
             availability:
                 alerts:
                 -   description: Instance {{ $labels.instance }} of job {{ $labels.job
                         }} has not answered for 5 minutes.
-                    expr: up{job="boutique"} == 0
+                    expr: up{job="storefront"} == 0
                     for: 5m
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: critical
                     name: TargetDown
-                    panel_expr: up{job="boutique"}
+                    panel_expr: up{job="storefront"}
                     severity: critical
                     summary: The target no longer answers the collector
                     test:
                         eval_time: 6m
                         exp_annotations:
-                            description: Instance test-instance:9090 of job boutique
+                            description: Instance test-instance:9090 of job storefront
                                 has not answered for 5 minutes.
                             summary: The target no longer answers the collector
                         exp_labels:
                             criticality: high
                             env: prod
                             instance: test-instance:9090
-                            job: boutique
-                            service: boutique
+                            job: storefront
+                            service: storefront
                             severity: critical
                         series:
                         -   points: 0+0x10
-                            series: up{job="boutique", instance="test-instance:9090"}
+                            series: up{job="storefront", instance="test-instance:9090"}
                     threshold: ''
                     threshold_field: ''
                     threshold_unit: ''
-                group: boutique-prod-availability
+                group: storefront-prod-availability
                 summary: The target no longer answers the collector
                 traps:
                 - '`up == 0` only fires if the target is **known** to the collector.
@@ -551,19 +551,19 @@ domain:
                 alerts:
                 -   description: More than 2 % of the responses of the service have
                         been server errors for 10 minutes.
-                    expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
-                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
+                    expr: "sum(rate(http_requests_total{job=\"storefront\", status=~\"\
+                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"storefront\"\
                         }[5m]))\n  > 0.02"
                     for: 10m
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: critical
                     name: HighErrorRate
-                    panel_expr: "sum(rate(http_requests_total{job=\"boutique\", status=~\"\
-                        5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"boutique\"\
-                        }[5m]))"
+                    panel_expr: "sum(rate(http_requests_total{job=\"storefront\",\
+                        \ status=~\"5..\"}[5m]))\n  /\nsum(rate(http_requests_total{job=\"\
+                        storefront\"}[5m]))"
                     severity: critical
                     summary: Too many responses in error
                     test:
@@ -575,17 +575,17 @@ domain:
                         exp_labels:
                             criticality: high
                             env: prod
-                            service: boutique
+                            service: storefront
                             severity: critical
                         series:
                         -   points: 0+1000x20
-                            series: http_requests_total{job="boutique", status="500"}
+                            series: http_requests_total{job="storefront", status="500"}
                         -   points: 0+961x20
-                            series: http_requests_total{job="boutique", status="200"}
+                            series: http_requests_total{job="storefront", status="200"}
                     threshold: '0.02'
                     threshold_field: error_rate
                     threshold_unit: proportion (0.05 = 5 %)
-                group: boutique-prod-error_rate
+                group: storefront-prod-error_rate
                 summary: Too many responses in server error
                 traps:
                 - 'A ratio over a null denominator gives `NaN`, and a comparison with
@@ -606,16 +606,16 @@ domain:
                 -   description: The 95th percentile of the response time has exceeded
                         0.8 second(s) for 10 minutes.
                     expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
-                        boutique\"}[5m]))\n) > 0.8"
+                        storefront\"}[5m]))\n) > 0.8"
                     for: 10m
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: HighLatency
                     panel_expr: "histogram_quantile(0.95,\n  sum by (le) (rate(http_request_duration_seconds_bucket{job=\"\
-                        boutique\"}[5m]))\n)"
+                        storefront\"}[5m]))\n)"
                     severity: warning
                     summary: The service answers too slowly
                     test:
@@ -627,22 +627,22 @@ domain:
                         exp_labels:
                             criticality: high
                             env: prod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 0+10x20
-                            series: http_request_duration_seconds_bucket{job="boutique",
+                            series: http_request_duration_seconds_bucket{job="storefront",
                                 le="0.8"}
                         -   points: 0+100x20
-                            series: http_request_duration_seconds_bucket{job="boutique",
+                            series: http_request_duration_seconds_bucket{job="storefront",
                                 le="1.6"}
                         -   points: 0+100x20
-                            series: http_request_duration_seconds_bucket{job="boutique",
+                            series: http_request_duration_seconds_bucket{job="storefront",
                                 le="+Inf"}
                     threshold: '0.8'
                     threshold_field: latency_p95_seconds
                     threshold_unit: seconds
-                group: boutique-prod-latency
+                group: storefront-prod-latency
                 summary: The service answers too slowly
                 traps:
                 - '`histogram_quantile` **interpolates linearly** in the bucket the
@@ -673,7 +673,7 @@ domain:
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: critical
                     name: ExternalProbeFailed
                     panel_expr: probe_success{job="blackbox"}
@@ -692,7 +692,7 @@ domain:
                             env: prod
                             instance: https://test-probe.invalid
                             job: blackbox
-                            service: boutique
+                            service: storefront
                             severity: critical
                         series:
                         -   points: 0+0x10
@@ -709,7 +709,7 @@ domain:
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: CertificateExpiringSoon
                     panel_expr: "(\n  probe_ssl_earliest_cert_expiry{job=\"blackbox\"\
@@ -728,7 +728,7 @@ domain:
                             env: prod
                             instance: https://test-probe.invalid
                             job: blackbox
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 1297200+0x25
@@ -737,7 +737,7 @@ domain:
                     threshold: '30'
                     threshold_field: certificate_days
                     threshold_unit: days before expiry
-                group: boutique-prod-probe
+                group: storefront-prod-probe
                 summary: 'External probe: reachability and certificate expiry'
                 traps:
                 - 'The probe configuration of the blackbox exporter is a ballet of
@@ -760,16 +760,16 @@ domain:
                 -   description: Container {{ $labels.container }} of pod {{ $labels.pod
                         }} has restarted more than 2 times in one hour.
                     expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
-                        boutique-prod\"}[1h]\n) > 2"
+                        storefront-prod\"}[1h]\n) > 2"
                     for: 5m
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: ContainerRestartLoop
                     panel_expr: "increase(\n  kube_pod_container_status_restarts_total{namespace=\"\
-                        boutique-prod\"}[1h]\n)"
+                        storefront-prod\"}[1h]\n)"
                     severity: warning
                     summary: A container is restarting in a loop
                     test:
@@ -782,18 +782,18 @@ domain:
                             container: test-container
                             criticality: high
                             env: prod
-                            namespace: boutique-prod
+                            namespace: storefront-prod
                             pod: test-pod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 0+1x70
-                            series: kube_pod_container_status_restarts_total{namespace="boutique-prod",
+                            series: kube_pod_container_status_restarts_total{namespace="storefront-prod",
                                 pod="test-pod", container="test-container"}
                     threshold: '2'
                     threshold_field: restarts_per_hour
                     threshold_unit: restarts per hour
-                group: boutique-prod-restarts
+                group: storefront-prod-restarts
                 summary: A container is restarting in a loop
                 traps:
                 - '`kube_pod_container_status_restarts_total` is reset to zero when
@@ -811,19 +811,19 @@ domain:
                 -   description: Container {{ $labels.container }} of pod {{ $labels.pod
                         }} has exceeded 85 % of its memory limit for 10 minutes. An
                         actual overrun causes an OOMKill, not a slowdown.
-                    expr: "container_memory_working_set_bytes{namespace=\"boutique-prod\"\
+                    expr: "container_memory_working_set_bytes{namespace=\"storefront-prod\"\
                         , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
-                        boutique-prod\", container!=\"\"}\n  > 0.85"
+                        storefront-prod\", container!=\"\"}\n  > 0.85"
                     for: 10m
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: MemoryNearLimit
-                    panel_expr: "container_memory_working_set_bytes{namespace=\"boutique-prod\"\
+                    panel_expr: "container_memory_working_set_bytes{namespace=\"storefront-prod\"\
                         , container!=\"\"}\n  /\ncontainer_spec_memory_limit_bytes{namespace=\"\
-                        boutique-prod\", container!=\"\"}"
+                        storefront-prod\", container!=\"\"}"
                     severity: warning
                     summary: A container is approaching its memory limit
                     test:
@@ -837,16 +837,16 @@ domain:
                             container: test-container
                             criticality: high
                             env: prod
-                            namespace: boutique-prod
+                            namespace: storefront-prod
                             pod: test-pod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 925000000+0x20
-                            series: container_memory_working_set_bytes{namespace="boutique-prod",
+                            series: container_memory_working_set_bytes{namespace="storefront-prod",
                                 pod="test-pod", container="test-container"}
                         -   points: 1000000000+0x20
-                            series: container_spec_memory_limit_bytes{namespace="boutique-prod",
+                            series: container_spec_memory_limit_bytes{namespace="storefront-prod",
                                 pod="test-pod", container="test-container"}
                     threshold: '0.85'
                     threshold_field: memory_ratio
@@ -854,16 +854,16 @@ domain:
                 -   description: Pod {{ $labels.pod }} has been consuming more than
                         3 core(s) for 10 minutes.
                     expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
-                        boutique-prod\", container!=\"\"}[5m])\n) > 3"
+                        storefront-prod\", container!=\"\"}[5m])\n) > 3"
                     for: 10m
                     labels:
                         criticality: high
                         env: prod
-                        service: boutique
+                        service: storefront
                         severity: warning
                     name: HighCpuUsage
                     panel_expr: "sum by (pod) (\n  rate(container_cpu_usage_seconds_total{namespace=\"\
-                        boutique-prod\", container!=\"\"}[5m])\n)"
+                        storefront-prod\", container!=\"\"}[5m])\n)"
                     severity: warning
                     summary: A pod is durably consuming a lot of CPU
                     test:
@@ -876,16 +876,16 @@ domain:
                             criticality: high
                             env: prod
                             pod: test-pod
-                            service: boutique
+                            service: storefront
                             severity: warning
                         series:
                         -   points: 0+240x20
-                            series: container_cpu_usage_seconds_total{namespace="boutique-prod",
+                            series: container_cpu_usage_seconds_total{namespace="storefront-prod",
                                 pod="test-pod", container="test-container"}
                     threshold: '3'
                     threshold_field: cpu_cores
                     threshold_unit: cores
-                group: boutique-prod-saturation
+                group: storefront-prod-saturation
                 summary: Consumption close to the limits (memory, CPU)
                 traps:
                 - 'A container **with no memory limit** does not expose `container_spec_memory_limit_bytes`,
@@ -920,7 +920,7 @@ domain:
     - .gitignore
     - Makefile
     - README.md
-    - grafana/dashboards/boutique.json
+    - grafana/dashboards/storefront.json
     - prometheus/dev/prometheus.yml
     - prometheus/prod/prometheus.yml
     - rules/dev/availability.yml
@@ -1133,7 +1133,7 @@ domain:
     -   name: saturation
     -   name: restarts
     -   name: probe
-    job_name: boutique
+    job_name: storefront
     metrics:
         request_duration_seconds: http_request_duration_seconds
         requests_total: http_requests_total
@@ -1164,8 +1164,8 @@ service:
         production: true
     labels:
         tier: frontend
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/monitoring/template
 

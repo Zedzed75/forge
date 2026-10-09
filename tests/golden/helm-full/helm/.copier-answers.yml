@@ -10,7 +10,7 @@ _commit: <commit>
 _src_path: <src>
 domain:
     app_version: 2026.08.1
-    chart_dir: charts/boutique
+    chart_dir: charts/storefront
     chart_files:
     -   component: api
         family: deployment
@@ -130,13 +130,13 @@ domain:
                 secret: true
                 service: true
                 serviceaccount: true
-            helper: boutique.api
+            helper: storefront.api
             hpa:
                 max_replicas: 5
                 min_replicas: 2
                 target_cpu: 80
                 target_memory: null
-            image_repository: acme/boutique
+            image_repository: acme/storefront
             ingress:
                 annotations: {}
                 base_domain: example.net
@@ -240,13 +240,13 @@ domain:
                 secret: false
                 service: true
                 serviceaccount: true
-            helper: boutique.db-proxy
+            helper: storefront.db-proxy
             hpa:
                 max_replicas: 5
                 min_replicas: 2
                 target_cpu: 80
                 target_memory: null
-            image_repository: acme/boutique
+            image_repository: acme/storefront
             ingress:
                 annotations: {}
                 base_domain: example.com
@@ -344,13 +344,13 @@ domain:
                 secret: false
                 service: false
                 serviceaccount: false
-            helper: boutique.cleanup
+            helper: storefront.cleanup
             hpa:
                 max_replicas: 5
                 min_replicas: 2
                 target_cpu: 80
                 target_memory: null
-            image_repository: acme/boutique
+            image_repository: acme/storefront
             ingress:
                 annotations: {}
                 base_domain: example.com
@@ -459,7 +459,7 @@ domain:
             api:
                 hpa_enabled: false
                 image_tag: null
-                ingress_host: boutique.dev.example.net
+                ingress_host: storefront.dev.example.net
                 name: api
                 pdb_enabled: false
                 replicas: 1
@@ -484,7 +484,7 @@ domain:
         extra_values: {}
         log_level: debug
         name: dev
-        namespace: boutique-dev
+        namespace: storefront-dev
         production: false
         profile:
             host_includes_env: true
@@ -497,7 +497,7 @@ domain:
             api:
                 hpa_enabled: true
                 image_tag: null
-                ingress_host: boutique.boutique.example.net
+                ingress_host: storefront.storefront.example.net
                 name: api
                 pdb_enabled: true
                 replicas: 4
@@ -533,13 +533,13 @@ domain:
                     memory_limit: 256Mi
                     memory_request: 128Mi
                     profile: custom
-        domain: boutique.example.net
+        domain: storefront.example.net
         extra_values:
             global:
                 monitoring: true
         log_level: warn
         name: prod
-        namespace: boutique-prod
+        namespace: storefront-prod
         production: true
         profile:
             host_includes_env: false
@@ -552,41 +552,41 @@ domain:
     - README.md
     - .gitignore
     - Makefile
-    - charts/boutique/Chart.yaml
-    - charts/boutique/values.yaml
-    - charts/boutique/values-dev.yaml
-    - charts/boutique/values-prod.yaml
-    - charts/boutique/.helmignore
-    - charts/boutique/README.md
-    - charts/boutique/templates/_helpers.tpl
-    - charts/boutique/templates/NOTES.txt
-    - charts/boutique/templates/deployment-api.yaml
-    - charts/boutique/templates/service-api.yaml
-    - charts/boutique/templates/ingress-api.yaml
-    - charts/boutique/templates/configmap-api.yaml
-    - charts/boutique/templates/secret-api.yaml
-    - charts/boutique/templates/hpa-api.yaml
-    - charts/boutique/templates/pdb-api.yaml
-    - charts/boutique/templates/serviceaccount-api.yaml
-    - charts/boutique/templates/rbac-api.yaml
-    - charts/boutique/templates/networkpolicy-api.yaml
-    - charts/boutique/templates/statefulset-db-proxy.yaml
-    - charts/boutique/templates/service-db-proxy.yaml
-    - charts/boutique/templates/configmap-db-proxy.yaml
-    - charts/boutique/templates/serviceaccount-db-proxy.yaml
-    - charts/boutique/templates/rbac-db-proxy.yaml
-    - charts/boutique/templates/cronjob-cleanup.yaml
-    - charts/boutique/templates/configmap-cleanup.yaml
-    - charts/boutique/templates/tests/test-connection.yaml
+    - charts/storefront/Chart.yaml
+    - charts/storefront/values.yaml
+    - charts/storefront/values-dev.yaml
+    - charts/storefront/values-prod.yaml
+    - charts/storefront/.helmignore
+    - charts/storefront/README.md
+    - charts/storefront/templates/_helpers.tpl
+    - charts/storefront/templates/NOTES.txt
+    - charts/storefront/templates/deployment-api.yaml
+    - charts/storefront/templates/service-api.yaml
+    - charts/storefront/templates/ingress-api.yaml
+    - charts/storefront/templates/configmap-api.yaml
+    - charts/storefront/templates/secret-api.yaml
+    - charts/storefront/templates/hpa-api.yaml
+    - charts/storefront/templates/pdb-api.yaml
+    - charts/storefront/templates/serviceaccount-api.yaml
+    - charts/storefront/templates/rbac-api.yaml
+    - charts/storefront/templates/networkpolicy-api.yaml
+    - charts/storefront/templates/statefulset-db-proxy.yaml
+    - charts/storefront/templates/service-db-proxy.yaml
+    - charts/storefront/templates/configmap-db-proxy.yaml
+    - charts/storefront/templates/serviceaccount-db-proxy.yaml
+    - charts/storefront/templates/rbac-db-proxy.yaml
+    - charts/storefront/templates/cronjob-cleanup.yaml
+    - charts/storefront/templates/configmap-cleanup.yaml
+    - charts/storefront/templates/tests/test-connection.yaml
     extras:
         helm_tests: true
         makefile: true
-    helper: boutique
+    helper: storefront
     image:
         pull_policy: IfNotPresent
         pull_secret_name: registre-prive
         registry: ghcr.io
-        repository: acme/boutique
+        repository: acme/storefront
         strategy: appVersion
         tag: ''
     kubernetes:
@@ -594,7 +594,7 @@ domain:
         kube_version_constraint: '>=1.34.0-0'
         version: '1.34'
     layout: single
-    maintainer_email: plateforme@example.net
+    maintainer_email: platform@example.net
     maintainer_name: Platform Team
     namespace_strategy: per_env
     secrets:
@@ -609,13 +609,13 @@ service:
     -   domain: null
         name: dev
         production: false
-    -   domain: boutique.example.net
+    -   domain: storefront.example.net
         name: prod
         production: true
     labels:
         app.kubernetes.io/part-of: commerce
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/helm/template
 

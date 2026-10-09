@@ -14,9 +14,9 @@
 # PRODUCTION environment.
 # =============================================================================
 
-service_name = "boutique"
+service_name = "storefront"
 environment  = "prod"
-namespace    = "boutique-prod"
+namespace    = "storefront-prod"
 labels       = { tier = "frontend" }
 kube_context = "plateforme-prod"
 quota_cpu    = "4"

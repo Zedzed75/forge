@@ -45,7 +45,7 @@ domain:
         -   name: encrypt
             value: '"true"'
         -   name: key
-            value: '"boutique/dev/terraform.tfstate"'
+            value: '"storefront/dev/terraform.tfstate"'
         -   name: region
             value: '"eu-west-3"'
         domain: dev.example.net
@@ -96,15 +96,15 @@ domain:
         -   name: tls_early_renewal_hours
             value: var.tls_early_renewal_hours
         name: dev
-        namespace: boutique-dev
+        namespace: storefront-dev
         production: false
         tfvars:
         -   name: service_name
-            value: '"boutique"'
+            value: '"storefront"'
         -   name: environment
             value: '"dev"'
         -   name: namespace
-            value: '"boutique-dev"'
+            value: '"storefront-dev"'
         -   name: labels
             value: '{ tier = "frontend", cost-center = "4210" }'
         -   name: kube_context
@@ -116,9 +116,9 @@ domain:
         -   name: quota_pods
             value: '20'
         -   name: tls_dns_names
-            value: '["boutique.dev.example.net"]'
+            value: '["storefront.dev.example.net"]'
         -   name: tls_common_name
-            value: '"boutique.dev.example.net"'
+            value: '"storefront.dev.example.net"'
         variable_names:
         - kube_config_path
         - kube_context
@@ -150,22 +150,22 @@ domain:
         -   name: encrypt
             value: '"true"'
         -   name: key
-            value: '"boutique/staging/terraform.tfstate"'
+            value: '"storefront/staging/terraform.tfstate"'
         -   name: region
             value: '"eu-west-3"'
         domain: staging.example.net
         kube_context: staging
         module_arguments: *id001
         name: staging
-        namespace: boutique-staging
+        namespace: storefront-staging
         production: false
         tfvars:
         -   name: service_name
-            value: '"boutique"'
+            value: '"storefront"'
         -   name: environment
             value: '"staging"'
         -   name: namespace
-            value: '"boutique-staging"'
+            value: '"storefront-staging"'
         -   name: labels
             value: '{ tier = "frontend", cost-center = "4210" }'
         -   name: kube_context
@@ -177,9 +177,9 @@ domain:
         -   name: quota_pods
             value: '30'
         -   name: tls_dns_names
-            value: '["boutique.staging.example.net"]'
+            value: '["storefront.staging.example.net"]'
         -   name: tls_common_name
-            value: '"boutique.staging.example.net"'
+            value: '"storefront.staging.example.net"'
         variable_names:
         - kube_config_path
         - kube_context
@@ -211,22 +211,22 @@ domain:
         -   name: encrypt
             value: '"true"'
         -   name: key
-            value: '"boutique/prod/terraform.tfstate"'
+            value: '"storefront/prod/terraform.tfstate"'
         -   name: region
             value: '"eu-west-3"'
         domain: example.net
         kube_context: plateforme-prod-eu-west-3
         module_arguments: *id001
         name: prod
-        namespace: boutique-prod
+        namespace: storefront-prod
         production: true
         tfvars:
         -   name: service_name
-            value: '"boutique"'
+            value: '"storefront"'
         -   name: environment
             value: '"prod"'
         -   name: namespace
-            value: '"boutique-prod"'
+            value: '"storefront-prod"'
         -   name: labels
             value: '{ tier = "frontend", cost-center = "4210", criticality = "high"
                 }'
@@ -239,9 +239,9 @@ domain:
         -   name: quota_pods
             value: '120'
         -   name: tls_dns_names
-            value: '["boutique.example.net"]'
+            value: '["storefront.example.net"]'
         -   name: tls_common_name
-            value: '"boutique.example.net"'
+            value: '"storefront.example.net"'
         variable_names:
         - kube_config_path
         - kube_context
@@ -294,18 +294,18 @@ domain:
     - environments/staging/terraform.tfvars
     - environments/staging/variables.tf
     - environments/staging/versions.tf
-    - modules/boutique/README.md
-    - modules/boutique/locals.tf
-    - modules/boutique/namespace.tf
-    - modules/boutique/network_policy.tf
-    - modules/boutique/outputs.tf
-    - modules/boutique/quota.tf
-    - modules/boutique/random_secret.tf
-    - modules/boutique/registry_secret.tf
-    - modules/boutique/service_account.tf
-    - modules/boutique/tls_certificate.tf
-    - modules/boutique/variables.tf
-    - modules/boutique/versions.tf
+    - modules/storefront/README.md
+    - modules/storefront/locals.tf
+    - modules/storefront/namespace.tf
+    - modules/storefront/network_policy.tf
+    - modules/storefront/outputs.tf
+    - modules/storefront/quota.tf
+    - modules/storefront/random_secret.tf
+    - modules/storefront/registry_secret.tf
+    - modules/storefront/service_account.tf
+    - modules/storefront/tls_certificate.tf
+    - modules/storefront/variables.tf
+    - modules/storefront/versions.tf
     extras:
         makefile: true
         tflint_config: true
@@ -523,7 +523,7 @@ domain:
     labels:
         cost-center: '4210'
         tier: frontend
-    module_dir: modules/boutique
+    module_dir: modules/storefront
     module_files:
     -   path: versions.tf
         purpose: Terraform version and providers required by the module.
@@ -552,7 +552,7 @@ domain:
     -   path: tls_certificate.tf
         purpose: Self-signed certificate of the working environments (tls_private_key,
             tls_self_signed_cert, kubernetes_secret).
-    module_name: boutique
+    module_name: storefront
     namespace_strategy: per_env
     outputs:
     -   description: Namespace the service is deployed in.
@@ -1012,8 +1012,8 @@ service:
     labels:
         cost-center: '4210'
         tier: frontend
-    name: boutique
+    name: storefront
     owner: Platform Team
-    owner_email: plateforme@example.net
+    owner_email: platform@example.net
 template_subdir: src/forge/plugins/terraform/template
 
