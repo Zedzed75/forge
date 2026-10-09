@@ -1,7 +1,7 @@
-# Les references golden sont comparees octet pour octet : jamais de conversion
-# de fins de ligne, quel que soit le systeme.
+# The golden references are compared byte for byte: never any line-ending
+# conversion, on any system.
 * text=auto eol=lf
 
-# Fichier temoin de la normalisation des fins de ligne : il DOIT rester en
-# CRLF dans le depot, sinon le test de normalisation ne prouve plus rien.
+# Witness file for line-ending normalisation: it MUST stay CRLF in the
+# repository, or the normalisation test no longer proves anything.
 src/forge/plugins/demo/template/line-endings.txt -text

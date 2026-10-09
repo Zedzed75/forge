@@ -1,36 +1,36 @@
 # ---------------------------------------------------------------------------
-# copier.yml - gabarit racine unique de forge
+# copier.yml - forge's single root template
 # ---------------------------------------------------------------------------
-# Un seul gabarit copier pour tous les plugins (decision DESIGN.md §8 Q2) :
-# `src_path` designe la racine de ce depot, et `_subdirectory` — fourni en
-# donnee — selectionne le gabarit du domaine rendu. C'est la seule forme dans
-# laquelle copier reconnait un gabarit versionne, donc la seule qui rende
-# `copier update` possible (MIGRATION.md §2.3).
+# One copier template for every plugin (decision DESIGN.md §8 Q2): `src_path`
+# points at the root of this repository, and `_subdirectory` — supplied as an
+# answer — selects the template of the domain being rendered. That is the only
+# shape in which copier recognises a versioned template, and therefore the only
+# one that makes `copier update` possible (MIGRATION.md §2.3).
 #
-# Ce fichier n'est jamais edite pour ajouter un domaine : un plugin apporte son
-# propre sous-repertoire de gabarit et le declare via `forge_template_subdir()`.
+# This file is never edited to add a domain: a plugin brings its own template
+# subdirectory and declares it through `forge_template_subdir()`.
 # ---------------------------------------------------------------------------
 
-# Gabarit effectivement rendu, choisi par le plugin appele.
+# The template actually rendered, chosen by the plugin being called.
 _subdirectory: "[[ template_subdir ]]"
 
-# Chaque domaine genere garde son fichier de reponses : il le rend
-# mettable a jour independamment (`forge update --only <domaine>`).
+# Every generated domain keeps its own answers file: that is what makes it
+# updatable independently (`forge update --only <domain>`).
 _answers_file: .copier-answers.yml
 
-# Seuls les fichiers en .jinja sont rendus ; les autres sont copies tels quels.
+# Only .jinja files are rendered; everything else is copied verbatim.
 _templates_suffix: .jinja
 
-# copier n'accepte pas de filtres passes en Python : ils arrivent par extension.
-# Les filtres propres a un plugin sont charges par ForgeExtension elle-meme,
-# via la variable d'environnement FORGE_PLUGIN_JINJA (cf. forge/jinja_ext.py).
+# copier accepts no filters passed in from Python: they arrive as an extension.
+# A plugin's own filters are loaded by ForgeExtension itself, through the
+# FORGE_PLUGIN_JINJA environment variable (see forge/jinja_ext.py).
 _jinja_extensions:
   - forge.jinja_ext.ForgeExtension
 
 # ---------------------------------------------------------------------------
-# Delimiteurs : [[ ]] / [% %] / [# #] pour TOUS les plugins (decision Q1).
-# Consequence : Helm et Ansible ecrivent {{ ... }} litteralement dans leurs
-# gabarits, sans bloc raw ni helper d'echappement.
+# Delimiters: [[ ]] / [% %] / [# #] for ALL plugins (decision Q1).
+# Consequence: Helm and Ansible write {{ ... }} literally in their templates,
+# with no raw block and no escaping helper.
 # ---------------------------------------------------------------------------
 _envops:
   block_start_string: "[%"
@@ -44,29 +44,29 @@ _envops:
   keep_trailing_newline: true
 
 # ---------------------------------------------------------------------------
-# Questions declarees. IMPORTANT : seules les questions declarees ici sont
-# enregistrees dans .copier-answers.yml, donc seules elles survivent a un
-# `copier update` (MIGRATION.md §2.5). D'ou cette forme a cinq cles plutot
-# qu'une question par champ metier (decision Q3).
+# Declared questions. IMPORTANT: only the questions declared here are recorded
+# in .copier-answers.yml, so only they survive a `copier update`
+# (MIGRATION.md §2.5). Hence this five-key shape rather than one question per
+# business field (decision Q3).
 # ---------------------------------------------------------------------------
 
-# Nom du plugin de domaine rendu (ex. ansible, helm). Sert de tracabilite.
+# Name of the domain plugin being rendered (e.g. ansible, helm). Traceability.
 plugin:
   type: str
 
-# Sous-repertoire du gabarit, relatif a la racine du depot forge.
+# Template subdirectory, relative to the root of the forge repository.
 template_subdir:
   type: str
 
-# Version du format de specification, recopiee depuis forge.yml.
+# Specification format version, copied over from forge.yml.
 forge_version:
   type: int
   default: 1
 
-# Bloc partage de la specification : identite du service et environnements.
+# Shared block of the specification: service identity and environments.
 service:
   type: json
 
-# Section propre au domaine, telle que produite par son hook forge_answers().
+# Domain-specific section, as produced by its forge_answers() hook.
 domain:
   type: json

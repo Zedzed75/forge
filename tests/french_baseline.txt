@@ -23,10 +23,10 @@
 # French lines in that tree by any of the three signals.
 #
 # ZED-64 widened the scan to the whole repository, which is what the note at the
-# bottom of this section predicted. The 26 lines below are the entire cost of
-# that widening, and every one of them was already known: they are the five root
-# config files ZED-73 owns. Nothing new was discovered and nothing is parked here
-# that nobody is translating.
+# bottom of this section predicted. The entire cost of that widening was 26
+# lines across five root config files, every one of them already known and all
+# of them owned by ZED-73 -- and ZED-73 translated them, so the section is empty
+# again. The widening discovered nothing new and parked nothing with nobody.
 #
 # It stayed empty through ZED-69, which is the interesting part. ZED-69 added a
 # third signal that fires on 32 French values in `tests/` -- short noun phrases
@@ -48,13 +48,6 @@
 # between them -- the feared "thousands of French lines" were already translated
 # by the time the scope caught up, and the one `DESIGN.md` hit was `façade`, an
 # English word, fixed in the signal instead of parked here.
-
-words | 1 | .gitattributes | ZED-73 -- header comment on the CRLF witness
-nouns | 5 | .github/workflows/ci.yml | ZED-73 -- validator and job comments
-words | 5 | .github/workflows/ci.yml | ZED-73 -- validator and job comments
-words | 4 | .github/workflows/release.yml | ZED-73 -- carries the id-token/dist threat model, so translate it with care rather than shortening it
-words | 7 | copier.yml | ZED-73 -- the single-template decision (DESIGN.md §8 Q2)
-words | 4 | pyproject.toml | ZED-73 -- licence and classifier reasoning
 
 [allowed]
 # Permanent. Each of these is French that has to stay French to do its job, so
