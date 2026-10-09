@@ -807,8 +807,10 @@ domain's template subdirectory actually shipped, and generates every `examples/*
 from it. It fails on a wheel carrying no templates, which is the ZED-12 bug the whole test suite
 could not see — everything the suite runs, it runs from a source tree.
 
-The residual risk is accepted and named: a bad `1.1.0` cannot be re-uploaded to PyPI. `1.1.1`
+The residual risk is accepted and named: a bad `1.2.0` cannot be re-uploaded to PyPI. `1.2.1`
 costs nothing, and the name `iac-forge` is claimed on the first successful upload either way.
+(This paragraph named `1.1.0` and `1.1.1` when it was recorded. D16 moved the first published
+version to `1.2.0`; the two digits here follow it, and nothing else in D14 does.)
 
 The virtualenv's location outside the checkout is **load-bearing, not hygiene**.
 `template_root()` prefers a repository root two levels above the package, so a virtualenv created
@@ -818,16 +820,64 @@ removes the gate while leaving it green.
 
 ---
 
-## D15 — the first published version is `1.1.0`, not `1.1.0rc1`
+## D15 — the first published version is a final version, `1.2.0`, not an `rc`
 
-- **Date**: 2026-10-08
+- **Date**: 2026-10-08. **Amended 2026-10-09** to name `1.2.0`.
 - **Decided by**: the CEO, on issue ZED-48. Recorded by engineering on ZED-48. Called **D6**
-  there, for the reason given under D14.
+  there, for the reason given under D14. Amended by the CEO on ZED-142, recorded by engineering
+  on ZED-145.
 - **Scope**: this repository's first PyPI publication.
 
-The first upload to PyPI is the final version **`1.1.0`**. No pre-release.
+The first upload to PyPI is the final version **`1.2.0`**. No pre-release.
 
 The `rc` was chosen while the wheel was broken, when reaching nobody was the point. ZED-12 fixed
 it, and `pip install iac-forge` does not resolve a pre-release by default — so an `rc` would have
 had no audience, and would have told us nothing the D14 gate does not tell us sooner and for
 free. Supersedes the `1.1.0rc1` plan recorded on ZED-9.
+
+**On the digit.** This decision said `1.1.0` when it was recorded, and the number was never
+available: `v1.1.0` had been an annotated tag since 31 August, on a porting milestone, and
+`release.yml` guards the tag against the built version — so the publish could not have been
+triggered under the old number without either moving that tag or breaking the guard. Nothing had
+ever been published at the time, so no PyPI version was abandoned and no installed version
+changed meaning. What this decision is *about* — a final version rather than an `rc`, and why —
+is untouched by the digit. The namespace boundary the new number draws is D16.
+
+---
+
+## D16 — published versions begin at `1.2.0`; a tag is never force-moved to free a number
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, on issue ZED-142. Recorded by engineering on ZED-145. The last
+  clause is a standing rule and is not specific to this repository.
+- **Scope**: this repository's version namespace, and — for the last clause — every public
+  repository this company owns.
+
+**Published `iac-forge` versions begin at `1.2.0`.** Nothing below it was ever published, and
+nothing below it ever will be.
+
+**`v0.1.0` through `v1.1.1` — all eleven — are porting-phase repository milestones, not
+published releases.** They were cut between 24 August and 2 September to mark the phases of the
+port, at a time when no distribution existed under any name. The top three name themselves
+"forge 1.0.0", "forge 1.1.0" and "forge 1.1.1" in their tag subjects, which is what made this
+question worth a decision rather than a footnote: read on its own, `v1.1.0` looks exactly like a
+release of the thing that is now on PyPI, and it is not one. `pip install iac-forge==1.1.0`
+resolves nothing and always will.
+
+**`release.yml` keeps its `v*` trigger.** The collision closes by moving forward, not by
+narrowing the trigger: every tag that exists sorts below `v1.2.0`, so the first tag the trigger
+can now fire on is the first one we mean it to. The alternative was to edit the trigger or its
+tag guard, and that path has just published successfully — it is not worth re-opening to solve a
+problem that an increment solves for free.
+
+**Tags on a public repository are never force-moved or deleted to free a version number.** This
+is the part that is standing and general. A tag that has been pushed is someone else's reference:
+a clone, a `pip install` from git, a submodule pin, an archive URL, a release page. Deleting
+`v1.1.0` to re-cut it would have left every one of those resolving to different bytes under the
+same name, silently — which is the single failure mode that makes a version number worth
+anything. The cost of the rule is that a number can be spent without being published, as
+`1.1.0` was here. That cost is one increment. Pay it every time.
+
+**What this forecloses.** Re-deriving the first published version from the tag list, and
+proposing a tag rewrite the next time a version number is already taken. Both were considered on
+ZED-142 and refused there.
