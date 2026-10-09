@@ -98,7 +98,7 @@ domain:
         -   name: path
             value: '"terraform.tfstate"'
         domain: example.net
-        kube_context: plateforme-prod
+        kube_context: platform-prod
         module_arguments: *id001
         name: prod
         namespace: storefront-prod
@@ -113,7 +113,7 @@ domain:
         -   name: labels
             value: '{ tier = "frontend" }'
         -   name: kube_context
-            value: '"plateforme-prod"'
+            value: '"platform-prod"'
         -   name: quota_cpu
             value: '"4"'
         -   name: quota_memory
