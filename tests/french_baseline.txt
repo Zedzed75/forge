@@ -74,3 +74,20 @@ nouns | tests/french_values_pre_zed60.txt | the record of the 33 values ZED-60 t
 words | tests/french_baseline.txt | this file: its own justifications quote the French they are about
 accent | tests/french_baseline.txt | same
 nouns | tests/french_baseline.txt | same
+
+# Added by ZED-124, for the same reason, in the one file whose job is to record
+# what was decided. D12 quotes the fabricated weather all-clear JARVIS gave with
+# `meteo_france_enabled` false -- `"Non, le Rhone est actuellement en vigilance
+# verte, sans alerte particuliere."`, accents included -- and the CEO ruled on
+# ZED-122 that the quotation stays, because it is what makes the rule
+# self-evidently necessary to the next reader. De-accenting it would make the
+# ledger misquote the sentence it exists to condemn.
+#
+# Only `accent` is listed, and that is the narrow part: this entry costs
+# DECISIONS.md the weakest of the three signals, while `words` and `nouns` keep
+# reading all of it. It is the `facade` argument in `french_guard.py` applied
+# rather than ignored -- allow-listing a whole prose file blinds it, so only the
+# one signal the quotation actually trips is listed, and D12's own prose is
+# English and stays measurable.
+
+accent | DECISIONS.md | D12 quotes verbatim the fabricated vigilance-verte answer it exists to forbid, and the accents are part of the evidence (ZED-122)
