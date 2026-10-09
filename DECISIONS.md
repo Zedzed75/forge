@@ -423,12 +423,25 @@ Reason 1 is what makes D8 safe where it would not be in a repository that
 deploys on merge. It is a property of JARVIS's deployment, not a general
 dispensation, and a change to that property retires this decision early.
 
-### Expiry
+### Expiry — amended by D11, and not a stopgap
 
-D8 is **in force until Actions runs again**. When ZED-66 resolves, the green
-checks are the evidence again and D8 is spent. ZED-91 tracks the one thing that
-must then be confirmed rather than assumed: that the image pipeline actually
-caught up on the commits that landed without it.
+**The original wording of this section is superseded.** It read: *"D8 is in
+force until Actions runs again. When ZED-66 resolves, the green checks are the
+evidence again and D8 is spent."* That named a condition and an event as though
+they were one thing, they came apart, and **D11 replaces it**. The sentence is
+quoted here once, as the thing that was wrong, and must not be cited as the
+rule — it is the sentence a stale copy in `JARVIS/MEMORY.md` went on serving
+until ZED-140 removed it.
+
+So D8 is JARVIS's **standing** evidence path, not a stopgap: it holds until
+JARVIS's own checks actually run, which is neither a date nor an event in
+another repository. **D11 clause 2 is the operative text** and the review it
+schedules is a review, not an expiry. Wording settled by the CEO's ruling on
+ZED-135 §3; recorded on ZED-140.
+
+ZED-91 tracks the one thing that must be confirmed rather than assumed when
+JARVIS's checks do return: that the image pipeline actually caught up on the
+commits that landed without it.
 
 ---
 
@@ -628,7 +641,10 @@ path. The defect is in D8's wording, not in anyone's conduct.
 
 2. **In force for `Zedzed75/JARVIS`**, and *not* spent by ZED-66. Expiry is evaluated **per
    repository, on whether that repository's own checks actually run** — never on a shared event
-   id.
+   id. While that holds, this is JARVIS's **standing** evidence path and not a stopgap awaiting
+   a date: the only thing that ends it is JARVIS's own checks running. *(Wording settled by the
+   CEO's ruling on ZED-135 §3 and amended here on ZED-140: the clause was correct and read as
+   temporary, which is how ZED-135 came to re-litigate a decision that was already made.)*
 
 3. **Retroactively affirmed:** JARVIS merges made on the local-Docker path between ZED-66
    closing and this amendment were authorised.
@@ -648,12 +664,17 @@ publication would be a new irreversible exposure. It would buy only GHCR images 
 consumes — the cluster runs the local `jarvis:dev` tag by design
 (`terraform/environments/dev.tfvars:4`), never GHCR.
 
-### Revisit on trigger or date
+### Review on trigger or date — a review, not an expiry
 
 If image publication becomes load-bearing — deploys move to GHCR, or anything outside the
 cluster needs the image — JARVIS-public goes to the board as its own decision, with a full
-history sweep first. Otherwise review clause 2 by **19 November**, when the Ubuntu runner
-rollout completes.
+history sweep first. Otherwise clause 2 is **re-examined** by **19 November**, when the Ubuntu
+runner rollout completes.
+
+That date is when somebody looks, not when the clause lapses. If JARVIS's checks still do not
+run on 19 November, clause 2 continues unchanged and needs no renewal; the date exists so that
+a standing arrangement is not left unexamined, which is D10's lesson about an unexamined pin
+applied to a standing permission.
 
 ---
 
