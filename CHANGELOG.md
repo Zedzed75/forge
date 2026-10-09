@@ -10,12 +10,19 @@ while ago. `forge update` replays the template through copier: it will move
 whatever moved here, and an entry marked **Migration** names something you have
 to do yourself, outside the generated files, because forge cannot reach it.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-forge is not versioned or tagged yet, so every entry currently lives under
-`Unreleased`; the first tagged release will close that section and start the
-next one.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Versions here are the
+versions of `iac-forge` on PyPI: `1.1.0` is the first one published, so everything
+forge had accumulated before it is recorded under that heading rather than spread
+over releases that were never cut.
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-10-09
+
+First published release. `pip install iac-forge` installs the `forge` command from
+here on; everything below was already in the repository and is listed because this
+is the release that makes it reachable.
 
 ### Changed
 
@@ -227,4 +234,5 @@ next one.
   Nothing changes for anyone running forge from a checkout: same output, byte for
   byte.
 
-[Unreleased]: https://github.com/Zedzed75/forge/commits/master
+[Unreleased]: https://github.com/Zedzed75/forge/compare/v1.1.0...master
+[1.1.0]: https://github.com/Zedzed75/forge/releases/tag/v1.1.0
