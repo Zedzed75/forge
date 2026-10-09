@@ -1,0 +1,297 @@
+# ---------------------------------------------------------------------------
+# The forge CI toolchain: uv, forge itself, and all five domains' validators.
+# ---------------------------------------------------------------------------
+# These steps used to live inline in `.github/workflows/ci.yml`, as the only
+# copy. They were extracted the moment a *second* job needed them: the
+# `ubuntu-26.04` canary D10 obliges (ZED-119). The alternatives were worse in
+# ways worth recording, because the obvious one looks cheaper than it is:
+#
+#   * a `matrix.include` entry is not a second job at all. `include` does not
+#     add a combination when its keys match an existing one -- it merges into
+#     it -- so `{python-version: "3.13", runner: "ubuntu-26.04"}` moved the
+#     existing 3.13 leg onto 26.04 and, via a `continue-on-error` keyed on the
+#     same expression, stopped it gating. Six checks still reported green.
+#   * a real `runner:` matrix axis works, but renames every check-run to
+#     `tests (3.11, ubuntu-24.04)`. D4's merge clause is stated as a count of
+#     green checks, and renaming the things being counted to win six lines is a
+#     bad trade.
+#   * duplicating the steps into the canary gives two copies of the toolchain
+#     that drift apart, which defeats the point of a canary: it would stop
+#     being the same suite on a different image and become a different suite.
+#
+# So: one definition, two callers, check-run names untouched. What the canary
+# proves is exactly "this toolchain, on that image", which is only a true
+# statement while there is one toolchain.
+#
+# Comments here are in English, like the workflow this was extracted from and
+# like the rest of the repository (`tests/french_guard.py` scans this file).
+#
+# Not covered by this action: `actions/checkout`. A local action has to be on
+# disk before it can be used, so the checkout stays in the caller.
+# ---------------------------------------------------------------------------
+name: Set up the forge CI toolchain
+description: >-
+  Install uv, forge and the validators of all five domains, pinned, and print
+  the version of each one.
+
+inputs:
+  python-version:
+    description: >-
+      The interpreter uv installs and runs the suite on. Handed straight to
+      setup-uv; without it the caller's matrix would be mere decoration and
+      every leg would run on the same interpreter.
+    required: true
+  cache-suffix:
+    description: >-
+      Appended to the uv cache key, and the caller's own `runs-on` label is
+      what belongs here. setup-uv keys its cache on the OS and architecture,
+      which `ubuntu-24.04` and `ubuntu-26.04` report identically -- so without
+      a suffix the two jobs share one cache entry and the canary can restore
+      wheels that were built on the image it exists to not trust. That is the
+      one way a canary can report green about an image it never exercised.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # copier commits inside a temporary clone when the template has been
+    # modified: with no git identity, that step fails.
+    - name: Configure the git identity
+      shell: bash
+      run: |
+        git config --global user.name "forge-ci"
+        git config --global user.email "ci@example.invalid"
+        git config --global init.defaultBranch main
+
+    # Every `uses:` in this repository is pinned to a full commit SHA, with the
+    # human-readable version in a trailing comment. A git tag is mutable: `@v4`
+    # is a promise from the action's owner, not a checksum, and whoever can move
+    # that tag runs arbitrary code in this job. The trailing comment is what
+    # Dependabot rewrites alongside the SHA, so it is part of the contract, not
+    # decoration.
+    #
+    # Dependabot does not find this file by default. For `github-actions` the
+    # configured directory is the repository root and that means
+    # `.github/workflows` plus a root `action.yml` -- never `.github/actions/**`
+    # (dependabot/dependabot-core#6936). `.github/dependabot.yml` therefore
+    # names this directory explicitly, and a second composite action would need
+    # its own entry. Without that, extracting these steps would have quietly
+    # moved the one `uses:` pin in the toolchain out from under its bump path.
+    #
+    # The action is pinned to a SHA; `version:` pins what the action
+    # *installs*. Without it the input defaults to "the version in
+    # pyproject.toml, or latest", and with no `[tool.uv] required-version`
+    # here that resolved to latest -- every run picked up whatever uv shipped
+    # that day. That is the same hole as the Ansible validators below, and the
+    # same rule applies: a tool that changes on its own validates nothing
+    # reproducible.
+    #
+    # Version bump procedure, identical to the one spelled out for the Ansible
+    # tooling below: change the number here AND the checksum, run CI, and ship
+    # the bump in its own commit. Never as a passenger of another change.
+    # The checksum comes from the release itself:
+    #   curl -fsSL https://github.com/astral-sh/uv/releases/download/<x.y.z>/uv-x86_64-unknown-linux-gnu.tar.gz.sha256
+    #
+    # The checksum is NOT belt-and-braces, and it is structural rather than a
+    # quirk of today's versions. setup-uv verifies a download against a table
+    # of checksums baked into the action when the action itself was released,
+    # so a SHA-pinned action can never know a uv published after it: v10.2.0's
+    # table stops at uv 0.12.17. For anything newer the action skips
+    # verification silently -- a `core.debug` line, not a warning -- which is
+    # what the floating resolution was already doing here. Passing `checksum:`
+    # is what keeps the verification independent of which setup-uv snapshot we
+    # happen to be pinned to, so a uv bump never has to ask whether the action
+    # recognises it.
+    #
+    # It is the x86_64 glibc Linux tarball, and one checksum covers both
+    # callers: a uv tarball is chosen by target triple, and `ubuntu-24.04` and
+    # `ubuntu-26.04` are the same triple. (An earlier note in `ci.yml` said the
+    # canary would need a second checksum. That was wrong, and wrong in the
+    # cautious direction -- it was written before the canary existed, reasoning
+    # about the label rather than about the triple.) What *would* need a second
+    # checksum is a different triple: an `ubuntu-26.04-arm` label, or a macOS
+    # or Windows runner. Such a caller fails closed on the mismatch rather than
+    # silently skipping verification, which is the right way round.
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version: "0.12.23"
+        checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
+        # `true` / `false` / `auto`. `true`, and unlike the same input in
+        # release.yml it is only a speed choice here: the calling workflow
+        # triggers on `push` and `pull_request`, two events `auto` caches as
+        # well, so the two values coincide. Stated anyway, because they do not
+        # coincide everywhere -- release.yml triggers on tag push, which `auto`
+        # stopped caching in setup-uv v10, and that step is pinned to `false`
+        # with the reasoning written out.
+        enable-cache: true
+        # `true` / `false`. Prunes the pre-built wheels out of the cache before
+        # saving it, which is what keeps the matrix legs' worth of entries
+        # inside the repository's Actions cache quota. Nothing to do with
+        # correctness: a pruned cache is a smaller cache, not a staler one --
+        # `cache-dependency-glob` below is what governs staleness.
+        #
+        # Spelled out because the default moved underneath this step: `true`
+        # through setup-uv v8, `false` from v9.0.0 (astral-sh/setup-uv#967).
+        # The pin is v10.2.0, so this is not hypothetical -- these legs are
+        # saving unpruned caches today, and started doing so as a side effect
+        # of a version bump rather than a decision. Naming the value is what
+        # stops the next major from moving it again.
+        prune-cache: true
+        python-version: ${{ inputs.python-version }}
+        # One cache entry per runner image, never one shared between them. See
+        # the `cache-suffix` input above for why that is a correctness
+        # requirement and not a tidiness one.
+        cache-suffix: ${{ inputs.cache-suffix }}
+        # The cache key has to be the file that decides what gets installed,
+        # and since `uv.lock` landed that file is the lockfile, not
+        # `pyproject.toml`. The distinction is not cosmetic: a Dependabot bump
+        # changes `uv.lock` and leaves `pyproject.toml` untouched, so keying on
+        # `pyproject.toml` would serve the pre-bump cache to a post-bump run.
+        # Keying on nothing at all -- the original state here -- was worse
+        # still: with no lockfile to find, the action laid a cache that never
+        # invalidated and froze the dependencies at their first resolution.
+        cache-dependency-glob: "uv.lock"
+
+    # `uv sync --locked` and not `uv pip install -e ".[dev]"`: the lockfile is
+    # what makes the renderer reproducible (DESIGN.md §8 Q10). `--locked`
+    # refuses to resolve anything -- it installs exactly `uv.lock`, and fails
+    # if `uv.lock` has fallen behind `pyproject.toml` instead of quietly
+    # relocking. A dependency change that forgot to run `uv lock` therefore
+    # stops here, not three weeks later on an unrelated commit.
+    #
+    # `--extra dev` because pytest is declared in
+    # `[project.optional-dependencies]`; a bare `uv sync` would skip it.
+    #
+    # No `uv venv` first: `uv sync` creates `.venv` itself, and reuses one that
+    # already exists. The `uv venv --clear` this replaces was a workaround for
+    # the "a virtual environment already exists" error that a bare `uv venv`
+    # hit back when setup-uv made the environment for us -- which v10 no longer
+    # does unless asked (`activate-environment`, default false). Either way
+    # `uv sync` is correct, which is the point of using it instead.
+    #
+    # The validator installs below stay `uv pip install`, deliberately. They
+    # are tools used *against* the generated projects, not dependencies of
+    # forge, so they have no business in the lockfile of a published library.
+    # They survive the later `uv run` calls because an implicit sync is
+    # inexact and does not prune what the lockfile does not name.
+    - name: Install forge
+      shell: bash
+      run: uv sync --locked --extra dev
+
+    # CI is authoritative for Ansible validation: ansible-core does not
+    # support Windows as a control node, so the development machine goes
+    # through WSL (decision DESIGN.md §8 Q7).
+    #
+    # Everything is pinned, like the binaries of the four other domains.
+    # These two installs were the only ones that were not, and it showed:
+    # community.postgresql 5.0.0 removed postgresql_set, and CI went red on a
+    # three-week-old commit without a single line of the repository moving. A
+    # validator that changes on its own validates nothing reproducible.
+    #
+    # Version bump procedure: change the number here, run CI, fix the
+    # templates if the validator has tightened its rules, and ship the bump
+    # in its own commit. Never as a passenger of another change.
+    #
+    # ansible-core stays on 2.19: it is the last branch that accepts Python
+    # 3.11 as a control node, and 3.11 is in the matrix. Moving to 2.20 or
+    # 2.21 requires dropping 3.11 from the matrix first.
+    - name: Install the Ansible domain tooling
+      shell: bash
+      run: |
+        uv pip install 'ansible-core==2.19.13' 'ansible-lint==26.9.0'
+        # galaxy.ansible.com sometimes drops the connection when the three
+        # matrix jobs query it at the same time ("Connection reset by
+        # peer"). The step then went red with no line of the repository at
+        # fault, which is exactly the noise this CI has to stop producing.
+        # Three attempts, then we fail for good.
+        ok=
+        for attempt in 1 2 3; do
+          if uv run ansible-galaxy collection install \
+               community.general:13.4.0 \
+               ansible.posix:2.2.2 \
+               community.postgresql:5.0.0 \
+               -p "$HOME/.ansible/collections"; then
+            ok=1
+            break
+          fi
+          echo "ansible-galaxy failed (attempt ${attempt}/3), retrying in 15 s"
+          sleep 15
+        done
+        test -n "$ok"
+        echo "FORGE_ANSIBLE_COLLECTIONS=$HOME/.ansible/collections" >> "$GITHUB_ENV"
+        # The four other domains print the version of their tools: the log
+        # then says what the generated project was validated against.
+        uv run ansible --version
+        uv run ansible-lint --version
+        uv run ansible-galaxy collection list -p "$HOME/.ansible/collections"
+
+    # Helm domain. The tests marked `integration` skip if these tools are
+    # missing: installing them is what makes CI conclusive.
+    #
+    # Every `curl` here carries `--retry 5 --retry-delay 5
+    # --retry-all-errors`. Without those options, a transient 500 from
+    # github.com/releases or a connection reset is enough to turn a job red
+    # with nothing in the repository at fault, and a real regression can no
+    # longer be told apart from a network hiccup. `--retry-all-errors` is
+    # necessary: `--retry` alone ignores the non-transient HTTP errors CDNs
+    # return by mistake.
+    - name: Install the Helm domain tooling
+      shell: bash
+      run: |
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3             | bash -s -- --version v3.16.3
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/kubeconform.tar.gz             https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+        tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+        sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+        helm version --short
+        kubeconform -v
+
+    # Terraform domain. `terraform init` downloads the providers: the cache
+    # avoids starting over for every environment root.
+    - name: Install the Terraform domain tooling
+      shell: bash
+      run: |
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/terraform.zip             https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+        unzip -qo /tmp/terraform.zip -d /tmp
+        sudo install -m 0755 /tmp/terraform /usr/local/bin/terraform
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/tflint.zip             https://github.com/terraform-linters/tflint/releases/download/v0.59.1/tflint_linux_amd64.zip
+        unzip -qo /tmp/tflint.zip -d /tmp
+        sudo install -m 0755 /tmp/tflint /usr/local/bin/tflint
+        mkdir -p "$HOME/.terraform.d/plugin-cache"
+        echo "FORGE_TF_PLUGIN_CACHE=$HOME/.terraform.d/plugin-cache" >> "$GITHUB_ENV"
+        terraform version
+        tflint --version
+
+    # monitoring domain. `promtool test rules` is the project's only
+    # validator that checks something semantic: that the alerts actually
+    # fire.
+    - name: Install the monitoring domain tooling
+      shell: bash
+      run: |
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/prometheus.tar.gz             https://github.com/prometheus/prometheus/releases/download/v3.6.0/prometheus-3.6.0.linux-amd64.tar.gz
+        tar -xzf /tmp/prometheus.tar.gz -C /tmp --strip-components=1             prometheus-3.6.0.linux-amd64/promtool
+        sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
+        promtool --version
+
+    # pipeline domain. actionlint knows the schema of GitHub workflows; on
+    # the GitLab side no offline equivalent exists, and yamllint only checks
+    # the shape of the document. The asymmetry is documented.
+    - name: Install the pipeline domain tooling
+      shell: bash
+      run: |
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/actionlint.tar.gz             https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+        tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+        sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+        uv pip install 'yamllint==1.38.0'
+        actionlint --version
+        yamllint --version
+
+    # `uv run` guarantees that the pytest being executed is the one from the
+    # environment we have just created, and not some pytest off the PATH.
+    #
+    # On the canary this line is also the answer to "which interpreter did
+    # 26.04 actually give us": the image preinstalls its own Pythons, and uv
+    # resolving `3.13` to a different patch release there than on 24.04 is
+    # itself a difference worth reading in the log.
+    - name: Check the interpreter
+      shell: bash
+      run: uv run python -c "import sys; print(sys.version)"
