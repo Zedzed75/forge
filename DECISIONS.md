@@ -235,3 +235,101 @@ D6 is **in force until Actions runs again**. It is a workaround with an end
 condition, not a new standard: when ZED-66 resolves, the six green checks are the
 evidence again and this decision is spent. D4's note at the top of this file is
 untouched — the evidence standard was never what moved.
+
+---
+
+## D7 — a workflow change is inside D6 only if a script says it is prose
+
+- **Date**: 2026-10-09
+- **Decided by**: the CEO, on issue ZED-84. Recorded by engineering on ZED-85.
+
+D6 parks any pull request that touches `.github/workflows/**` until Actions runs
+again. That exception is **behavioural, not file-path**. D6 says so in its own
+words — *"a container cannot validate `uses:` SHA pins, Actions caching, OIDC,
+or trigger behaviour"* — which is a list of behaviours, written as the reason. A
+diff that reaches none of them was never what the exception was protecting
+against.
+
+So a pull request touching `.github/workflows/**` may use the D6 path, but only
+if **all four** clauses below hold. Any one of them failing and it waits for
+billing. There is no judgement call anywhere in here: each clause is a command
+with an exit code.
+
+**C1 — the diff is prose, and a script says so.** Every changed line in every
+`.github/workflows/**` file is exactly one of: a YAML comment, a **step-level**
+`name:` value, or literal text inside an already-quoted string in a `run:`
+block. No changed line adds, removes or alters `uses:`, `on:`, `permissions:`,
+`env:`, `with:`, `if:`, `needs:`, `runs-on:`, `concurrency:`, `strategy`/matrix,
+`defaults`, `secrets`, `outputs`, `timeout-minutes`, `continue-on-error`, a
+`jobs.<id>` key, a **job-level** `name:`, a redirection, or a pinned version.
+
+```bash
+./scripts/workflow-diff-is-prose.sh origin/master my-branch
+```
+
+Two exclusions are deliberate. A **job-level** `name:` is out, because check-run
+identity derives from it and D4's six-checks clause depends on that identity: a
+renamed job is a behavioural change even when the new name is a translation of
+the old. And **shell structure outside the quotes** is out, including
+`>> "$GITHUB_OUTPUT"` and the key side of any `key=value` written to one —
+`echo "tag=${tag} built version=${built}"` is a log line and is prose; the same
+string with a redirection after it is an interface another step reads.
+
+The clause ships as a script and not as the paragraph above because the
+paragraph is not enough. On ZED-84 the CEO re-read PR #61 rather than take its
+summary, and the summary had already drifted: the workflow half changed four
+`run:`-block lines across two files, not the "one `echo`" it claimed, and one of
+them was a `::error::` command on the publish path. The conclusion survived, but
+a careful agent's eyeball classification had miscounted the diff on the easiest
+possible case. That is the whole argument for an exit code.
+
+**C2 — a static witness that actually reads the file.** Pinned `actionlint`, in
+the same container as the matrix, on both `origin/master` and the pull request
+head; the head must introduce **no finding master does not already carry**.
+
+```bash
+./scripts/actionlint-differential.sh origin/master my-branch
+```
+
+This clause is what earns the refinement. The matrix of D6 is a
+*reimplementation* of `ci.yml` and therefore witnesses the workflow not at all,
+while actionlint parses it, and its shellcheck pass covers the one way a
+translation really breaks a workflow: quoting damage inside a string it
+rewrote — an apostrophe in "didn't", a backtick, a bare `$`. The division of
+labour was checked rather than assumed. A backtick injected into one of #61's
+own translated log lines passes C1, which is correct (it is text inside a quoted
+string), and C2 refuses it as `SC2006`.
+
+**Differential, never absolute.** An absolute "actionlint clean" gate would be
+the D4 six-checks mistake over again — unsatisfiable through no fault of the
+pull request. It is not hypothetical: `master` carries one actionlint finding
+today (`SC2012` in `release.yml`), so an absolute gate would refuse every
+workflow PR until someone unrelated fixed it. Findings are matched on file, rule
+and message, and never on line number, because a prose change moves every line
+below it.
+
+**C3 — full D6 evidence for the rest of the pull request.** Unchanged from D6:
+`./scripts/docker-matrix.sh`, a Linux container, all three interpreters, the
+whole suite, `FORGE_REQUIRE_TOOLS=1`, the validators present, `verify_pins`
+passing, and the result recorded on the pull request's issue.
+
+**C4 — `verify_pins` re-run on `master` after the merge.** One command
+(`./scripts/docker-matrix.sh --verify-pins-only`), and it closes the loop on the
+only file the matrix declares twice.
+
+### What this is not
+
+D7 is **not a thaw**. It is a test with an exit code, and three of the four pull
+requests parked under D6 fail it on the first clause — checked, not assumed:
+#59 on `on:` and `concurrency:`, #50 on `with:` (and caching is named in D6's
+own rationale), #49 on several at once. A container cannot vouch for any of
+those and nothing here pretends otherwise.
+
+Neither the scripts nor this entry touches `.github/workflows/**`, so both
+merged under plain D6. There is no bootstrap problem.
+
+### Expiry
+
+**D7 is spent when D6 is spent.** It is a refinement of a workaround, not a new
+standard: when ZED-66 resolves, six green checks are the evidence again and both
+decisions lapse together.
