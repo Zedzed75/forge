@@ -508,6 +508,46 @@ prose — and that is where the eight panel cross-references to alert names live
 The golden tree is their only coverage, so they were verified one by one in the
 diff instead of being taken on the fingerprint's word.
 
+## Arbitration — `service.name` in the test fixtures (2026-10-08)
+
+ZED-27 took the nine `tests/specs/*.yml` fixtures to English and had to decide,
+deliberately, what to do about `service.name`. **The prose moved, the names did
+not.** Recorded here because ZED-27 closes and the reasoning should outlive it.
+
+What moved: `service.description`, `service.owner`, and the two Ansible group
+descriptions — 21 replacements, vocabulary lifted from `examples/*.yml`, which
+was already English-first. `examples/ansible-only.yml:46` supplied
+`Gateways exposed to the outside` word for word.
+
+What did not: `boutique`, `passerelle`, `api`. They are not prose but
+identifiers — the chart directory name (`helm/charts/boutique/`), the Helm
+release name, Prometheus alert labels, Terraform resource names. Two
+measurements decided it rather than taste:
+
+- **159** golden files mention them, against **57** for the prose. Folding the
+  rename in would have tripled the change.
+- The fingerprint normalises `name` only inside Ansible tasks and plays and
+  GitHub Actions steps; everywhere else it is structural. So the rename moves
+  structural fingerprints, and ZED-27's whole value was a clean reading of
+  *which* structured documents a prose-only change moves. Mixing the two would
+  have destroyed that signal.
+
+Deferred to **ZED-59**, with the mapping `examples/` already implies
+(`boutique` → `storefront`, `passerelle` → `gateway`) and the full inventory of
+33 remaining French identifier values — including `owner_email`, which ZED-27's
+own scope table had missed, and which reaches `Chart.yaml`'s
+`maintainers[].email`.
+
+**What the clean signal then bought.** 33 fingerprint entries moved, and
+`description` was innocent in all 33: reverting its value alone restored none.
+31 were `service.owner` landing under `owner`, `galaxy_info.author`,
+`maintainers[].name` and `maintainer_name` — structural by design. The last 2
+were the real finding: `ansible/group_vars/all.yml` carries the
+`service.description` value under `project_description`, which was not in
+`PROSE_KEYS`, so one prose string was prose under one key and structure one file
+away. Reported rather than patched inside a translation commit, and fixed on its
+own as ZED-61 / PR #60. A rename folded in here would have hidden it.
+
 ## Session log
 
 - Session 1 (2026-08-23): phase 0 (bootstrap) then phase 1 (audit + design).
