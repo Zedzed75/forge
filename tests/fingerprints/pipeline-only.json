@@ -1,11 +1,11 @@
 {
   "ansible_handler_links": [],
   "files": {
-    ".copier-answers.yml": "- structured 036c76050ea9df12",
+    ".copier-answers.yml": "- structured b0f9e69f1cb30b3c",
     ".gitattributes": "- text f70d755466b10164",
-    ".gitlab-ci.yml": "- structured c74c299f6a599ebf",
-    "README.md": "- prose 4585589983a4a007",
-    "forge.yml": "- structured f5b02c7653c03526"
+    ".gitlab-ci.yml": "- structured b8b0618a83add6f6",
+    "README.md": "- prose bc7ceddeaa73a550",
+    "forge.yml": "- structured de1b9bb7c769e43a"
   },
   "fingerprint_version": 2,
   "helm_helper_links": []

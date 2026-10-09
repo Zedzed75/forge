@@ -7,15 +7,15 @@
   ],
   "files": {
     ".gitattributes": "- text f70d755466b10164",
-    "README.md": "- prose 8c505416c0d23f8a",
+    "README.md": "- prose 3201d3da1cbbd9e1",
     "ansible/.ansible-lint": "- structured a95bf90cbd012a1b",
-    "ansible/.copier-answers.yml": "- structured 1b5e90203d3195cb",
+    "ansible/.copier-answers.yml": "- structured f8fe8a779aa062a1",
     "ansible/.github/workflows/ansible-lint.yml": "- structured 1dc5b99fa9bc3c91",
     "ansible/.gitignore": "- text e975bb0aab12f5d1",
     "ansible/.yamllint": "- structured b78e6035e58a0c88",
-    "ansible/README.md": "- prose 307bddf8ca0ac8ec",
+    "ansible/README.md": "- prose 6dd60b0d6a43608e",
     "ansible/ansible.cfg": "- text 5ba6becebc7468a8",
-    "ansible/group_vars/all.yml": "- structured 1daf099c785132ac",
+    "ansible/group_vars/all.yml": "- structured 49e9d8356a5ae6e5",
     "ansible/group_vars/gateways.yml": "- structured 91204b2a18a03e21",
     "ansible/inventories/prod/group_vars/all/main.yml": "- structured 7c66428131964675",
     "ansible/inventories/prod/group_vars/gateways.yml": "- structured 91204b2a18a03e21",
@@ -39,7 +39,7 @@
     "ansible/roles/ssh_hardening/tasks/main.yml": "- structured 1cc8d7b5dfda8e2f",
     "ansible/roles/ssh_hardening/templates/hardening.conf.j2": "- text e9356365dc2bed81",
     "ansible/roles/ssh_hardening/vars/main.yml": "- structured e78663f50ef17037",
-    "forge.yml": "- structured c69f5688c99539b8"
+    "forge.yml": "- structured 1debbb59cdb6644b"
   },
   "fingerprint_version": 2,
   "helm_helper_links": []
