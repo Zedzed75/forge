@@ -976,6 +976,33 @@ same pinned image, that purpose is served and a red merge-result run is read aga
 Green, and the merge proceeds. Red, and it does not — this is evidence, not a formality, and a red
 result returns the authority to whoever granted it.
 
+**The cheapest compliant path is to merge the base into the branch.** Not rebase it — merge it. That
+makes `master` an ancestor of the head, and then the head's own tree *is* the merge-result tree.
+Verified on ZED-169/#332:
+
+```
+git merge-tree --write-tree 308a6b8 64fc21d  ->  4c3f038
+git rev-parse 64fc21d^{tree}                 ->  4c3f038
+```
+
+One run then satisfies D8's head-binding and this entry's base-binding **together**, which is
+strictly stronger than two runs: there is no interval between the tree that was executed and the
+tree that lands. The branch's original commits stay intact, so nothing a reviewer has already read
+is rewritten. This adds no obligation that the first paragraph did not already impose; it names the
+way to discharge it once instead of twice.
+
+**Re-check the base in the same minute as the merge.** The equivalence above holds only while
+`master` is still an ancestor of the head, so confirm `origin/master` is unchanged immediately
+before merging and re-run if it moved. This is the operative clause rather than a footnote: on
+ZED-169 `master` moved **four times** during a single evidence cycle, each cycle costing 5–15
+minutes, and a rule that demands a fresh run per concurrent merge is a rule nobody can satisfy at
+that rate. What stays small is the window, not the suite.
+
+That also bounds how much D9 clause 4 has to carry. Clause 4 serialises merge authority because
+evidence binds to a base a concurrent merger can move; when the evidence is a run of a tree that
+already contains `master`, a concurrent merge costs one re-run instead of invalidating the work.
+Cheap mechanism, loose queue — in that order.
+
 ### The head must not be moved for this
 
 Rebasing to make the base current is the obvious wrong fix, and it is refused: it moves the head to
