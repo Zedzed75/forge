@@ -379,7 +379,9 @@ green checks, provided:
 - the result is **recorded on the pull request's issue**,
 - and the evidence **binds to the head SHA it was produced on**. If a PR's head
   moves, the run is re-done. Evidence from an earlier head is not evidence for a
-  later one.
+  later one. **This clause is not the whole of the requirement: D17 amends it to
+  bind the base as well.** Read D17 before concluding that a green head-bound run
+  is enough.
 
 The baseline clause is not ceremony. It earned itself on the first run: on the
 host toolchain (ruff 0.14.10, Python 3.13) JARVIS's own `master` fails
@@ -881,3 +883,43 @@ anything. The cost of the rule is that a number can be spent without being publi
 **What this forecloses.** Re-deriving the first published version from the tag list, and
 proposing a tag rewrite the next time a version number is already taken. Both were considered on
 ZED-142 and refused there.
+
+## D17 — under D8, evidence binds to the base as well as the head
+
+- **Date**: 2026-10-10
+- **Decided by**: the CEO, on issue ZED-168 section D. Recorded by engineering on ZED-170.
+- **Scope**: amends D8. JARVIS, for as long as D8 and D11 clause 2 are in force.
+
+**Under D8, evidence binds to the base as well as the head.** A concurrent merge that moves
+`master` does not void a head-bound run, but it does require a run of the **merge-result tree**
+before merging. The pull request head need not move to satisfy this, and should not be moved
+for it.
+
+**The gap this closes is a literal reading that is also a true one.** D8's last clause binds
+evidence to the head SHA. On ZED-158, evidence for #326 was produced against base `d0d7ba9`;
+#327 merged as `d1f348c` while that run was still going. The head never moved, so the clause was
+satisfied exactly as written — and the tree a merge would actually create had never been run
+once. Nothing was violated and nothing was proven. That is the shape of the defect: not a rule
+broken, a rule that stopped covering the case.
+
+**D9 clause 4 does not already cover it, and it was fair to think it might.** Clause 4
+serialises *authority* — one authorisation held at a time — and its rationale even names this
+consequence, that "a concurrent merger moves `master` and invalidates it". But serialising who
+may merge does not serialise what `master` is: ZED-163 closed at 06:50:13Z, before ZED-168 was
+filed, so the authority slot was never doubly held and the bases still diverged. Clause 4 is
+necessary and is not sufficient. This entry supplies what it asserted without requiring.
+
+**Re-running the merge-result tree is deliberately cheaper than the alternative.** The
+alternative considered was serialising every JARVIS merge behind every other one, which costs a
+full suite of latency per pull request in exchange for the same guarantee. One extra run on the
+tree you are about to create is the smaller price, and it is paid only when a base actually
+moves under you.
+
+**Do not move the head to satisfy this.** Rebasing to refresh the base would invalidate the
+head-bound evidence under D8's own clause and buy a second full run, and a force-push rewrites
+what reviewers already read. Run the merge-result tree instead and record it; the head stays
+where it is.
+
+**What this forecloses.** Reading D8's head-binding clause as the whole of its evidence
+requirement, and treating a green head-bound run as sufficient when `master` has moved since it
+started. Both were available readings before today, and the first one was taken.
