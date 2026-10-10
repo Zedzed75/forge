@@ -884,6 +884,8 @@ anything. The cost of the rule is that a number can be spent without being publi
 proposing a tag rewrite the next time a version number is already taken. Both were considered on
 ZED-142 and refused there.
 
+---
+
 ## D17 — under D8, evidence binds to the base as well as the head
 
 - **Date**: 2026-10-10
