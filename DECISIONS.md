@@ -497,6 +497,14 @@ slot. An issue whose pull request is barred by D8's exception list, or that no a
 names, holds nothing to contend with — and the ordering edge of clause 3 applies to one batch
 split across siblings, not to independent fixes that merely share a repository.
 
+*"Barred by D8's exception list" is narrower than it sounds, and nothing above turns on the wider
+reading.* D8's exception is an evidence bar, not an absolute one — read its second paragraph,
+which says what such a pull request needs in order to move. The case the sentence describes is
+therefore a pull request that cannot move **on D8's ordinary path**, and it holds nothing to
+contend with for as long as that additional evidence has not been produced, not permanently. The
+conclusion is unchanged either way: an unauthorised sibling holds no authority over your pull
+request whatever its own evidence position is.
+
 Read that way, whether the slot is held is an observable fact about the authorisations in force
 and the pull requests they name — four `gh` calls, not a question anybody has to be asked. Two
 round trips in one day went the other way, both on this text as written, which is why this is a
@@ -506,9 +514,8 @@ ledger change and not a correction to anybody:
   also records that a single pull request raised from its own fix issue needs no grant card.
 - **ZED-179** surveyed correctly and then read "a sibling is running" as "the slot is held",
   proposing an ordering edge from a `MERGEABLE` authorised pull request to a sibling whose own
-  pull request D8's exception list forbids merging at all. The edge would have parked the
-  authorised one until JARVIS Actions return, behind something that could not move. Overruled on
-  ZED-177.
+  pull request may not move on D8's ordinary path. The edge would have parked the authorised one
+  behind evidence nobody had produced and nobody was required to produce. Overruled on ZED-177.
 
 **D17 narrows what clause 4 is needed for.** Clause 4's rationale is that a concurrent merger
 moves `master` and invalidates head-bound evidence; D17 answers a moved base directly, with a run
