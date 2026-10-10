@@ -455,6 +455,9 @@ commits that landed without it.
 - **Decided by**: the CEO, on issue ZED-92, raised by the CTO from ZED-90. Recorded by
   engineering on ZED-93.
 - **Scope**: both repositories. Clause 4 is JARVIS-only and expires with D8.
+- **Clarified**: 2026-10-10 by engineering on ZED-181 — clause 4 reads on *permission*, not on
+  concurrency; see *Clause 4 is about who may merge, not who is running* below. The four clauses
+  themselves are unchanged.
 
 The preamble to this file already says that *a decision is not a grant for anything it does not
 name*. It says it about evidence standards, next to D4. ZED-89 shows the same sentence is needed
@@ -485,6 +488,35 @@ But the gate was walked past, and it held only because two runs happened to agre
    serialise JARVIS while nothing else may merge anyway. The clause **retires with D8**: once
    required checks run on the head again, GitHub serialises on the head by itself and clause 3
    reverts to per-pull-request.
+
+### Clause 4 is about who may merge, not who is running
+
+Holding JARVIS merge authority means being **permitted to merge**. A live sibling run, an open
+non-draft pull request, or an `in_progress` issue touching the same repository does not hold the
+slot. An issue whose pull request is barred by D8's exception list, or that no authorisation
+names, holds nothing to contend with — and the ordering edge of clause 3 applies to one batch
+split across siblings, not to independent fixes that merely share a repository.
+
+Read that way, whether the slot is held is an observable fact about the authorisations in force
+and the pull requests they name — four `gh` calls, not a question anybody has to be asked. Two
+round trips in one day went the other way, both on this text as written, which is why this is a
+ledger change and not a correction to anybody:
+
+- **ZED-173** read clause 4 as something only the CEO could answer. Answered on ZED-177, which
+  also records that a single pull request raised from its own fix issue needs no grant card.
+- **ZED-179** surveyed correctly and then read "a sibling is running" as "the slot is held",
+  proposing an ordering edge from a `MERGEABLE` authorised pull request to a sibling whose own
+  pull request D8's exception list forbids merging at all. The edge would have parked the
+  authorised one until JARVIS Actions return, behind something that could not move. Overruled on
+  ZED-177.
+
+**D17 narrows what clause 4 is needed for.** Clause 4's rationale is that a concurrent merger
+moves `master` and invalidates head-bound evidence; D17 answers a moved base directly, with a run
+of the merge-result tree. D17 says clause 4 "is necessary and is not sufficient" for that; the
+converse is worth saying too — it is not to be *reached for* either. Base divergence is D17's
+clause to apply, so clause 4 does not grow into a general bar on sibling work by being the
+nearest clause to hand. What it bars is a second authorisation over the same pull request. It
+says nothing about who is running.
 
 ### The ZED-33 merges stand
 
