@@ -57,6 +57,14 @@ Helm chart together is one possible use, not the normal one.
 - `_legacy/` **is gone** (deleted in phase 10, with the parity snapshots and their
   tests). MIGRATION.md is what remains of it: the merged duplicates, the
   arbitrations, the assumed divergences. There is nothing left to re-read.
+- **600 lines per file**, warned at 601-700 and failed above 700, enforced by
+  `scripts/check_file_sizes.py` as a step of the `tests` job. It sweeps `*.py` under
+  `src/` and `tests/`, and the prose registers it names one at a time — not `tests/golden/`,
+  which is generated output, and not the community docs. Two files predate the gate and sit
+  in its `KNOWN_OVERSIZE` table (ZED-223); that table is a ratchet, not a waiver — an entry
+  that grows fails, and an entry that drops under the cap also fails, so it has to be
+  deleted once its split lands. DECISIONS.md and DESIGN.md are over the cap and
+  deliberately untracked pending ZED-226.
 
 ## Token economy (important)
 - Read PLAN.md (and MIGRATION.md when porting) at session start; work on exactly one

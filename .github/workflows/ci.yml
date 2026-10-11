@@ -132,6 +132,18 @@ jobs:
           FORGE_REQUIRE_TOOLS: "1"
         run: uv run pytest -rs
 
+      # A step inside this job rather than a job of its own, deliberately.
+      # A fourth gating check-run would change the set D4's merge clause counts
+      # -- the long note on this job's `runs-on` is there because that set was
+      # disturbed by accident once already -- and the gate has nothing to say
+      # that the three legs cannot say for it. The cost is counting lines three
+      # times, which is nothing.
+      #
+      # Last in the job, so a size warning never scrolls a test failure out of
+      # view.
+      - name: Check file sizes (warn 601-700, fail above 700)
+        run: uv run python scripts/check_file_sizes.py
+
   # -------------------------------------------------------------------------
   # The Ubuntu 26 canary (decision D10)
   # -------------------------------------------------------------------------
