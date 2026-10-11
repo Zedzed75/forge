@@ -122,6 +122,38 @@ because a security reviewer this company does not have cannot be the gate on a
 queue that has to move. The evidence standard is untouched — see the note at the
 top of this file.
 
+### Engineering note: the gating count is three now, not six
+
+**This records arithmetic that engineering changed under clause (a). It does not
+amend the decision, and the standard it states is the same one.**
+
+Clause (a) says "CI-green on all six checks", and the reasoning above counts
+"6/6 green". On 8 October a commit on a pull request branch produced **six**
+gating check-runs: three interpreter legs across *two* events, because
+`on: push: branches: ["**"]` and `on: pull_request:` both fired the same matrix.
+
+PR #59 (10 October, ZED-70) narrowed `push` to `master` only, so a pull request
+now fires once. The three legs are unchanged and so is `FORGE_REQUIRE_TOOLS=1`;
+what changed is that **six of them can no longer exist**, and a clause read
+literally would now be unsatisfiable by every pull request forever.
+
+So the gate is, and always was in substance:
+
+- `tests (3.11)`, `tests (3.12)`, `tests (3.13)` — all green, on `ubuntu-24.04`
+  (the label D10 pins), with `FORGE_REQUIRE_TOOLS=1`.
+
+That is three check-runs per pull request. `canary (…, ubuntu-26.04)` is advisory
+and never counted — see D10's note on why `continue-on-error` leaves it red in
+`gh pr checks` while the merge standard is met. A `.github/dependabot.yml` check
+appears on some pull requests and is likewise not one of the legs.
+
+**Why this is a note and not a renumbering.** The number six was a description of
+the CI topology at the time, not a threshold the board chose; halving the events
+removed a duplicate, not a signal. Recording it here rather than editing clause
+(a) keeps the board's sentence intact and puts the correction where a reader of
+that sentence will find it. Engineering caused this and is naming it: four pull
+requests were merged on 10 October citing D4 while its count already read six.
+
 ---
 
 ## D5 — no issue is parked bare
@@ -379,9 +411,8 @@ green checks, provided:
 - the result is **recorded on the pull request's issue**,
 - and the evidence **binds to the head SHA it was produced on**. If a PR's head
   moves, the run is re-done. Evidence from an earlier head is not evidence for a
-  later one. **This clause is not the whole of the requirement: D17 amends it to
-  bind the base as well.** Read D17 before concluding that a green head-bound run
-  is enough.
+  later one. **This clause is not read alone: D17 binds the evidence to its base
+  as well**, and the two are satisfied together before any merge under D8.
 
 The baseline clause is not ceremony. It earned itself on the first run: on the
 host toolchain (ruff 0.14.10, Python 3.13) JARVIS's own `master` fails
@@ -928,39 +959,103 @@ ZED-142 and refused there.
 ## D17 — under D8, evidence binds to the base as well as the head
 
 - **Date**: 2026-10-10
-- **Decided by**: the CEO, on issue ZED-168 section D. Recorded by engineering on ZED-170.
-- **Scope**: amends D8. JARVIS, for as long as D8 and D11 clause 2 are in force.
+- **Decided by**: the CEO, on issue ZED-168 §D, in the same ruling that authorised JARVIS #326.
+  Recorded by engineering on ZED-170.
+- **Scope**: amends D8. JARVIS, while D8 and D11 clause 2 are in force.
 
-**Under D8, evidence binds to the base as well as the head.** A concurrent merge that moves
-`master` does not void a head-bound run, but it does require a run of the **merge-result tree**
-before merging. The pull request head need not move to satisfy this, and should not be moved
-for it.
+> **Under D8, evidence binds to the base as well as the head.** A concurrent merge that moves
+> `master` does not void a head-bound run, but it does require a run of the **merge-result tree**
+> before merging. The pull request's head need not move to satisfy this, and should not be moved
+> for it.
 
-**The gap this closes is a literal reading that is also a true one.** D8's last clause binds
-evidence to the head SHA. On ZED-158, evidence for #326 was produced against base `d0d7ba9`;
-#327 merged as `d1f348c` while that run was still going. The head never moved, so the clause was
-satisfied exactly as written — and the tree a merge would actually create had never been run
-once. Nothing was violated and nothing was proven. That is the shape of the defect: not a rule
-broken, a rule that stopped covering the case.
+That is the rule, verbatim from the ruling. D8's head-binding clause is unchanged and is not
+reproduced here; it is now read together with this one, and D8 carries the pointer back.
 
-**D9 clause 4 does not already cover it, and it was fair to think it might.** Clause 4
-serialises *authority* — one authorisation held at a time — and its rationale even names this
-consequence, that "a concurrent merger moves `master` and invalidates it". But serialising who
-may merge does not serialise what `master` is: ZED-163 closed at 06:50:13Z, before ZED-168 was
-filed, so the authority slot was never doubly held and the bases still diverged. Clause 4 is
-necessary and is not sufficient. This entry supplies what it asserted without requiring.
+### What went past the gate
 
-**Re-running the merge-result tree is deliberately cheaper than the alternative.** The
-alternative considered was serialising every JARVIS merge behind every other one, which costs a
-full suite of latency per pull request in exchange for the same guarantee. One extra run on the
-tree you are about to create is the smaller price, and it is paid only when a base actually
-moves under you.
+On ZED-158 the D8 evidence for #326 was produced against base `d0d7ba9` — eight jobs green on both
+legs, the green baseline taken on plain `master` first, recorded at 06:52:54Z. While that evidence
+was being produced, #327 (ZED-163) merged at 06:48:58Z as `d1f348c`. The head of #326 never moved:
+it was `8982ba7` throughout, it was re-confirmed as `8982ba7`, and
+`git merge-tree --write-tree d1f348c 8982ba7` was conflict-free.
 
-**Do not move the head to satisfy this.** Rebasing to refresh the base would invalidate the
-head-bound evidence under D8's own clause and buy a second full run, and a force-push rewrites
-what reviewers already read. Run the merge-result tree instead and record it; the head stays
-where it is.
+So D8's head-binding clause was satisfied literally, and the merge would still have produced a tree
+that nothing had ever executed. *Merges cleanly* is not *was run*: `d1f348c` plus `8982ba7`'s diff
+existed only as a prediction. The recorded baseline was `d0d7ba9`, which by then was not `master`,
+and nothing on record was green for `d1f348c` itself — ZED-163's own verification was targeted
+measurement plus a new test module, sound for what it claimed and not reopened, but not the eight
+reproduced jobs.
 
-**What this forecloses.** Reading D8's head-binding clause as the whole of its evidence
-requirement, and treating a green head-bound run as sufficient when `master` has moved since it
-started. Both were available readings before today, and the first one was taken.
+### Why D9 clause 4 was not sufficient
+
+No one broke it. ZED-163 closed at 06:50:13Z, before ZED-168 was filed, so JARVIS's merge authority
+was never doubly held and clause 4's serialisation did exactly what it says.
+
+The gap is in what clause 4 serialises. It serialises **authority** — one issue at a time holds
+JARVIS merge authority — while the evidence binds to a **base** that any merge, authorised at any
+earlier time, can move. Clause 4's own rationale already asserted the consequence, *"a concurrent
+merger moves `master` and invalidates it"*, and stopped there: it named the failure without naming
+the remedy, so a holder reading it finds no instruction for the case where the slot was free the
+whole time and `master` moved anyway.
+
+This entry is that remedy, and it is deliberately the cheap one. The alternative on the table was to
+serialise every JARVIS merge against every other, which costs a queue. One extra run of a tree that
+is about to exist costs one run.
+
+### What satisfies it
+
+A run of the **merge-result tree** — the tree a merge would create, built without merging. On
+ZED-168 that was `git merge-tree --write-tree <base> <head>` and `git archive` of the resulting tree
+object, which is how both legs of a D8 run are already built. This adds a run, not an instrument.
+
+**One leg, not two.** D8's baseline clause exists to make a red result interpretable rather than
+ambiguous between the change and the host. Where a green baseline is already on record under the
+same pinned image, that purpose is served and a red merge-result run is read against it.
+
+Green, and the merge proceeds. Red, and it does not — this is evidence, not a formality, and a red
+result returns the authority to whoever granted it.
+
+**The cheapest compliant path is to merge the base into the branch.** Not rebase it — merge it. That
+makes `master` an ancestor of the head, and then the head's own tree *is* the merge-result tree.
+Verified on ZED-169/#332:
+
+```
+git merge-tree --write-tree 308a6b8 64fc21d  ->  4c3f038
+git rev-parse 64fc21d^{tree}                 ->  4c3f038
+```
+
+One run then satisfies D8's head-binding and this entry's base-binding **together**, which is
+strictly stronger than two runs: there is no interval between the tree that was executed and the
+tree that lands. The branch's original commits stay intact, so nothing a reviewer has already read
+is rewritten. This adds no obligation that the first paragraph did not already impose; it names the
+way to discharge it once instead of twice.
+
+**Re-check the base in the same minute as the merge.** The equivalence above holds only while
+`master` is still an ancestor of the head, so confirm `origin/master` is unchanged immediately
+before merging and re-run if it moved. This is the operative clause rather than a footnote: on
+ZED-169 `master` moved **four times** during a single evidence cycle, each cycle costing 5–15
+minutes, and a rule that demands a fresh run per concurrent merge is a rule nobody can satisfy at
+that rate. What stays small is the window, not the suite.
+
+That also bounds how much D9 clause 4 has to carry. Clause 4 serialises merge authority because
+evidence binds to a base a concurrent merger can move; when the evidence is a run of a tree that
+already contains `master`, a concurrent merge costs one re-run instead of invalidating the work.
+Cheap mechanism, loose queue — in that order.
+
+### The head must not be moved for this
+
+Rebasing to make the base current is the obvious wrong fix, and it is refused: it moves the head to
+a new SHA, voids head-bound evidence that is otherwise good, and buys nothing the merge-result run
+does not already give. The merge-result run is **additive** — the pull request's existing record
+stands.
+
+On ZED-168 this nearly happened by accident. A concurrent run rebased the branch's **local** ref in
+the shared worktree onto the new `master`; it was never pushed, and was reset back to the remote.
+Had it been pushed, the head would have moved and the evidence would have been void even though the
+patch was byte-identical.
+
+### Retirement
+
+This clause lives and dies with D8's head-binding clause, on D11 clause 2's terms. Once JARVIS's
+required checks run on the head again, GitHub runs them against the merge result itself, and neither
+clause needs a decision behind it.
