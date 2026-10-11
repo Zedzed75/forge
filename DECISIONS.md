@@ -19,6 +19,11 @@ origin of the ruling; **this file holds the text**, because issues close. Nothin
 else may hold a copy of it — that is D13, and it is the rule this preamble was
 previously vague about.
 
+This is the company's only policy register, not forge's. A decision whose
+subject is JARVIS is recorded here too — D8, D12 and D17 already are — and which
+repository a decision binds is its **Scope** field, never which file it sits in.
+No other repository opens a register of its own. That is D20.
+
 A decision is **not** a grant for anything it does not name. D4 in particular
 removes a merge card, not an evidence standard: a fingerprint that moves beyond
 what a PR predicted is still a stop-and-report, never a re-bless.
@@ -1169,3 +1174,97 @@ not amended: only its closing measurement is, and the number to read now is 405.
 ZED-233 stays open on §2's verbatim reproductions. It was never really a margin issue — it
 is the D13 "reference, do not restate" question, and more room in `DESIGN.md` does not
 answer it.
+
+---
+
+## D20 — one policy register, here; a decision's repository is its scope field
+
+- **Date**: 2026-10-11
+- **Decided by**: the CEO, on issue ZED-242. This withdraws the *home* half of the CEO's
+  ruling on ZED-235 and leaves the rest of that ruling standing.
+- **Scope**: both repositories, and any repository this company adds later. Standing.
+
+> **There is exactly one standing-policy register and it is this file.** A decision whose
+> subject is JARVIS is recorded here, as D8, D12 and D17 already are. Which repository a
+> decision binds is its **Scope** field; it is never which file the decision sits in. No
+> other repository opens a register of its own.
+
+### The number 19 is spent, and it is spent here
+
+`D19` — *`:latest` is not applied to JARVIS container images* — was written on ZED-235 and
+is the next entry **in this file**, between D18 and this one. It is not free. It arrives on
+the branch already open for it, not by being re-derived here, and it keeps the number: a
+decision number is an address, and renumbering it would dangle the citations ZED-235 already
+placed in `JARVIS/README.md`, `JARVIS/docs/GOTCHAS.md` and `JARVIS/MEMORY.md`.
+
+That is the whole of what ZED-242 was raised to settle, and the gap between D18 and D20 in
+this file is the reservation. Anyone counting `## D<n>` here before this entry lands sees
+`D18` as the highest and would take 19, which is exactly the failure described below.
+
+### Why the premise of the ZED-235 ruling was wrong
+
+I ruled that this file is forge's ledger and therefore the wrong home for a JARVIS-scoped
+decision. It is not forge's ledger and never was. Four entries have no forge content at all:
+
+- **D8** — *JARVIS may merge on a local Docker run of its own CI.*
+- **D11** — D8's expiry, evaluated per repository.
+- **D12** — scope line, verbatim: *"JARVIS, and any future assistant surface. Standing."*
+- **D17** — scope line, verbatim: *"amends D8. JARVIS, while D8 and D11 clause 2 are in force."*
+
+This register sits in the forge repository because that repository existed first, not as a
+claim about whose decisions it holds. D18's scope line reads *"forge"* precisely because a
+per-entry scope field is how reach has always been recorded here. So "this decision is
+JARVIS-scoped" was never an argument for moving it out: the field that says so was already
+filled in, on every entry, before ZED-235 asked the question.
+
+### Why one file and not two with a shared sequence
+
+D18 wrote the argument against a split two entries ago, and it was not about length:
+
+> Splitting the register across an era or subject boundary makes that grep answer from two
+> places and makes the duplicate-number failure *more* likely, not less.
+
+ZED-242 is that sentence coming true within the day. The sequence has to be shared, because
+JARVIS cites decisions bare — `D8`, `D11`, `D12`, `D13` — so a second series starting at
+`D1` would make every one of those citations ambiguous. But a shared sequence across two
+files means the authoritative answer to *"what is the next free number"* lives in neither of
+them. Engineering did the right grep, took the first free number, and forge's file still
+read `D18` as its highest afterwards. Closing that needs a note whose only job is to say a
+number is gone — and that is the debt this register has already paid twice: two tasks
+carrying different verbatim texts for `D9`, and a parked branch's `D5`/`D6` taken while it
+sat.
+
+D13 is the other half. Its clause is *"a decision's operative text lives in exactly one
+place: this file"*, scoped to *"both repositories, and every document that is not this
+file."* A second register cannot be reconciled with that by a pointer; it needs D13 amended.
+JARVIS's new file carried its own re-reading of D13 to bridge the gap — *"the file that
+records it"* in place of *"this file"* — a paraphrase of a clause readers act on, diverging
+from the clause, in the repository whose `MEMORY.md` is read first. That is the exact form
+D13 forbids and the exact failure of ZED-135. One register removes the need for the
+amendment and for the paraphrase with it.
+
+### Why now
+
+Because it is nearly free now and expensive later. D19's entry is still on an unmerged
+branch; nothing outside that branch links to `JARVIS/DECISIONS.md`, and no closed issue
+cites it. The same correction after the branch lands means rewriting citations in issue
+descriptions and PR bodies, which cannot be edited after the fact.
+
+### What this does not decide
+
+- **Not a reversal of D19.** Its text, scope and reasoning stand as engineering wrote them.
+  Only its address changes.
+- **Nothing about `docs/ARBITRATIONS.md`.** The `Q` register is technical arbitration, not
+  policy — a different kind of document in a different sequence, split out deliberately by
+  D18. "One register" here means one *policy* register.
+- **Nothing about where a practice is documented.** `JARVIS/README.md` and
+  `JARVIS/docs/GOTCHAS.md` own the operational detail of the image-tagging practice and keep
+  it. Under D13 they name D19 and point here; which file D19 is in does not change that.
+- **Not a claim that JARVIS has no documents of record.** `JARVIS/MEMORY.md` is JARVIS's
+  state tracker and stays exactly that. What it may not become is a second numbered register.
+
+### Finding the next free number
+
+Unchanged, and now answerable from one place: grep `origin/master:DECISIONS.md` in the forge
+repository for the highest `## D<n>` and take `n + 1`. Do it before recording an entry **and**
+before rebasing a branch that records one.
