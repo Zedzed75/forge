@@ -1,4 +1,4 @@
-"""The semantic-equivalence harness, and the proof that it does what it claims.
+"""What the fingerprint does to a generated tree: blind to prose, sensitive to structure.
 
 Comments in this module are in English: new test infrastructure, no French
 precedent, and no effect on generated output.
@@ -13,6 +13,12 @@ Two things are tested here, and the second matters as much as the first:
    that works, so the sensitivity half is asserted explicitly -- notably the
    `notify:` / handler-name correspondence, the one silent breakage a
    translation can introduce that no validator would catch.
+
+Every test below works the same way: fingerprint a real generated tree, deface
+one file of it, and fingerprint it again. The assumptions the reduction itself
+rests on -- the positional `name` rules, the classification, the pinned prose-key
+set -- are in `tests/test_fingerprint_rules.py`, which drives them directly
+instead of through a tree. The two were one module until ZED-223.
 
 Re-blessing the stored fingerprints, after a change whose structural effect has
 been reviewed and is intended:
@@ -30,31 +36,20 @@ import shutil
 from pathlib import Path
 
 import pytest
-import yaml
 
 from tests import fingerprint as fp
-from tests.conftest import GOLDEN_DIR, render_all_plugins, spec_files, stable_text
-
-#: One case per reference spec, as in the golden harness.
-CASES = [path.stem for path in spec_files()]
-
-#: Tree used by the sensitivity tests: the only reference case carrying both an
-#: Ansible project (handlers and `notify:`) and a Helm chart (helpers).
-MIXED_CASE = "two-domains"
-
-#: Tree used by the GitHub Actions tests: the reference case whose repository
-#: root is a workflow, with several jobs and a step label in each.
-WORKFLOW_CASE = "pipeline-github"
-
-#: The workflow of `WORKFLOW_CASE`, which carries all three kinds of `name:`.
-WORKFLOW = ".github/workflows/ci.yml"
-
-#: Files of `MIXED_CASE` the sensitivity tests edit.
-HANDLERS = "ansible/roles/postgresql/handlers/main.yml"
-TASKS = "ansible/roles/postgresql/tasks/main.yml"
-RULES = "ansible/roles/firewall/tasks/ufw.yml"
-GROUP_VARS = "ansible/group_vars/all.yml"
-CHART_TEMPLATE = "helm/charts/storefront/templates/deployment-api.yaml"
+from tests.conftest import GOLDEN_DIR, render_all_plugins, spec_files
+from tests.fingerprint_cases import (
+    CASES,
+    CHART_TEMPLATE,
+    GROUP_VARS,
+    HANDLERS,
+    MIXED_CASE,
+    RULES,
+    TASKS,
+    WORKFLOW,
+    WORKFLOW_CASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +60,7 @@ CHART_TEMPLATE = "helm/charts/storefront/templates/deployment-api.yaml"
 @pytest.fixture(scope="session")
 def rendered_trees(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     """Every reference spec rendered once: a copier run costs a few seconds."""
-    root = tmp_path_factory.mktemp("empreintes")
+    root = tmp_path_factory.mktemp("fingerprints")
     trees = {}
     for path in spec_files():
         trees[path.stem] = render_all_plugins(path, root / path.stem)
@@ -435,279 +430,3 @@ def test_an_added_and_a_removed_file_are_both_reported(tree):
     report = _changed(tree, reference)
     assert any(line.startswith("added: ansible/extra.yml") for line in report), report
     assert any(line.startswith(f"removed: {HANDLERS}") for line in report), report
-
-
-def test_a_terraform_variable_description_is_prose_but_its_default_is_not():
-    """Both halves of the one normalisation applied to HCL, on the same file."""
-    tree = GOLDEN_DIR / "terraform-full"
-    relative = Path("terraform/environments/dev/variables.tf")
-    _, canonical = fp.canonical_text(tree, relative)
-    assert f'description = "{fp.PROSE}"' in canonical
-    assert "description = " in canonical  # the argument itself is still compared
-    assert '"~/.kube/config"' in canonical  # a default value is untouched
-
-
-# ---------------------------------------------------------------------------
-# Guards on the assumptions the reductions rest on
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("case", CASES)
-def test_chart_templates_carry_no_full_line_hash_comment(case):
-    """Justifies not stripping `#` comments from Helm templates.
-
-    Those files do not parse as YAML, so a `#` line cannot be told apart from
-    data inside a block scalar. Today the generated chart templates put all
-    their commentary in `{{/* ... */}}`, so nothing is lost by leaving `#` lines
-    alone. The day a template gains one, this test fails and the decision gets
-    made deliberately instead of silently going loose.
-    """
-    root = GOLDEN_DIR / case
-    offenders = []
-    for relative in fp.tree_paths(root):
-        if not (relative.suffix == ".tpl" or fp._is_chart_template(root, relative)):
-            continue
-        lines = stable_text(root / relative).splitlines()
-        offenders.extend(
-            f"{relative.as_posix()}:{number}" for number, line in enumerate(lines, 1)
-            if line.strip().startswith("#")
-        )
-    assert not offenders, offenders
-
-
-@pytest.mark.parametrize("case", CASES)
-def test_annotation_mappings_in_parsed_yaml_hold_no_unknown_prose(case):
-    """Justifies not normalising Kubernetes annotation values wholesale.
-
-    The reasoning in `tests/fingerprint.py` is that the only prose annotations
-    reaching the parsed-YAML path are `summary` and `description`, already
-    covered by the prose-key rule, while every other annotation value is
-    behaviour. This test states that as a fact about the golden trees, so a new
-    prose annotation forces the judgement call to be revisited.
-
-    Only string values count. A Grafana dashboard has an `annotations: {list:
-    [...]}` block of its own, unrelated to Kubernetes and not prose.
-
-    The two names are spelled out rather than read from `fp.PROSE_KEYS`. That
-    set holds the prose keys of the whole project, including ones that exist
-    nowhere near an `annotations:` mapping -- `project_description` lives in an
-    Ansible `group_vars` file. Deriving the tolerated names from it would let a
-    key added for some other file quietly widen this guard, which is the
-    opposite of what it is for.
-    """
-    root = GOLDEN_DIR / case
-    known = {"description", "summary"}
-    unexpected: list[str] = []
-    for relative in fp.tree_paths(root):
-        if fp.classify(root, relative) != fp.STRUCTURED:
-            continue
-        documents = fp._parsed_documents(root, relative)
-        if documents is None:
-            continue
-        for document in documents:
-            for pointer, mapping in fp._walk_mappings(document, relative.as_posix()):
-                annotations = mapping.get("annotations")
-                if not isinstance(annotations, dict):
-                    continue
-                unexpected.extend(
-                    f"{pointer}/annotations/{key}"
-                    for key, value in annotations.items()
-                    if key not in known and isinstance(value, str)
-                )
-    assert not unexpected, unexpected
-
-
-def test_the_prose_key_set_is_pinned():
-    """Widening `PROSE_KEYS` has to be a decision, not a way to get to green.
-
-    Every name in this set is a field the fingerprint stops looking at, so the
-    set is the one place in the module where adding a line *removes* a claim a
-    reviewer would otherwise have had to examine. The cheapest way to make a
-    tripped fingerprint go away is to add the key that tripped it, and nothing
-    about that edit looks like a weakening of the harness when it arrives in a
-    diff of translated templates.
-
-    So the membership is stated here, where changing it is visibly a change to
-    what the suite asserts. The reasoning for each name, and for the four
-    `service.owner` keys deliberately left out, is next to `PROSE_KEYS` itself.
-    """
-    assert set(fp.PROSE_KEYS) == {"description", "summary", "project_description"}
-
-
-def _prose_values(node: object) -> set[str]:
-    """Every non-empty string a spec puts under a prose key, at any depth."""
-    found: set[str] = set()
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key in fp.PROSE_KEYS and isinstance(value, str) and value.strip():
-                found.add(value)
-            else:
-                found |= _prose_values(value)
-    elif isinstance(node, list):
-        for item in node:
-            found |= _prose_values(item)
-    return found
-
-
-def test_every_prose_alias_in_a_parsed_document_is_a_known_prose_key():
-    """The audit behind `project_description`, kept honest across the trees.
-
-    `PROSE_KEYS` matches on the key name, so a prose spec field emitted under a
-    *different* name is compared verbatim until someone notices. That is the
-    defect this set was widened to fix, and noticing it took a selective revert
-    of nine specs. This test does the noticing instead: it takes the prose
-    values out of each reference spec and looks for them in the parsed documents
-    of the matching golden tree, under any key that is not a prose key.
-
-    A hit is not necessarily a bug -- it is a place where rewording the spec
-    moves a structural fingerprint. Either the key belongs in `PROSE_KEYS`, or
-    the value is load-bearing there and the exception has to be argued.
-
-    Scope: values the *spec* already calls prose, by sitting under a prose key
-    at any depth -- `service.description`, `role.summary`, `alert.summary`.
-    `service.owner` is not among them and is not meant to be; it is an
-    identifier, and the reasoning is next to `PROSE_KEYS`.
-    """
-    unexpected: list[str] = []
-    for path in spec_files():
-        prose = _prose_values(yaml.safe_load(path.read_text(encoding="utf-8")))
-        if not prose:
-            continue
-        root = GOLDEN_DIR / path.stem
-        for relative in fp.tree_paths(root):
-            if fp.classify(root, relative) != fp.STRUCTURED:
-                continue
-            documents = fp._parsed_documents(root, relative)
-            if documents is None:
-                continue
-            for document in documents:
-                for pointer, mapping in fp._walk_mappings(document, relative.as_posix()):
-                    unexpected.extend(
-                        f"{path.stem}: {pointer}/{key}"
-                        for key, value in mapping.items()
-                        if isinstance(value, str)
-                        and value in prose
-                        and key not in fp.PROSE_KEYS
-                    )
-    assert not unexpected, unexpected
-
-
-def test_the_classification_covers_every_file_of_every_golden_tree():
-    """No file falls through to `text` by accident because a suffix was missed."""
-    seen: dict[str, set[str]] = {}
-    for case in CASES:
-        root = GOLDEN_DIR / case
-        for relative in fp.tree_paths(root):
-            seen.setdefault(fp.classify(root, relative), set()).add(
-                relative.suffix or relative.name
-            )
-    assert set(seen) == {fp.STRUCTURED, fp.TEMPLATE, fp.PROSE_KIND, fp.TEXT}
-    # The `text` kind is the fallback, so its membership is pinned: a new suffix
-    # landing there has to be looked at rather than absorbed.
-    assert seen[fp.TEXT] == {
-        ".cfg",
-        ".gitattributes",
-        ".gitignore",
-        ".helmignore",
-        ".hcl",
-        ".j2",
-        ".tf",
-        ".tfvars",
-        "Makefile",
-    }
-
-
-def test_a_yaml_file_that_stops_parsing_is_reported_as_such(tmp_path):
-    """The structured/template fallback is recorded, never silently absorbed."""
-    tree = tmp_path / "tree"
-    tree.mkdir()
-    path = tree / "thing.yml"
-    path.write_text("key: value\n", encoding="utf-8")
-    assert fp.canonical_text(tree, Path("thing.yml"))[0] == fp.STRUCTURED
-
-    path.write_text("key: value\n  bad: indentation\n", encoding="utf-8")
-    kind, _ = fp.canonical_text(tree, Path("thing.yml"))
-    assert kind == f"{fp.TEMPLATE}(unparsed-yaml)"
-
-
-def test_an_ansible_task_name_is_normalised_but_a_manifest_name_is_not(tmp_path):
-    """Unit check on the positional rule, away from any generated tree."""
-    tree = tmp_path / "tree"
-    (tree / "roles" / "x" / "tasks").mkdir(parents=True)
-    (tree / "roles" / "x" / "tasks" / "main.yml").write_text(
-        "---\n"
-        "- name: Install the package\n"
-        "  ansible.builtin.package:\n"
-        "    name: nginx\n"
-        "  block: []\n",
-        encoding="utf-8",
-    )
-    _, canonical = fp.canonical_text(tree, Path("roles/x/tasks/main.yml"))
-    structure = yaml.safe_load(canonical)[0][0]
-    assert structure["name"] == fp.PROSE
-    assert structure["ansible.builtin.package"]["name"] == "nginx"
-
-    # The same document outside a tasks/ directory keeps its `name`.
-    (tree / "elsewhere.yml").write_text(
-        "---\n- name: Install the package\n  ansible.builtin.package:\n    name: nginx\n",
-        encoding="utf-8",
-    )
-    _, canonical = fp.canonical_text(tree, Path("elsewhere.yml"))
-    assert yaml.safe_load(canonical)[0][0]["name"] == "Install the package"
-
-
-#: A workflow carrying all four `name:` keys the positional rule has to tell
-#: apart: the workflow's own, a job's, a step's, and an action argument's.
-_WORKFLOW = """---
-name: Integration
-on: [push]
-jobs:
-  check:
-    name: Check the repository
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-      - name: Publish the report
-        uses: actions/upload-artifact@v4
-        with:
-          name: report
-"""
-
-
-def _workflow_structure(tree: Path, relative: str) -> dict:
-    path = tree / relative
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_WORKFLOW, encoding="utf-8", newline="\n")
-    _, canonical = fp.canonical_text(tree, Path(relative))
-    return yaml.safe_load(canonical)[0]
-
-
-def test_a_github_actions_step_name_is_normalised_but_its_neighbours_are_not(tmp_path):
-    """Unit check on the positional rule, away from any generated tree.
-
-    One document, four `name:` keys, one of them prose. The rule is positional
-    and not "a key called `name` under `.github/`" precisely so the other three
-    survive: a file elsewhere in `.github/` -- `dependabot.yml`, an issue
-    template -- would otherwise be normalised too, and there a `name` is an
-    identifier again.
-    """
-    tree = tmp_path / "tree"
-    tree.mkdir()
-
-    structure = _workflow_structure(tree, ".github/workflows/ci.yml")
-    job = structure["jobs"]["check"]
-    assert job["steps"][0]["name"] == fp.PROSE
-    assert job["steps"][1]["name"] == fp.PROSE
-    # The three neighbours, all identifiers, all compared verbatim.
-    assert structure["name"] == "Integration"
-    assert job["name"] == "Check the repository"
-    assert job["steps"][1]["with"]["name"] == "report"
-
-    # Same bytes, one directory away: nothing is normalised at all.
-    elsewhere = _workflow_structure(tree, ".github/dependabot.yml")
-    assert elsewhere["jobs"]["check"]["steps"][0]["name"] == "Check out the repository"
-
-    # And a workflow-shaped file in a subdirectory of `.github/workflows/`,
-    # which GitHub does not read either.
-    nested = _workflow_structure(tree, ".github/workflows/parked/ci.yml")
-    assert nested["jobs"]["check"]["steps"][0]["name"] == "Check out the repository"

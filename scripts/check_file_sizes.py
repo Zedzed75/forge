@@ -68,10 +68,10 @@ TRACKED_PROSE = (
     "docs/REPOSITORY-TREE.md",
 )
 
-# The debt that existed when this gate was written, frozen rather than waived.
+# Debt frozen rather than waived: `{repo-relative path: line count measured}`.
 #
-# Each entry is the line count measured at `4a8d7cd`. The gate enforces **both
-# directions** against it, which is what makes this a ratchet and not a hole:
+# The gate enforces **both directions** against each entry, which is what makes
+# this a ratchet and not a hole:
 #
 # * a file here that has grown past its recorded count fails, so the debt
 #   cannot quietly get worse while it waits for its issue;
@@ -81,10 +81,13 @@ TRACKED_PROSE = (
 #
 # Adding an entry is therefore a deliberate act with a visible cost, and the
 # table shrinks to empty on its own as the issues land.
-KNOWN_OVERSIZE = {
-    "tests/fingerprint.py": 857,  # ZED-223
-    "tests/test_fingerprint.py": 713,  # ZED-223
-}
+#
+# It is empty because that happened. The gate shipped holding the two files of
+# ZED-223 at 857 and 713 lines; the split landed, both dropped under the cap,
+# and the second rule above is what turned their entries from a waiver into a
+# failing build until they were deleted. Every branch of the mechanism is still
+# tested, against synthetic tables, in `tests/test_file_size_gate.py`.
+KNOWN_OVERSIZE: dict[str, int] = {}
 
 
 def count_lines(path: Path) -> int:
