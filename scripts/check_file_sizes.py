@@ -34,8 +34,11 @@ What is deliberately *not* here:
 
 `DESIGN.md` was the other half of ZED-226 and got the opposite answer, for the
 reason that it is a design document rather than a ledger: it was split (D18).
-Its `Q` register is now `docs/ARBITRATIONS.md` and its observed-tree record
-`docs/REPOSITORY-TREE.md`, and all three files are named below. `docs/` is
+Its `Q` register is now `docs/ARBITRATIONS.md`, its observed-tree record
+`docs/REPOSITORY-TREE.md`, and its `forge.yml` schema reference
+`docs/FORGE-YML.md` - that last one by ZED-236, because the first split left it
+598 lines from a 600-line warning and a two-line margin on a file still being
+edited is not a margin. All four files are named below. `docs/` is
 outside SCAN_DIRS, so a register there is capped only because it is listed.
 """
 
@@ -65,6 +68,7 @@ TRACKED_PROSE = (
     "CHANGELOG.md",
     "DESIGN.md",
     "docs/ARBITRATIONS.md",
+    "docs/FORGE-YML.md",
     "docs/REPOSITORY-TREE.md",
 )
 

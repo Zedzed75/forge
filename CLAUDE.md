@@ -62,11 +62,13 @@ Helm chart together is one possible use, not the normal one.
 - **600 lines per file**, warned at 601-700 and failed above 700, enforced by
   `scripts/check_file_sizes.py` as a step of the `tests` job. It sweeps `*.py` under
   `src/` and `tests/`, and the prose registers it names one at a time — not `tests/golden/`,
-  which is generated output, and not the community docs. Two files predate the gate and sit
-  in its `KNOWN_OVERSIZE` table (ZED-223); that table is a ratchet, not a waiver — an entry
-  that grows fails, and an entry that drops under the cap also fails, so it has to be
-  deleted once its split lands. DECISIONS.md and DESIGN.md are over the cap and
-  deliberately untracked pending ZED-226.
+  which is generated output, and not the community docs. Its `KNOWN_OVERSIZE` table is
+  empty and that is the point: the table is a ratchet, not a waiver — an entry that grows
+  fails, and an entry that drops under the cap also fails, so ZED-223's two entries had to
+  be deleted once their split landed. DECISIONS.md is **exempt** rather than listed (D18:
+  an append-only register cited by number), and DESIGN.md is listed and was split instead —
+  its §3, §8 and §9 are pointers to docs/FORGE-YML.md, docs/ARBITRATIONS.md and
+  docs/REPOSITORY-TREE.md, which are listed too.
 
 ## Token economy (important)
 - Read PLAN.md (and MIGRATION.md when porting) at session start; work on exactly one
