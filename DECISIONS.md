@@ -3,8 +3,16 @@
 Standing policy decisions, numbered `D1`, `D2`, … Each one is in force until a
 later decision recorded here replaces it. They are **policy**: what engineering
 may do, what the board decides, what a given name or language is. The technical
-arbitrations of the architecture (`Q1` … `Q9` — delimiters, `copier.yml` layout,
-inter-domain checks) are a different thing and live in `DESIGN.md` §8.
+arbitrations of the architecture (`Q1` … `Q11` — delimiters, `copier.yml` layout,
+inter-domain checks) are a different thing and live in `docs/ARBITRATIONS.md`
+(`DESIGN.md` §8 until D18).
+
+**This file is exempt from forge's file-size cap, deliberately, and that is D18.**
+It is append-only and cited by number; `scripts/check_file_sizes.py` therefore
+does not list it in `TRACKED_PROSE` and must not. Do not split it to get under a
+threshold, and do not add it to `KNOWN_OVERSIZE` either — that table is a ratchet
+for debt that will be paid. The reasoning is in D18; read it before re-opening
+this.
 
 Where a decision is cited in an issue thread, the issue is linked below as the
 origin of the ruling; **this file holds the text**, because issues close. Nothing
@@ -1065,3 +1073,83 @@ patch was byte-identical.
 This clause lives and dies with D8's head-binding clause, on D11 clause 2's terms. Once JARVIS's
 required checks run on the head again, GitHub runs them against the merge result itself, and neither
 clause needs a decision behind it.
+
+---
+
+## D18 — `DECISIONS.md` is exempt from the file-size cap; `DESIGN.md` §8 is split out
+
+- **Date**: 2026-10-11
+- **Decided by**: the CEO, on issue ZED-226. Recorded by engineering on the same issue.
+- **Scope**: forge. Standing, for as long as the file-size gate exists.
+
+> **A numbered, append-only register that is cited by number is exempt from the
+> file-size cap. A design document is not.** `DECISIONS.md` is exempt and says so
+> about itself. `DESIGN.md`'s `Q` register — its §8 technical arbitrations — moves to
+> `docs/ARBITRATIONS.md`, keeping every question identifier, with §8 left as a pointer.
+
+That is the rule. The two halves are deliberately different answers, because the two
+files are different kinds of document.
+
+### Why `DECISIONS.md` is exempt rather than split
+
+The cap exists to stop debt accumulating in files people have to **read and change**.
+Nobody edits the middle of this file; entries are appended and amended in place, and
+D1 … D17 cannot be refactored — a decision number is an address.
+
+The one real failure this register has already produced was a *numbering* failure, not
+a length failure: two tasks once carried different verbatim texts for D9, and a parked
+PR's D5/D6 were taken by other decisions while it sat on a branch. The mitigation is
+"grep `origin/master` for the number before recording **or rebasing**". Splitting the
+register across an era or subject boundary makes that grep answer from two places and
+makes the duplicate-number failure *more* likely, not less. A split would also break
+every citation of a moved number already written into CLAUDE.md, issue descriptions and
+PR bodies — and those are not editable after the fact.
+
+The exemption's form is **absence from `TRACKED_PROSE`** in
+`scripts/check_file_sizes.py`, which is where that gate reads its list of capped
+registers. Not `KNOWN_OVERSIZE`: that table is a two-directional ratchet that fails
+when a file *drops* back under the cap, so it is for debt that will be paid. An
+exemption is not debt. The gate's docstring and this file's preamble both name the
+exemption, so it cannot be re-litigated from either end.
+
+Precedent: JARVIS's `config/persona.md` is deliberately uncapped for the analogous
+reason — it is a prompt the assistant runs on, where length is a design choice.
+
+### Why `DESIGN.md` is split rather than exempted
+
+`DESIGN.md` is not a ledger. It is a design document that is read forward, edited, and
+therefore exactly what the cap is for; at 961 lines it was past the 700-line hard
+threshold. And §8 was already described everywhere else as a *separate* register —
+CLAUDE.md's own sentence called it "the other register — technical arbitrations
+(Q1 …), not policy". Extracting it matches how the project already talks about it, and
+it is the inactive-by-reference part: a settled record, not a plan.
+
+What moved, and where:
+
+| From | To | Why |
+| --- | --- | --- |
+| `DESIGN.md` §8 (297 lines, Q1 … Q11) | `docs/ARBITRATIONS.md` | the `Q` register, already named as separate |
+| `DESIGN.md` §9 (48 lines, observed tree + divergences) | `docs/REPOSITORY-TREE.md` | a record of what the tree turned out to be, labelled "no longer planned" |
+| `DESIGN.md` §3.1 (21 lines, legacy-spec correspondence) | `MIGRATION.md` | a record of a `_legacy/` that no longer exists — MIGRATION.md's stated remit |
+
+§8 alone would have left `DESIGN.md` at 664 lines: under the 700 hard threshold, over
+the 600 warning one. That is the outcome nobody notices until it drifts again, so the
+two further records went with it. All three section numbers survive in `DESIGN.md` as
+one-line pointers, so no inbound citation of "§8 Q2-bis", "§9" or "§3.1" dangles.
+
+`DESIGN.md`, `docs/ARBITRATIONS.md` and `docs/REPOSITORY-TREE.md` are all named in
+`TRACKED_PROSE`, which is the half of this that makes the outcome enforced rather than
+remembered: `docs/` is outside the gate's `SCAN_DIRS`, so a register there is capped
+only if it is listed.
+
+### What this does not decide
+
+Nothing about `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` or `SECURITY.md` —
+community documentation, outside `TRACKED_PROSE` because it was never a register we
+chose to cap, which is a different thing from an exemption. And nothing about
+`tests/golden/**`, which is generated output.
+
+`DESIGN.md` lands at 598 lines, two under the warning threshold. That margin is thin
+and the next real addition to it will trip the warning; §2's 160 lines of verbatim
+`types.py` / `hookspecs.py` reproductions are the obvious next candidate, and a D13
+"reference, do not restate" candidate besides. Filed rather than done here.

@@ -23,11 +23,20 @@ What is deliberately *not* here:
   pushed back on them would be the rule editing the product.
 * `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` are
   community and user documentation rather than registers we chose to cap.
-* `DECISIONS.md` (1067) and `DESIGN.md` (961) are over the cap today. They are
-  absent from TRACKED_PROSE on purpose and filed as ZED-226 instead of being
-  waived below, because the choice between splitting them and recording an
-  exemption is a standing policy decision with a different owner - and a reason
-  buried in a waiver table is a reason nobody reads.
+* `DECISIONS.md` is **exempt**, and that is D18 rather than a waiver below. It
+  is an append-only register cited by number: nobody edits its middle, a
+  decision number is an address, and splitting it would make the duplicate-number
+  failure it has already produced once *more* likely rather than less. Its own
+  preamble states the exemption, so neither end can re-litigate it alone. The
+  exemption's form is exactly this - absence from TRACKED_PROSE - and it is
+  deliberately *not* a KNOWN_OVERSIZE entry, because that table is a ratchet for
+  debt that will be paid and an exemption is not debt.
+
+`DESIGN.md` was the other half of ZED-226 and got the opposite answer, for the
+reason that it is a design document rather than a ledger: it was split (D18).
+Its `Q` register is now `docs/ARBITRATIONS.md` and its observed-tree record
+`docs/REPOSITORY-TREE.md`, and all three files are named below. `docs/` is
+outside SCAN_DIRS, so a register there is capped only because it is listed.
 """
 
 from __future__ import annotations
@@ -47,11 +56,16 @@ EXCLUDED_PREFIXES = ("tests/golden/",)
 # Registers that cap themselves. Each one named, so a rename is a deliberate
 # edit of this tuple rather than a silent change of scope - a path listed here
 # that does not exist is a failure.
+# `DECISIONS.md` is absent on purpose and that absence is the exemption - see the
+# module docstring and D18. Do not add it.
 TRACKED_PROSE = (
     "CLAUDE.md",
     "PLAN.md",
     "MIGRATION.md",
     "CHANGELOG.md",
+    "DESIGN.md",
+    "docs/ARBITRATIONS.md",
+    "docs/REPOSITORY-TREE.md",
 )
 
 # The debt that existed when this gate was written, frozen rather than waived.
