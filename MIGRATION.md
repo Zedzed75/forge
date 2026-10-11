@@ -462,3 +462,31 @@ no snapshot. It is the real validators that played that role there, and they
 found what no parity would have seen: `tflint` reported a variable declared and
 never used, `promtool` showed that frozen test series proved nothing as soon as
 the threshold changed.
+
+## Correspondence with the legacy specs
+
+Moved here from `DESIGN.md` §3.1 by ZED-226. It belongs in this file by
+CLAUDE.md's own description of it — the merged duplicates, the arbitrations,
+the assumed divergences — and `DESIGN.md` was over the file-size cap.
+
+| Legacy field | Origin | Target in `forge.yml` |
+|---|---|---|
+| `project_name` | ansible | `service.name` |
+| `description`, `author` | ansible | `service.description`, `service.owner` |
+| `environments[].name` | ansible | `service.environments[].name` |
+| `environments[].hosts` | ansible | `ansible.hosts.<env>` |
+| `environments[].group_vars` | ansible | `ansible.group_vars.<env>` |
+| `groups`, `roles`, `options`, `os_family`, `remote_user`, `become`, `ssh_port`, `python_interpreter` | ansible | `ansible:` section, identical |
+| `spec_version` | ansible | `forge_version` (unified) |
+| `app.name` | helm | `service.name` |
+| `app.description`, `app.maintainer_*` | helm | `service.description`, `service.owner`, `service.owner_email` |
+| `app.chart_version`, `app.app_version` | helm | `helm.chart_version`, `helm.app_version` |
+| `environments[].name` | helm | `service.environments[].name` |
+| `environments[].namespace`, `.log_level`, `.components`, `.extra_values` | helm | `helm.environments.<env>` (overrides) |
+| `kubernetes`, `layout`, `namespace_strategy`, `create_namespace`, `image`, `components`, `secrets`, `extras` | helm | `helm:` section, identical |
+| `schema_version` | helm | `forge_version` (unified) |
+
+Converter: **not needed in production** (no legacy `forge.yml` exists outside
+the original repositories), but a **test** helper `tests/legacy_spec.py` will
+convert the 5 ansible specs and the 2 helm specs to feed the parity snapshots of
+phases 3 and 4.
