@@ -15,6 +15,15 @@ cd forge
 uv sync --extra dev
 ```
 
+**On Windows, clone into a short path.** forge tracks a 200-character path — an
+Ansible inventory template whose file name carries two `yield` tags — and Windows
+caps a path at 260, so a destination directory longer than 58 characters fails at
+checkout with `Filename too long`: the clone reports success, the working tree is
+missing files. Keep the checkout near the drive root (`C:\src\forge`), or run
+`git config --global core.longpaths true` before cloning. `core.longpaths` set
+locally on an existing checkout is per-repository; a fresh clone does not inherit
+it.
+
 `uv sync` creates `.venv/` in the repository root and installs forge in editable
 mode. Activate it (`source .venv/bin/activate`, or `.venv\Scripts\activate` on
 Windows), or prefix every command with `uv run`.
