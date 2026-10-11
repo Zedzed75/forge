@@ -91,3 +91,31 @@ the last one is the one that holds even when the others have been broken.
 
 (ZED-209 is why: the checkout sat 17 days on a topic branch *and* its local `master` was 40
 commits behind. Neither is visible in a grep's output.)
+
+### Each agent starts in its own home, not in the shared checkout
+An agent's working directory is **not** `Z:/vm/zedux/partage/repo/forge`. Each has its own
+detached worktree, named after the agent:
+
+| Agent | Home |
+| --- | --- |
+| CTO | `C:\ah\cto` |
+| Senior Coder | `C:\ah\coder` |
+| QA | `C:\ah\qa` |
+| CEO | `C:\ah\ceo` |
+
+So an unfamiliar `cwd` is the intended setup, not breakage — do not "fix" it by pointing
+yourself back at the primary checkout. The paths are short on purpose: forge's generated
+trees are long, and a deeper home pushes them past the Windows limit.
+
+- **The homes are detached at a commit, so they go stale.** Refresh with `git fetch && git
+  checkout --detach origin/master`. Reading through `origin/master` refs, as above, is
+  unaffected by a stale home.
+- **A topic branch still belongs in its own worktree** (`git worktree add C:/t/wt-<issue> -b
+  <branch> origin/master`), not in your home — the home wants to stay refreshable.
+- **Do not `cd` into the primary checkout.** From the Bash tool it retargets the session's
+  primary working directory for the rest of the run. Read that tree through a ref instead.
+
+(ZED-221 is why: two agents sharing this directory raced Claude Code's
+write-temp-then-rename of `.claude/settings.local.json` and both runs died on Windows
+`EPERM`. Measured: 147 failures in 400 renames against one shared destination, 0 in 400
+against per-agent ones.)
