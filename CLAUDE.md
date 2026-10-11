@@ -30,7 +30,7 @@ Helm chart together is one possible use, not the normal one.
 - Rendering and updates go through copier (library mode). Never hand-roll rendering.
 - Anything the renderer reads must reach the wheel: under `src/forge/`, or in the
   `force-include` table of `pyproject.toml`. The template root is the repo root from a
-  checkout and `site-packages/forge/` from an install (DESIGN.md §8 Q2-bis). Get this
+  checkout and `site-packages/forge/` from an install (Q2-bis, docs/ARBITRATIONS.md). Get this
   wrong and an installed forge cannot generate while every test still passes — they all
   run from a checkout.
 - Plugin contract via pluggy hooks. Adding a domain must not require touching core.
@@ -49,10 +49,12 @@ Helm chart together is one possible use, not the normal one.
 - Standing policy decisions are numbered D1, D2, … in **DECISIONS.md** — the published
   package name, the language rule, and what engineering merges without a confirmation
   card. Read it before asking the board to confirm anything: D4 and its three carve-outs
-  say exactly which changes still need a card. DESIGN.md §8 is the other register —
-  technical arbitrations (Q1 …), not policy.
+  say exactly which changes still need a card. **docs/ARBITRATIONS.md** is the other
+  register — technical arbitrations (Q1 …), not policy. It was DESIGN.md §8 until D18
+  split it out; §8 is now a pointer, so an older citation of "DESIGN.md §8 Qn" still
+  resolves, but cite the file.
 - ALL plugin templates use copier custom delimiters [[ ]] / [% %] / [# #] (decision Q1,
-  DESIGN.md §8): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
+  docs/ARBITRATIONS.md): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
   copier.yml, so one set of delimiters. Never write {{ }} meaning "generator variable".
 - `_legacy/` **is gone** (deleted in phase 10, with the parity snapshots and their
   tests). MIGRATION.md is what remains of it: the merged duplicates, the
