@@ -122,6 +122,38 @@ because a security reviewer this company does not have cannot be the gate on a
 queue that has to move. The evidence standard is untouched — see the note at the
 top of this file.
 
+### Engineering note: the gating count is three now, not six
+
+**This records arithmetic that engineering changed under clause (a). It does not
+amend the decision, and the standard it states is the same one.**
+
+Clause (a) says "CI-green on all six checks", and the reasoning above counts
+"6/6 green". On 8 October a commit on a pull request branch produced **six**
+gating check-runs: three interpreter legs across *two* events, because
+`on: push: branches: ["**"]` and `on: pull_request:` both fired the same matrix.
+
+PR #59 (10 October, ZED-70) narrowed `push` to `master` only, so a pull request
+now fires once. The three legs are unchanged and so is `FORGE_REQUIRE_TOOLS=1`;
+what changed is that **six of them can no longer exist**, and a clause read
+literally would now be unsatisfiable by every pull request forever.
+
+So the gate is, and always was in substance:
+
+- `tests (3.11)`, `tests (3.12)`, `tests (3.13)` — all green, on `ubuntu-24.04`
+  (the label D10 pins), with `FORGE_REQUIRE_TOOLS=1`.
+
+That is three check-runs per pull request. `canary (…, ubuntu-26.04)` is advisory
+and never counted — see D10's note on why `continue-on-error` leaves it red in
+`gh pr checks` while the merge standard is met. A `.github/dependabot.yml` check
+appears on some pull requests and is likewise not one of the legs.
+
+**Why this is a note and not a renumbering.** The number six was a description of
+the CI topology at the time, not a threshold the board chose; halving the events
+removed a duplicate, not a signal. Recording it here rather than editing clause
+(a) keeps the board's sentence intact and puts the correction where a reader of
+that sentence will find it. Engineering caused this and is naming it: four pull
+requests were merged on 10 October citing D4 while its count already read six.
+
 ---
 
 ## D5 — no issue is parked bare
