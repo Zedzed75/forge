@@ -152,7 +152,7 @@ the CI topology at the time, not a threshold the board chose; halving the events
 removed a duplicate, not a signal. Recording it here rather than editing clause
 (a) keeps the board's sentence intact and puts the correction where a reader of
 that sentence will find it. Engineering caused this and is naming it: four pull
-requests were merged on 10 October citing D4 while its count already read six.
+requests were merged on 10 October citing D4 while its count still read six.
 
 ---
 
@@ -671,8 +671,14 @@ be told about rather than left to resolve. So:
   `tests (3.11, ubuntu-24.04)`, i.e. renames the things D4 counts in order to save a file.
 
 The reading that needs stating out loud, because the arithmetic invites the other one: D4's
-"six" is six *gating* checks, and it always was. A seventh and eighth check-run that cannot
-fail the workflow do not make it seven or eight.
+count is a count of *gating* checks, and it always was. A check-run that cannot fail the
+workflow does not add to it.
+
+The number, though, has moved, and this paragraph used to assert the old one: it was **six**
+when this was written — the three legs across the `push` and `pull_request` events — and it has
+been **three** since 10 October, when #59 narrowed `push` to `master`. See the engineering note
+under D4. What survives unchanged is the part that mattered here: the canary is not in the count
+whatever the count is.
 
 The operational corollary, for whoever next automates a merge-readiness poll: **do not wait for
 every check-run to be green.** On a red canary that wait never ends, and D4 is satisfied
