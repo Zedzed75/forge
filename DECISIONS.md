@@ -1152,4 +1152,7 @@ chose to cap, which is a different thing from an exemption. And nothing about
 `DESIGN.md` lands at 598 lines, two under the warning threshold. That margin is thin
 and the next real addition to it will trip the warning; §2's 160 lines of verbatim
 `types.py` / `hookspecs.py` reproductions are the obvious next candidate, and a D13
-"reference, do not restate" candidate besides. Filed rather than done here.
+"reference, do not restate" candidate besides — a second copy of the plugin contract
+with nothing keeping it in step with `src/`. Filed as ZED-233 rather than folded in
+here, because what replaces those blocks (a pointer, a move, or a generated form with
+a drift check) is a different judgement call from relocating a settled record.
