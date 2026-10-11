@@ -23,6 +23,13 @@ forge --version
 > git clone https://github.com/Zedzed75/forge.git && cd forge
 > pip install .
 > ```
+>
+> **On Windows, clone into a short path.** The longest path tracked here is 200
+> characters and Windows caps a path at 260, so a destination directory longer
+> than 58 characters fails at checkout with `Filename too long` and leaves the
+> working tree incomplete. `C:\src\forge` is fine; a OneDrive-redirected
+> `Documents` folder is already past the budget. For a longer destination, run
+> `git config --global core.longpaths true` before cloning.
 
 **Only the distribution is called `iac-forge`.** `forge` was already taken on PyPI
 by an unrelated project, so that is the name the index knows us by — and it is the
