@@ -1156,3 +1156,16 @@ and the next real addition to it will trip the warning; §2's 160 lines of verba
 with nothing keeping it in step with `src/`. Filed as ZED-233 rather than folded in
 here, because what replaces those blocks (a pointer, a move, or a generated form with
 a drift check) is a different judgement call from relocating a settled record.
+
+### Followed through on ZED-236
+
+That margin was closed on 2026-10-11, deliberately rather than by the drift the paragraph
+above predicted. `DESIGN.md` §3 — the `forge.yml` schema reference, 194 lines — moved to
+`docs/FORGE-YML.md`, leaving `DESIGN.md` at 405 lines, 195 under the warning threshold,
+with §3 a pointer and the new file named in `TRACKED_PROSE`. Same rule as above and the
+same category of section (looked things up in, not read forward), so the decision itself is
+not amended: only its closing measurement is, and the number to read now is 405.
+
+ZED-233 stays open on §2's verbatim reproductions. It was never really a margin issue — it
+is the D13 "reference, do not restate" question, and more room in `DESIGN.md` does not
+answer it.
