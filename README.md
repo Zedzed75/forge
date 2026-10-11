@@ -16,6 +16,14 @@ pip install iac-forge
 forge --version
 ```
 
+> **The first PyPI release has not landed yet**, so that command does not resolve
+> today. Install from a checkout until it does — it gives you the same `forge`:
+>
+> ```bash
+> git clone https://github.com/Zedzed75/forge.git && cd forge
+> pip install .
+> ```
+
 **Only the distribution is called `iac-forge`.** `forge` was already taken on PyPI
 by an unrelated project, so that is the name the index knows us by — and it is the
 only one that changed. You type it once:
