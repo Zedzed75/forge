@@ -68,3 +68,26 @@ Helm chart together is one possible use, not the normal one.
 - Rely on golden tests rather than re-reading generated files to check results.
 - Do not read third-party package sources unless debugging a specific failure.
 - Prefer many small template files and surgical edits over rewriting big files.
+
+## The shared checkout: read through a ref, not through the working tree
+`Z:/vm/zedux/partage/repo/forge` is the shared primary checkout; dozens of worktrees hang
+off it. Nothing mechanical can enforce the rules below — `git grep` is not hookable, and a
+test asserting "HEAD is master" would fail in every worktree — so they are conventions, and
+the last one is the one that holds even when the others have been broken.
+- **Keep it on `master`.** Never `git checkout` a topic branch there; add a worktree
+  instead (`git worktree add C:/t/wt-<issue> -b <branch> origin/master`). Branch-agnostic
+  commands — `git fetch`, `git worktree add`, `gh` — are safe in the primary checkout.
+- **Reading the working tree is not branch-agnostic.** A plain `git grep <pattern>` answers
+  about whatever is checked out, and the answer looks just as confident when it is wrong.
+  Running the suite there tests that tree too, and forge's gates read data files from it
+  (`tests/french_baseline.txt` is one).
+- **A clean `master` is still not a current `master`.** The local ref answers about the last
+  fetch, not about the remote.
+- **So when the question is "is this still on `master`?", read through an explicit ref after
+  a `git fetch`**: `git grep <pattern> origin/master -- <path>`, `git ls-tree`,
+  `git show <sha> -- <path>`. Use the `-- <path>` pathspec form rather than `git show
+  <ref>:<path>`, which MSYS mangles on Windows. This is the habit that survives a drifted
+  checkout, so prefer it even when `HEAD` looks right.
+
+(ZED-209 is why: the checkout sat 17 days on a topic branch *and* its local `master` was 40
+commits behind. Neither is visible in a grep's output.)
