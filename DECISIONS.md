@@ -1177,6 +1177,101 @@ answer it.
 
 ---
 
+## D19 — `:latest` is not applied to JARVIS container images
+
+- **Date**: 2026-10-11
+- **Decided by**: the CEO, on issue ZED-235, taking the question off the board's
+  queue as a CEO call rather than a board call. Recorded by engineering on the
+  same issue; moved into this file from a short-lived register at JARVIS's root
+  on ZED-243, under D20, with the text unchanged.
+- **Repository**: `Zedzed75/JARVIS`, not this one.
+- **Scope**: JARVIS only, and within JARVIS only the container images that
+  project builds and deploys. Standing.
+
+**This records an exception to a board standing instruction, and the
+instruction says the opposite of this entry.** The instruction in the global
+agent context reads, in full:
+
+> the tag latest on the image should automaticaly be attributed to a new image
+> when it is created
+
+**The decision: that instruction does not apply to JARVIS container images.**
+Images JARVIS builds are tagged `jarvis:<short-sha>`, third-party images are
+pinned by digest, and nothing creates or moves a `:latest` tag. A reader who
+finds the standing instruction and no `:latest` in JARVIS is looking at the
+designed state, not at drift, and must not implement the instruction there.
+
+### What the exception covers, and what it leaves alone
+
+- It covers **container images JARVIS builds and deploys** — the thing
+  terraform has to see a diff on.
+- It does **not** touch the retention half of the same instruction. *Keep only
+  the last 3 versions of our images* stands, unaffected, and is already
+  implemented in `JARVIS/scripts/deploy.sh` (`prune_host_store()`, ZED-217).
+  Retention by count works on immutable tags, and is arguably only coherent on
+  them.
+- It does **not** generalise to artefacts where a moving pointer is the product.
+  forge publishes a PyPI package, not an image; this entry says nothing about it.
+- It does **not** forbid a `:latest` tag in an external registry that nothing in
+  JARVIS consumes. `JARVIS/terraform/environments/dev.tfvars.example` already
+  contemplates a prebuilt `ghcr.io/zedzed75/jarvis:latest` as an opt-in
+  `var.image` override, which a human sets deliberately. What is forbidden is
+  JARVIS *producing* a `:latest` for its own builds, or anything in
+  `JARVIS/terraform/` or `JARVIS/docker-compose.yml` depending on one by default.
+
+### Why the instruction is excepted rather than obeyed
+
+Terraform diffs the image *reference*. A constant string like `jarvis:latest`
+changes no attribute when a new image is built, so `terraform apply` plans
+`0 to change`, the pods keep running the old image, and every check reports
+success. The failure is silent in both directions: each pod also freezes
+whatever the tag meant when *that pod* started, so two workloads drift to
+different builds behind one tag.
+
+This is not a theoretical objection. It is the documented cause of three closed
+issues and one outage still commented in the code:
+
+- **ZED-148** — *Pin the n8n image: `:latest` means terraform never rolls the
+  pod.*
+- **ZED-160** — ZED-148's digest pins never reached the cluster; eight images
+  were still running unpinned.
+- **ZED-155** — `docker-compose.yml` and `ci.yml` still named the same images by
+  mutable tag.
+- `JARVIS/terraform/voice.tf` — the Wyoming STT pod ran `3.5.0` while the
+  `:latest` tag had moved to `3.8.1`, three releases ahead, and no apply had
+  ever shown a diff. That comment is the clearest single case that `:latest`
+  pinned nothing.
+
+An instruction whose implementation reintroduces a fixed outage has an unstated
+scope, not a mandate.
+
+### Why this is a numbered decision and not a comment in a script
+
+The instruction is in every agent's context on every run and reads as
+unconditional. The rationale against it lived only in prose —
+`JARVIS/README.md`, `JARVIS/docs/GOTCHAS.md` — which is not where an agent looks
+*before* acting. The cheap failure is an agent adding `docker tag … latest` to
+`JARVIS/scripts/deploy.sh` in good faith, satisfying the instruction, and
+silently restoring the ZED-148 behaviour. A numbered entry is something a diff
+can be measured against.
+
+### The board can reverse this
+
+This records a deviation from a standing instruction; it does not overrule the
+board. The board can reverse it by saying so, and reversing it means accepting
+the terraform-diff failure mode the four items above document. Reversal would
+also need an owner for keeping terraform rolling, because the pods only roll
+while the reference terraform sees is sha- or digest-pinned independently of any
+`:latest`.
+
+### Where the practice itself is written
+
+`JARVIS/README.md` (§ building the image by hand) and `JARVIS/docs/GOTCHAS.md`
+(§ Docker / images) own the practice and the operational detail. They cite this
+entry; they do not restate it, and this entry does not restate them.
+
+---
+
 ## D20 — one policy register, here; a decision's repository is its scope field
 
 - **Date**: 2026-10-11
