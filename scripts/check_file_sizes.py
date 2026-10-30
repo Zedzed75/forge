@@ -69,6 +69,7 @@ TRACKED_PROSE = (
     "DESIGN.md",
     "docs/ARBITRATIONS.md",
     "docs/FORGE-YML.md",
+    "docs/PLUGIN-CONTRACT.md",
     "docs/REPOSITORY-TREE.md",
 )
 
