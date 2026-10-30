@@ -87,7 +87,7 @@ jobs:
       # unpinned uv is an unpinned step in the path to a permanent PyPI release.
       # The pin, the checksum and the bump procedure are explained once, at the
       # matching step in ci.yml; keep the two numbers equal.
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "0.12.23"
           checksum: "9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6"
@@ -190,7 +190,7 @@ jobs:
           name: distributions
           path: dist/
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           # Same pin and checksum as the build job, for the same reason and with
           # the same bump procedure (explained once, at the matching step in
