@@ -79,6 +79,20 @@ def test_drift_is_detected(tmp_path: Path) -> None:
     assert renderer.render(fake_root) != _committed_doc()
 
 
+def test_design_sections_no_longer_reproduce_the_modules() -> None:
+    """§2.1/§2.2 are pointers now, and must not grow a code block back."""
+    design = DESIGN_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+    start = design.index("### 2.1 Exchanged types")
+    end = design.index("### 2.3 ")
+    section_two = design[start:end]
+
+    assert "```python" not in section_two, (
+        "DESIGN.md §2.1/§2.2 carry Python again. The contract belongs in "
+        "docs/PLUGIN-CONTRACT.md, which is generated and drift-checked."
+    )
+    assert "docs/PLUGIN-CONTRACT.md" in section_two
+
+
 def test_document_caps_itself() -> None:
     """A register outside SCAN_DIRS is capped only because it is named."""
     gate_source = (REPO_ROOT / "scripts" / "check_file_sizes.py").read_text(

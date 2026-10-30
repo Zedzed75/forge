@@ -36,148 +36,16 @@ chart.
 
 ### 2.1 Exchanged types
 
-```python
-# forge/plugins_api/types.py
-
-@dataclass(frozen=True)
-class DomainInfo:
-    """Identity of a generated domain."""
-    name: str          # "ansible" — section key in forge.yml and plugin name
-    title: str         # "Ansible" — display
-    summary: str       # one line, for `forge plugins`
-    outdir: str        # output subdirectory, defaults to == name
-
-@dataclass(frozen=True)
-class Command:
-    """An external validation command declared by a plugin."""
-    label: str                       # "helm lint (prod)" — reused as-is in the report
-    tool: str                        # binary to locate ("helm", "ansible-lint")
-    argv: list[str]                  # arguments, without the binary
-    cwd: Path | None = None          # default: the domain's directory
-    env: tuple[tuple[str, str], ...] = ()  # environment variables (phase 3, R1)
-    stdin_from: str | None = None    # label of a command whose stdout feeds this stdin
-    timeout: int = 300
-    install_hint: str = ""           # message shown if the binary is absent
-    requires_linux: bool = False     # allows the WSL fallback under Windows
-
-@dataclass(frozen=True)
-class Issue:
-    """A cross-domain validation finding."""
-    level: Literal["error", "warning"]
-    message: str                     # actionable sentence
-    hint: str = ""                   # suggested correction
-    domains: tuple[str, ...] = ()    # domains concerned
-
-@dataclass(frozen=True)
-class Projection:
-    """What a domain claims to have produced, expressed without domain vocabulary.
-
-    The core compares projections with one another: two domains declaring the
-    same facet must declare the same value. It is this mechanism — and not
-    "if ansible then…" rules — that implements the cross-domain checks.
-    """
-    service_name: str
-    environments: tuple[str, ...]   # the ones the domain MATERIALISES (phase 5),
-                                    # not a copy of service.environments
-    labels: dict[str, str] = field(default_factory=dict)
-    facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    # e.g. ansible → {"inventory_hosts": (...), "groups": (...)}
-    #      helm    → {"namespaces": (...), "ingress_hosts": (...)}
-    #
-    # A facet name belongs to a VOCABULARY SHARED between domains
-    # (`forge.validate.consistency.FACET_VOCABULARY`): two domains that use the
-    # same name assert that they are talking about the same thing. A facet
-    # outside the vocabulary is compared to nobody.
-    #
-    # Corrected in phase 5: this section proposed `hosts` for both domains,
-    # assuming that same name = same meaning. Ansible meant its inventory
-    # machines by it, Helm its Ingress hosts — and `forge validate` failed on
-    # every two-domain specification. It is the first defect that the meeting
-    # of two real domains revealed.
-```
+Moved to [`docs/PLUGIN-CONTRACT.md`](docs/PLUGIN-CONTRACT.md) (ZED-233), where it is
+**generated** from `src/forge/plugins_api/types.py` rather than transcribed from it.
+The copy that used to sit here had drifted from the module it described, which is the
+failure D13 names; `tests/test_plugin_contract_doc.py` is what stops it recurring.
 
 ### 2.2 Hookspecs
 
-```python
-# forge/plugins_api/hookspecs.py
-hookspec = pluggy.HookspecMarker("forge")
-
-@hookspec
-def forge_domain() -> DomainInfo:
-    """Domain identity. The only hook required to be discovered."""
-
-@hookspec
-def forge_spec_model() -> type[BaseModel]:
-    """Pydantic submodel validating the <domain> section of forge.yml.
-
-    The core assembles the root model from the registered submodels: every
-    section is optional, an absent section means "domain not generated". No
-    knowledge of the content on the core side.
-    """
-
-@hookspec
-def forge_interview(prompter: Prompter, service: ServiceSpec) -> dict[str, Any] | None:
-    """Conducts the domain's interview and returns its forge.yml section.
-
-    The plugin drives its own questionnaire through the `Prompter` protocol
-    provided by the core (text/confirm/select/checkbox/note), never questionary
-    directly: that is what makes the interview replayable in tests.
-    Returns None if the user declines the domain.
-    """
-
-@hookspec
-def forge_template_subdir() -> str:
-    """Path of the copier template, relative to the forge repository root.
-
-    Example: "src/forge/plugins/ansible/template".
-    Passed to copier through `_subdirectory` (see §5). An installed forge renders
-    from the package directory, where the same template is one prefix shorter; the
-    core shortens it, not the plugin (§8 Q2-bis).
-    """
-
-@hookspec
-def forge_answers(spec: ForgeSpec) -> dict[str, Any]:
-    """Projects the unified spec into the `domain` dict passed to copier.
-
-    Output JSON-serialisable and **deterministic** (fixed key order): it is
-    written as-is into `.copier-answers.yml` and replayed by `copier update`.
-    """
-
-@hookspec
-def forge_validators(spec: ForgeSpec, outdir: Path) -> list[Command]:
-    """External commands validating the generated domain, in execution order."""
-
-@hookspec
-def forge_projection(spec: ForgeSpec) -> Projection:
-    """What the domain claims to produce, for the cross-domain checks."""
-
-@hookspec
-def forge_check_spec(spec: ForgeSpec) -> list[Issue]:
-    """Cross-checks on the **specification**, before any render.
-
-    A plugin submodel only sees its own section: on its own it cannot verify
-    what touches the shared `service:` block. The core calls this hook right
-    after assembling the model; an `Issue` at level `error` stops generation, a
-    `warning` is displayed and lets it through.
-
-    Added at the phase 4 interface review (arbitration R2): without it, an
-    inconsistent specification was generated without flinching and the error
-    only came out at the next `forge validate`.
-    """
-
-
-@hookspec
-def forge_consistency(spec: ForgeSpec, outdirs: dict[str, Path]) -> list[Issue]:
-    """Additional plugin-specific checks (escape hatch).
-
-    The only hook called on **all** the plugins at once; the results are
-    concatenated. To be used only for what `forge_projection` cannot say.
-    """
-
-@hookspec
-def forge_catalog() -> list[CatalogEntry] | None:
-    """Catalogue browsable through `forge catalog <domain>` (optional)."""
-```
+Moved to [`docs/PLUGIN-CONTRACT.md`](docs/PLUGIN-CONTRACT.md) (ZED-233), generated from
+`src/forge/plugins_api/hookspecs.py`. §2.1 and §2.2 keep their identifiers there, so the
+`DESIGN.md §2.2` citations throughout `src/forge/plugins/` still resolve.
 
 ### 2.3 Calling the hooks — a pluggy gotcha
 
