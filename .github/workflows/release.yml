@@ -13,14 +13,41 @@
 # what authorises requesting that token — without that line the upload fails
 # with a 403, and it is the only permission the publish job adds.
 #
-# Two triggers, deliberately asymmetric:
+# Two triggers, and what decides whether anything is published is the **ref**,
+# not the event. Nothing below reads `github.event_name`; the `pypi` job gates
+# on `startsWith(github.ref, 'refs/tags/v')` and on nothing else.
 #
 #   push of a v* tag    -> the real PyPI. Irreversible: a version published on
 #                          PyPI cannot be replaced, not even after deletion.
 #                          Hence the tag/version guard and the gate below.
-#   workflow_dispatch   -> build and gate only, publishing nothing. This is the
-#                          dress rehearsal, run by hand as many times as we
-#                          like.
+#   workflow_dispatch   -> whichever of those the ref makes it. Aimed at a
+#                          branch it builds and gates and publishes nothing:
+#                          that is the dress rehearsal, run by hand as many
+#                          times as we like. Aimed at a `v*` tag it publishes,
+#                          by exactly the path the tag push takes. The "Run
+#                          workflow" dropdown lists tags beside branches, and
+#                          `gh workflow run release.yml --ref v1.2.0` does the
+#                          same from a terminal. `github.ref` is then
+#                          `refs/tags/v1.2.0`, the `pypi` job's `if:` is
+#                          satisfied, and `GITHUB_REF_NAME` is `v1.2.0` too, so
+#                          the tag/version guard in `build` passes rather than
+#                          objecting. Nothing here tells the two runs apart,
+#                          because nothing here looks at what would.
+#
+# That second half is deliberate, so do not close it by adding
+# `github.event_name == 'push'` to the `pypi` job. **Dispatching this workflow
+# against an existing tag is the sanctioned retry** for a publish that failed
+# after the tag was already pushed. GitHub re-runs a failed run for 30 days and
+# no longer; once that window shuts, re-dispatching at the tag is the only way
+# left to publish that version without moving the tag, and D16 forbids moving
+# one. The case is live, not hypothetical: the `pypi` job of the v1.2.0 tag
+# push (run 37994652141, 2026-10-09) failed on the PyPI-side publisher form,
+# and from 2026-11-08 a dispatch at that tag is how 1.2.0 gets published.
+#
+# The price of keeping that door open is that a hand-run aimed at a tag is a
+# one-click irreversible publish, which no asymmetry in this file prevents.
+# What stands in front of it is the `pypi` environment — see the comment on
+# that job.
 #
 # There is no TestPyPI job (decision D14, ZED-48 — the issue calls it D5, which
 # had been taken by another decision by the time this landed). The rehearsal
@@ -324,9 +351,36 @@ jobs:
           done
 
   # -------------------------------------------------------------------------
-  # The real PyPI. Tag only, and behind a GitHub environment: that is where a
-  # mandatory review rule gets hooked on if the board wants one, and it is the
-  # name the publisher declared on the PyPI side pins.
+  # The real PyPI. Ref-gated to `v*`, and behind a GitHub environment, which is
+  # the name the publisher declared on the PyPI side pins and the only place a
+  # protection rule can be hung.
+  #
+  # **What that environment carries today: a 30-minute wait timer, and nothing
+  # else.** Set on 2026-10-30 (ZED-249), because the `if:` above is a test on
+  # the ref and a hand-dispatch can supply the ref — see the trigger paragraph
+  # in the header. Until then `protection_rules` was empty, so a dispatch aimed
+  # at a tag went from one click to a permanent PyPI version with nothing in
+  # between. The timer parks the deployment in `waiting` for half an hour,
+  # visibly and cancellably, before it can upload. Releases here happen twice a
+  # year and a waiting deployment burns no runner minutes, so the cost is
+  # nothing and the recovery window is real.
+  #
+  # A wait timer **fails open**: nobody cancels it, it publishes. The rule that
+  # fails closed is a required reviewer, and that one is not engineering's to
+  # add — it names a person and makes every future release wait on a human, so
+  # it is a board decision (D4 carve-out 1 is about the authority the publish
+  # path runs with). The hook is still here if the board wants it; this is the
+  # strongest protection that could be put in place without one, not the
+  # strongest that exists.
+  #
+  # Both settings live in repository settings, not in this file. If you read
+  # this comment and the environment disagrees with it, the environment is the
+  # truth: `gh api repos/Zedzed75/forge/environments/pypi`.
+  #
+  # The `if:` on the next job is on the ref deliberately, and not on
+  # `github.event_name`. A dispatch aimed at a `v*` tag satisfies it and
+  # publishes; that is the sanctioned retry path the header describes, not an
+  # oversight to be tightened.
   # -------------------------------------------------------------------------
   pypi:
     if: startsWith(github.ref, 'refs/tags/v')
