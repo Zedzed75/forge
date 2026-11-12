@@ -53,6 +53,9 @@ Helm chart together is one possible use, not the normal one.
   register — technical arbitrations (Q1 …), not policy. It was DESIGN.md §8 until D18
   split it out; §8 is now a pointer, so an older citation of "DESIGN.md §8 Qn" still
   resolves, but cite the file.
+- `ZED-<n>` ids are tickets in the agent company's Paperclip instance ("Zedux Dev Co"),
+  not GitHub issues, and they close. Cite them as the origin of a change; the text that
+  must outlive them goes in DECISIONS.md (policy) or docs/ARBITRATIONS.md (technical).
 - ALL plugin templates use copier custom delimiters [[ ]] / [% %] / [# #] (decision Q1,
   docs/ARBITRATIONS.md): Helm's {{ }} and Ansible's {{ }} both pass through untouched. One root
   copier.yml, so one set of delimiters. Never write {{ }} meaning "generator variable".

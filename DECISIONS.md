@@ -295,6 +295,10 @@ condition, not a new standard: when ZED-66 resolves, the six green checks are th
 evidence again and this decision is spent. D4's note at the top of this file is
 untouched — the evidence standard was never what moved.
 
+> **Condition met (noted 2026-11-12).** ZED-66 closed on 2026-10-09 07:31 and Actions
+> has run `forge`'s checks green since (D11, clause 1). D6 is spent for `forge`; its text
+> above stands as the record of what it allowed while it was in force.
+
 ---
 
 ## D7 — a workflow change is inside D6 only if a script says it is prose
@@ -392,6 +396,9 @@ merged under plain D6. There is no bootstrap problem.
 **D7 is spent when D6 is spent.** It is a refinement of a workaround, not a new
 standard: when ZED-66 resolves, six green checks are the evidence again and both
 decisions lapse together.
+
+> **Condition met (noted 2026-11-12).** D6 is spent (see the note under D6's Expiry), so
+> D7 is spent with it.
 
 ---
 
