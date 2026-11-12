@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # copier.yml - forge's single root template
 # ---------------------------------------------------------------------------
-# One copier template for every plugin (decision DESIGN.md §8 Q2): `src_path`
+# One copier template for every plugin (decision Q2, docs/ARBITRATIONS.md): `src_path`
 # points at the root of this repository, and `_subdirectory` — supplied as an
 # answer — selects the template of the domain being rendered. That is the only
 # shape in which copier recognises a versioned template, and therefore the only
